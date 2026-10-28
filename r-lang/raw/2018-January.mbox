@@ -1,0 +1,432 @@
+From Wouter.Broos-Cru1EgDzd7c at public.gmane.org  Fri Jan 12 11:59:14 2018
+From: Wouter.Broos-Cru1EgDzd7c at public.gmane.org (Wouter Broos)
+Date: Fri, 12 Jan 2018 11:59:14 +0000
+Subject: obtaining random slope variance for non-continuous factors
+Message-ID: <1515758363371.13967@UGent.be>
+
+Dear all,
+
+
+
+My supervisor informed me that this mailing list was a good way to get specific statistics questions answered. I apologise for the long e-mail, but I believe it makes sense to first explain the study in a bit more detail. So, here goes. We performed a study where participants were asked to perform a phoneme monitoring task in a picture-word interference paradigm. During this task, participants first see a letter on the screen and then they see both a picture and a distractor word at the same time. They are asked to decide whether the letter that they saw was present in the picture name (not in the distractor word).
+
+
+
+For the analyses, I use linear mixed effects modelling and apply a backward model selection algorithm for random slope determination. There are three fixed factors in the model. The first factor is called Degree of Overlap. This denotes the number of overlapping letters between the picture name and the distractor word. There are three levels: 1: no overlapping letters (no overlap), 2: one overlapping letter (single overlap), 3: two overlapping letters (double overlap) (example, they see a picture of a 'bag' and the distractor word 'bug'. This would be the double overlap condition).
+
+
+
+The second factor is place. This refers to the place of the phoneme that they have to monitor in the picture name. You can either have onset or coda. Onset means that the letter /b/ is shown to the participants while seeing the picture 'bag' with the distractor word 'bug'. This would be double overlap onset. The same goes for coda position, but then the /g/ would be shown instead of /b/.
+
+
+
+The final factor is Language, which pertains to the language group that is tested. Both monolingual English speakers and bilingual Dutch-English speakers performed the test in English. This factor therefore compares the L1 of monolinguals and the L2 of bilinguals.
+
+
+
+The fixed effects structure is predetermined and is therefore not part of the backward selection procedure (but it happens to include interactions for all fixed factors). I perform backward fitting of the random slopes in the following manner: I start with a maximal model (see Barr et al., 2013):
+
+
+lmer(RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial +
+
+(1 + Position:DegreeOfOverlap:Language|Picture) + (1 + Position:DegreeOfOverlap|Subject),
+
+data=All_data, REML=FALSE)
+
+
+
+RT2.5SD is reaction time whereas Trial is a covariate. Language cannot be added to the random intercept Subject as this is a between-subjects factor. This model does not converge, so I removed the random correlations. This newer model does not converge either, so I removed the three-way interaction by replacing it with all possible two-way interactions. As expected, no convergence was reached here either. I have been told that I should now look at which factor (and/or factor interaction, I'm not sure) has the least variance by using the summary function. However, since these factors are not continuous, the summary shows the variance for every possible combination of factor levels. A few lines of the summary function:
+
+                                                                                                                        Variance        Std. Dev.
+
+PositionCoda:DegreeOfOverlapDouble Overlap:LanguageL1              7.598e+03     87.1687
+
+PositionOnset:DegreeOfOverlapDouble Overlap:LanguageL1             1.875e+03     43.3025
+
+PositionCoda:DegreeOfOverlapNo Overlap:LanguageL1                      5.844e+03     76.4431
+
+
+
+My question: How do I obtain the variance of every factor and factor interaction without a split in levels so that I can continue backfitting the model (so where the summary function would show me the variance for, for instance, 'Position:Language' or 'Position')?
+
+
+I hope that this is enough information to answer the question. If not, feel free to ask for more details.
+
+
+Kind regards,
+
+Wouter Broos?
+
+From jan.vanhove-3DjnVrp8uWc at public.gmane.org  Sat Jan 13 16:48:41 2018
+From: jan.vanhove-3DjnVrp8uWc at public.gmane.org (VANHOVE Jan)
+Date: Sat, 13 Jan 2018 16:48:41 +0000
+Subject: Re: obtaining random slope variance for non-continuous factors
+In-Reply-To: <1515758363371.13967-Uy3+E7BMiTU@public.gmane.org>
+References: <1515758363371.13967@UGent.be>
+Message-ID: <1515862126175.80421@unifr.ch>
+
+Dear Wouter,
+
+
+I may be missing something, but what you have there is not a maximal random-effects structure:
+
+
+"(1 + Position:DegreeOfOverlap:Language|Picture)" only models a random slope for the three-way interaction between Position, DegreeOfOverlap and Language, but not the main effects and the two-way interactions. If you want to first model the maximal model and then perhaps drop a couple of slopes, model all random slopes this way
+
+
+(1 + Position + DegreeOfOverlap + Language + Position:DegreeOfOverlap + Position:Language + DegreeOfOverlap:Language + Position:DegreeOfOverlap:Language|Picture)
+
+
+And similarly for the by-subject random effects:
+
+
+(1 + Position + DegreeOfOverlap + Position:DegreeOfOverlap|Subject)
+
+
+I hope that answers your question. In addition, two suggestions.
+
+
+First, with respect to your dependent variable: "RT2.5SD" suggests that you removed outliers using a 2.5 standard deviation criterion, and the size of your random effect variances suggests it's expressed in milliseconds. If you removed outliers in order to deal with strongly skewed data, consider applying a data transformation first, e.g., the inverse transformation (i.e., re-expressing latencies as speeds) or the logarithmic transformation.
+
+
+Second, with respect to the coding of your predictors. IIRC, Barr et al. discuss this in a footnote, but you may want to code your factorial predictors numerically. For Language, for instance, rather than having "L1" and "L2", recode that variable as -0.5 and 0.5. This has the advantage of making the intercept more meaningful as well as making the random effect BLUPs more easily interpretable, without any downside. For three-level variables, it's trickier, but see this pdf:
+
+https://hlplab.files.wordpress.com/2011/02/codingtutorial.pdf
+
+
+HTH,
+
+Jan
+
+
+
+Jan Vanhove, Multilingualism, University of Fribourg, Switzerland
+Blog: http://janhove.github.io
+<http://janhove.github.io/>
+________________________________
+From: ling-r-lang-l-bounces-xGejAJT2w6xeRyQZnrz35w at public.gmane.org <ling-r-lang-l-bounces at mailman.ucsd.edu> on behalf of Wouter Broos <Wouter.Broos-Cru1EgDzd7c at public.gmane.org>
+Sent: 12 January 2018 12:59
+To: ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+Subject: [R-lang] obtaining random slope variance for non-continuous factors
+
+
+Dear all,
+
+
+
+My supervisor informed me that this mailing list was a good way to get specific statistics questions answered. I apologise for the long e-mail, but I believe it makes sense to first explain the study in a bit more detail. So, here goes. We performed a study where participants were asked to perform a phoneme monitoring task in a picture-word interference paradigm. During this task, participants first see a letter on the screen and then they see both a picture and a distractor word at the same time. They are asked to decide whether the letter that they saw was present in the picture name (not in the distractor word).
+
+
+
+For the analyses, I use linear mixed effects modelling and apply a backward model selection algorithm for random slope determination. There are three fixed factors in the model. The first factor is called Degree of Overlap. This denotes the number of overlapping letters between the picture name and the distractor word. There are three levels: 1: no overlapping letters (no overlap), 2: one overlapping letter (single overlap), 3: two overlapping letters (double overlap) (example, they see a picture of a 'bag' and the distractor word 'bug'. This would be the double overlap condition).
+
+
+
+The second factor is place. This refers to the place of the phoneme that they have to monitor in the picture name. You can either have onset or coda. Onset means that the letter /b/ is shown to the participants while seeing the picture 'bag' with the distractor word 'bug'. This would be double overlap onset. The same goes for coda position, but then the /g/ would be shown instead of /b/.
+
+
+
+The final factor is Language, which pertains to the language group that is tested. Both monolingual English speakers and bilingual Dutch-English speakers performed the test in English. This factor therefore compares the L1 of monolinguals and the L2 of bilinguals.
+
+
+
+The fixed effects structure is predetermined and is therefore not part of the backward selection procedure (but it happens to include interactions for all fixed factors). I perform backward fitting of the random slopes in the following manner: I start with a maximal model (see Barr et al., 2013):
+
+
+lmer(RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial +
+
+(1 + Position:DegreeOfOverlap:Language|Picture) + (1 + Position:DegreeOfOverlap|Subject),
+
+data=All_data, REML=FALSE)
+
+
+
+RT2.5SD is reaction time whereas Trial is a covariate. Language cannot be added to the random intercept Subject as this is a between-subjects factor. This model does not converge, so I removed the random correlations. This newer model does not converge either, so I removed the three-way interaction by replacing it with all possible two-way interactions. As expected, no convergence was reached here either. I have been told that I should now look at which factor (and/or factor interaction, I'm not sure) has the least variance by using the summary function. However, since these factors are not continuous, the summary shows the variance for every possible combination of factor levels. A few lines of the summary function:
+
+                                                                                                                        Variance        Std. Dev.
+
+PositionCoda:DegreeOfOverlapDouble Overlap:LanguageL1              7.598e+03     87.1687
+
+PositionOnset:DegreeOfOverlapDouble Overlap:LanguageL1             1.875e+03     43.3025
+
+PositionCoda:DegreeOfOverlapNo Overlap:LanguageL1                      5.844e+03     76.4431
+
+
+
+My question: How do I obtain the variance of every factor and factor interaction without a split in levels so that I can continue backfitting the model (so where the summary function would show me the variance for, for instance, 'Position:Language' or 'Position')?
+
+
+I hope that this is enough information to answer the question. If not, feel free to ask for more details.
+
+
+Kind regards,
+
+Wouter Broos?
+
+From rplevy-3s7WtUTddSA at public.gmane.org  Mon Jan 15 09:44:37 2018
+From: rplevy-3s7WtUTddSA at public.gmane.org (Roger Levy)
+Date: Mon, 15 Jan 2018 11:44:37 +0200
+Subject: Re: obtaining random slope variance for non-continuous factors
+In-Reply-To: <1515862126175.80421-3DjnVrp8uWc@public.gmane.org>
+References: <1515758363371.13967@UGent.be> <1515862126175.80421@unifr.ch>
+Message-ID: <28F9C5A6-B2B1-47E4-AD14-F6F2A7B538E0@mit.edu>
+
+Hi Wouter, Jan,
+
+I first have a clarificatory remark regarding Jan’s resPosition1onse, and then some suggestions for Wouter.
+
+Jan wrote:
+
+> I may be missing something, but what you have there is not a maximal random-effects structure:
+> 
+> "(1 + Position:DegreeOfOverlap:Language|Picture)" only models a random slope for the three-way interaction between Position, DegreeOfOverlap and Language, but not the main effects and the two-way interactions.
+
+Actually, if Position, DegreeOfOverlap, and Language are factors, then Wouter’s random-effects specifications are maximal.  This derives from the way that R treats factors.  I have a short write-up in which Section 2 that explains this:
+
+  https://arxiv.org/abs/1405.2094
+
+The definitive reference is Chambers and Hastie (1991; see page 25).
+
+Moving on to my suggestions for Wouter: first, I endorse Jan’s suggestion that
+
+> you may want to code your factorial predictors numerically
+
+and I would note that in practice this can mean not just setting the contrasts on your factors with contrasts(), but actually recoding your predictors as collections of numeric variables.  The Gillespie tutorial Jan linked to provides information on how to do this; the write-up I link to above does as well.  Setting contrasts on a factor versjs recoding the factor into numeric variables is a meaningful difference because of the way R handles factors versus numeric predictors in formulae (again, see my writeup for details).  The recommendations I give below assume that you have recoded your predictors into numeric variables.
+
+Now, to find an adequate fitted model: in simplifying random effects structure, I would not recommend that you remove higher-order interaction terms first, or use backward model selection by size of variance component (or for that matter by contribution to log-likelihood) to choose which random slopes to remove first.  That can get you into trouble because failure to converge is a global property of data+model+fitting procedure, and simplifying random effects structure in the pursuit of a single converged model can lead you to throw away random variance components that are important for avoiding anti-conservativity in evaluating the fixed effect(s) that you care the most about.
+
+Rather, I would recommend the following: for each fixed effect that you are interested in testing (this can be a main effect, an interaction, or for that matter the intercept itself), determine the maximal random effects structure with respect to that fixed effect.  For example, in your case, for the fixed effect that is the Language:Position (i.e. language-by-place) interaction, the maximal random effects structure would involve the Language:Position random slope by picture, and the Position random slope by subjects.  Once again assuming you have recoded your predictors as numeric variables (I’ll call the two numeric variables for your Position predictor Position1 and Position2), you would write these as (0+Language:(Position1+Position2)|Picture) and (0+Position1+Position2|Subject).  Then, in testing that fixed effect, use whatever model selection procedure you prefer — to determine what other random effects and random correlation parameters to include in the model, subject to the constraint that the overall random effects structure remains maximal with respect to your fixed effect of interest.  For example, all of the following formulae would be acceptable:
+
+  RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (0+Language:(Position1+Position2)|Picture) +  (0+Position1+Position2|Subject)
+
+  RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (Language*(Position1+Position2)|Picture) +  (0+Position1+Position2|Subject)
+
+  RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (0 + Language:(Position1+Position2)|Picture) +  (Position1+Position2|Subject)
+
+  RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (0 + DegreeOfOverlap*Language*(Position1+Position2)|Picture) +  (DegreeOfOverlap + Position1+Position2|Subject)
+
+and so forth.  Do this as well for a version of your model that omits the fixed effect of crucial interest.  Then do a likelihood ratio test between models that both have the maximal random effects structure for your fixed effect of interest, that differ in fixed-effects structure only in the presence or absence of the fixed effect you are testing, and that have both converged.  For example, you might wind up doing a likelihood ratio test between these two models:
+
+Null-hypothesis model: RT2.5SD ~ (DegreeOfOverlap*Position*Language) - Position:Language + Trial + (Language*Language:(Position1+Position2)|Picture) +  (0+Position1+Position2|Subject)
+
+Alternative-hypothesis model: RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (Language*Language:(Position1+Position2)|Picture) +  (0+Position1+Position2|Subject)
+
+This means that, when testing different fixed effects of theoretical interest, you may well wind up with different random effects structures.  Crucially, however, each hypothesis test will have a “maximal” random effects structure. In effect, all the fixed effects except for the one being tested serve effectively as control predictors for that particular hypothesis test, and it is not crucial for their corresponding random effects to be modeled in that particular test.
+
+All this follows from the Barr et al. 2013 sections "Random effects for control predictors” and "Coping with failures to converge” (pp. 275-276), but hopefully spelling it out like this may make it clearer.
+
+I think there are some who may disagree with the suggestions I make here, but I think the path I lay out here does about as good a job as possible within point-estimation approaches as used in lme4 to control for the nastiest kind of anti-conservativity that one can get from mixed models with non-maximal random effects structure, while retaining the modeling power and flexibility of mixed models.
+
+(Another approach would be to do Bayesian MCMC model fitting with the random effects structure that is maximal for the collection of *all* the fixed-effects predictors — the one you started out with — using a package like MCMCglmm or brms.  There are lots of models that don’t converge with lme4 that you can still get tractable inference for using Bayesian MCMC methods, though you have to be careful to check the MCMC convergence diagnostics.)
+
+Best & hoping this helps,
+
+Roger
+
+
+
+> On Jan 13, 2018, at 6:48 PM, VANHOVE Jan <jan.vanhove-3DjnVrp8uWc at public.gmane.org> wrote:
+> 
+> Dear Wouter,
+> 
+> I may be missing something, but what you have there is not a maximal random-effects structure:
+> 
+> "(1 + Position:DegreeOfOverlap:Language|Picture)" only models a random slope for the three-way interaction between Position, DegreeOfOverlap and Language, but not the main effects and the two-way interactions. If you want to first model the maximal model and then perhaps drop a couple of slopes, model all random slopes this way
+> 
+> (1 + Position + DegreeOfOverlap + Language + Position:DegreeOfOverlap + Position:Language + DegreeOfOverlap:Language + Position:DegreeOfOverlap:Language|Picture)
+> 
+> And similarly for the by-subject random effects:
+> 
+> (1 + Position + DegreeOfOverlap + Position:DegreeOfOverlap|Subject)
+> 
+> I hope that answers your question. In addition, two suggestions.
+> 
+> First, with respect to your dependent variable: "RT2.5SD" suggests that you removed outliers using a 2.5 standard deviation criterion, and the size of your random effect variances suggests it's expressed in milliseconds. If you removed outliers in order to deal with strongly skewed data, consider applying a data transformation first, e.g., the inverse transformation (i.e., re-expressing latencies as speeds) or the logarithmic transformation.
+> 
+> Second, with respect to the coding of your predictors. IIRC, Barr et al. discuss this in a footnote, but you may want to code your factorial predictors numerically. For Language, for instance, rather than having "L1" and "L2", recode that variable as -0.5 and 0.5. This has the advantage of making the intercept more meaningful as well as making the random effect BLUPs more easily interpretable, without any downside. For three-level variables, it's trickier, but see this pdf:
+> https://hlplab.files.wordpress.com/2011/02/codingtutorial.pdf
+> 
+> HTH,
+> Jan
+> 
+> 
+> Jan Vanhove, Multilingualism, University of Fribourg, Switzerland
+> Blog: http://janhove.github.io
+> 
+> From: ling-r-lang-l-bounces-xGejAJT2w6xeRyQZnrz35w at public.gmane.org <ling-r-lang-l-bounces-xGejAJT2w6xeRyQZnrz35w at public.gmane.org> on behalf of Wouter Broos <Wouter.Broos-Cru1EgDzd7c at public.gmane.org>
+> Sent: 12 January 2018 12:59
+> To: ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> Subject: [R-lang] obtaining random slope variance for non-continuous factors
+>  
+> Dear all,
+>  
+> My supervisor informed me that this mailing list was a good way to get specific statistics questions answered. I apologise for the long e-mail, but I believe it makes sense to first explain the study in a bit more detail. So, here goes. We performed a study where participants were asked to perform a phoneme monitoring task in a picture-word interference paradigm. During this task, participants first see a letter on the screen and then they see both a picture and a distractor word at the same time. They are asked to decide whether the letter that they saw was present in the picture name (not in the distractor word). 
+>  
+> For the analyses, I use linear mixed effects modelling and apply a backward model selection algorithm for random slope determination. There are three fixed factors in the model. The first factor is called Degree of Overlap. This denotes the number of overlapping letters between the picture name and the distractor word. There are three levels: 1: no overlapping letters (no overlap), 2: one overlapping letter (single overlap), 3: two overlapping letters (double overlap) (example, they see a picture of a 'bag' and the distractor word 'bug'. This would be the double overlap condition). 
+>  
+> The second factor is place. This refers to the place of the phoneme that they have to monitor in the picture name. You can either have onset or coda. Onset means that the letter /b/ is shown to the participants while seeing the picture 'bag' with the distractor word 'bug'. This would be double overlap onset. The same goes for coda position, but then the /g/ would be shown instead of /b/. 
+>  
+> The final factor is Language, which pertains to the language group that is tested. Both monolingual English speakers and bilingual Dutch-English speakers performed the test in English. This factor therefore compares the L1 of monolinguals and the L2 of bilinguals.
+>  
+> The fixed effects structure is predetermined and is therefore not part of the backward selection procedure (but it happens to include interactions for all fixed factors). I perform backward fitting of the random slopes in the following manner: I start with a maximal model (see Barr et al., 2013):
+> 
+> lmer(RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial +
+> (1 + Position:DegreeOfOverlap:Language|Picture) + (1 + Position:DegreeOfOverlap|Subject),
+> data=All_data, REML=FALSE)
+>  
+> RT2.5SD is reaction time whereas Trial is a covariate. Language cannot be added to the random intercept Subject as this is a between-subjects factor. This model does not converge, so I removed the random correlations. This newer model does not converge either, so I removed the three-way interaction by replacing it with all possible two-way interactions. As expected, no convergence was reached here either. I have been told that I should now look at which factor (and/or factor interaction, I’m not sure) has the least variance by using the summary function. However, since these factors are not continuous, the summary shows the variance for every possible combination of factor levels. A few lines of the summary function:
+>                                                                                                                         Variance        Std. Dev.
+> PositionCoda:DegreeOfOverlapDouble Overlap:LanguageL1              7.598e+03     87.1687                              
+> PositionOnset:DegreeOfOverlapDouble Overlap:LanguageL1             1.875e+03     43.3025 
+> PositionCoda:DegreeOfOverlapNo Overlap:LanguageL1                      5.844e+03     76.4431 
+>  
+> My question: How do I obtain the variance of every factor and factor interaction without a split in levels so that I can continue backfitting the model (so where the summary function would show me the variance for, for instance, ‘Position:Language’ or ‘Position’)?    
+> 
+> I hope that this is enough information to answer the question. If not, feel free to ask for more details.
+> 
+> Kind regards,
+> Wouter Broos​
+> 
+>
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/pkcs7-signature
+Size: 1839 bytes
+
+From Wouter.Broos-Cru1EgDzd7c at public.gmane.org  Mon Jan 15 10:24:14 2018
+From: Wouter.Broos-Cru1EgDzd7c at public.gmane.org (Wouter Broos)
+Date: Mon, 15 Jan 2018 10:24:14 +0000
+Subject: Re: obtaining random slope variance for non-continuous factors
+In-Reply-To: <28F9C5A6-B2B1-47E4-AD14-F6F2A7B538E0-3s7WtUTddSA@public.gmane.org>
+References: <1515758363371.13967@UGent.be> <1515862126175.80421@unifr.ch> <28F9C5A6-B2B1-47E4-AD14-F6F2A7B538E0@mit.edu>
+Message-ID: <1516011862167.70637@UGent.be>
+
+Thank you both so much for the clarification and suggestions. Hopefully I can appease my reviewers by following this method to the letter. 
+________________________________________
+Van: Roger Levy <rplevy-3s7WtUTddSA at public.gmane.org>
+Verzonden: maandag 15 januari 2018 10:44
+Aan: Wouter Broos; ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+CC: VANHOVE Jan
+Onderwerp: Re: [R-lang] obtaining random slope variance for non-continuous factors
+
+Hi Wouter, Jan,
+
+I first have a clarificatory remark regarding Jan’s resPosition1onse, and then some suggestions for Wouter.
+
+Jan wrote:
+
+> I may be missing something, but what you have there is not a maximal random-effects structure:
+>
+> "(1 + Position:DegreeOfOverlap:Language|Picture)" only models a random slope for the three-way interaction between Position, DegreeOfOverlap and Language, but not the main effects and the two-way interactions.
+
+Actually, if Position, DegreeOfOverlap, and Language are factors, then Wouter’s random-effects specifications are maximal.  This derives from the way that R treats factors.  I have a short write-up in which Section 2 that explains this:
+
+  https://arxiv.org/abs/1405.2094
+
+The definitive reference is Chambers and Hastie (1991; see page 25).
+
+Moving on to my suggestions for Wouter: first, I endorse Jan’s suggestion that
+
+> you may want to code your factorial predictors numerically
+
+and I would note that in practice this can mean not just setting the contrasts on your factors with contrasts(), but actually recoding your predictors as collections of numeric variables.  The Gillespie tutorial Jan linked to provides information on how to do this; the write-up I link to above does as well.  Setting contrasts on a factor versjs recoding the factor into numeric variables is a meaningful difference because of the way R handles factors versus numeric predictors in formulae (again, see my writeup for details).  The recommendations I give below assume that you have recoded your predictors into numeric variables.
+
+Now, to find an adequate fitted model: in simplifying random effects structure, I would not recommend that you remove higher-order interaction terms first, or use backward model selection by size of variance component (or for that matter by contribution to log-likelihood) to choose which random slopes to remove first.  That can get you into trouble because failure to converge is a global property of data+model+fitting procedure, and simplifying random effects structure in the pursuit of a single converged model can lead you to throw away random variance components that are important for avoiding anti-conservativity in evaluating the fixed effect(s) that you care the most about.
+
+Rather, I would recommend the following: for each fixed effect that you are interested in testing (this can be a main effect, an interaction, or for that matter the intercept itself), determine the maximal random effects structure with respect to that fixed effect.  For example, in your case, for the fixed effect that is the Language:Position (i.e. language-by-place) interaction, the maximal random effects structure would involve the Language:Position random slope by picture, and the Position random slope by subjects.  Once again assuming you have recoded your predictors as numeric variables (I’ll call the two numeric variables for your Position predictor Position1 and Position2), you would write these as (0+Language:(Position1+Position2)|Picture) and (0+Position1+Position2|Subject).  Th
+ en, in testing that fixed effect, use whatever model selection procedure you prefer — to determine what other random effects and random correlation parameters to include in the model, subject to the constraint that the overall random effects structure remains maximal with respect to your fixed effect of interest.  For example, all of the following formulae would be acceptable:
+
+  RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (0+Language:(Position1+Position2)|Picture) +  (0+Position1+Position2|Subject)
+
+  RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (Language*(Position1+Position2)|Picture) +  (0+Position1+Position2|Subject)
+
+  RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (0 + Language:(Position1+Position2)|Picture) +  (Position1+Position2|Subject)
+
+  RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (0 + DegreeOfOverlap*Language*(Position1+Position2)|Picture) +  (DegreeOfOverlap + Position1+Position2|Subject)
+
+and so forth.  Do this as well for a version of your model that omits the fixed effect of crucial interest.  Then do a likelihood ratio test between models that both have the maximal random effects structure for your fixed effect of interest, that differ in fixed-effects structure only in the presence or absence of the fixed effect you are testing, and that have both converged.  For example, you might wind up doing a likelihood ratio test between these two models:
+
+Null-hypothesis model: RT2.5SD ~ (DegreeOfOverlap*Position*Language) - Position:Language + Trial + (Language*Language:(Position1+Position2)|Picture) +  (0+Position1+Position2|Subject)
+
+Alternative-hypothesis model: RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial + (Language*Language:(Position1+Position2)|Picture) +  (0+Position1+Position2|Subject)
+
+This means that, when testing different fixed effects of theoretical interest, you may well wind up with different random effects structures.  Crucially, however, each hypothesis test will have a “maximal” random effects structure. In effect, all the fixed effects except for the one being tested serve effectively as control predictors for that particular hypothesis test, and it is not crucial for their corresponding random effects to be modeled in that particular test.
+
+All this follows from the Barr et al. 2013 sections "Random effects for control predictors” and "Coping with failures to converge” (pp. 275-276), but hopefully spelling it out like this may make it clearer.
+
+I think there are some who may disagree with the suggestions I make here, but I think the path I lay out here does about as good a job as possible within point-estimation approaches as used in lme4 to control for the nastiest kind of anti-conservativity that one can get from mixed models with non-maximal random effects structure, while retaining the modeling power and flexibility of mixed models.
+
+(Another approach would be to do Bayesian MCMC model fitting with the random effects structure that is maximal for the collection of *all* the fixed-effects predictors — the one you started out with — using a package like MCMCglmm or brms.  There are lots of models that don’t converge with lme4 that you can still get tractable inference for using Bayesian MCMC methods, though you have to be careful to check the MCMC convergence diagnostics.)
+
+Best & hoping this helps,
+
+Roger
+
+
+
+> On Jan 13, 2018, at 6:48 PM, VANHOVE Jan <jan.vanhove-3DjnVrp8uWc at public.gmane.org> wrote:
+>
+> Dear Wouter,
+>
+> I may be missing something, but what you have there is not a maximal random-effects structure:
+>
+> "(1 + Position:DegreeOfOverlap:Language|Picture)" only models a random slope for the three-way interaction between Position, DegreeOfOverlap and Language, but not the main effects and the two-way interactions. If you want to first model the maximal model and then perhaps drop a couple of slopes, model all random slopes this way
+>
+> (1 + Position + DegreeOfOverlap + Language + Position:DegreeOfOverlap + Position:Language + DegreeOfOverlap:Language + Position:DegreeOfOverlap:Language|Picture)
+>
+> And similarly for the by-subject random effects:
+>
+> (1 + Position + DegreeOfOverlap + Position:DegreeOfOverlap|Subject)
+>
+> I hope that answers your question. In addition, two suggestions.
+>
+> First, with respect to your dependent variable: "RT2.5SD" suggests that you removed outliers using a 2.5 standard deviation criterion, and the size of your random effect variances suggests it's expressed in milliseconds. If you removed outliers in order to deal with strongly skewed data, consider applying a data transformation first, e.g., the inverse transformation (i.e., re-expressing latencies as speeds) or the logarithmic transformation.
+>
+> Second, with respect to the coding of your predictors. IIRC, Barr et al. discuss this in a footnote, but you may want to code your factorial predictors numerically. For Language, for instance, rather than having "L1" and "L2", recode that variable as -0.5 and 0.5. This has the advantage of making the intercept more meaningful as well as making the random effect BLUPs more easily interpretable, without any downside. For three-level variables, it's trickier, but see this pdf:
+> https://hlplab.files.wordpress.com/2011/02/codingtutorial.pdf
+>
+> HTH,
+> Jan
+>
+>
+> Jan Vanhove, Multilingualism, University of Fribourg, Switzerland
+> Blog: http://janhove.github.io
+>
+> From: ling-r-lang-l-bounces-xGejAJT2w6xeRyQZnrz35w at public.gmane.org <ling-r-lang-l-bounces-xGejAJT2w6xeRyQZnrz35w at public.gmane.org> on behalf of Wouter Broos <Wouter.Broos-Cru1EgDzd7c at public.gmane.org>
+> Sent: 12 January 2018 12:59
+> To: ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> Subject: [R-lang] obtaining random slope variance for non-continuous factors
+>
+> Dear all,
+>
+> My supervisor informed me that this mailing list was a good way to get specific statistics questions answered. I apologise for the long e-mail, but I believe it makes sense to first explain the study in a bit more detail. So, here goes. We performed a study where participants were asked to perform a phoneme monitoring task in a picture-word interference paradigm. During this task, participants first see a letter on the screen and then they see both a picture and a distractor word at the same time. They are asked to decide whether the letter that they saw was present in the picture name (not in the distractor word).
+>
+> For the analyses, I use linear mixed effects modelling and apply a backward model selection algorithm for random slope determination. There are three fixed factors in the model. The first factor is called Degree of Overlap. This denotes the number of overlapping letters between the picture name and the distractor word. There are three levels: 1: no overlapping letters (no overlap), 2: one overlapping letter (single overlap), 3: two overlapping letters (double overlap) (example, they see a picture of a 'bag' and the distractor word 'bug'. This would be the double overlap condition).
+>
+> The second factor is place. This refers to the place of the phoneme that they have to monitor in the picture name. You can either have onset or coda. Onset means that the letter /b/ is shown to the participants while seeing the picture 'bag' with the distractor word 'bug'. This would be double overlap onset. The same goes for coda position, but then the /g/ would be shown instead of /b/.
+>
+> The final factor is Language, which pertains to the language group that is tested. Both monolingual English speakers and bilingual Dutch-English speakers performed the test in English. This factor therefore compares the L1 of monolinguals and the L2 of bilinguals.
+>
+> The fixed effects structure is predetermined and is therefore not part of the backward selection procedure (but it happens to include interactions for all fixed factors). I perform backward fitting of the random slopes in the following manner: I start with a maximal model (see Barr et al., 2013):
+>
+> lmer(RT2.5SD ~ (DegreeOfOverlap*Position*Language) + Trial +
+> (1 + Position:DegreeOfOverlap:Language|Picture) + (1 + Position:DegreeOfOverlap|Subject),
+> data=All_data, REML=FALSE)
+>
+> RT2.5SD is reaction time whereas Trial is a covariate. Language cannot be added to the random intercept Subject as this is a between-subjects factor. This model does not converge, so I removed the random correlations. This newer model does not converge either, so I removed the three-way interaction by replacing it with all possible two-way interactions. As expected, no convergence was reached here either. I have been told that I should now look at which factor (and/or factor interaction, I’m not sure) has the least variance by using the summary function. However, since these factors are not continuous, the summary shows the variance for every possible combination of factor levels. A few lines of the summary function:
+>                                                                                                                         Variance        Std. Dev.
+> PositionCoda:DegreeOfOverlapDouble Overlap:LanguageL1              7.598e+03     87.1687
+> PositionOnset:DegreeOfOverlapDouble Overlap:LanguageL1             1.875e+03     43.3025
+> PositionCoda:DegreeOfOverlapNo Overlap:LanguageL1                      5.844e+03     76.4431
+>
+> My question: How do I obtain the variance of every factor and factor interaction without a split in levels so that I can continue backfitting the model (so where the summary function would show me the variance for, for instance, ‘Position:Language’ or ‘Position’)?
+>
+> I hope that this is enough information to answer the question. If not, feel free to ask for more details.
+>
+> Kind regards,
+> Wouter Broos​
+>
+>
+

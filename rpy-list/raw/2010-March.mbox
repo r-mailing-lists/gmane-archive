@@ -1,0 +1,2982 @@
+From lgautier at gmail.com  Mon Mar  1 04:29:35 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Mon, 01 Mar 2010 12:29:35 +0800
+Subject: Re: [Rpy] html help
+In-Reply-To: <94b3c8441002250448n7cba6cd6pc266726f8f9e8c1c@mail.gmail.com>
+References: <94b3c8441002171436q79a944f2k7197f2d465b71cdc@mail.gmail.com> <4B81F3C5.4090700@gmail.com> <94b3c8441002221708i5895a037lbb50bd83ee8c58f6@mail.gmail.com> <27d1e6021002241709l2ff8b2dfpe945dcc0c0a233a6@mail.gmail.com> <94b3c8441002250448n7cba6cd6pc266726f8f9e8c1c@mail.gmail.com>
+Message-ID: <4B8B42AF.6020402@gmail.com>
+
+On 2/25/10 8:48 PM, Carson Farmer wrote:
+> Thanks for the reply Laurent,
+>
+>> Note that process_revents() must be called at somewhat frequent intervals
+>> (there is example code to do so in the documentation
+>> http://rpy.sourceforge.net/rpy2/doc-dev/html/rinterface.html#processing-interactive-events
+>> ). This does appear to make it work here.
+>>
+>> Let us know if this is not improving the situation.
+>
+> Unfortunately no this doesn't help (I was actually already doing
+> this). My plots all resize nicely so I know that my refresh thread is
+> working properly, and at relatively frequent intervals.
+
+Interval does matter. The R server will timeout if it is too long. Try 
+lowering it. The documentation will have a note about that
+(http://bitbucket.org/lgautier/rpy2/changeset/73bc2a415ba3/).
+
+> What I am getting is 'Connection to 127.0.0.1 Failed', with a '(111)
+> Connection refused' returned. I don't think it's my system, as I am
+> having this problem on multiple computers (though both are running
+> versions of kubuntu).
+>
+> Carson
+>
+> --
+> Carson J. Q. Farmer
+> ISSP Doctoral Fellow
+> National Centre for Geocomputation
+> National University of Ireland, Maynooth,
+> http://www.carsonfarmer.com/
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From carson.farmer at gmail.com  Mon Mar  1 13:24:27 2010
+From: carson.farmer at gmail.com (Carson Farmer)
+Date: Mon, 01 Mar 2010 13:24:27 +0000
+Subject: Re: [Rpy] html help
+In-Reply-To: <4B8B42AF.6020402@gmail.com>
+References: <94b3c8441002171436q79a944f2k7197f2d465b71cdc@mail.gmail.com> <4B81F3C5.4090700@gmail.com> <94b3c8441002221708i5895a037lbb50bd83ee8c58f6@mail.gmail.com> <27d1e6021002241709l2ff8b2dfpe945dcc0c0a233a6@mail.gmail.com> <94b3c8441002250448n7cba6cd6pc266726f8f9e8c1c@mail.gmail.com> <4B8B42AF.6020402@gmail.com>
+Message-ID: <94b3c8441003010524i4fb08dfbj5db3a2e2c3e9dfd7@mail.gmail.com>
+
+Laurent,
+
+> Interval does matter. The R server will timeout if it is too long. Try
+> lowering it. The documentation will have a note about that
+> (http://bitbucket.org/lgautier/rpy2/changeset/73bc2a415ba3/).
+
+Thanks for that... I seem to have (partially) solved the issue, in
+that I was having issues with proxy settings here at work.
+However, I can now get the html help files to work, but *not*
+help.start() and the help index.html page. The following is the exact
+code that I am testing with:
+
+import rpy2.robjects as robs
+import time
+import threading
+
+def r_refresh(interval=0.02):
+    while True:
+        robs.rinterface.process_revents()
+        time.sleep(interval)
+
+t = threading.Timer(0.02, r_refresh)
+print robs.r("""help.start()""")
+print robs.r("""help(help_type="html")""")
+t.start()
+
+Note that I start the timer after I call help.start() to avoid
+congruent access to R errors. The first call "help.start()" attempts
+to access http://127.0.0.1:22689/doc/html/index.html, and simply
+returns:
+ "URL /doc/html/index.html was not found"
+The second call "help(help_type="html")" attempts to access
+http://127.0.0.1:22689/library/utils/html/help.html and works just
+fine, including all the hyperlinks. This leads me to believe that the
+server is running, but that for some reason the index.html page is not
+being generated? The odd things is that if this is called from R, it
+all works fine every time. There are some R environment variables that
+are set somewhere that appear to adjust where R searches for the
+relevant information to generate index.html.
+
+>>> print robs.r("""R.home("doc")""")
+[1] "/usr/lib64/R/doc"
+
+> R.home("doc")
+[1] "/usr/share/R/doc"
+
+> R.home
+function (component = "home")
+{
+    rh <- .Internal(R.home())
+    switch(component, home = rh, share = if (nzchar(p <-
+as.vector(Sys.getenv("R_SHARE_DIR"))))
+        p
+    else file.path(rh, component), doc = if (nzchar(p <-
+as.vector(Sys.getenv("R_DOC_DIR"))))
+        p
+    else file.path(rh, component), include = if (nzchar(p <-
+as.vector(Sys.getenv("R_INCLUDE_DIR"))))
+        p
+    else file.path(rh, component), file.path(rh, component))
+}
+
+and "R_DOC_DIR" is obviously set by R when run, but not by Rpy2
+(probably for good reason). In fact, R_DOC_DIR is set in /usr/bin/R.
+Is there any way I can access these environment variables from within
+Rpy2, as I think I could probably get help.start() to work properly if
+these environment variables were properly set?
+
+Carson
+
+-- 
+Carson J. Q. Farmer
+ISSP Doctoral Fellow
+National Centre for Geocomputation
+National University of Ireland, Maynooth,
+http://www.carsonfarmer.com/
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lgautier at gmail.com  Tue Mar  2 10:41:54 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Tue, 02 Mar 2010 18:41:54 +0800
+Subject: Re: [Rpy] html help
+In-Reply-To: <94b3c8441003010524i4fb08dfbj5db3a2e2c3e9dfd7@mail.gmail.com>
+References: <94b3c8441002171436q79a944f2k7197f2d465b71cdc@mail.gmail.com> <4B81F3C5.4090700@gmail.com> <94b3c8441002221708i5895a037lbb50bd83ee8c58f6@mail.gmail.com> <27d1e6021002241709l2ff8b2dfpe945dcc0c0a233a6@mail.gmail.com> <94b3c8441002250448n7cba6cd6pc266726f8f9e8c1c@mail.gmail.com> <4B8B42AF.6020402@gmail.com> <94b3c8441003010524i4fb08dfbj5db3a2e2c3e9dfd7@mail.gmail.com>
+Message-ID: <4B8CEB72.8050609@gmail.com>
+
+On 3/1/10 9:24 PM, Carson Farmer wrote:
+> Laurent,
+>
+>> Interval does matter. The R server will timeout if it is too long. Try
+>> lowering it. The documentation will have a note about that
+>> (http://bitbucket.org/lgautier/rpy2/changeset/73bc2a415ba3/).
+>
+> Thanks for that... I seem to have (partially) solved the issue, in
+> that I was having issues with proxy settings here at work.
+> However, I can now get the html help files to work, but *not*
+> help.start() and the help index.html page. The following is the exact
+> code that I am testing with:
+>
+> import rpy2.robjects as robs
+> import time
+> import threading
+>
+> def r_refresh(interval=0.02):
+>      while True:
+>          robs.rinterface.process_revents()
+>          time.sleep(interval)
+>
+> t = threading.Timer(0.02, r_refresh)
+> print robs.r("""help.start()""")
+> print robs.r("""help(help_type="html")""")
+> t.start()
+>
+> Note that I start the timer after I call help.start() to avoid
+> congruent access to R errors. The first call "help.start()" attempts
+> to access http://127.0.0.1:22689/doc/html/index.html, and simply
+> returns:
+>   "URL /doc/html/index.html was not found"
+> The second call "help(help_type="html")" attempts to access
+> http://127.0.0.1:22689/library/utils/html/help.html and works just
+> fine, including all the hyperlinks. This leads me to believe that the
+> server is running, but that for some reason the index.html page is not
+> being generated? The odd things is that if this is called from R, it
+> all works fine every time. There are some R environment variables that
+> are set somewhere that appear to adjust where R searches for the
+> relevant information to generate index.html.
+>
+>>>> print robs.r("""R.home("doc")""")
+> [1] "/usr/lib64/R/doc"
+>
+>> R.home("doc")
+> [1] "/usr/share/R/doc"
+>
+>> R.home
+> function (component = "home")
+> {
+>      rh<- .Internal(R.home())
+>      switch(component, home = rh, share = if (nzchar(p<-
+> as.vector(Sys.getenv("R_SHARE_DIR"))))
+>          p
+>      else file.path(rh, component), doc = if (nzchar(p<-
+> as.vector(Sys.getenv("R_DOC_DIR"))))
+>          p
+>      else file.path(rh, component), include = if (nzchar(p<-
+> as.vector(Sys.getenv("R_INCLUDE_DIR"))))
+>          p
+>      else file.path(rh, component), file.path(rh, component))
+> }
+>
+> and "R_DOC_DIR" is obviously set by R when run, but not by Rpy2
+> (probably for good reason).
+
+Thanks for having the positive prior that this must be for good reasons,
+but in this case there is nothing consciously done in that sense.
+
+
+> In fact, R_DOC_DIR is set in /usr/bin/R.
+
+R_DOC_DIR is set by the shell script wrapper for R, and starting an 
+embedded R is done without those variables set. There seems to be 
+something for the rpy2.rinterface level (to make it easier to 
+configure), and set by default at the rpy2.robjects level.
+
+Yet, interestingly help.start() seems to work without tweaking any 
+variable here.
+
+> Is there any way I can access these environment variables from within
+> Rpy2, as I think I could probably get help.start() to work properly if
+> these environment variables were properly set?
+
+You can certainly set environment variables from either Python or R.
+
+
+Laurent
+
+
+> Carson
+>
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From sheikhbahaee at gmail.com  Tue Mar  2 17:48:08 2010
+From: sheikhbahaee at gmail.com (zahra sheikhbahaee)
+Date: Tue, 02 Mar 2010 18:48:08 +0100
+Subject: [Rpy] mclust package of R
+Message-ID: <402ef4df1003020948r76cb3a78oc8434e777dba3a56@mail.gmail.com>
+
+Hi all,
+
+I am using mclust package of R. I checked the results which I have already
+covert by rpy2 to python by R's one. It calculates the covariance matrix of
+my data but I got surprised because it seems that the numbers changed. They
+are totally different. I wonder whether there is any way to solve my problem
+or it is impossible??
+
+Zahra.
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From rpy-list at maubp.freeserve.co.uk  Tue Mar  2 17:53:01 2010
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Tue, 02 Mar 2010 17:53:01 +0000
+Subject: Re: [Rpy] mclust package of R
+In-Reply-To: <402ef4df1003020948r76cb3a78oc8434e777dba3a56@mail.gmail.com>
+References: <402ef4df1003020948r76cb3a78oc8434e777dba3a56@mail.gmail.com>
+Message-ID: <320fb6e01003020953u528790e4xe21909bd8decf92f@mail.gmail.com>
+
+On Tue, Mar 2, 2010 at 5:48 PM, zahra sheikhbahaee
+<sheikhbahaee at gmail.com> wrote:
+> Hi all,
+>
+> I am using mclust package of R. I checked the results which I have already
+> covert by rpy2 to python by R's one. It calculates the covariance matrix of
+> my data but I got surprised because it seems that the numbers changed. They
+> are totally different. I wonder whether there is any way to solve my problem
+> or it is impossible??
+>
+> Zahra.
+
+Can you construct a (small) self contained example to show the issue?
+
+Peter
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From sheikhbahaee at gmail.com  Tue Mar  2 18:18:06 2010
+From: sheikhbahaee at gmail.com (zahra sheikhbahaee)
+Date: Tue, 02 Mar 2010 19:18:06 +0100
+Subject: Re: [Rpy] mclust package of R
+In-Reply-To: <320fb6e01003020953u528790e4xe21909bd8decf92f@mail.gmail.com>
+References: <402ef4df1003020948r76cb3a78oc8434e777dba3a56@mail.gmail.com> <320fb6e01003020953u528790e4xe21909bd8decf92f@mail.gmail.com>
+Message-ID: <402ef4df1003021018tced9785ta30359bc3415e10d@mail.gmail.com>
+
+Hi,
+In python the results for a specific input look like this:
+['modelName', 'n', 'd', 'G', 'BIC', 'bic', 'loglik', 'parameters', 'z',
+'classification', 'uncertainty']
+Mean:
+[[ 0.20609646 -0.40144849]
+ [ 0.86991148  0.82791771]]
+BIC:
+[[-8035.90938198]
+ [-7677.29330621]]
+1
+0
+Variance$sigma:
+[[[ 1.23021647  0.75045067]
+  [ 0.37992429  0.21127281]]
+
+ [[ 0.37992429  0.21127281]
+  [ 0.18390347  0.07193298]]]
+But in R for the same inputs the outputs are:
+> colorMclust$parameters
+$Vinv
+NULL
+
+$pro
+[1] 0.479828 0.520172
+
+$mean
+            [,1]       [,2]
+[1,]  0.84819158 -0.2718649
+[2,] -0.01039735  0.9009248
+
+$variance
+$variance$modelName
+[1] "VVV"
+
+$variance$d
+[1] 2
+
+$variance$G
+[1] 2
+
+$variance$sigma
+, , 1
+
+            [,1]        [,2]
+[1,]  0.10121396 -0.08937613
+[2,] -0.08937613  1.06053090
+
+, , 2
+
+            [,1]        [,2]
+[1,]  0.95559538 -0.09661115
+[2,] -0.09661115  0.11975590
+
+Do you think whether there is a practical solution for my problem or not?
+
+Zahra.
+
+
+On Tue, Mar 2, 2010 at 6:53 PM, Peter <rpy-list at maubp.freeserve.co.uk>wrote:
+
+> On Tue, Mar 2, 2010 at 5:48 PM, zahra sheikhbahaee
+> <sheikhbahaee at gmail.com> wrote:
+> > Hi all,
+> >
+> > I am using mclust package of R. I checked the results which I have
+> already
+> > covert by rpy2 to python by R's one. It calculates the covariance matrix
+> of
+> > my data but I got surprised because it seems that the numbers changed.
+> They
+> > are totally different. I wonder whether there is any way to solve my
+> problem
+> > or it is impossible??
+> >
+> > Zahra.
+>
+> Can you construct a (small) self contained example to show the issue?
+>
+> Peter
+>
+>
+> ------------------------------------------------------------------------------
+> Download Intel&#174; Parallel Studio Eval
+> Try the new software tools for yourself. Speed compiling, find bugs
+> proactively, and fine-tune applications for parallel performance.
+> See why Intel Parallel Studio got high marks during beta.
+> http://p.sf.net/sfu/intel-sw-dev
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From rpy-list at maubp.freeserve.co.uk  Tue Mar  2 22:04:23 2010
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Tue, 02 Mar 2010 22:04:23 +0000
+Subject: Re: [Rpy] mclust package of R
+In-Reply-To: <402ef4df1003021018tced9785ta30359bc3415e10d@mail.gmail.com>
+References: <402ef4df1003020948r76cb3a78oc8434e777dba3a56@mail.gmail.com> <320fb6e01003020953u528790e4xe21909bd8decf92f@mail.gmail.com> <402ef4df1003021018tced9785ta30359bc3415e10d@mail.gmail.com>
+Message-ID: <320fb6e01003021404y2e700ed5jdef57a1e0dc56fe4@mail.gmail.com>
+
+On Tue, Mar 2, 2010 at 6:18 PM, zahra sheikhbahaee
+<sheikhbahaee at gmail.com> wrote:
+> Hi,
+> In python the results for a specific input look like this:
+> ...
+>
+> Do you think whether there is a practical solution for my problem or not?
+>
+> Zahra.
+
+You haven't explained how you got those two sets of output,
+furthermore it doesn't like you are comparing like with like.
+
+What I was hoping you would show was a short R script
+(maybe using one of the many built in datasets), with
+its output, and your translation into python with rpy2
+and its (different) output.
+
+Peter
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lgautier at gmail.com  Wed Mar 10 13:59:52 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Wed, 10 Mar 2010 21:59:52 +0800
+Subject: [Rpy] Google SoC 2010
+Message-ID: <4B97A5D8.6090308@gmail.com>
+
+Hi,
+
+Anyone on for a Google Summer of Code to help the development of rpy2 ?
+http://bitbucket.org/lgautier/rpy2/wiki/Ideas
+
+Other ideas, or mentors are welcome.
+
+
+Laurent
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From rpy-list at maubp.freeserve.co.uk  Wed Mar 10 14:20:47 2010
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Wed, 10 Mar 2010 14:20:47 +0000
+Subject: Re: [Rpy] Google SoC 2010
+In-Reply-To: <4B97A5D8.6090308@gmail.com>
+References: <4B97A5D8.6090308@gmail.com>
+Message-ID: <320fb6e01003100620y6ac82224v509dd2f03cdc7885@mail.gmail.com>
+
+On Wed, Mar 10, 2010 at 1:59 PM, Laurent Gautier <lgautier at gmail.com> wrote:
+>
+> Hi,
+>
+> Anyone on for a Google Summer of Code to help the development of rpy2 ?
+> http://bitbucket.org/lgautier/rpy2/wiki/Ideas
+>
+> Other ideas, or mentors are welcome.
+>
+>
+> Laurent
+
+Brad Chapman is exploring a GSoC project combining (Bio)python and
+rpy2 for accessing R phylogenetic tools from Python:
+http://biopython.org/wiki/Google_Summer_of_Code
+
+Peter
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lgautier at gmail.com  Sat Mar 13 21:15:27 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Sat, 13 Mar 2010 22:15:27 +0100
+Subject: [Rpy] rpy2-2.1.0beta
+Message-ID: <4B9C006F.5040801@gmail.com>
+
+Hi,
+
+rpy2-2.1beta is out. Stability issues since 2.1.0alpha3 were addressed.
+Source packages are available on bitbucket and sourceforge.
+
+Win32 compilation, and eventually binaries, could come next and be 
+available for the release candidate thanks to an anonymous patch 
+contribution.
+
+
+Laurent
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lists at onerussian.com  Sat Mar 13 23:40:37 2010
+From: lists at onerussian.com (Yaroslav Halchenko)
+Date: Sat, 13 Mar 2010 18:40:37 -0500
+Subject: Re: [Rpy] rpy2-2.1.0beta
+In-Reply-To: <4B9C006F.5040801@gmail.com>
+References: <4B9C006F.5040801@gmail.com>
+Message-ID: <20100313234037.GY18218@onerussian.com>
+
+should we expect all unittests to pass? ;)
+
+I am getting following with  1093:198d59806bee
+
+$> python2.6 -c 'import rpy2.tests, unittest; tr = unittest.TextTestRunner(verbosity = 1); suite = rpy2.tests.suite(); tr.run(suite)'
+...F...Error in function (new = FALSE)  : file choice cancelled
+.......F..F............................F....................................Error: unimplemented type 'char' in 'eval'
+E....F...F..Loading required package: splines
+............Error in function (x)  : object 'y' not found
+....Error in .Primitive("sum")(c("a", "b", "c", "d", "e", "f", "g", "h", "i",  : 
+  invalid 'type' (character) of argument
+.................Error in function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  : 
+  cannot open the connection
+In addition: Warning message:
+In function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  :
+  cannot create fifo '/home/yoh/.tmp/RtmpGRWQ7r/Rf327b23c6', reason 'No such file or directory'
+E(/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py:61):  testPickle
+61         tmp_file = tempfile.NamedTemporaryFile()
+(Pydb) 
+E.............................Error in .Primitive("[")(0:10, list("a", "b", "c")) : 
+  invalid subscript type 'list'
+..................................................................F.......................................
+======================================================================
+ERROR: testNACharactertoR (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 90, in testNACharactertoR
+    self.assertEquals(True, ri.baseenv["is.na"](na_character)[0])
+RRuntimeError: Error: unimplemented type 'char' in 'eval'
+
+
+======================================================================
+ERROR: testStr (rpy2.robjects.tests.testRObject.RObjectTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py", line 30, in testStr
+    s = prt.__str__()
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/robject.py", line 29, in __str__
+    tmp = self.__fifo(rpy2.rinterface.StrSexpVector(["", ]))
+RRuntimeError: Error in function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  : 
+  cannot open the connection
+
+
+======================================================================
+ERROR: testPickle (rpy2.robjects.tests.testRObject.RObjectPicklingTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py", line 61, in testPickle
+    tmp_file = tempfile.NamedTemporaryFile()
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py", line 61, in testPickle
+    tmp_file = tempfile.NamedTemporaryFile()
+  File "/usr/lib/pymodules/python2.6/pydb/gdb.py", line 249, in trace_dispatch_gdb
+    sys.exit()
+SystemExit
+
+======================================================================
+FAIL: testInterruptR (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py", line 107, in testInterruptR
+    self.assertFalse(ret_code is None) # Interruption failed
+AssertionError
+
+======================================================================
+FAIL: testSetShowMessage (rpy2.rinterface.tests.test_EmbeddedR.CallbacksTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py", line 214, in testSetShowMessage
+    self.assertTrue(False) # no unit test (yet)
+AssertionError
+
+======================================================================
+FAIL: testShowMessageWithError (rpy2.rinterface.tests.test_EmbeddedR.CallbacksTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py", line 220, in testShowMessageWithError
+    self.assertTrue(False) # no unit test (yet)
+AssertionError
+
+======================================================================
+FAIL: testGetItemLang (rpy2.rinterface.tests.test_SexpVector.SexpVectorTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 241, in testGetItemLang
+    self.assertEquals(ri.LANGSXP, y.typeof)
+AssertionError: 6 != 1
+
+======================================================================
+FAIL: testNARealtoR (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 77, in testNARealtoR
+    self.assertEquals(True, ri.baseenv["is.na"](na_real)[0])
+AssertionError: True != False
+
+======================================================================
+FAIL: testRtoNAReal (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 73, in testRtoNAReal
+    self.assertTrue(r_na_real is na_real)
+AssertionError
+
+======================================================================
+FAIL: testVectorUnicodeCharacter (rpy2.robjects.tests.testNumpyConversions.NumpyConversionsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testNumpyConversions.py", line 53, in testVectorUnicodeCharacter
+    self.assertTrue(False) # arrays of unicode characters causing segfault
+AssertionError
+
+----------------------------------------------------------------------
+Ran 265 tests in 2.699s
+
+FAILED (failures=7, errors=3)
+
+
+
+On Sat, 13 Mar 2010, Laurent Gautier wrote:
+
+> Hi,
+
+> rpy2-2.1beta is out. Stability issues since 2.1.0alpha3 were addressed.
+> Source packages are available on bitbucket and sourceforge.
+
+> Win32 compilation, and eventually binaries, could come next and be 
+> available for the release candidate thanks to an anonymous patch 
+> contribution.
+
+
+> Laurent
+
+> ------------------------------------------------------------------------------
+> Download Intel&#174; Parallel Studio Eval
+> Try the new software tools for yourself. Speed compiling, find bugs
+> proactively, and fine-tune applications for parallel performance.
+> See why Intel Parallel Studio got high marks during beta.
+> http://p.sf.net/sfu/intel-sw-dev
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-- 
+                                  .-.
+=------------------------------   /v\  ----------------------------=
+Keep in touch                    // \\     (yoh@|www.)onerussian.com
+Yaroslav Halchenko              /(   )\               ICQ#: 60653192
+                   Linux User    ^^-^^    [175555]
+
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lgautier at gmail.com  Sun Mar 14 05:32:54 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Sun, 14 Mar 2010 06:32:54 +0100
+Subject: Re: [Rpy] rpy2-2.1.0beta
+In-Reply-To: <20100313234037.GY18218@onerussian.com>
+References: <4B9C006F.5040801@gmail.com> <20100313234037.GY18218@onerussian.com>
+Message-ID: <4B9C7506.9050401@gmail.com>
+
+Not yet, not yet... but getting there. The segfault issues should be 
+gone (thanks to an unusually long airport transit).
+
+Beside the usual "test not yet implemented", and unicode + numpy array 
+issue, there should only be:
+
+- few things with the new NA types (and by the time people have read the 
+doc, use them and the are about to complain about
+
+- testing for the interruption of R code (won't block the release anyway)
+
+
+You have an extra issue with pickling, which I do not observe here with 
+Python 2.6.
+The traceback point to something that is not rpy2-specific, but a part 
+of the Python stdlib:
+
+tmp_file = tempfile.NamedTemporaryFile()
+
+Your Python install might have issues.
+
+
+
+Laurent
+
+
+
+On 3/14/10 12:40 AM, Yaroslav Halchenko wrote:
+> should we expect all unittests to pass? ;)
+>
+> I am getting following with  1093:198d59806bee
+>
+> $>  python2.6 -c 'import rpy2.tests, unittest; tr = unittest.TextTestRunner(verbosity = 1); suite = rpy2.tests.suite(); tr.run(suite)'
+> ...F...Error in function (new = FALSE)  : file choice cancelled
+> .......F..F............................F....................................Error: unimplemented type 'char' in 'eval'
+> E....F...F..Loading required package: splines
+> ............Error in function (x)  : object 'y' not found
+> ....Error in .Primitive("sum")(c("a", "b", "c", "d", "e", "f", "g", "h", "i",  :
+>    invalid 'type' (character) of argument
+> .................Error in function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  :
+>    cannot open the connection
+> In addition: Warning message:
+> In function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  :
+>    cannot create fifo '/home/yoh/.tmp/RtmpGRWQ7r/Rf327b23c6', reason 'No such file or directory'
+> E(/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py:61):  testPickle
+> 61         tmp_file = tempfile.NamedTemporaryFile()
+> (Pydb)
+> E.............................Error in .Primitive("[")(0:10, list("a", "b", "c")) :
+>    invalid subscript type 'list'
+> ..................................................................F.......................................
+> ======================================================================
+> ERROR: testNACharactertoR (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 90, in testNACharactertoR
+>      self.assertEquals(True, ri.baseenv["is.na"](na_character)[0])
+> RRuntimeError: Error: unimplemented type 'char' in 'eval'
+>
+>
+> ======================================================================
+> ERROR: testStr (rpy2.robjects.tests.testRObject.RObjectTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py", line 30, in testStr
+>      s = prt.__str__()
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/robject.py", line 29, in __str__
+>      tmp = self.__fifo(rpy2.rinterface.StrSexpVector(["", ]))
+> RRuntimeError: Error in function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  :
+>    cannot open the connection
+>
+>
+> ======================================================================
+> ERROR: testPickle (rpy2.robjects.tests.testRObject.RObjectPicklingTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py", line 61, in testPickle
+>      tmp_file = tempfile.NamedTemporaryFile()
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py", line 61, in testPickle
+>      tmp_file = tempfile.NamedTemporaryFile()
+>    File "/usr/lib/pymodules/python2.6/pydb/gdb.py", line 249, in trace_dispatch_gdb
+>      sys.exit()
+> SystemExit
+>
+> ======================================================================
+> FAIL: testInterruptR (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py", line 107, in testInterruptR
+>      self.assertFalse(ret_code is None) # Interruption failed
+> AssertionError
+>
+> ======================================================================
+> FAIL: testSetShowMessage (rpy2.rinterface.tests.test_EmbeddedR.CallbacksTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py", line 214, in testSetShowMessage
+>      self.assertTrue(False) # no unit test (yet)
+> AssertionError
+>
+> ======================================================================
+> FAIL: testShowMessageWithError (rpy2.rinterface.tests.test_EmbeddedR.CallbacksTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py", line 220, in testShowMessageWithError
+>      self.assertTrue(False) # no unit test (yet)
+> AssertionError
+>
+> ======================================================================
+> FAIL: testGetItemLang (rpy2.rinterface.tests.test_SexpVector.SexpVectorTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 241, in testGetItemLang
+>      self.assertEquals(ri.LANGSXP, y.typeof)
+> AssertionError: 6 != 1
+>
+> ======================================================================
+> FAIL: testNARealtoR (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 77, in testNARealtoR
+>      self.assertEquals(True, ri.baseenv["is.na"](na_real)[0])
+> AssertionError: True != False
+>
+> ======================================================================
+> FAIL: testRtoNAReal (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 73, in testRtoNAReal
+>      self.assertTrue(r_na_real is na_real)
+> AssertionError
+>
+> ======================================================================
+> FAIL: testVectorUnicodeCharacter (rpy2.robjects.tests.testNumpyConversions.NumpyConversionsTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testNumpyConversions.py", line 53, in testVectorUnicodeCharacter
+>      self.assertTrue(False) # arrays of unicode characters causing segfault
+> AssertionError
+>
+> ----------------------------------------------------------------------
+> Ran 265 tests in 2.699s
+>
+> FAILED (failures=7, errors=3)
+>
+>
+>
+> On Sat, 13 Mar 2010, Laurent Gautier wrote:
+>
+>> Hi,
+>
+>> rpy2-2.1beta is out. Stability issues since 2.1.0alpha3 were addressed.
+>> Source packages are available on bitbucket and sourceforge.
+>
+>> Win32 compilation, and eventually binaries, could come next and be
+>> available for the release candidate thanks to an anonymous patch
+>> contribution.
+>
+>
+>> Laurent
+>
+>> ------------------------------------------------------------------------------
+>> Download Intel&#174; Parallel Studio Eval
+>> Try the new software tools for yourself. Speed compiling, find bugs
+>> proactively, and fine-tune applications for parallel performance.
+>> See why Intel Parallel Studio got high marks during beta.
+>> http://p.sf.net/sfu/intel-sw-dev
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lgautier at gmail.com  Sun Mar 14 10:55:53 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Sun, 14 Mar 2010 11:55:53 +0100
+Subject: Re: [Rpy] rpy2-2.1.0beta
+In-Reply-To: <4B9C7506.9050401@gmail.com>
+References: <4B9C006F.5040801@gmail.com> <20100313234037.GY18218@onerussian.com> <4B9C7506.9050401@gmail.com>
+Message-ID: <4B9CC0B9.4010109@gmail.com>
+
+To minimize communication regarding failing unittests, I just uploaded a 
+2.1beta2 to SF (it will also be on bitbucket as soon as its 
+instabilities encountered since this morning stop). Not a clean sheet 
+yet, but that should be ~2-3 failing unit-tests.
+
+I also fixed a PROTECT / UNPROTECT unbalance.
+
+
+
+L.
+
+
+
+
+On 3/14/10 6:32 AM, Laurent Gautier wrote:
+> Not yet, not yet... but getting there. The segfault issues should be
+> gone (thanks to an unusually long airport transit).
+>
+> Beside the usual "test not yet implemented", and unicode + numpy array
+> issue, there should only be:
+>
+> - few things with the new NA types (and by the time people have read the
+> doc, use them and the are about to complain about
+>
+> - testing for the interruption of R code (won't block the release anyway)
+>
+>
+> You have an extra issue with pickling, which I do not observe here with
+> Python 2.6.
+> The traceback point to something that is not rpy2-specific, but a part
+> of the Python stdlib:
+>
+> tmp_file = tempfile.NamedTemporaryFile()
+>
+> Your Python install might have issues.
+>
+>
+>
+> Laurent
+>
+>
+>
+> On 3/14/10 12:40 AM, Yaroslav Halchenko wrote:
+>> should we expect all unittests to pass? ;)
+>>
+>> I am getting following with 1093:198d59806bee
+>>
+>> $> python2.6 -c 'import rpy2.tests, unittest; tr =
+>> unittest.TextTestRunner(verbosity = 1); suite = rpy2.tests.suite();
+>> tr.run(suite)'
+>> ...F...Error in function (new = FALSE) : file choice cancelled
+>> .......F..F............................F....................................Error:
+>> unimplemented type 'char' in 'eval'
+>> E....F...F..Loading required package: splines
+>> ............Error in function (x) : object 'y' not found
+>> ....Error in .Primitive("sum")(c("a", "b", "c", "d", "e", "f", "g",
+>> "h", "i", :
+>> invalid 'type' (character) of argument
+>> .................Error in function (description, open = "", blocking =
+>> FALSE, encoding = getOption("encoding")) :
+>> cannot open the connection
+>> In addition: Warning message:
+>> In function (description, open = "", blocking = FALSE, encoding =
+>> getOption("encoding")) :
+>> cannot create fifo '/home/yoh/.tmp/RtmpGRWQ7r/Rf327b23c6', reason 'No
+>> such file or directory'
+>> E(/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py:61):
+>> testPickle
+>> 61 tmp_file = tempfile.NamedTemporaryFile()
+>> (Pydb)
+>> E.............................Error in .Primitive("[")(0:10, list("a",
+>> "b", "c")) :
+>> invalid subscript type 'list'
+>> ..................................................................F.......................................
+>>
+>> ======================================================================
+>> ERROR: testNACharactertoR
+>> (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py",
+>> line 90, in testNACharactertoR
+>> self.assertEquals(True, ri.baseenv["is.na"](na_character)[0])
+>> RRuntimeError: Error: unimplemented type 'char' in 'eval'
+>>
+>>
+>> ======================================================================
+>> ERROR: testStr (rpy2.robjects.tests.testRObject.RObjectTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py",
+>> line 30, in testStr
+>> s = prt.__str__()
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/robject.py",
+>> line 29, in __str__
+>> tmp = self.__fifo(rpy2.rinterface.StrSexpVector(["", ]))
+>> RRuntimeError: Error in function (description, open = "", blocking =
+>> FALSE, encoding = getOption("encoding")) :
+>> cannot open the connection
+>>
+>>
+>> ======================================================================
+>> ERROR: testPickle
+>> (rpy2.robjects.tests.testRObject.RObjectPicklingTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py",
+>> line 61, in testPickle
+>> tmp_file = tempfile.NamedTemporaryFile()
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py",
+>> line 61, in testPickle
+>> tmp_file = tempfile.NamedTemporaryFile()
+>> File "/usr/lib/pymodules/python2.6/pydb/gdb.py", line 249, in
+>> trace_dispatch_gdb
+>> sys.exit()
+>> SystemExit
+>>
+>> ======================================================================
+>> FAIL: testInterruptR
+>> (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py",
+>> line 107, in testInterruptR
+>> self.assertFalse(ret_code is None) # Interruption failed
+>> AssertionError
+>>
+>> ======================================================================
+>> FAIL: testSetShowMessage
+>> (rpy2.rinterface.tests.test_EmbeddedR.CallbacksTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py",
+>> line 214, in testSetShowMessage
+>> self.assertTrue(False) # no unit test (yet)
+>> AssertionError
+>>
+>> ======================================================================
+>> FAIL: testShowMessageWithError
+>> (rpy2.rinterface.tests.test_EmbeddedR.CallbacksTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py",
+>> line 220, in testShowMessageWithError
+>> self.assertTrue(False) # no unit test (yet)
+>> AssertionError
+>>
+>> ======================================================================
+>> FAIL: testGetItemLang
+>> (rpy2.rinterface.tests.test_SexpVector.SexpVectorTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py",
+>> line 241, in testGetItemLang
+>> self.assertEquals(ri.LANGSXP, y.typeof)
+>> AssertionError: 6 != 1
+>>
+>> ======================================================================
+>> FAIL: testNARealtoR
+>> (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py",
+>> line 77, in testNARealtoR
+>> self.assertEquals(True, ri.baseenv["is.na"](na_real)[0])
+>> AssertionError: True != False
+>>
+>> ======================================================================
+>> FAIL: testRtoNAReal
+>> (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py",
+>> line 73, in testRtoNAReal
+>> self.assertTrue(r_na_real is na_real)
+>> AssertionError
+>>
+>> ======================================================================
+>> FAIL: testVectorUnicodeCharacter
+>> (rpy2.robjects.tests.testNumpyConversions.NumpyConversionsTestCase)
+>> ----------------------------------------------------------------------
+>> Traceback (most recent call last):
+>> File
+>> "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testNumpyConversions.py",
+>> line 53, in testVectorUnicodeCharacter
+>> self.assertTrue(False) # arrays of unicode characters causing segfault
+>> AssertionError
+>>
+>> ----------------------------------------------------------------------
+>> Ran 265 tests in 2.699s
+>>
+>> FAILED (failures=7, errors=3)
+>>
+>>
+>>
+>> On Sat, 13 Mar 2010, Laurent Gautier wrote:
+>>
+>>> Hi,
+>>
+>>> rpy2-2.1beta is out. Stability issues since 2.1.0alpha3 were addressed.
+>>> Source packages are available on bitbucket and sourceforge.
+>>
+>>> Win32 compilation, and eventually binaries, could come next and be
+>>> available for the release candidate thanks to an anonymous patch
+>>> contribution.
+>>
+>>
+>>> Laurent
+>>
+>>> ------------------------------------------------------------------------------
+>>>
+>>> Download Intel&#174; Parallel Studio Eval
+>>> Try the new software tools for yourself. Speed compiling, find bugs
+>>> proactively, and fine-tune applications for parallel performance.
+>>> See why Intel Parallel Studio got high marks during beta.
+>>> http://p.sf.net/sfu/intel-sw-dev
+>>> _______________________________________________
+>>> rpy-list mailing list
+>>> rpy-list at lists.sourceforge.net
+>>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>
+>
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From blastocyst at mac.com  Mon Mar 15 11:29:16 2010
+From: blastocyst at mac.com
+Date: Mon, 15 Mar 2010 12:29:16 +0100
+Subject: [Rpy] Rpy2 not working with R 2.9.2
+Message-ID: <0E33DD2F-3369-4948-ADF6-633293BD43B1@mac.com>
+
+Hello everyone,
+I am trying to make Rpy2 work with my current installation of Python and R. I am encountering some problems. My current version of Python is the following:
+
+> Python 2.6.4 (r264:75706, Mar  4 2010, 10:54:36) 
+> [GCC 4.1.2 20080704 (Red Hat 4.1.2-46)] on linux2
+
+I built R 2.10.1 using the following commands:
+
+$ ./configure --enable-R-shlib
+$ make
+
+I installed rpy2-2.1.0beta2 after several unsuccessful trials by using these commands:
+
+$ python setup.py build --r-home /home/username/R/R-2.10.1
+$ python setup.py install --prefix=/home/username/src/
+
+The following error is reported when I import rpy2:
+
+In [1]: import rpy2.robjects.tests
+Error in grep("(_US|_CA)", lcpaper) : 
+  9 arguments passed to .Internal(grep) which requires 8
+Error in .Internal(grepl(as.character(pattern), x, ignore.case, extended,  : 
+  no internal function "grepl"
+Error in .Internal(grepl(as.character(pattern), x, ignore.case, extended,  : 
+  no internal function "grepl"
+---------------------------------------------------------------------------
+LookupError                               Traceback (most recent call last)
+
+/home/username/<ipython console> in <module>()
+
+/home/username/src/lib/python2.6/site-packages/rpy2/robjects/__init__.py in <module>()
+     15 import conversion
+     16 
+---> 17 from rpy2.robjects.robject import RObjectMixin, RObject
+     18 from rpy2.robjects.methods import RS4
+     19 from rpy2.robjects.vectors import *
+
+/home/username/src/lib/python2.6/site-packages/rpy2/robjects/robject.py in <module>()
+      7 import conversion
+      8 
+----> 9 class RObjectMixin(object):
+     10     """ Class to provide methods common to all RObject instances """
+     11     name = None
+
+/home/username/src/lib/python2.6/site-packages/rpy2/robjects/robject.py in RObjectMixin()
+     20     __rclass = rpy2.rinterface.baseenv.get("class")
+     21     __rclass_set = rpy2.rinterface.baseenv.get("class<-")
+---> 22     __show = rpy2.rinterface.baseenv.get("show")
+     23 
+     24     def __str__(self):
+
+LookupError: 'show' not found
+
+
+Any help greatly appreciated !
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From czechandrzej at yahoo.com  Tue Mar 16 12:48:22 2010
+From: czechandrzej at yahoo.com (Andrzej Stefan Czech)
+Date: Tue, 16 Mar 2010 05:48:22 -0700
+Subject: [Rpy] Problems installing rpy2
+Message-ID: <280003.69628.qm@web51903.mail.re2.yahoo.com>
+
+Dear All,
+
+I have a problem with installing the Rpy2 on my computer. When I try to use easy_install command I am getting the following error:
+
+Traceback (most recent call last):
+  File "C:\Python26\Scripts\easy_install-script.py", line 8, in <module>
+    load_entry_point('setuptools==0.6c11', 'console_scripts', 'easy_install')()
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+1712, in main
+    with_ei_usage(lambda:
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+1700, in with_ei_usage
+    return f()
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+1716, in <lambda>
+    distclass=DistributionWithoutHelpCommands, **kw
+  File "C:\Python26\lib\distutils\core.py", line 152, in setup
+    dist.run_commands()
+  File "C:\Python26\lib\distutils\dist.py", line 975, in run_commands
+    self.run_command(cmd)
+  File "C:\Python26\lib\distutils\dist.py", line 995, in run_command
+    cmd_obj.run()
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+211, in run
+    self.easy_install(spec, not self.no_deps)
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+446, in easy_install
+    return self.install_item(spec, dist.location, tmpdir, deps)
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+476, in install_item
+    dists = self.install_eggs(spec, download, tmpdir)
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+655, in install_eggs
+    return self.build_and_install(setup_script, setup_base)
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+930, in build_and_install
+    self.run_setup(setup_script, setup_base, args)
+  File "C:\Python26\lib\site-packages\setuptools\command\easy_install.py", line
+919, in run_setup
+    run_setup(setup_script, args)
+  File "C:\Python26\lib\site-packages\setuptools\sandbox.py", line 62, in run_se
+tup
+    lambda: execfile(
+  File "C:\Python26\lib\site-packages\setuptools\sandbox.py", line 105, in run
+    return func()
+  File "C:\Python26\lib\site-packages\setuptools\sandbox.py", line 64, in <lambd
+a>
+    {'__file__':setup_script, '__name__':'__main__'}
+  File "setup.py", line 153, in <module>
+  File "setup.py", line 119, in getRinterface_ext
+  File "setup.py", line 85, in get_rconfig
+Exception: "C:\Users\andrzej\Documents\R\R-2.10.1\bin\R" CMD config --cppflags
+returned
+
+The same error appears when I try to install Rpy2 from the zip file (rpy2-2.1.0beta2).
+
+I have a Windows Vista machine with Python 2.6 and R 2.10.1 on it. Could anyone explain me what the problem is and how can I have it solved. 
+
+Thank you in advance,
+Andrzej.
+
+
+
+      
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From e.picardi at unical.it  Tue Mar 16 18:09:05 2010
+From: e.picardi at unical.it (Ernesto)
+Date: Tue, 16 Mar 2010 19:09:05 +0100
+Subject: [Rpy] Fisher's exact test
+In-Reply-To: <5944BAF1-F98E-4E7B-9B45-582E103FADC0@cs.dartmouth.edu>
+References: <CF7611BDA2AD9C409ACF4D9BEB69D11101D608DB@e2k3ms2.urmc-sh.rochester.edu> <18B7F5EE-B9B9-4AF8-8306-5D229999BC6F@cs.dartmouth.edu> <420E491F-24EE-4EA5-AA4A-0D5982E3F307@rochester.edu> <5944BAF1-F98E-4E7B-9B45-582E103FADC0@cs.dartmouth.edu>
+Message-ID: <F27335AB-1CC2-48D4-9E50-7FF2F5925BD0@unical.it>
+
+Hi all,
+
+I'm new to rpy. I installed rpy2 on my mac os x machine and I'd like to perform the Fisher's exact test on a 2 x 2 table. Which command should I use?
+
+Thank you in advance,
+
+Ernesto
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From rpy-list at maubp.freeserve.co.uk  Tue Mar 16 18:32:16 2010
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Tue, 16 Mar 2010 18:32:16 +0000
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <F27335AB-1CC2-48D4-9E50-7FF2F5925BD0@unical.it>
+References: <CF7611BDA2AD9C409ACF4D9BEB69D11101D608DB@e2k3ms2.urmc-sh.rochester.edu> <18B7F5EE-B9B9-4AF8-8306-5D229999BC6F@cs.dartmouth.edu> <420E491F-24EE-4EA5-AA4A-0D5982E3F307@rochester.edu> <5944BAF1-F98E-4E7B-9B45-582E103FADC0@cs.dartmouth.edu> <F27335AB-1CC2-48D4-9E50-7FF2F5925BD0@unical.it>
+Message-ID: <320fb6e01003161132u59fc59n77845b7867f1879b@mail.gmail.com>
+
+On Tue, Mar 16, 2010 at 6:09 PM, Ernesto <e.picardi at unical.it> wrote:
+>
+> Hi all,
+>
+> I'm new to rpy. I installed rpy2 on my mac os x machine and I'd like to perform the Fisher's exact test on a 2 x 2 table. Which command should I use?
+>
+> Thank you in advance,
+>
+> Ernesto
+
+What command would you use in R, or are you new to R as well?
+
+Peter
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From e.picardi at unical.it  Tue Mar 16 18:38:11 2010
+From: e.picardi at unical.it (Ernesto)
+Date: Tue, 16 Mar 2010 19:38:11 +0100
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <320fb6e01003161132u59fc59n77845b7867f1879b@mail.gmail.com>
+References: <CF7611BDA2AD9C409ACF4D9BEB69D11101D608DB@e2k3ms2.urmc-sh.rochester.edu> <18B7F5EE-B9B9-4AF8-8306-5D229999BC6F@cs.dartmouth.edu> <420E491F-24EE-4EA5-AA4A-0D5982E3F307@rochester.edu> <5944BAF1-F98E-4E7B-9B45-582E103FADC0@cs.dartmouth.edu> <F27335AB-1CC2-48D4-9E50-7FF2F5925BD0@unical.it> <320fb6e01003161132u59fc59n77845b7867f1879b@mail.gmail.com>
+Message-ID: <37568881-5845-48B8-AB2C-472305FAB939@unical.it>
+
+> 
+> What command would you use in R, or are you new to R as well?
+> 
+
+I'm new to R as well!
+
+Ernesto
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From seandavi at gmail.com  Tue Mar 16 18:50:40 2010
+From: seandavi at gmail.com (Sean Davis)
+Date: Tue, 16 Mar 2010 14:50:40 -0400
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <37568881-5845-48B8-AB2C-472305FAB939@unical.it>
+References: <CF7611BDA2AD9C409ACF4D9BEB69D11101D608DB@e2k3ms2.urmc-sh.rochester.edu> <18B7F5EE-B9B9-4AF8-8306-5D229999BC6F@cs.dartmouth.edu> <420E491F-24EE-4EA5-AA4A-0D5982E3F307@rochester.edu> <5944BAF1-F98E-4E7B-9B45-582E103FADC0@cs.dartmouth.edu> <F27335AB-1CC2-48D4-9E50-7FF2F5925BD0@unical.it> <320fb6e01003161132u59fc59n77845b7867f1879b@mail.gmail.com> <37568881-5845-48B8-AB2C-472305FAB939@unical.it>
+Message-ID: <264855a01003161150y195ddb8ay7b697560c95d11b3@mail.gmail.com>
+
+On Tue, Mar 16, 2010 at 2:38 PM, Ernesto <e.picardi at unical.it> wrote:
+>
+> What command would you use in R, or are you new to R as well?
+>
+>
+> I'm new to R as well!
+
+Hi, Ernesto.
+
+You'll definitely need to learn R before using Rpy2 effectively.  In
+R, type help(fisher.test).
+
+Sean
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From rpy-list at maubp.freeserve.co.uk  Tue Mar 16 18:51:58 2010
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Tue, 16 Mar 2010 18:51:58 +0000
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <37568881-5845-48B8-AB2C-472305FAB939@unical.it>
+References: <CF7611BDA2AD9C409ACF4D9BEB69D11101D608DB@e2k3ms2.urmc-sh.rochester.edu> <18B7F5EE-B9B9-4AF8-8306-5D229999BC6F@cs.dartmouth.edu> <420E491F-24EE-4EA5-AA4A-0D5982E3F307@rochester.edu> <5944BAF1-F98E-4E7B-9B45-582E103FADC0@cs.dartmouth.edu> <F27335AB-1CC2-48D4-9E50-7FF2F5925BD0@unical.it> <320fb6e01003161132u59fc59n77845b7867f1879b@mail.gmail.com> <37568881-5845-48B8-AB2C-472305FAB939@unical.it>
+Message-ID: <320fb6e01003161151s7bd30970j6b21c6978091c668@mail.gmail.com>
+
+On Tue, Mar 16, 2010 at 6:38 PM, Ernesto <e.picardi at unical.it> wrote:
+>>
+>> What command would you use in R, or are you new to R as well?
+>>
+>
+> I'm new to R as well!
+> Ernesto
+
+Oh dear - this will be very hard work then. I'd start with trying to
+learn the basics of R on its own (there are online tutorials and
+several good books) before trying to use rpy or rpy2.
+
+Peter
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lgautier at gmail.com  Tue Mar 16 19:00:36 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Tue, 16 Mar 2010 20:00:36 +0100
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <320fb6e01003161151s7bd30970j6b21c6978091c668@mail.gmail.com>
+References: <CF7611BDA2AD9C409ACF4D9BEB69D11101D608DB@e2k3ms2.urmc-sh.rochester.edu> <18B7F5EE-B9B9-4AF8-8306-5D229999BC6F@cs.dartmouth.edu> <420E491F-24EE-4EA5-AA4A-0D5982E3F307@rochester.edu> <5944BAF1-F98E-4E7B-9B45-582E103FADC0@cs.dartmouth.edu> <F27335AB-1CC2-48D4-9E50-7FF2F5925BD0@unical.it> <320fb6e01003161132u59fc59n77845b7867f1879b@mail.gmail.com> <37568881-5845-48B8-AB2C-472305FAB939@unical.it> <320fb6e01003161151s7bd30970j6b21c6978091c668@mail.gmail.com>
+Message-ID: <4B9FD554.3030107@gmail.com>
+
+On 3/16/10 7:51 PM, Peter wrote:
+> On Tue, Mar 16, 2010 at 6:38 PM, Ernesto<e.picardi at unical.it>  wrote:
+>>>
+>>> What command would you use in R, or are you new to R as well?
+>>>
+>>
+>> I'm new to R as well!
+>> Ernesto
+>
+> Oh dear - this will be very hard work then. I'd start with trying to
+> learn the basics of R on its own (there are online tutorials and
+> several good books) before trying to use rpy or rpy2.
+>
+> Peter
+
+
+Learning how to use the R help system should be enough to start.
+Rpy2 (or rpy) encapsulate R functions in such ways that they appear like 
+Python functions.
+
+The rpy/rpy2 layer can be used as a library of R functions (for doing 
+all sort of statistical computations).
+
+
+L.
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From e.picardi at unical.it  Tue Mar 16 19:18:59 2010
+From: e.picardi at unical.it (Ernesto)
+Date: Tue, 16 Mar 2010 20:18:59 +0100
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <4B9FD554.3030107@gmail.com>
+References: <CF7611BDA2AD9C409ACF4D9BEB69D11101D608DB@e2k3ms2.urmc-sh.rochester.edu> <18B7F5EE-B9B9-4AF8-8306-5D229999BC6F@cs.dartmouth.edu> <420E491F-24EE-4EA5-AA4A-0D5982E3F307@rochester.edu> <5944BAF1-F98E-4E7B-9B45-582E103FADC0@cs.dartmouth.edu> <F27335AB-1CC2-48D4-9E50-7FF2F5925BD0@unical.it> <320fb6e01003161132u59fc59n77845b7867f1879b@mail.gmail.com> <37568881-5845-48B8-AB2C-472305FAB939@unical.it> <320fb6e01003161151s7bd30970j6b21c6978091c668@mail.gmail.com> <4B9FD554.3030107@gmail.com>
+Message-ID: <D7A30218-2743-4AFB-80B0-F42310574100@unical.it>
+
+
+Il giorno 16/mar/2010, alle ore 20.00, Laurent Gautier ha scritto:
+
+> On 3/16/10 7:51 PM, Peter wrote:
+>> On Tue, Mar 16, 2010 at 6:38 PM, Ernesto<e.picardi at unical.it>  wrote:
+>>>> 
+>>>> What command would you use in R, or are you new to R as well?
+>>>> 
+>>> 
+>>> I'm new to R as well!
+>>> Ernesto
+>> 
+>> Oh dear - this will be very hard work then. I'd start with trying to
+>> learn the basics of R on its own (there are online tutorials and
+>> several good books) before trying to use rpy or rpy2.
+>> 
+>> Peter
+> 
+> 
+> Learning how to use the R help system should be enough to start.
+> Rpy2 (or rpy) encapsulate R functions in such ways that they appear like 
+> Python functions.
+> 
+> The rpy/rpy2 layer can be used as a library of R functions (for doing 
+> all sort of statistical computations).
+> 
+> 
+
+
+Yes, for sure I'll learn how to use R. I just needed a simple way to calculate the Fisher's exact test from python. After a search I found rpy and apophenia but the latter did not work correctly on my machine (I had problems with SWIG installation).
+
+Ernesto
+
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From John.Schroeder at inl.gov  Tue Mar 16 19:24:17 2010
+From: John.Schroeder at inl.gov (John A Schroeder)
+Date: Tue, 16 Mar 2010 13:24:17 -0600
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <D7A30218-2743-4AFB-80B0-F42310574100@unical.it>
+References: <D7A30218-2743-4AFB-80B0-F42310574100@unical.it>
+Message-ID: <OF921B682D.7200A9CA-ON872576E8.006A7A9C-872576E8.006A9837@inel.gov>
+
+This might be a good start.
+
+http://darwin.eeb.uconn.edu/eeb348/supplements-2006/chi-squared/chi-squared.html
+
+Google is a wonderful thing!
+
+John A. Schroeder
+Idaho National Laboratory
+Battelle Energy Alliance, LLC
+P.O. Box 1625
+Idaho Falls, ID  83415-3850
+
+Ph:   208-526-8755
+FAX:  208-526-2930
+
+
+
+Ernesto <e.picardi at unical.it> 
+03/16/2010 01:19 PM
+Please respond to
+"RPy help,      support and design discussion list" 
+<rpy-list at lists.sourceforge.net>
+
+
+To
+"RPy help,      support and design discussion list" 
+<rpy-list at lists.sourceforge.net>
+cc
+
+Subject
+Re: [Rpy] Fisher's exact test
+
+
+
+
+
+
+
+Il giorno 16/mar/2010, alle ore 20.00, Laurent Gautier ha scritto:
+
+> On 3/16/10 7:51 PM, Peter wrote:
+>> On Tue, Mar 16, 2010 at 6:38 PM, Ernesto<e.picardi at unical.it>  wrote:
+>>>> 
+>>>> What command would you use in R, or are you new to R as well?
+>>>> 
+>>> 
+>>> I'm new to R as well!
+>>> Ernesto
+>> 
+>> Oh dear - this will be very hard work then. I'd start with trying to
+>> learn the basics of R on its own (there are online tutorials and
+>> several good books) before trying to use rpy or rpy2.
+>> 
+>> Peter
+> 
+> 
+> Learning how to use the R help system should be enough to start.
+> Rpy2 (or rpy) encapsulate R functions in such ways that they appear like 
+
+> Python functions.
+> 
+> The rpy/rpy2 layer can be used as a library of R functions (for doing 
+> all sort of statistical computations).
+> 
+> 
+
+
+Yes, for sure I'll learn how to use R. I just needed a simple way to 
+calculate the Fisher's exact test from python. After a search I found rpy 
+and apophenia but the latter did not work correctly on my machine (I had 
+problems with SWIG installation).
+
+Ernesto
+
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From e.picardi at unical.it  Tue Mar 16 19:54:31 2010
+From: e.picardi at unical.it (Ernesto)
+Date: Tue, 16 Mar 2010 20:54:31 +0100
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <OF921B682D.7200A9CA-ON872576E8.006A7A9C-872576E8.006A9837@inel.gov>
+References: <OF921B682D.7200A9CA-ON872576E8.006A7A9C-872576E8.006A9837@inel.gov>
+Message-ID: <A20D83C2-94A1-4A36-AEB5-2213F5782EAA@unical.it>
+
+> This might be a good start. 
+> 
+> http://darwin.eeb.uconn.edu/eeb348/supplements-2006/chi-squared/chi-squared.html 
+> 
+> Google is a wonderful thing! 
+> 
+
+Thanks a lot,
+
+Ernesto
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From John.Schroeder at inl.gov  Tue Mar 16 20:00:18 2010
+From: John.Schroeder at inl.gov (John A Schroeder)
+Date: Tue, 16 Mar 2010 14:00:18 -0600
+Subject: Re: [Rpy] Fisher's exact test
+In-Reply-To: <OF921B682D.7200A9CA-ON872576E8.006A7A9C-872576E8.006A9837@inel.gov>
+References: <OF921B682D.7200A9CA-ON872576E8.006A7A9C-872576E8.006A9837@inel.gov>
+Message-ID: <OF11F0F652.B197A5C4-ON872576E8.006D418C-872576E8.006DE434@inel.gov>
+
+Just got my echo back and it sounded a bit flip.   Not my intention at 
+all.   Apologies if you took it that way.   Looks it would be simple to 
+build a small test problem in R.  Once that is done, check out the RPy 
+tutorials on the web site.   Should be able to code your R test problem in 
+RPy by line-by-line translation of the R code to RPy.
+
+John A. Schroeder
+Idaho National Laboratory
+Battelle Energy Alliance, LLC
+P.O. Box 1625
+Idaho Falls, ID  83415-3850
+
+Ph:   208-526-8755
+FAX:  208-526-2930
+
+
+
+John A Schroeder <John.Schroeder at inl.gov> 
+03/16/2010 01:45 PM
+Please respond to
+"RPy help,      support and design discussion list" 
+<rpy-list at lists.sourceforge.net>
+
+
+To
+"RPy help,      support and design discussion list" 
+<rpy-list at lists.sourceforge.net>
+cc
+
+Subject
+Re: [Rpy] Fisher's exact test
+
+
+
+
+
+
+
+This might be a good start. 
+
+http://darwin.eeb.uconn.edu/eeb348/supplements-2006/chi-squared/chi-squared.html 
+
+
+Google is a wonderful thing! 
+
+John A. Schroeder
+Idaho National Laboratory
+Battelle Energy Alliance, LLC
+P.O. Box 1625
+Idaho Falls, ID  83415-3850
+
+Ph:   208-526-8755
+FAX:  208-526-2930 
+
+
+Ernesto <e.picardi at unical.it> 
+03/16/2010 01:19 PM 
+
+Please respond to
+"RPy help,        support and design discussion list" 
+<rpy-list at lists.sourceforge.net>
+
+
+To
+"RPy help,        support and design discussion list" 
+<rpy-list at lists.sourceforge.net> 
+cc
+
+Subject
+Re: [Rpy] Fisher's exact test
+
+
+
+
+
+
+
+
+
+Il giorno 16/mar/2010, alle ore 20.00, Laurent Gautier ha scritto:
+
+> On 3/16/10 7:51 PM, Peter wrote:
+>> On Tue, Mar 16, 2010 at 6:38 PM, Ernesto<e.picardi at unical.it>  wrote:
+>>>> 
+>>>> What command would you use in R, or are you new to R as well?
+>>>> 
+>>> 
+>>> I'm new to R as well!
+>>> Ernesto
+>> 
+>> Oh dear - this will be very hard work then. I'd start with trying to
+>> learn the basics of R on its own (there are online tutorials and
+>> several good books) before trying to use rpy or rpy2.
+>> 
+>> Peter
+> 
+> 
+> Learning how to use the R help system should be enough to start.
+> Rpy2 (or rpy) encapsulate R functions in such ways that they appear like 
+
+> Python functions.
+> 
+> The rpy/rpy2 layer can be used as a library of R functions (for doing 
+> all sort of statistical computations).
+> 
+> 
+
+
+Yes, for sure I'll learn how to use R. I just needed a simple way to 
+calculate the Fisher's exact test from python. After a search I found rpy 
+and apophenia but the latter did not work correctly on my machine (I had 
+problems with SWIG installation).
+
+Ernesto
+
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From czechandrzej at yahoo.com  Wed Mar 17 10:28:28 2010
+From: czechandrzej at yahoo.com (Andrzej Stefan Czech)
+Date: Wed, 17 Mar 2010 03:28:28 -0700
+Subject: [Rpy] installation testing fails.
+Message-ID: <896007.65529.qm@web51901.mail.re2.yahoo.com>
+
+Dear All,
+
+I still have a problem installing a RPy2. I managed to have it done with the use of windows binary file, but when I run the test:
+
+import rpy2.tests
+import unittest
+
+# the verbosity level can be increased if needed
+tr = unittest.TextTestRunner(verbosity = 1)
+suite = rpy2.tests.suite()
+tr.run(suite)
+
+
+I am getting the following failure message:
+
+ .................................................................F.......................F.....F.F..................F.........F.FFF...F.....................................
+======================================================================
+FAIL: testVectorUnicodeCharacter (rpy2.robjects.tests.testNumpyConversions.NumpyConversionsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\robjects\tests\testNumpyConversions.py", line 54, in testVectorUnicodeCharacter
+    self.assertTrue(False) # arrays of unicode characters causing segfault
+AssertionError
+
+======================================================================
+FAIL: testNewWithoutInit (rpy2.rinterface.tests.test_SexpVector.SexpVectorTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_SexpVector.py", line 43, in testNewWithoutInit
+    self.assertTrue(False) # worked when tested, but calling endEmbeddedR causes trouble
+AssertionError
+
+======================================================================
+FAIL: testGet (rpy2.rinterface.tests.test_SexpEnvironment.SexpEnvironmentTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_SexpEnvironment.py", line 39, in testGet
+    self.assertRaises(LookupError, rinterface.globalEnv.get, "survfit")
+AssertionError: LookupError not raised
+
+======================================================================
+FAIL: testGet_functionOnly (rpy2.rinterface.tests.test_SexpEnvironment.SexpEnvironmentTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_SexpEnvironment.py", line 57, in testGet_functionOnly
+    self.assertEquals(rinterface.CLOSXP, hist.typeof)
+AssertionError: 3 != 16
+
+======================================================================
+FAIL: testClosureEnv (rpy2.rinterface.tests.test_SexpClosure.SexpClosureTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_SexpClosure.py", line 28, in testClosureEnv
+    self.assertRaises(rinterface.RRuntimeError, fun, vec)
+AssertionError: RRuntimeError not raised
+
+======================================================================
+FAIL: testCallErrorWhenEndedR (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_EmbeddedR.py", line 122, in testCallErrorWhenEndedR
+    self.assertTrue(False) # worked when tested, but calling endEmbeddedR causes trouble
+AssertionError
+
+======================================================================
+FAIL: testReadConsoleWithError (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_EmbeddedR.py", line 117, in testReadConsoleWithError
+    self.assertTrue(errorstring.startswith('Traceback'))
+AssertionError
+
+======================================================================
+FAIL: testSetReadConsole (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_EmbeddedR.py", line 97, in testSetReadConsole
+    self.assertEquals(yes.strip(), res[0])
+AssertionError: 'yes' != ''
+
+======================================================================
+FAIL: testSetWriteConsole (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_EmbeddedR.py", line 36, in testSetWriteConsole
+    self.assertEquals('[1] "3"\n', str.join('', buf))
+AssertionError: '[1] "3"\n' != ''
+
+======================================================================
+FAIL: testWriteConsoleWithError (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Python26\lib\site-packages\rpy2\rinterface\tests\test_EmbeddedR.py", line 55, in testWriteConsoleWithError
+    self.assertTrue(errorstring.startswith('Traceback'))
+AssertionError
+
+----------------------------------------------------------------------
+Ran 172 tests in 0.711s
+
+FAILED (failures=10)
+
+Could anyone help mi with fixing this problem? 
+
+Also, when I'm trying to run some of the example tests from the tutorial, some of them work, but most of them fails. 
+
+Thank you in advance,
+Andrzej.
+
+
+      
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From luca.beltrame at unifi.it  Thu Mar 18 14:03:40 2010
+From: luca.beltrame at unifi.it (Luca Beltrame)
+Date: Thu, 18 Mar 2010 15:03:40 +0100
+Subject: [Rpy] rpy2.1 beta1+: problems with translated parameters
+Message-ID: <201003181503.43513.luca.beltrame@unifi.it>
+
+Hello, 
+
+I just updated to beta 1, and I found a problem with some of the translated 
+parameters in functions.
+
+Test case:
+
+from rpy2.robjects.packages import importr
+
+base = importr("base")
+
+sequence = list(base.seq(-10, 0, length_out=2))
+len(sequence)
+
+Result: 11 # wrong
+
+parameter = {"length.out":2}
+sequence = list(base.seq(-10, 0, **parameter))
+len(sequence)
+
+Result: 2  # Correct
+
+Is this a bug? If so, where should I report it?
+
+-- 
+Luca Beltrame, Ph.D.  - luca.beltrame at unifi.it
+Post-doctoral research fellow - Duccio Cavalieri group
+Department of Pharmacology, University of Firenze
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 836 bytes
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Thu Mar 18 19:19:49 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Thu, 18 Mar 2010 20:19:49 +0100
+Subject: Re: [Rpy] rpy2.1 beta1+: problems with translated parameters
+In-Reply-To: <201003181503.43513.luca.beltrame@unifi.it>
+References: <201003181503.43513.luca.beltrame@unifi.it>
+Message-ID: <4BA27CD5.1010503@gmail.com>
+
+On 3/18/10 3:03 PM, Luca Beltrame wrote:
+> Hello,
+>
+> I just updated to beta 1, and I found a problem with some of the translated
+> parameters in functions.
+>
+> Test case:
+>
+> from rpy2.robjects.packages import importr
+>
+> base = importr("base")
+>
+> sequence = list(base.seq(-10, 0, length_out=2))
+> len(sequence)
+>
+> Result: 11 # wrong
+>
+> parameter = {"length.out":2}
+> sequence = list(base.seq(-10, 0, **parameter))
+> len(sequence)
+>
+> Result: 2  # Correct
+>
+> Is this a bug?
+
+In a way. This is because of particularities with R.
+"length_out" is only defined as a parameter in base.seq_int(), and
+base.seq() is calling base.seq_int(). "length_out" is passed on to 
+seq_int() as part of the "..." (R's ellipsis), and therefore cannot be 
+guessed during the translation.
+
+base.seq_int() will behave like you expect.
+
+There is a way to manually force base.seq to translate "length_out" to 
+"length.out" (but that might break other things).
+
+
+> If so, where should I report it?
+>
+
+About bug reports:
+http://rpy.sourceforge.net/rpy2_bugs.html
+
+Hoping this helps,
+
+
+Laurent
+
+
+
+
+>
+>
+> ------------------------------------------------------------------------------
+> Download Intel&#174; Parallel Studio Eval
+> Try the new software tools for yourself. Speed compiling, find bugs
+> proactively, and fine-tune applications for parallel performance.
+> See why Intel Parallel Studio got high marks during beta.
+> http://p.sf.net/sfu/intel-sw-dev
+>
+>
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From msarahan at gmail.com  Thu Mar 18 19:26:10 2010
+From: msarahan at gmail.com (Mike Sarahan)
+Date: Thu, 18 Mar 2010 12:26:10 -0700
+Subject: Re: [Rpy] 'show' not found
+In-Reply-To: <8275939c1002251807r3b646b5cu957aa6716d7a1fe0@mail.gmail.com>
+References: <8275939c1002251807r3b646b5cu957aa6716d7a1fe0@mail.gmail.com>
+Message-ID: <8275939c1003181226j723b14b7t8bbe245b30cd28f4@mail.gmail.com>
+
+If anyone else encounters this problem, it appears to be something
+with R.  After installing R from source (2.10.1) rather than the
+Ubuntu package (2.9.2), Rpy2 works as expected.
+
+
+
+On Thu, Feb 25, 2010 at 7:07 PM, Mike Sarahan <msarahan at gmail.com> wrote:
+> Hi all,
+>
+> I am running Ubuntu 9.10, with R version 2.9.2.  I have this problem
+> on both RPy2.1 alpha3 and the mercurial repository.  Both compile
+> cleanly, and I can import rpy2.
+>
+> However, when I try to import robject or any of its children, I get this error:
+>
+> ---------------------------------------------------------------------------
+> LookupError                               Traceback (most recent call last)
+>
+> /home/msarahan/Downloads/<ipython console> in <module>()
+>
+> /home/msarahan/Downloads/build/bdist.linux-x86_64/egg/rpy2/robjects/__init__.py
+> in <module>()
+>
+> /home/msarahan/Downloads/build/bdist.linux-x86_64/egg/rpy2/robjects/robject.py
+> in <module>()
+>
+> /home/msarahan/Downloads/build/bdist.linux-x86_64/egg/rpy2/robjects/robject.py
+> in RObjectMixin()
+>
+> LookupError: 'show' not found
+>
+> ----------------------------------------------------------------------------------------------
+>
+> I checked the source in robject.py, and the code in rinterface.py.  I
+> could not find any reference to baseenv or to show anywhere else,
+> except for where it is defined as part of the RObjectMixin class.
+>
+> Any ideas?
+>
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From carson.farmer at gmail.com  Thu Mar 18 23:08:26 2010
+From: carson.farmer at gmail.com (Carson Farmer)
+Date: Thu, 18 Mar 2010 23:08:26 +0000
+Subject: [Rpy] py2 and threading
+Message-ID: <94b3c8441003181608o66f9c1b2u95d58b9df1f7375@mail.gmail.com>
+
+Hi list,
+
+I was just looking back on some old posts and there is some mention of
+releasing Python's GIL being on the TODO list...
+Has this been done/explored any further?
+Regards,
+
+Carson
+
+-- 
+Carson J. Q. Farmer
+ISSP Doctoral Fellow
+National Centre for Geocomputation
+National University of Ireland, Maynooth,
+http://www.carsonfarmer.com/
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lgautier at gmail.com  Fri Mar 19 12:55:56 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Fri, 19 Mar 2010 13:55:56 +0100
+Subject: Re: [Rpy] py2 and threading
+In-Reply-To: <94b3c8441003181608o66f9c1b2u95d58b9df1f7375@mail.gmail.com>
+References: <94b3c8441003181608o66f9c1b2u95d58b9df1f7375@mail.gmail.com>
+Message-ID: <4BA3745C.6020809@gmail.com>
+
+This has not, or at least not as far as I know.
+
+Although it was/is possible to release the GIL:
+
+- this does not increase much the potential for simultaneous computation 
+in R (simultaneous evaluation of R-level code amounts to crossing the 
+streams). Multiprocessing is way to go (pickling was implemented to make 
+it easier, and there a google SoC project out bring storage-based arrays 
+in).
+- Exposing Python functions to R (that means being able to call Python 
+code from R) is still on the TODO list, and releasing the GIL would be 
+something to think carefully about.
+- ultimately and most importantly time / resources have been missing to 
+look carefully into it
+
+R GUI builders could clearly and immediately benefit from having the GIL 
+released, but in the meanwhile adopting a client-server strategy is the 
+recommended way to go. That has limitations but also advantages; 
+building a minimal server can be done in less than 20 lines of code 
+(less than 10 lines if no comments).
+http://rpy.sourceforge.net/rpy2/doc-2.1/html/server.html#simple-socket-based-server-and-client
+
+Hoping this helps,
+
+
+Laurent
+
+
+
+On 3/19/10 12:08 AM, Carson Farmer wrote:
+> Hi list,
+>
+> I was just looking back on some old posts and there is some mention of
+> releasing Python's GIL being on the TODO list...
+> Has this been done/explored any further?
+> Regards,
+>
+> Carson
+>
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From domenico_conti at alice.it  Sat Mar 20 10:20:01 2010
+From: domenico_conti at alice.it (Domenico Conti)
+Date: Sat, 20 Mar 2010 11:20:01 +0100
+Subject: [Rpy] problem while plotting a graph
+Message-ID: <4BA4A151.9070301@alice.it>
+
+Hi, my problem is that when I use plot command, I can see for few second 
+the graph but the window is closed quickly. The code that I am testing is:
+
+from rpy import r
+
+if __name__ == '__main__':
+   
+    r.library('igraph')
+    r('g <- graph( c( 0,1, 0,2, 2,3, 3,2, 4,2, 2,5, 5,2, 1,0, 5,6 ) )')
+    r('E(g)$iFlow <- c(45, 20, 15, 80, 90, 23, 43, 32, 10)')
+    r('V(g)$name <- c("Alice", "Bob", "Claire", "Dennis", "Esther", 
+"Frank", "George")')
+    r('V(g)$label <- V(g)$name')
+    r('plot(g, layout=layout.fruchterman.reingold, vertex.size=3, 
+frame=TRUE)')
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From larsenmtl at gmail.com  Sun Mar 21 14:01:25 2010
+From: larsenmtl at gmail.com (Mark Larsen)
+Date: Sun, 21 Mar 2010 09:01:25 -0500
+Subject: Re: [Rpy] problem while plotting a graph
+In-Reply-To: <4BA4A151.9070301@alice.it>
+References: <4BA4A151.9070301@alice.it>
+Message-ID: <942bcc171003210701h38a43351qe4352531ff7ff980@mail.gmail.com>
+
+> Hi, my problem is that when I use plot command, I can see for few second
+> the graph but the window is closed quickly.
+
+The python script is exiting and taking the R plot window with it.
+
+Add, something like this to the end of your script:
+
+raw_input("Press any Key To Exit")
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lgautier at gmail.com  Mon Mar 29 19:42:43 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Mon, 29 Mar 2010 21:42:43 +0200
+Subject: [Rpy] rpy2-2.1beta3
+Message-ID: <4BB102B3.4070508@gmail.com>
+
+Hi,
+
+rpy2-2.1beta3 is out and available on bitbucket and on sourceforge.
+This fixes bugs (such as a memory leak), plus adds last minute details.
+The next expected step is the release candidate, then the release.
+
+
+L.
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From lists at onerussian.com  Tue Mar 30 02:20:18 2010
+From: lists at onerussian.com (Yaroslav Halchenko)
+Date: Mon, 29 Mar 2010 22:20:18 -0400
+Subject: Re: [Rpy] rpy2-2.1beta3
+In-Reply-To: <4BB102B3.4070508@gmail.com>
+References: <4BB102B3.4070508@gmail.com>
+Message-ID: <20100330022018.GM1847@onerussian.com>
+
+GREAT -- keep on the progressing forward!
+
+My humble feedback:
+
+$> python2.6 -m rpy2.tests; python2.6 -c 'import rpy2; print rpy2.__version__'; dpkg -l r-base-core
+                                                                                                   
+...F...Error in function (new = FALSE)  : file choice cancelled
+.................................................................................F......Loading required package: splines
+............Error in function (x)  : object 'y' not found
+....Error in .Primitive("sum")(c("a", "b", "c", "d", "e", "f", "g", "h", "i",  : 
+  invalid 'type' (character) of argument
+.................Error in function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  : 
+  cannot open the connection
+In addition: Warning message:
+In function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  :
+  cannot create fifo '/home/yoh/.tmp/Rtmpne9cVP/Rf327b23c6', reason 'No such file or directory'
+E..............................Error in .Primitive("[")(0:10, list("a", "b", "c")) : 
+  invalid subscript type 'list'
+..........................................................................................................
+======================================================================
+ERROR: testStr (rpy2.robjects.tests.testRObject.RObjectTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py", line 30, in testStr
+    s = prt.__str__()
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/robject.py", line 29, in __str__
+    tmp = self.__fifo(rpy2.rinterface.StrSexpVector(["", ]))
+RRuntimeError: Error in function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  : 
+  cannot open the connection
+
+
+======================================================================
+FAIL: testInterruptR (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py", line 107, in testInterruptR
+    self.assertFalse(ret_code is None) # Interruption failed
+AssertionError
+
+======================================================================
+FAIL: testNARealtoR (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 77, in testNARealtoR
+    self.assertEquals(True, ri.baseenv["is.na"](na_real)[0])
+AssertionError: True != False
+
+----------------------------------------------------------------------
+Ran 265 tests in 1.498s
+
+FAILED (failures=2, errors=1)
+2.1.0beta2
+Desired=Unknown/Install/Remove/Purge/Hold
+| Status=Not/Inst/Cfg-files/Unpacked/Failed-cfg/Half-inst/trig-aWait/Trig-pend
+|/ Err?=(none)/Hold/Reinst-required/X=both-problems (Status,Err: uppercase=bad)
+||/ Name                                  Version                               Description
++++-=====================================-=====================================-==========================================================================================
+ii  r-base-core                           2.10.1-2                              GNU R core of statistical computation and graphics system
+
+
+
+Another annoyance I've ran into today -- our pymvpa unittests keep segfaulting
+in some non-R related places whenever rpy2 is in use.  It was happening with
+current version in sid: 2.1.0~20100314-1 and with current tip.  Attached see
+the valgrind output for python2.5 and version 2.1.0~20100314-1 (first
+R issues seems to be not that critical -- happens also with 2.6 without
+major problems).
+(Un)fortunately this issue seems not to reveal (or being absent) with
+python2.6  ... I wonder if there is anything I could help/do to figure
+it out for 2.5 ;)
+
+
+
+On Mon, 29 Mar 2010, Laurent Gautier wrote:
+
+> Hi,
+
+> rpy2-2.1beta3 is out and available on bitbucket and on sourceforge.
+> This fixes bugs (such as a memory leak), plus adds last minute details.
+> The next expected step is the release candidate, then the release.
+
+
+> L.
+
+> ------------------------------------------------------------------------------
+> Download Intel&#174; Parallel Studio Eval
+> Try the new software tools for yourself. Speed compiling, find bugs
+> proactively, and fine-tune applications for parallel performance.
+> See why Intel Parallel Studio got high marks during beta.
+> http://p.sf.net/sfu/intel-sw-dev
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-- 
+                                  .-.
+=------------------------------   /v\  ----------------------------=
+Keep in touch                    // \\     (yoh@|www.)onerussian.com
+Yaroslav Halchenko              /(   )\               ICQ#: 60653192
+                   Linux User    ^^-^^    [175555]
+
+-------------- next part --------------
+==8438== Memcheck, a memory error detector
+==8438== Copyright (C) 2002-2009, and GNU GPL'd, by Julian Seward et al.
+==8438== Using Valgrind-3.5.0-Debian and LibVEX; rerun with -h for copyright info
+==8438== Command: /usr/bin/python mvpa/tests/__init__.py
+==8438== 
+T: MVPA_SEED=1
+T: Testing for availability of external software packages.
+WARNING: running ipython env is not available.
+ * Please note: warnings are printed only once, but underlying problem might occur many times *
+WARNING: lars is not available.
+WARNING: nibabel is not available.
+WARNING: shogun.svrlight is not available.
+==8438== Conditional jump or move depends on uninitialised value(s)
+==8438==    at 0xBFE4290: inflateReset2 (in /usr/lib/libz.so.1.2.3.4)
+==8438==    by 0xBFE437F: inflateInit2_ (in /usr/lib/libz.so.1.2.3.4)
+==8438==    by 0xBFDDC86: ??? (in /usr/lib/libz.so.1.2.3.4)
+==8438==    by 0x23190982: gzfile_open (connections.c:1169)
+==8438==    by 0x2318D467: do_gzfile (connections.c:1730)
+==8438==    by 0x23236D96: do_internal (names.c:1165)
+==8438==    by 0x231EF10B: Rf_eval (eval.c:464)
+==8438==    by 0x231F2AB9: Rf_applyClosure (eval.c:699)
+==8438==    by 0x231EEFF7: Rf_eval (eval.c:508)
+==8438==    by 0x231F10DF: do_set (eval.c:1502)
+==8438==    by 0x231EF10B: Rf_eval (eval.c:464)
+==8438==    by 0x231F11BB: do_begin (eval.c:1245)
+==8438== 
+==8438== Conditional jump or move depends on uninitialised value(s)
+==8438==    at 0xBFE4290: inflateReset2 (in /usr/lib/libz.so.1.2.3.4)
+==8438==    by 0xBFE437F: inflateInit2_ (in /usr/lib/libz.so.1.2.3.4)
+==8438==    by 0xBFDEAD8: uncompress (in /usr/lib/libz.so.1.2.3.4)
+==8438==    by 0x23184E09: R_decompress1 (connections.c:5096)
+==8438==    by 0x232B134B: do_lazyLoadDBfetch (serialize.c:2343)
+==8438==    by 0x231EF23D: Rf_eval (eval.c:493)
+==8438==    by 0x231EF466: forcePromise (eval.c:331)
+==8438==    by 0x231EEE6B: Rf_eval (eval.c:445)
+==8438==    by 0x231D9642: Rf_findFun (envir.c:1293)
+==8438==    by 0x231EEF9E: Rf_eval (eval.c:451)
+==8438==    by 0x23222AD5: R_ReplFile (main.c:100)
+==8438==    by 0x23222BE9: R_LoadProfile (main.c:654)
+==8438== 
+WARNING: good scipy.stats.rdist is not available.
+WARNING: weave is not available.
+WARNING: shogun.lightsvm is not available.
+WARNING: pywt wp reconstruct fixed is not available.
+test_externals (mvpa.tests.test_externals.TestExternals) ... ok
+test_externals_correct2nd_invocation (mvpa.tests.test_externals.TestExternals) ... ok
+test_externals_no_double_invocation (mvpa.tests.test_externals.TestExternals) ... ok
+Very basic testing -- just to see if it doesn't crash ... ok
+test_basic (mvpa.tests.test_dochelpers.DochelpersTests) ... ok
+test_borrow_doc (mvpa.tests.test_dochelpers.DochelpersTests) ... ok
+test_borrow_kwargs (mvpa.tests.test_dochelpers.DochelpersTests) ... ok
+test_searchlight_doc (mvpa.tests.test_dochelpers.DochelpersTests) ... ok
+test_simple_som (mvpa.tests.test_som.SOMMapperTests) ... ok
+test_blank_state (mvpa.tests.test_state.StateTests) ... ok
+test_deep_copying_state_variable (mvpa.tests.test_state.StateTests) ... ok
+Check if we can store/restore set of enabled ca ... ok
+test_parametrized (mvpa.tests.test_state.StateTests) ... ok
+test_proper_state (mvpa.tests.test_state.StateTests) ... ok
+Simple test if child gets conditional attributes from the parent as well ... ok
+test_read_only (mvpa.tests.test_state.StateTests) ... ok
+To test new ca ... ok
+test_stored_temporarily (mvpa.tests.test_state.StateTests) ... ok
+test_value_in_constructor (mvpa.tests.test_state.StateTests) ... ok
+test_blank (mvpa.tests.test_params.ParamsTests) ... ok
+test_classifier (mvpa.tests.test_params.ParamsTests) ... ok
+test_mixed (mvpa.tests.test_params.ParamsTests) ... ok
+test_simple (mvpa.tests.test_params.ParamsTests) ... ok
+test_config (mvpa.tests.test_config.ConfigTests) ... ok
+test_asobjarray (mvpa.tests.test_support.SupportFxTests) ... ok
+test_break_points (mvpa.tests.test_support.SupportFxTests) ... ok
+test_correlation (mvpa.tests.test_support.SupportFxTests) ... ok
+test_event (mvpa.tests.test_support.SupportFxTests) ... ok
+test_id_hash (mvpa.tests.test_support.SupportFxTests) ... ok
+test_map_overlap (mvpa.tests.test_support.SupportFxTests) ... ok
+test_mof_n_combinations (mvpa.tests.test_support.SupportFxTests) ... ok
+Test our ad-hoc SmartVersion ... ok
+test_transform_with_boxcar (mvpa.tests.test_support.SupportFxTests) ... ok
+Test conversion of versions from strings ... ok
+mvpa.tests.test_support.test_value2idx ... ok
+Test if works fine with carriage return (cr) symbol ... ok
+test_debug (mvpa.tests.test_verbosity.VerboseOutputTest) ... ok
+test_debug_rgexp (mvpa.tests.test_verbosity.VerboseOutputTest) ... ok
+Test error message ... ok
+Test if it works fine with no newline (LF) symbol ... ok
+Test once logger ... ok
+Test if it doesn't output at higher levels ... ok
+Test if outputs at lower levels and indents ... ok
+Test indent symbol ... ok
+Test if chokes on negative level ... ok
+Test all available reports, real or dummy for just working ... ==8438== Invalid read of size 1
+==8438==    at 0x4B6F98: ??? (in /usr/bin/python2.5)
+==8438==    by 0x446489: ??? (in /usr/bin/python2.5)
+==8438==    by 0x4B79E4: ??? (in /usr/bin/python2.5)
+==8438==    by 0x4B85D8: ??? (in /usr/bin/python2.5)
+==8438==    by 0x48DB17: PyEval_EvalFrameEx (in /usr/bin/python2.5)
+==8438==    by 0x48EC8E: PyEval_EvalFrameEx (in /usr/bin/python2.5)
+==8438==    by 0x48F4E0: PyEval_EvalCodeEx (in /usr/bin/python2.5)
+==8438==    by 0x48DEEF: PyEval_EvalFrameEx (in /usr/bin/python2.5)
+==8438==    by 0x48EC8E: PyEval_EvalFrameEx (in /usr/bin/python2.5)
+==8438==    by 0x48F4E0: PyEval_EvalCodeEx (in /usr/bin/python2.5)
+==8438==    by 0x4D6A7C: ??? (in /usr/bin/python2.5)
+==8438==    by 0x418492: PyObject_Call (in /usr/bin/python2.5)
+==8438==  Address 0xa9 is not stack'd, malloc'd or (recently) free'd
+==8438== 
+==8438== 
+==8438== Process terminating with default action of signal 11 (SIGSEGV)
+==8438==  Access not within mapped region at address 0xA9
+==8438==    at 0x4B6F98: ??? (in /usr/bin/python2.5)
+==8438==    by 0x446489: ??? (in /usr/bin/python2.5)
+==8438==    by 0x4B79E4: ??? (in /usr/bin/python2.5)
+==8438==    by 0x4B85D8: ??? (in /usr/bin/python2.5)
+==8438==    by 0x48DB17: PyEval_EvalFrameEx (in /usr/bin/python2.5)
+==8438==    by 0x48EC8E: PyEval_EvalFrameEx (in /usr/bin/python2.5)
+==8438==    by 0x48F4E0: PyEval_EvalCodeEx (in /usr/bin/python2.5)
+==8438==    by 0x48DEEF: PyEval_EvalFrameEx (in /usr/bin/python2.5)
+==8438==    by 0x48EC8E: PyEval_EvalFrameEx (in /usr/bin/python2.5)
+==8438==    by 0x48F4E0: PyEval_EvalCodeEx (in /usr/bin/python2.5)
+==8438==    by 0x4D6A7C: ??? (in /usr/bin/python2.5)
+==8438==    by 0x418492: PyObject_Call (in /usr/bin/python2.5)
+==8438==  If you believe this happened as a result of a stack
+==8438==  overflow in your program's main thread (unlikely but
+==8438==  possible), you can try to increase the size of the
+==8438==  main thread stack using the --main-stacksize= flag.
+==8438==  The main thread stack size used in this run was 8388608.
+T: Tests from "test_lars" are skipped due to missing externals: ['lars', 'scipy']
+T: Warning -- following test files were found but will not be tested: test_lars.py
+==8438== 
+==8438== HEAP SUMMARY:
+==8438==     in use at exit: 127,972,803 bytes in 89,405 blocks
+==8438==   total heap usage: 932,393 allocs, 842,988 frees, 918,422,040 bytes allocated
+==8438== 
+==8438== LEAK SUMMARY:
+==8438==    definitely lost: 3,586 bytes in 49 blocks
+==8438==    indirectly lost: 5,328 bytes in 171 blocks
+==8438==      possibly lost: 81,544,555 bytes in 61,848 blocks
+==8438==    still reachable: 46,419,334 bytes in 27,337 blocks
+==8438==         suppressed: 0 bytes in 0 blocks
+==8438== Rerun with --leak-check=full to see details of leaked memory
+==8438== 
+==8438== For counts of detected and suppressed errors, rerun with: -v
+==8438== Use --track-origins=yes to see where uninitialised values come from
+==8438== ERROR SUMMARY: 1941 errors from 3 contexts (suppressed: 47731 from 666)
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Tue Mar 30 11:22:43 2010
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Tue, 30 Mar 2010 13:22:43 +0200
+Subject: Re: [Rpy] rpy2-2.1beta3
+In-Reply-To: <20100330022018.GM1847@onerussian.com>
+References: <4BB102B3.4070508@gmail.com> <20100330022018.GM1847@onerussian.com>
+Message-ID: <4BB1DF03.1070907@gmail.com>
+
+On 3/30/10 4:20 AM, Yaroslav Halchenko wrote:
+> GREAT -- keep on the progressing forward!
+>
+> My humble feedback:
+>
+> $>  python2.6 -m rpy2.tests; python2.6 -c 'import rpy2; print rpy2.__version__'; dpkg -l r-base-core
+>
+> ...F...Error in function (new = FALSE)  : file choice cancelled
+> .................................................................................F......Loading required package: splines
+> ............Error in function (x)  : object 'y' not found
+> ....Error in .Primitive("sum")(c("a", "b", "c", "d", "e", "f", "g", "h", "i",  :
+>    invalid 'type' (character) of argument
+> .................Error in function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  :
+>    cannot open the connection
+> In addition: Warning message:
+> In function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  :
+>    cannot create fifo '/home/yoh/.tmp/Rtmpne9cVP/Rf327b23c6', reason 'No such file or directory'
+> E..............................Error in .Primitive("[")(0:10, list("a", "b", "c")) :
+>    invalid subscript type 'list'
+> ..........................................................................................................
+> ======================================================================
+> ERROR: testStr (rpy2.robjects.tests.testRObject.RObjectTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/tests/testRObject.py", line 30, in testStr
+>      s = prt.__str__()
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/robjects/robject.py", line 29, in __str__
+>      tmp = self.__fifo(rpy2.rinterface.StrSexpVector(["", ]))
+> RRuntimeError: Error in function (description, open = "", blocking = FALSE, encoding = getOption("encoding"))  :
+>    cannot open the connection
+>
+>
+> ======================================================================
+> FAIL: testInterruptR (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_EmbeddedR.py", line 107, in testInterruptR
+>      self.assertFalse(ret_code is None) # Interruption failed
+> AssertionError
+>
+> ======================================================================
+> FAIL: testNARealtoR (rpy2.rinterface.tests.test_SexpVector.NAValuesTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "/home/yoh/proj/rpy2/build/lib.linux-x86_64-2.6/rpy2/rinterface/tests/test_SexpVector.py", line 77, in testNARealtoR
+>      self.assertEquals(True, ri.baseenv["is.na"](na_real)[0])
+> AssertionError: True != False
+>
+> ----------------------------------------------------------------------
+> Ran 265 tests in 1.498s
+>
+> FAILED (failures=2, errors=1)
+
+This is the currently expected output from the tests. The aim is to have 
+a clean bill for the release candidate.
+
+
+> 2.1.0beta2
+> Desired=Unknown/Install/Remove/Purge/Hold
+> | Status=Not/Inst/Cfg-files/Unpacked/Failed-cfg/Half-inst/trig-aWait/Trig-pend
+> |/ Err?=(none)/Hold/Reinst-required/X=both-problems (Status,Err: uppercase=bad)
+> ||/ Name                                  Version                               Description
+> +++-=====================================-=====================================-==========================================================================================
+> ii  r-base-core                           2.10.1-2                              GNU R core of statistical computation and graphics system
+>
+>
+>
+> Another annoyance I've ran into today -- our pymvpa unittests keep segfaulting
+> in some non-R related places whenever rpy2 is in use.  It was happening with
+> current version in sid: 2.1.0~20100314-1 and with current tip.  Attached see
+> the valgrind output for python2.5 and version 2.1.0~20100314-1 (first
+> R issues seems to be not that critical -- happens also with 2.6 without
+> major problems).
+> (Un)fortunately this issue seems not to reveal (or being absent) with
+> python2.6  ... I wonder if there is anything I could help/do to figure
+> it out for 2.5 ;)
+>
+
+The best you can you is to narrow it down to something a little more 
+specific. Unfortunately I can't currently spend time on Python 
+2.5-specific issues.
+
+>
+> On Mon, 29 Mar 2010, Laurent Gautier wrote:
+>
+>> Hi,
+>
+>> rpy2-2.1beta3 is out and available on bitbucket and on sourceforge.
+>> This fixes bugs (such as a memory leak), plus adds last minute details.
+>> The next expected step is the release candidate, then the release.
+>
+>
+>> L.
+>
+>> ------------------------------------------------------------------------------
+>> Download Intel&#174; Parallel Studio Eval
+>> Try the new software tools for yourself. Speed compiling, find bugs
+>> proactively, and fine-tune applications for parallel performance.
+>> See why Intel Parallel Studio got high marks during beta.
+>> http://p.sf.net/sfu/intel-sw-dev
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+>
+> ------------------------------------------------------------------------------
+> Download Intel&#174; Parallel Studio Eval
+> Try the new software tools for yourself. Speed compiling, find bugs
+> proactively, and fine-tune applications for parallel performance.
+> See why Intel Parallel Studio got high marks during beta.
+> http://p.sf.net/sfu/intel-sw-dev
+>
+>
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From carson.farmer at gmail.com  Wed Mar 31 00:02:13 2010
+From: carson.farmer at gmail.com (Carson Farmer)
+Date: Wed, 31 Mar 2010 01:02:13 +0100
+Subject: Re: [Rpy] py2 and threading
+In-Reply-To: <4BA3745C.6020809@gmail.com>
+References: <94b3c8441003181608o66f9c1b2u95d58b9df1f7375@mail.gmail.com> <4BA3745C.6020809@gmail.com>
+Message-ID: <94b3c8441003301702y27530630m5a8f88a722fc3344@mail.gmail.com>
+
+Thanks Laurent,
+
+> Multiprocessing is way to go (pickling was implemented to make it easier,
+> and there a google SoC project out bring storage-based arrays in).
+I think you're likely right...
+
+> R GUI builders could clearly and immediately benefit from having the GIL
+> released, but in the meanwhile adopting a client-server strategy is the
+> recommended way to go. That has limitations but also advantages; building a
+> minimal server can be done in less than 20 lines of code (less than 10 lines
+> if no comments).
+> http://rpy.sourceforge.net/rpy2/doc-2.1/html/server.html#simple-socket-based-server-and-client
+>
+> Hoping this helps,
+Indeed it has: I have experimented with both Multiprocessing and the
+client-server implementation.
+The multiprocessing route seems to work quite well, however, I'm
+running into two problems, and I'm wondering if anyone else has
+managed to get this working:
+1) As expected, if a plot is generated in a separate process, it is
+immediately destroyed once the process completes. I have tested this,
+and basically I get a plot for about half a second, then it
+disappears. Does anyone know of a way to get around this?
+2) Assignments do not seem to span process' (again this is probably
+expected, and I'm just simply doing something wrong). If I do
+something like 'robjects.r("test <- c(1,2,3,4,5)")' in a subprocess,
+then 'test' is *not* available in the parent process (whereas it *is*
+obviously available in the subprocess). Does anyone know what I need
+to do to make this work properly?
+
+Here is a minimal example to illustrate issue 2 above (issue 1 can
+similarly be tested by changing 'cmd' to "plot(c(1,2,3,4,5))") :
+
+# -*- coding: utf-8 -*-
+import sys, os
+from multiprocessing import Process, Queue
+import rpy2.robjects as robs
+
+
+def r_command(q, cmd):
+    q.put(robs.r(str(cmd)))
+    print "Process %s output:" % os.getpid()
+    print robs.r.ls()
+
+if __name__ == "__main__":
+    q = Queue()
+    cmd = "test <- c(1,2,3,4,5)"
+    p = Process(target=r_command, args=(q,cmd,))
+    p.start()
+    p.join()
+    print "Process %s output:" % os.getpid()
+    robs.r['print'](q.get())
+    print robs.r.ls()
+
+
+-- 
+Carson J. Q. Farmer
+ISSP Doctoral Fellow
+National Centre for Geocomputation
+National University of Ireland, Maynooth,
+http://www.carsonfarmer.com/
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From njs at pobox.com  Wed Mar 31 04:20:11 2010
+From: njs at pobox.com (Nathaniel Smith)
+Date: Tue, 30 Mar 2010 21:20:11 -0700
+Subject: Re: [Rpy] py2 and threading
+In-Reply-To: <94b3c8441003301702y27530630m5a8f88a722fc3344@mail.gmail.com>
+References: <94b3c8441003181608o66f9c1b2u95d58b9df1f7375@mail.gmail.com> <4BA3745C.6020809@gmail.com> <94b3c8441003301702y27530630m5a8f88a722fc3344@mail.gmail.com>
+Message-ID: <g2y961fa2b41003302120s8eaf84fdn5fdca4c7542aab3a@mail.gmail.com>
+
+On Tue, Mar 30, 2010 at 5:02 PM, Carson Farmer <carson.farmer at gmail.com> wrote:
+> 1) As expected, if a plot is generated in a separate process, it is
+> immediately destroyed once the process completes. I have tested this,
+> and basically I get a plot for about half a second, then it
+> disappears. Does anyone know of a way to get around this?
+> 2) Assignments do not seem to span process' (again this is probably
+> expected, and I'm just simply doing something wrong). If I do
+> something like 'robjects.r("test <- c(1,2,3,4,5)")' in a subprocess,
+> then 'test' is *not* available in the parent process (whereas it *is*
+> obviously available in the subprocess). Does anyone know what I need
+> to do to make this work properly?
+
+I think the intended idea would be for the other process to *not*
+complete, but rather hang around waiting for someone to give it the
+next line of code to execute, and then run everything in that one
+process.
+
+See: http://docs.python.org/library/multiprocessing.html#exchanging-objects-between-processes
+
+-- Nathaniel
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+
+From brandon at brandoninvergo.com  Wed Mar 31 10:34:07 2010
+From: brandon at brandoninvergo.com (Brandon Invergo)
+Date: Wed, 31 Mar 2010 03:34:07 -0700
+Subject: Re: [Rpy] py2 and threading
+In-Reply-To: <94b3c8441003301702y27530630m5a8f88a722fc3344@mail.gmail.com>
+References: <94b3c8441003181608o66f9c1b2u95d58b9df1f7375@mail.gmail.com> <4BA3745C.6020809@gmail.com> <94b3c8441003301702y27530630m5a8f88a722fc3344@mail.gmail.com>
+Message-ID: <786800.58717.qm@web82104.mail.mud.yahoo.com>
+
+For the first problem, I would route all of the graphical output to files to look at after running the program. For the second one, I would add the results to the R environment after the subprocess completes. Would something like this work for you?
+
+import sys, os
+from multiprocessing import Process, Queue
+import rpy2.robjects as robs
+from rpy2.robjects.packages import importr
+grdevices = importr("grDevices")
+
+
+def r_command(q, obj, cmd):
+    grdevices.pdf(file="{0}.pdf".format(obj))
+    q.put((obj,robs.r(str(cmd))))
+    print "Process %s output:" % os.getpid()
+    print robs.r.ls()
+    grdevices.dev_off()
+
+if __name__ == "__main__":
+    q = Queue()
+    cmd = "c(1,2,3,4,5)"
+    obj = "test"
+    p = Process(target=r_command, args=(q, obj, cmd,))
+    p.start()
+    p.join()
+    res = q.get()
+    robs.globalenv[res[0]] = res[1]
+    print "Process %s output:" % os.getpid()
+    print robs.r[res[0]]
+    print robs.r.ls()
+
+    cmd = "plot(c(1,2,3,4,5))"
+    obj = "test2"
+    p = Process(target=r_command, args=(q, obj, cmd,))
+    p.start()
+    p.join()
+    res = q.get()
+    robs.globalenv[res[0]] = res[1]
+    print "Process %s output:" % os.getpid()
+    print robs.r[res[0]]
+    print robs.r.ls()
+   
+    cmd = "plot(c(3,4,5,6,7))"
+    obj = "test3"
+    p = Process(target=r_command, args=(q, obj, cmd,))
+    p.start()
+    p.join()
+    res = q.get()
+    robs.globalenv[res[0]] = res[1]
+    print "Process %s output:" % os.getpid()
+    print robs.r[res[0]]
+    print robs.r.ls()
+
+
+
+Cheers,
+Brandon Invergo
+
+
+----- Original Message ----
+From: Carson Farmer <carson.farmer at gmail.com>
+To: Laurent Gautier <lgautier at gmail.com>
+Cc: "RPy help, support and design discussion list" <rpy-list at lists.sourceforge.net>
+Sent: Wed, March 31, 2010 2:02:13 AM
+Subject: Re: [Rpy] py2 and threading
+
+Thanks Laurent,
+
+> Multiprocessing is way to go (pickling was implemented to make it easier,
+> and there a google SoC project out bring storage-based arrays in).
+I think you're likely right...
+
+> R GUI builders could clearly and immediately benefit from having the GIL
+> released, but in the meanwhile adopting a client-server strategy is the
+> recommended way to go. That has limitations but also advantages; building a
+> minimal server can be done in less than 20 lines of code (less than 10 lines
+> if no comments).
+> http://rpy.sourceforge.net/rpy2/doc-2.1/html/server.html#simple-socket-based-server-and-client
+>
+> Hoping this helps,
+Indeed it has: I have experimented with both Multiprocessing and the
+client-server implementation.
+The multiprocessing route seems to work quite well, however, I'm
+running into two problems, and I'm wondering if anyone else has
+managed to get this working:
+1) As expected, if a plot is generated in a separate process, it is
+immediately destroyed once the process completes. I have tested this,
+and basically I get a plot for about half a second, then it
+disappears. Does anyone know of a way to get around this?
+2) Assignments do not seem to span process' (again this is probably
+expected, and I'm just simply doing something wrong). If I do
+something like 'robjects.r("test <- c(1,2,3,4,5)")' in a subprocess,
+then 'test' is *not* available in the parent process (whereas it *is*
+obviously available in the subprocess). Does anyone know what I need
+to do to make this work properly?
+
+Here is a minimal example to illustrate issue 2 above (issue 1 can
+similarly be tested by changing 'cmd' to "plot(c(1,2,3,4,5))") :
+
+# -*- coding: utf-8 -*-
+import sys, os
+from multiprocessing import Process, Queue
+import rpy2.robjects as robs
+
+
+def r_command(q, cmd):
+    q.put(robs.r(str(cmd)))
+    print "Process %s output:" % os.getpid()
+    print robs.r.ls()
+
+if __name__ == "__main__":
+    q = Queue()
+    cmd = "test <- c(1,2,3,4,5)"
+    p = Process(target=r_command, args=(q,cmd,))
+    p.start()
+    p.join()
+    print "Process %s output:" % os.getpid()
+    robs.r['print'](q.get())
+    print robs.r.ls()
+
+
+-- 
+Carson J. Q. Farmer
+ISSP Doctoral Fellow
+National Centre for Geocomputation
+National University of Ireland, Maynooth,
+http://www.carsonfarmer.com/
+
+------------------------------------------------------------------------------
+Download Intel® Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Download Intel&#174; Parallel Studio Eval
+Try the new software tools for yourself. Speed compiling, find bugs
+proactively, and fine-tune applications for parallel performance.
+See why Intel Parallel Studio got high marks during beta.
+http://p.sf.net/sfu/intel-sw-dev
+

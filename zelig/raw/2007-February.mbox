@@ -1,0 +1,1730 @@
+From gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org  Tue Feb 20 08:45:28 2007
+From: gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org (Gregor Gorjanc)
+Date: Tue, 20 Feb 2007 09:45:28 +0100
+Subject: test for gmane
+Message-ID: <45DAB528.5050005@bfro.uni-lj.si>
+
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Tue Feb 20 14:36:26 2007
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Tue, 20 Feb 2007 09:36:26 -0500
+Subject: Re: error: protection stack overflow
+In-Reply-To: <8068885776B5D411A8AB00E0294863640421194E@mail>
+References: <8068885776B5D411A8AB00E0294863640421194E@mail>
+Message-ID: <A71DC48B-63ED-4FFF-8A84-5871D2D90FB5@Princeton.EDU>
+
+Dear Kirill,
+
+   Thanks for the bug report. We've fixed this problem and will  
+release a new version later today.
+
+Many thanks,
+Kosuke
+
+---------------------------------------------------------
+Kosuke Imai               Office: Corwin Hall 041
+Assistant Professor       Phone: 609-258-6601
+Department of Politics    Fax: 973-556-1929
+Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+Princeton, NJ 08544-1012  http://imai.princeton.edu
+---------------------------------------------------------
+
+
+On Feb 20, 2007, at 9:03 AM, Kirill Kalinin wrote:
+
+> Dear Kosuke,
+>
+> Olivia advised me to address my problem to you, which is when I am  
+> trying to
+> run setx() with the ordered catagorical variables (metric variables  
+> work
+> fine) in 'logit' model I get "Error: protect(): protection stack  
+> overflow".
+> What might be the solution to the problem?
+>
+> Thank you a lot for your help!
+>
+> Best regards,
+> Kirill
+>
+> --------------------------------------
+>
+>
+>> Dear Olivia,
+>>
+>> Thank you a lot for your prompt and detailed reply! Well, I  
+>> changed the
+>> script as you advised to, but it doesn't seem to help to resolve the
+>> issue. Same error appears when I am trying to run setx(). Are there
+>> any other suggestions of what might be wrong with the script?
+>>
+>> Here is what I'm getting on my console now:
+>>
+>>> q15<- as.ordered(Q15)
+>>> age<-as.ordered(AGE)
+>>> ttt<-data.frame(q15=q15,age=age, putin=PUTIN_BI)
+>>> z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>>> x.low <- setx(z.out, age = 1)
+>> Error: protect(): protection stack overflow
+>>> x.high <- setx(z.out, age = 4)
+>> Error: protect(): protection stack overflow
+>>
+>> Thank you a lot for you help!
+>> Best wishes,
+>> Kirill
+>>
+>>
+>
+>
+>
+>
+>
+>
+> Dear Kirill,
+>
+> I think the problem is in:
+>
+> ttt<-data.frame(q15,age, PUTIN_BI)  # Step 1
+> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+> "logit")  # Step 2
+>
+> This should be, for the first step:
+>   ttt <- data.farme(q15 = q15, age = age, putin = PUTIN_BI)
+> For the second step, I'm not sure what you're trying to do, but
+> formulas should NEVER have $ in them!  That confuses setx and sim to
+> no end.  And you should ALWAYS name every argument passed, since the
+> order may vary.  If you want to run a regression for putin on age and
+> q15, then use
+>    z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+> Note that I have named every argument after the default formula.  You
+> don't need to say na.exclude() yourself, as zelig() will do that
+> automatically.
+>
+> If you are trying to use age as weights for observations (don't see
+> why you would want to, though):
+>    ttt <- na.omit(ttt)
+>    z.out <- zelig(putin ~ q15, weights = ttt$age, data = ttt, model =
+> "logit")
+> You do need to do the list wise deletion yourself if you specify
+> weights, and weights does need a $ in it to identify the data frame.
+>
+> Hope this helps, best,
+> Olivia
+>
+>
+>
+>
+> On 2/18/07, Kirill Kalinin <kkalinin-tU4UBwgj0uSHXe+LvDLADg at public.gmane.org> wrote:
+>> Dear Olivia,
+>>
+>> I am a PhD student with the European University at St. Petersburg,  
+>> working
+>
+>> on electoral behavior issues. The dataset I am running is huge -  
+>> 30000
+>> cases. I look forward to calculating  the first differences using  
+>> 'logit'
+>> but when running setx() I get an error message: "Error: protect():
+>> protection stack overflow".  I was trying to decrease the size of  
+>> then
+>> dataset, but it doesn't seem to help.
+>> The script is as follows:
+>>
+>> library (Zelig)
+>> library(foreign)
+>>
+>> Estdata <- read.spss(
+>>  "G:/geo_c.sav",
+>>  to.data.frame=T, use.value.labels=T)
+>> dim(Estdata)
+>> names(Estdata)
+>> attach(Estdata)
+>> q15<- as.ordered(Q15)   #ordered categorical variable with 4  
+>> values (1-4)
+>> age<-as.ordered(AGE)    #ordered categorical variable with 4  
+>> values (1-4)
+>> ttt<-data.frame(q15,age, PUTIN_BI)
+>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>> "logit")
+>>
+>> Then I run:
+>> x.low <- setx(z.out, q15=1)
+>> x.high <- setx(z.out, q15=4)
+>> So I get:
+>> protect(): protection stack overflow
+>>
+>>
+>> I wonder whether I am doing something wrong, as I am new to R and  
+>> Zelig,
+> or
+>> this happens because of my computer limitations. In fact,  
+>> everything is
+>> perfect with metric variables, this problem occurs just with the  
+>> ordered
+>> categorical variables.  Could you help me to resolve the issue?
+>>
+>> Thank you very much!
+>>
+>> All the Best,
+>> Kirill
+>> P.S. Happy Chinese New Year!
+>>
+>>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org  Tue Feb 20 15:03:30 2007
+From: gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org (Gregor Gorjanc)
+Date: Tue, 20 Feb 2007 16:03:30 +0100
+Subject: Why is as.factor() mandatory in mlogit model
+Message-ID: <45DB0DC2.3070207@bfro.uni-lj.si>
+
+Hello!
+
+I just started with zelig and find it very convenient! I played with
+mlogit model and I wonder why I have to use as.factor() for dependent
+variable y no matter if this is already a factor. I show this with
+mexico data bellow with Zelig (Version 2.7-5, built: 2006-12-25)
+
+> library(package="Zelig")
+> data(mexico)
+## as shown in documentation
+> z.out1 <- zelig(as.factor(vote88) ~ pristr + othcok + othsocok,
+                  model = "mlogit", data = mexico)
+
+## all OK
+## now let us try without as.factor, but specifying y as factor before!
+
+> mexico$vote88 <- factor(mexico$vote88)
+> z.out1 <- zelig(vote88 ~ pristr + othcok + othsocok,
++  model="mlogit", data=mexico)
+Error in dimnames(xbig) <- list(vlabel(yn, rep(M, n), M), vlabel(xn,
+ncolBlist,  :
+	length of 'dimnames' [1] not equal to array extent
+
+## ???
+
+-- 
+Lep pozdrav / With regards,
+    Gregor Gorjanc
+----------------------------------------------------------------------
+University of Ljubljana     PhD student
+Biotechnical Faculty
+Zootechnical Department     URI: http://www.bfro.uni-lj.si/MR/ggorjan
+Groblje 3                   mail: gregor.gorjanc <at> bfro.uni-lj.si
+
+SI-1230 Domzale             tel: +386 (0)1 72 17 861
+Slovenia, Europe            fax: +386 (0)1 72 17 888
+
+----------------------------------------------------------------------
+"One must learn by doing the thing; for though you think you know it,
+ you have no certainty until you try." Sophocles ~ 450 B.C.
+----------------------------------------------------------------------
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org  Wed Feb 21 09:29:12 2007
+From: gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org (Gregor Gorjanc)
+Date: Wed, 21 Feb 2007 09:29:12 +0000
+Subject: Zelig list now also on Gmane
+Message-ID: <loom.20070221T102639-718@post.gmane.org>
+
+Hi,
+
+I would like to announce that zelig's mailing list is now also stored in Gmane 
+archive at
+
+http://news.gmane.org/gmane.comp.lang.r.zelig
+
+In case anyone here "monitors" several lists Gmane is really helpfull in 
+preventing the flood of e-mails in your inbox. There are also other R lists
+at Gmane - list of them is available at 
+
+http://dir.gmane.org/index.php?prefix=gmane.comp.lang.r.
+
+There is also ability to use RSS.
+
+Regards, Gregor
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From vendo69-VGgt2q2+T+FeoWH0uzbU5w at public.gmane.org  Wed Feb 21 13:11:52 2007
+From: vendo69-VGgt2q2+T+FeoWH0uzbU5w at public.gmane.org (Riccardo)
+Date: Wed, 21 Feb 2007 14:11:52 +0100
+Subject: Diff Function
+Message-ID: <courier.0000000045DC451E.000058F3@mail-1.hmdc.harvard.edu>
+
+Hi,
+
+ 
+
+i use Zelig package, but R doesn't recognize the function Diff .
+
+ 
+
+p.s Diff with capital letter, not diff !
+
+ 
+
+Why?
+
+ 
+
+Thanks for your attention.
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Wed Feb 21 13:43:30 2007
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Wed, 21 Feb 2007 08:43:30 -0500
+Subject: Re: Diff Function
+In-Reply-To: <courier.0000000045DC451E.000058F3@mail-1.hmdc.harvard.edu>
+References: <courier.0000000045DC451E.000058F3@mail-1.hmdc.harvard.edu>
+Message-ID: <Pine.LNX.4.62.0702210843110.22844@wws-6qcbw21.Princeton.EDU>
+
+I don't think Diff is a function in Zelig.
+
+Kosuke
+
+-----------------------------------------------------
+Kosuke Imai               Office: Corwin Hall 041
+Assistant Professor       Phone: 609-258-6601
+Department of Politics    eFax:  973-556-1929
+Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+Princeton, NJ 08544-1012  http://imai.princeton.edu
+-----------------------------------------------------
+
+On Wed, 21 Feb 2007, Riccardo wrote:
+
+> Hi,
+>
+>
+>
+> i use Zelig package, but R doesn't recognize the function Diff .
+>
+>
+>
+> p.s Diff with capital letter, not diff !
+>
+>
+>
+> Why?
+>
+>
+>
+> Thanks for your attention.
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Wed Feb 21 13:44:43 2007
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Wed, 21 Feb 2007 08:44:43 -0500
+Subject: Re: error: protection stack overflow
+In-Reply-To: <8068885776B5D411A8AB00E02948636404211951@mail>
+References: <8068885776B5D411A8AB00E02948636404211951@mail>
+Message-ID: <Pine.LNX.4.62.0702210843380.22844@wws-6qcbw21.Princeton.EDU>
+
+it's already on our website - it will take a few days for it to appear at 
+CRAN. Try:
+
+install.packages("Zelig", repos = "http://gking.harvard.edu")
+
+Kosuke
+
+-----------------------------------------------------
+Kosuke Imai               Office: Corwin Hall 041
+Assistant Professor       Phone: 609-258-6601
+Department of Politics    eFax:  973-556-1929
+Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+Princeton, NJ 08544-1012  http://imai.princeton.edu
+-----------------------------------------------------
+
+On Wed, 21 Feb 2007, Kirill Kalinin wrote:
+
+> Dear Kosuke,
+>
+> Thank you for your help!  I'll be downloading a new version from
+> www.r-project.org later today.
+>
+> All the best,
+> Kirill
+>
+>
+>
+>
+> Dear Kirill,
+>
+>   Thanks for the bug report. We've fixed this problem and will
+> release a new version later today.
+>
+> Many thanks,
+> Kosuke
+>
+> ---------------------------------------------------------
+> Kosuke Imai               Office: Corwin Hall 041
+> Assistant Professor       Phone: 609-258-6601
+> Department of Politics    Fax: 973-556-1929
+> Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+> Princeton, NJ 08544-1012  http://imai.princeton.edu
+> ---------------------------------------------------------
+>
+>
+>
+> On Feb 20, 2007, at 9:03 AM, Kirill Kalinin wrote:
+>
+>> Dear Kosuke,
+>>
+>> Olivia advised me to address my problem to you, which is when I am
+>> trying to
+>> run setx() with the ordered catagorical variables (metric variables
+>> work
+>> fine) in 'logit' model I get "Error: protect(): protection stack
+>> overflow".
+>> What might be the solution to the problem?
+>>
+>> Thank you a lot for your help!
+>>
+>> Best regards,
+>> Kirill
+>>
+>> --------------------------------------
+>>
+>>
+>>> Dear Olivia,
+>>>
+>>> Thank you a lot for your prompt and detailed reply! Well, I
+>>> changed the
+>>> script as you advised to, but it doesn't seem to help to resolve the
+>>> issue. Same error appears when I am trying to run setx(). Are there
+>>> any other suggestions of what might be wrong with the script?
+>>>
+>>> Here is what I'm getting on my console now:
+>>>
+>>>> q15<- as.ordered(Q15)
+>>>> age<-as.ordered(AGE)
+>>>> ttt<-data.frame(q15=q15,age=age, putin=PUTIN_BI)
+>>>> z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>>>> x.low <- setx(z.out, age = 1)
+>>> Error: protect(): protection stack overflow
+>>>> x.high <- setx(z.out, age = 4)
+>>> Error: protect(): protection stack overflow
+>>>
+>>> Thank you a lot for you help!
+>>> Best wishes,
+>>> Kirill
+>>>
+>>>
+>>
+>>
+>>
+>>
+>>
+>>
+>> Dear Kirill,
+>>
+>> I think the problem is in:
+>>
+>> ttt<-data.frame(q15,age, PUTIN_BI)  # Step 1
+>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>> "logit")  # Step 2
+>>
+>> This should be, for the first step:
+>>   ttt <- data.farme(q15 = q15, age = age, putin = PUTIN_BI)
+>> For the second step, I'm not sure what you're trying to do, but
+>> formulas should NEVER have $ in them!  That confuses setx and sim to
+>> no end.  And you should ALWAYS name every argument passed, since the
+>> order may vary.  If you want to run a regression for putin on age and
+>> q15, then use
+>>    z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>> Note that I have named every argument after the default formula.  You
+>> don't need to say na.exclude() yourself, as zelig() will do that
+>> automatically.
+>>
+>> If you are trying to use age as weights for observations (don't see
+>> why you would want to, though):
+>>    ttt <- na.omit(ttt)
+>>    z.out <- zelig(putin ~ q15, weights = ttt$age, data = ttt, model =
+>> "logit")
+>> You do need to do the list wise deletion yourself if you specify
+>> weights, and weights does need a $ in it to identify the data frame.
+>>
+>> Hope this helps, best,
+>> Olivia
+>>
+>>
+>>
+>>
+>> On 2/18/07, Kirill Kalinin <kkalinin-tU4UBwgj0uSHXe+LvDLADg at public.gmane.org> wrote:
+>>> Dear Olivia,
+>>>
+>>> I am a PhD student with the European University at St. Petersburg,
+>>> working
+>>
+>>> on electoral behavior issues. The dataset I am running is huge -
+>>> 30000
+>>> cases. I look forward to calculating  the first differences using
+>>> 'logit'
+>>> but when running setx() I get an error message: "Error: protect():
+>>> protection stack overflow".  I was trying to decrease the size of
+>>> then
+>>> dataset, but it doesn't seem to help.
+>>> The script is as follows:
+>>>
+>>> library (Zelig)
+>>> library(foreign)
+>>>
+>>> Estdata <- read.spss(
+>>>  "G:/geo_c.sav",
+>>>  to.data.frame=T, use.value.labels=T)
+>>> dim(Estdata)
+>>> names(Estdata)
+>>> attach(Estdata)
+>>> q15<- as.ordered(Q15)   #ordered categorical variable with 4
+>>> values (1-4)
+>>> age<-as.ordered(AGE)    #ordered categorical variable with 4
+>>> values (1-4)
+>>> ttt<-data.frame(q15,age, PUTIN_BI)
+>>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>>> "logit")
+>>>
+>>> Then I run:
+>>> x.low <- setx(z.out, q15=1)
+>>> x.high <- setx(z.out, q15=4)
+>>> So I get:
+>>> protect(): protection stack overflow
+>>>
+>>>
+>>> I wonder whether I am doing something wrong, as I am new to R and
+>>> Zelig,
+>> or
+>>> this happens because of my computer limitations. In fact,
+>>> everything is
+>>> perfect with metric variables, this problem occurs just with the
+>>> ordered
+>>> categorical variables.  Could you help me to resolve the issue?
+>>>
+>>> Thank you very much!
+>>>
+>>> All the Best,
+>>> Kirill
+>>> P.S. Happy Chinese New Year!
+>>>
+>>>
+>>
+>
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org  Thu Feb 22 20:31:37 2007
+From: gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org (Gregor Gorjanc)
+Date: Thu, 22 Feb 2007 21:31:37 +0100
+Subject: Re: Why is as.factor() mandatory in mlogit model
+In-Reply-To: <200702200820.30888.vqnguyen@ics.uci.edu>
+References: <45DB0DC2.3070207@bfro.uni-lj.si> <200702200820.30888.vqnguyen@ics.uci.edu>
+Message-ID: <45DDFDA9.2060004@bfro.uni-lj.si>
+
+Vinh Nguyen wrote:
+> I believe the authors made zelig take in a factor response in zelig and then 
+> passing it on.   Just part of the code I think, nothing big.
+
+Hmm, does not make sense that as.factor(y) needs to be called
+nevertheless y is already a factor.
+
+Gregor
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Thu Feb 22 22:34:44 2007
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Thu, 22 Feb 2007 17:34:44 -0500
+Subject: Re: Why is as.factor() mandatory in mlogit model
+In-Reply-To: <45DDFDA9.2060004@bfro.uni-lj.si>
+References: <45DB0DC2.3070207@bfro.uni-lj.si> <200702200820.30888.vqnguyen@ics.uci.edu> <45DDFDA9.2060004@bfro.uni-lj.si>
+Message-ID: <9619E9BF-925B-4E76-9594-C35EEC7EF065@Princeton.Edu>
+
+Yes, we made it a requirement because many people tend to forget  
+about it. Maybe, in the next release, we will make it so that if it  
+is indeed a factor variable, you don't have to type it. For now,  
+please type as.factor().
+
+Thanks,
+Kosuke
+
+---------------------------------------------------------
+Kosuke Imai               Office: Corwin Hall 041
+Assistant Professor       Phone: 609-258-6601
+Department of Politics    Fax: 973-556-1929
+Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+Princeton, NJ 08544-1012  http://imai.princeton.edu
+---------------------------------------------------------
+
+
+On Feb 22, 2007, at 3:31 PM, Gregor Gorjanc wrote:
+
+> Vinh Nguyen wrote:
+>> I believe the authors made zelig take in a factor response in  
+>> zelig and then
+>> passing it on.   Just part of the code I think, nothing big.
+>
+> Hmm, does not make sense that as.factor(y) needs to be called
+> nevertheless y is already a factor.
+>
+> Gregor
+>
+> -
+> Zelig Mailing List, served by Harvard-MIT Data Center
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Fri Feb 23 01:38:56 2007
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Thu, 22 Feb 2007 20:38:56 -0500
+Subject: Re: error: protection stack overflow
+In-Reply-To: <8068885776B5D411A8AB00E02948636404211953@mail>
+References: <8068885776B5D411A8AB00E02948636404211953@mail>
+Message-ID: <Pine.LNX.4.62.0702222034290.12790@wws-6qcbw21.Princeton.EDU>
+
+> Thank you very much for you help on my matter. Actually, I need to 
+> calculate the difference in the predicted probabilities of Russian 
+> voters choosing Putin when explanatory variable shifts from its minimum 
+> to its maximum value, holding other terms in the equation constant at 
+> their medians.  I am trying to get everything right: could you tell me 
+> what 'Mean' in first differences stand for?
+
+Zelig simulates the quantities of interest and so "Mean" is the mean of 
+this simulated quantitites (the default is 1000 simulations). You can 
+think of it as a point estimate of the quantity of interest.
+
+> Another important question is: if I have 10 variables, for example, and 
+> calculate first differences, holding the rest at their medians, will all 
+> 'first differences' sum up to "0" and predicted probabilities to "1"? If 
+> so, it could help me to claim that, say, the value of 0.15 in first 
+> differences between young and old would give Putin 15% of the vote! If 
+> not so, is it hard to make it Zelig? In fact, I am trying to follow T. 
+> Colton's approach in "Transitional citizens" (2000), so as I could 
+> compare my calculations with his as well. And, finally do you know about 
+> any book for beginners to help to understand simulation techniques with 
+> Zelig? It's a new promising field for me!
+
+Yes, your interpretation is correct. The first differences should sum up 
+to and the predicted probabilities sum up to 1 in the case of the 
+logit/probit if that's what you are using.
+
+Kosuke
+
+>
+> All the best,
+> Kirill
+>
+> -------------------------------------------------
+> it's already on our website - it will take a few days for it to appear at
+> CRAN. Try:
+>
+> install.packages("Zelig", repos = "http://gking.harvard.edu")
+>
+> Kosuke
+>
+> -----------------------------------------------------
+> Kosuke Imai               Office: Corwin Hall 041
+> Assistant Professor       Phone: 609-258-6601
+> Department of Politics    eFax:  973-556-1929
+> Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+> Princeton, NJ 08544-1012  http://imai.princeton.edu
+> -----------------------------------------------------
+>
+> On Wed, 21 Feb 2007, Kirill Kalinin wrote:
+>
+>> Dear Kosuke,
+>>
+>> Thank you for your help!  I'll be downloading a new version from
+>> www.r-project.org later today.
+>>
+>> All the best,
+>> Kirill
+>>
+>>
+>>
+>>
+>> Dear Kirill,
+>>
+>>   Thanks for the bug report. We've fixed this problem and will
+>> release a new version later today.
+>>
+>> Many thanks,
+>> Kosuke
+>>
+>> ---------------------------------------------------------
+>> Kosuke Imai               Office: Corwin Hall 041
+>> Assistant Professor       Phone: 609-258-6601
+>> Department of Politics    Fax: 973-556-1929
+>> Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+>> Princeton, NJ 08544-1012  http://imai.princeton.edu
+>> ---------------------------------------------------------
+>>
+>>
+>>
+>> On Feb 20, 2007, at 9:03 AM, Kirill Kalinin wrote:
+>>
+>>> Dear Kosuke,
+>>>
+>>> Olivia advised me to address my problem to you, which is when I am
+>>> trying to
+>>> run setx() with the ordered catagorical variables (metric variables
+>>> work
+>>> fine) in 'logit' model I get "Error: protect(): protection stack
+>>> overflow".
+>>> What might be the solution to the problem?
+>>>
+>>> Thank you a lot for your help!
+>>>
+>>> Best regards,
+>>> Kirill
+>>>
+>>> --------------------------------------
+>>>
+>>>
+>>>> Dear Olivia,
+>>>>
+>>>> Thank you a lot for your prompt and detailed reply! Well, I
+>>>> changed the
+>>>> script as you advised to, but it doesn't seem to help to resolve the
+>>>> issue. Same error appears when I am trying to run setx(). Are there
+>>>> any other suggestions of what might be wrong with the script?
+>>>>
+>>>> Here is what I'm getting on my console now:
+>>>>
+>>>>> q15<- as.ordered(Q15)
+>>>>> age<-as.ordered(AGE)
+>>>>> ttt<-data.frame(q15=q15,age=age, putin=PUTIN_BI)
+>>>>> z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>>>>> x.low <- setx(z.out, age = 1)
+>>>> Error: protect(): protection stack overflow
+>>>>> x.high <- setx(z.out, age = 4)
+>>>> Error: protect(): protection stack overflow
+>>>>
+>>>> Thank you a lot for you help!
+>>>> Best wishes,
+>>>> Kirill
+>>>>
+>>>>
+>>>
+>>>
+>>>
+>>>
+>>>
+>>>
+>>> Dear Kirill,
+>>>
+>>> I think the problem is in:
+>>>
+>>> ttt<-data.frame(q15,age, PUTIN_BI)  # Step 1
+>>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>>> "logit")  # Step 2
+>>>
+>>> This should be, for the first step:
+>>>   ttt <- data.farme(q15 = q15, age = age, putin = PUTIN_BI)
+>>> For the second step, I'm not sure what you're trying to do, but
+>>> formulas should NEVER have $ in them!  That confuses setx and sim to
+>>> no end.  And you should ALWAYS name every argument passed, since the
+>>> order may vary.  If you want to run a regression for putin on age and
+>>> q15, then use
+>>>    z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>>> Note that I have named every argument after the default formula.  You
+>>> don't need to say na.exclude() yourself, as zelig() will do that
+>>> automatically.
+>>>
+>>> If you are trying to use age as weights for observations (don't see
+>>> why you would want to, though):
+>>>    ttt <- na.omit(ttt)
+>>>    z.out <- zelig(putin ~ q15, weights = ttt$age, data = ttt, model =
+>>> "logit")
+>>> You do need to do the list wise deletion yourself if you specify
+>>> weights, and weights does need a $ in it to identify the data frame.
+>>>
+>>> Hope this helps, best,
+>>> Olivia
+>>>
+>>>
+>>>
+>>>
+>>> On 2/18/07, Kirill Kalinin <kkalinin-tU4UBwgj0uSHXe+LvDLADg at public.gmane.org> wrote:
+>>>> Dear Olivia,
+>>>>
+>>>> I am a PhD student with the European University at St. Petersburg,
+>>>> working
+>>>
+>>>> on electoral behavior issues. The dataset I am running is huge -
+>>>> 30000
+>>>> cases. I look forward to calculating  the first differences using
+>>>> 'logit'
+>>>> but when running setx() I get an error message: "Error: protect():
+>>>> protection stack overflow".  I was trying to decrease the size of
+>>>> then
+>>>> dataset, but it doesn't seem to help.
+>>>> The script is as follows:
+>>>>
+>>>> library (Zelig)
+>>>> library(foreign)
+>>>>
+>>>> Estdata <- read.spss(
+>>>>  "G:/geo_c.sav",
+>>>>  to.data.frame=T, use.value.labels=T)
+>>>> dim(Estdata)
+>>>> names(Estdata)
+>>>> attach(Estdata)
+>>>> q15<- as.ordered(Q15)   #ordered categorical variable with 4
+>>>> values (1-4)
+>>>> age<-as.ordered(AGE)    #ordered categorical variable with 4
+>>>> values (1-4)
+>>>> ttt<-data.frame(q15,age, PUTIN_BI)
+>>>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>>>> "logit")
+>>>>
+>>>> Then I run:
+>>>> x.low <- setx(z.out, q15=1)
+>>>> x.high <- setx(z.out, q15=4)
+>>>> So I get:
+>>>> protect(): protection stack overflow
+>>>>
+>>>>
+>>>> I wonder whether I am doing something wrong, as I am new to R and
+>>>> Zelig,
+>>> or
+>>>> this happens because of my computer limitations. In fact,
+>>>> everything is
+>>>> perfect with metric variables, this problem occurs just with the
+>>>> ordered
+>>>> categorical variables.  Could you help me to resolve the issue?
+>>>>
+>>>> Thank you very much!
+>>>>
+>>>> All the Best,
+>>>> Kirill
+>>>> P.S. Happy Chinese New Year!
+>>>>
+>>>>
+>>>
+>>
+>>
+>>
+>
+>
+>
+>
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Fri Feb 23 14:17:04 2007
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Fri, 23 Feb 2007 09:17:04 -0500
+Subject: Re: error: protection stack overflow
+In-Reply-To: <8068885776B5D411A8AB00E02948636404211955@mail>
+References: <8068885776B5D411A8AB00E02948636404211955@mail>
+Message-ID: <Pine.LNX.4.62.0702230909520.17481@wws-6qcbw21.Princeton.EDU>
+
+yes, it's the usual confidence interval on the quantity of interest and so 
+your interpretation is correct. There is no option, currently, in sim() 
+that lets you calculate the p-values, but you can do it by hand. For 
+example, you can do mean(s.out$fd > 0) to calculate the proportion of 
+simulation draws that are greater than 0.
+
+Kosuke
+
+On Fri, 23 Feb 2007, Kirill Kalinin wrote:
+
+> Dear Kosuke,
+>
+> Thank you a lot for your prompt reply!  It's great that I can use it to work
+> with the percentages. I wonder if the confidence interval which I got in the
+> output below can be interpreted as usual, so that the null hypothesis can't
+> be rejected at 0.05 level, is this correct?  Also I wonder is there an
+> option in sim() to get confidence intervals together with p-values, so as it
+> could be easier to deal with the 'first differences' signficance.
+>
+> ----------------Output----------------------------
+> First Differences in Expected Values: E(Y|X1)-E(Y|X)
+>     mean      sd     2.5%   97.5%
+> 1 0.00973 0.01058 -0.01066 0.03029
+> --------------------------------------------------
+> Thank you a lot for your help!
+>
+> All the best,
+> Kirill
+>
+>
+>
+> ----------------------------------------
+>> Thank you very much for you help on my matter. Actually, I need to
+>> calculate the difference in the predicted probabilities of Russian
+>> voters choosing Putin when explanatory variable shifts from its minimum
+>> to its maximum value, holding other terms in the equation constant at
+>> their medians.  I am trying to get everything right: could you tell me
+>> what 'Mean' in first differences stand for?
+>
+> Zelig simulates the quantities of interest and so "Mean" is the mean of
+> this simulated quantitites (the default is 1000 simulations). You can
+> think of it as a point estimate of the quantity of interest.
+>
+>> Another important question is: if I have 10 variables, for example, and
+>> calculate first differences, holding the rest at their medians, will all
+>> 'first differences' sum up to "0" and predicted probabilities to "1"? If
+>> so, it could help me to claim that, say, the value of 0.15 in first
+>> differences between young and old would give Putin 15% of the vote! If
+>> not so, is it hard to make it Zelig? In fact, I am trying to follow T.
+>> Colton's approach in "Transitional citizens" (2000), so as I could
+>> compare my calculations with his as well. And, finally do you know about
+>> any book for beginners to help to understand simulation techniques with
+>> Zelig? It's a new promising field for me!
+>
+> Yes, your interpretation is correct. The first differences should sum up
+> to and the predicted probabilities sum up to 1 in the case of the
+> logit/probit if that's what you are using.
+>
+> Kosuke
+>
+>>
+>> All the best,
+>> Kirill
+>>
+>> -------------------------------------------------
+>> it's already on our website - it will take a few days for it to appear at
+>> CRAN. Try:
+>>
+>> install.packages("Zelig", repos = "http://gking.harvard.edu")
+>>
+>> Kosuke
+>>
+>> -----------------------------------------------------
+>> Kosuke Imai               Office: Corwin Hall 041
+>> Assistant Professor       Phone: 609-258-6601
+>> Department of Politics    eFax:  973-556-1929
+>> Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+>> Princeton, NJ 08544-1012  http://imai.princeton.edu
+>> -----------------------------------------------------
+>>
+>> On Wed, 21 Feb 2007, Kirill Kalinin wrote:
+>>
+>>> Dear Kosuke,
+>>>
+>>> Thank you for your help!  I'll be downloading a new version from
+>>> www.r-project.org later today.
+>>>
+>>> All the best,
+>>> Kirill
+>>>
+>>>
+>>>
+>>>
+>>> Dear Kirill,
+>>>
+>>>   Thanks for the bug report. We've fixed this problem and will
+>>> release a new version later today.
+>>>
+>>> Many thanks,
+>>> Kosuke
+>>>
+>>> ---------------------------------------------------------
+>>> Kosuke Imai               Office: Corwin Hall 041
+>>> Assistant Professor       Phone: 609-258-6601
+>>> Department of Politics    Fax: 973-556-1929
+>>> Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+>>> Princeton, NJ 08544-1012  http://imai.princeton.edu
+>>> ---------------------------------------------------------
+>>>
+>>>
+>>>
+>>> On Feb 20, 2007, at 9:03 AM, Kirill Kalinin wrote:
+>>>
+>>>> Dear Kosuke,
+>>>>
+>>>> Olivia advised me to address my problem to you, which is when I am
+>>>> trying to
+>>>> run setx() with the ordered catagorical variables (metric variables
+>>>> work
+>>>> fine) in 'logit' model I get "Error: protect(): protection stack
+>>>> overflow".
+>>>> What might be the solution to the problem?
+>>>>
+>>>> Thank you a lot for your help!
+>>>>
+>>>> Best regards,
+>>>> Kirill
+>>>>
+>>>> --------------------------------------
+>>>>
+>>>>
+>>>>> Dear Olivia,
+>>>>>
+>>>>> Thank you a lot for your prompt and detailed reply! Well, I
+>>>>> changed the
+>>>>> script as you advised to, but it doesn't seem to help to resolve the
+>>>>> issue. Same error appears when I am trying to run setx(). Are there
+>>>>> any other suggestions of what might be wrong with the script?
+>>>>>
+>>>>> Here is what I'm getting on my console now:
+>>>>>
+>>>>>> q15<- as.ordered(Q15)
+>>>>>> age<-as.ordered(AGE)
+>>>>>> ttt<-data.frame(q15=q15,age=age, putin=PUTIN_BI)
+>>>>>> z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>>>>>> x.low <- setx(z.out, age = 1)
+>>>>> Error: protect(): protection stack overflow
+>>>>>> x.high <- setx(z.out, age = 4)
+>>>>> Error: protect(): protection stack overflow
+>>>>>
+>>>>> Thank you a lot for you help!
+>>>>> Best wishes,
+>>>>> Kirill
+>>>>>
+>>>>>
+>>>>
+>>>>
+>>>>
+>>>>
+>>>>
+>>>>
+>>>> Dear Kirill,
+>>>>
+>>>> I think the problem is in:
+>>>>
+>>>> ttt<-data.frame(q15,age, PUTIN_BI)  # Step 1
+>>>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>>>> "logit")  # Step 2
+>>>>
+>>>> This should be, for the first step:
+>>>>   ttt <- data.farme(q15 = q15, age = age, putin = PUTIN_BI)
+>>>> For the second step, I'm not sure what you're trying to do, but
+>>>> formulas should NEVER have $ in them!  That confuses setx and sim to
+>>>> no end.  And you should ALWAYS name every argument passed, since the
+>>>> order may vary.  If you want to run a regression for putin on age and
+>>>> q15, then use
+>>>>    z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>>>> Note that I have named every argument after the default formula.  You
+>>>> don't need to say na.exclude() yourself, as zelig() will do that
+>>>> automatically.
+>>>>
+>>>> If you are trying to use age as weights for observations (don't see
+>>>> why you would want to, though):
+>>>>    ttt <- na.omit(ttt)
+>>>>    z.out <- zelig(putin ~ q15, weights = ttt$age, data = ttt, model =
+>>>> "logit")
+>>>> You do need to do the list wise deletion yourself if you specify
+>>>> weights, and weights does need a $ in it to identify the data frame.
+>>>>
+>>>> Hope this helps, best,
+>>>> Olivia
+>>>>
+>>>>
+>>>>
+>>>>
+>>>> On 2/18/07, Kirill Kalinin <kkalinin-tU4UBwgj0uSHXe+LvDLADg at public.gmane.org> wrote:
+>>>>> Dear Olivia,
+>>>>>
+>>>>> I am a PhD student with the European University at St. Petersburg,
+>>>>> working
+>>>>
+>>>>> on electoral behavior issues. The dataset I am running is huge -
+>>>>> 30000
+>>>>> cases. I look forward to calculating  the first differences using
+>>>>> 'logit'
+>>>>> but when running setx() I get an error message: "Error: protect():
+>>>>> protection stack overflow".  I was trying to decrease the size of
+>>>>> then
+>>>>> dataset, but it doesn't seem to help.
+>>>>> The script is as follows:
+>>>>>
+>>>>> library (Zelig)
+>>>>> library(foreign)
+>>>>>
+>>>>> Estdata <- read.spss(
+>>>>>  "G:/geo_c.sav",
+>>>>>  to.data.frame=T, use.value.labels=T)
+>>>>> dim(Estdata)
+>>>>> names(Estdata)
+>>>>> attach(Estdata)
+>>>>> q15<- as.ordered(Q15)   #ordered categorical variable with 4
+>>>>> values (1-4)
+>>>>> age<-as.ordered(AGE)    #ordered categorical variable with 4
+>>>>> values (1-4)
+>>>>> ttt<-data.frame(q15,age, PUTIN_BI)
+>>>>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>>>>> "logit")
+>>>>>
+>>>>> Then I run:
+>>>>> x.low <- setx(z.out, q15=1)
+>>>>> x.high <- setx(z.out, q15=4)
+>>>>> So I get:
+>>>>> protect(): protection stack overflow
+>>>>>
+>>>>>
+>>>>> I wonder whether I am doing something wrong, as I am new to R and
+>>>>> Zelig,
+>>>> or
+>>>>> this happens because of my computer limitations. In fact,
+>>>>> everything is
+>>>>> perfect with metric variables, this problem occurs just with the
+>>>>> ordered
+>>>>> categorical variables.  Could you help me to resolve the issue?
+>>>>>
+>>>>> Thank you very much!
+>>>>>
+>>>>> All the Best,
+>>>>> Kirill
+>>>>> P.S. Happy Chinese New Year!
+>>>>>
+>>>>>
+>>>>
+>>>
+>>>
+>>>
+>>
+>>
+>>
+>>
+>>
+>>
+>
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Fri Feb 23 14:30:29 2007
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Fri, 23 Feb 2007 09:30:29 -0500
+Subject: Re: question (fwd)
+In-Reply-To: <Pine.LNX.4.64.0702230728480.8547@ls03.fas.harvard.edu>
+References: <Pine.LNX.4.64.0702230728480.8547@ls03.fas.harvard.edu>
+Message-ID: <Pine.LNX.4.62.0702230921510.17481@wws-6qcbw21.Princeton.EDU>
+
+If you use multiply-imputed data sets, zelig() will run the model on each 
+imputed data set and returns an output, which is a list. You can extract 
+each output by, for example,
+
+z.out[[1]]
+
+If you want coefficients for the model fitted to the second imputed 
+data set, then you can do
+
+z.out[[2]]$coef
+
+etc.
+
+Kosuke
+
+-----------------------------------------------------
+Kosuke Imai               Office: Corwin Hall 041
+Assistant Professor       Phone: 609-258-6601
+Department of Politics    eFax:  973-556-1929
+Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+Princeton, NJ 08544-1012  http://imai.princeton.edu
+-----------------------------------------------------
+
+On Fri, 23 Feb 2007, Anders Schwartz Corr wrote:
+
+>
+> Hi Kosuke,
+>
+> Olivia is in NZ ... do you know how to check my residuals on Zelig with 
+> multiply imputed datasets? This can wait until Olivia returns. See below.
+>
+> Thanks,
+>
+> Anders
+>
+> ---------- Forwarded message ----------
+> Date: Fri, 23 Feb 2007 21:45:56 +1300
+> From: Olivia Lau <olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org>
+> To: Anders Schwartz Corr <corr-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org>
+> Subject: Re: question
+>
+> that's because you did it on multiply imputed datasets.  I'm in New
+> Zealand right now and I can't do anything about this -- I don't have
+> server access.  why don't you email kosuke?  Thanks, O
+>
+> On 2/23/07, Anders Schwartz Corr <corr-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org> wrote:
+>> 
+>> Hi Olivia,
+>> 
+>> Not sure how to get my residuals. My attempts are below. z.out$coef does
+>> not seem to work as stated on the Zelig website:
+>> 
+>> http://gking.harvard.edu/zelig/docs/Output_Values12.html
+>> 
+>> Thanks
+>> 
+>> Anders
+>> 
+>> > summary(z.out)
+>> 
+>>   Model: normal
+>>   Number of multiply imputed data sets: 5
+>> 
+>> Combined results:
+>> 
+>> Call:
+>> zelig(formula = ncc13 ~ p_norm_total + exp(p_norm_total) + year +
+>>     demo + exp(demo) + fed + exp(fed) + gpconcsq + dems6/num_stat +
+>>     cinc/ter + tradeope_log + elf85 + contgain.merge1 + contlose.loser +
+>>     gdpcap_1000 + popden_1000 + upopprct, model = "normal", data =
+>> imputeddata2)
+>> 
+>> Coefficients:
+>>                        Value Std. Error   t-stat p-value
+>> (Intercept)        7.382e+03  6.915e+04  0.10675 0.91610
+>> p_norm_total       4.843e+04  5.326e+04  0.90934 0.38935
+>> exp(p_norm_total) -2.542e+04  3.274e+04 -0.77664 0.45650
+>> year               2.518e+01  5.001e+01  0.50357 0.62875
+>> demo               4.535e+02  2.117e+02  2.14225 0.04859
+>> exp(demo)         -1.017e-05  2.182e-05 -0.46599 0.65098
+>> fed                3.298e+03  5.756e+03  0.57305 0.57427
+>> exp(fed)          -1.155e+02  2.024e+03 -0.05706 0.95517
+>> gpconcsq          -3.302e+04  7.125e+04 -0.46345 0.65814
+>> dems6             -2.208e+02  3.382e+02 -0.65297 0.52256
+>> cinc               9.043e+03  4.292e+04  0.21071 0.83599
+>> tradeope_log       1.313e+03  4.798e+03  0.27359 0.79499
+>> elf85             -3.891e+03  5.399e+03 -0.72059 0.48722
+>> contgain.merge1    2.395e+03  7.210e+03  0.33219 0.75379
+>> contlose.loser     3.303e+03  8.207e+03  0.40240 0.70557
+>> gdpcap_1000        2.160e+02  3.654e+02  0.59115 0.57263
+>> popden_1000        2.958e+01  2.937e+02  0.10073 0.92011
+>> upopprct          -1.024e+04  3.053e+04 -0.33538 0.75185
+>> dems6:num_stat    -1.577e-01  2.414e+00 -0.06532 0.94923
+>> cinc:ter           2.498e+02  4.654e+02  0.53669 0.60042
+>> 
+>> For combined results from datasets i to j, use summary(x, subset = i:j).
+>> For separate results, use print(summary(x), subset = i:j).
+>> 
+>> > z.out$coef
+>> NULL
+>> > z.out$residuals
+>> NULL
+>> > summary(residuals)
+>> Error in object[[i]] : object is not subsettable
+>> > residuals
+>> function (object, ...)
+>> UseMethod("residuals")
+>> <environment: namespace:stats>
+>> >
+>> 
+>> 
+>> 
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Sat Feb 24 19:43:51 2007
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Sat, 24 Feb 2007 14:43:51 -0500
+Subject: Re: error: protection stack overflow
+In-Reply-To: <8068885776B5D411A8AB00E02948636404211957@mail>
+References: <8068885776B5D411A8AB00E02948636404211957@mail>
+Message-ID: <Pine.LNX.4.62.0702241442330.20465@wws-6qcbw21.Princeton.EDU>
+
+I would first check whether z.out has what you want. To do this, you can 
+do summary(z.out). Then, I would also check whether quantile(Estdata$q30, 
+prob = 0.25) and quantile(Estdata$q30, prob = 0.75) are returning 
+appropriate numbers by just typing those commands at R prompt. If they 
+are, you can send up traceback().
+
+Kosuke
+
+On Sat, 24 Feb 2007, Kirill Kalinin wrote:
+
+> Dear Kosuke,
+>
+> I appreciate your help on my matters very much!
+>
+> 1. I managed to calculate p-values, by using mean(s.out$fd > 0) (as far as I
+> see it now: if mean()=1 then p-value will be around 0.001, and if mean()=95
+> then p-value is around 0.05).
+>
+> 2. I ran into the problem when was making split file, so as to run several
+> equations at the same time.  I wanted to split calculations  with Q61.  Am I
+> doing something wrong?
+>
+> z.out <- zelig(putin ~ age + q15, weights=WEIGHT$ttt, data = ttt, model =
+> "logit", by=Q61)
+>
+> 3. I am also trying to get quartiles from 'Income' variable in a following
+> way:
+>
+> x.high <- setx(z.out, q30=quantile(Estdata$q30, prob = 0.25))
+> x.low <- setx(z.out, q30=quantile(Estdata$q30, prob = 0.75))
+>
+> But I am getting a warning message instead:
+> is.na() applied to non-(list or vector) in: is.na(x)
+>
+> Could you tell me what the problem with this might be?
+>
+> Thank you a lot for your help!
+>
+> All the best,
+> Kirill
+> -----------------------------------
+> Dear Kosuke,
+>
+> I appreciate your help on my matters very much!
+>
+> 1. I managed to calculate p-values, by using mean(s.out$fd > 0) (as far as I
+> see it now: if mean()=1 then p-value will be around 0.001, and if mean()=95
+> then p-value is around 0.05).
+>
+> 2. I ran into the problem when was making split file, so as to run several
+> equations at the same time.  I wanted to split calculations  with Q61.  Am I
+> doing something wrong?
+>
+> z.out <- zelig(putin ~ age + q15, weights=WEIGHT$ttt, data = ttt, model =
+> "logit", by=Q61)
+>
+> 3. I am also trying to get quartiles from 'Income' variable in following
+> way:
+>
+> x.high <- setx(z.out, q30=quantile(Estdata$q30, prob = 0.25))
+> x.low <- setx(z.out, q30=quantile(Estdata$q30, prob = 0.75))
+>
+> But I am getting a warning message instead:
+> is.na() applied to non-(list or vector) in: is.na(x)
+>
+> Could you tell me what the problem with this might be?
+>
+> Thank you a lot for your help!
+>
+> All the best,
+> Kirill
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+> yes, it's the usual confidence interval on the quantity of interest and so
+> your interpretation is correct. There is no option, currently, in sim()
+> that lets you calculate the p-values, but you can do it by hand. For
+> example, you can do mean(s.out$fd > 0) to calculate the proportion of
+> simulation draws that are greater than 0.
+>
+> Kosuke
+>
+> On Fri, 23 Feb 2007, Kirill Kalinin wrote:
+>
+>> Dear Kosuke,
+>>
+>> Thank you a lot for your prompt reply!  It's great that I can use it to
+> work
+>> with the percentages. I wonder if the confidence interval which I got in
+> the
+>> output below can be interpreted as usual, so that the null hypothesis
+> can't
+>> be rejected at 0.05 level, is this correct?  Also I wonder is there an
+>> option in sim() to get confidence intervals together with p-values, so as
+> it
+>> could be easier to deal with the 'first differences' signficance.
+>>
+>> ----------------Output----------------------------
+>> First Differences in Expected Values: E(Y|X1)-E(Y|X)
+>>     mean      sd     2.5%   97.5%
+>> 1 0.00973 0.01058 -0.01066 0.03029
+>> --------------------------------------------------
+>> Thank you a lot for your help!
+>>
+>> All the best,
+>> Kirill
+>>
+>>
+>>
+>> ----------------------------------------
+>>> Thank you very much for you help on my matter. Actually, I need to
+>>> calculate the difference in the predicted probabilities of Russian
+>>> voters choosing Putin when explanatory variable shifts from its minimum
+>>> to its maximum value, holding other terms in the equation constant at
+>>> their medians.  I am trying to get everything right: could you tell me
+>>> what 'Mean' in first differences stand for?
+>>
+>> Zelig simulates the quantities of interest and so "Mean" is the mean of
+>> this simulated quantitites (the default is 1000 simulations). You can
+>> think of it as a point estimate of the quantity of interest.
+>>
+>>> Another important question is: if I have 10 variables, for example, and
+>>> calculate first differences, holding the rest at their medians, will all
+>>> 'first differences' sum up to "0" and predicted probabilities to "1"? If
+>>> so, it could help me to claim that, say, the value of 0.15 in first
+>>> differences between young and old would give Putin 15% of the vote! If
+>>> not so, is it hard to make it Zelig? In fact, I am trying to follow T.
+>>> Colton's approach in "Transitional citizens" (2000), so as I could
+>>> compare my calculations with his as well. And, finally do you know about
+>>> any book for beginners to help to understand simulation techniques with
+>>> Zelig? It's a new promising field for me!
+>>
+>> Yes, your interpretation is correct. The first differences should sum up
+>> to and the predicted probabilities sum up to 1 in the case of the
+>> logit/probit if that's what you are using.
+>>
+>> Kosuke
+>>
+>>>
+>>> All the best,
+>>> Kirill
+>>>
+>>> -------------------------------------------------
+>>> it's already on our website - it will take a few days for it to appear at
+>
+>>> CRAN. Try:
+>>>
+>>> install.packages("Zelig", repos = "http://gking.harvard.edu")
+>>>
+>>> Kosuke
+>>>
+>>> -----------------------------------------------------
+>>> Kosuke Imai               Office: Corwin Hall 041
+>>> Assistant Professor       Phone: 609-258-6601
+>>> Department of Politics    eFax:  973-556-1929
+>>> Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+>>> Princeton, NJ 08544-1012  http://imai.princeton.edu
+>>> -----------------------------------------------------
+>>>
+>>> On Wed, 21 Feb 2007, Kirill Kalinin wrote:
+>>>
+>>>> Dear Kosuke,
+>>>>
+>>>> Thank you for your help!  I'll be downloading a new version from
+>>>> www.r-project.org later today.
+>>>>
+>>>> All the best,
+>>>> Kirill
+>>>>
+>>>>
+>>>>
+>>>>
+>>>> Dear Kirill,
+>>>>
+>>>>   Thanks for the bug report. We've fixed this problem and will
+>>>> release a new version later today.
+>>>>
+>>>> Many thanks,
+>>>> Kosuke
+>>>>
+>>>> ---------------------------------------------------------
+>>>> Kosuke Imai               Office: Corwin Hall 041
+>>>> Assistant Professor       Phone: 609-258-6601
+>>>> Department of Politics    Fax: 973-556-1929
+>>>> Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+>>>> Princeton, NJ 08544-1012  http://imai.princeton.edu
+>>>> ---------------------------------------------------------
+>>>>
+>>>>
+>>>>
+>>>> On Feb 20, 2007, at 9:03 AM, Kirill Kalinin wrote:
+>>>>
+>>>>> Dear Kosuke,
+>>>>>
+>>>>> Olivia advised me to address my problem to you, which is when I am
+>>>>> trying to
+>>>>> run setx() with the ordered catagorical variables (metric variables
+>>>>> work
+>>>>> fine) in 'logit' model I get "Error: protect(): protection stack
+>>>>> overflow".
+>>>>> What might be the solution to the problem?
+>>>>>
+>>>>> Thank you a lot for your help!
+>>>>>
+>>>>> Best regards,
+>>>>> Kirill
+>>>>>
+>>>>> --------------------------------------
+>>>>>
+>>>>>
+>>>>>> Dear Olivia,
+>>>>>>
+>>>>>> Thank you a lot for your prompt and detailed reply! Well, I
+>>>>>> changed the
+>>>>>> script as you advised to, but it doesn't seem to help to resolve the
+>>>>>> issue. Same error appears when I am trying to run setx(). Are there
+>>>>>> any other suggestions of what might be wrong with the script?
+>>>>>>
+>>>>>> Here is what I'm getting on my console now:
+>>>>>>
+>>>>>>> q15<- as.ordered(Q15)
+>>>>>>> age<-as.ordered(AGE)
+>>>>>>> ttt<-data.frame(q15=q15,age=age, putin=PUTIN_BI)
+>>>>>>> z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>>>>>>> x.low <- setx(z.out, age = 1)
+>>>>>> Error: protect(): protection stack overflow
+>>>>>>> x.high <- setx(z.out, age = 4)
+>>>>>> Error: protect(): protection stack overflow
+>>>>>>
+>>>>>> Thank you a lot for you help!
+>>>>>> Best wishes,
+>>>>>> Kirill
+>>>>>>
+>>>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>> Dear Kirill,
+>>>>>
+>>>>> I think the problem is in:
+>>>>>
+>>>>> ttt<-data.frame(q15,age, PUTIN_BI)  # Step 1
+>>>>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>>>>> "logit")  # Step 2
+>>>>>
+>>>>> This should be, for the first step:
+>>>>>   ttt <- data.farme(q15 = q15, age = age, putin = PUTIN_BI)
+>>>>> For the second step, I'm not sure what you're trying to do, but
+>>>>> formulas should NEVER have $ in them!  That confuses setx and sim to
+>>>>> no end.  And you should ALWAYS name every argument passed, since the
+>>>>> order may vary.  If you want to run a regression for putin on age and
+>>>>> q15, then use
+>>>>>    z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+>>>>> Note that I have named every argument after the default formula.  You
+>>>>> don't need to say na.exclude() yourself, as zelig() will do that
+>>>>> automatically.
+>>>>>
+>>>>> If you are trying to use age as weights for observations (don't see
+>>>>> why you would want to, though):
+>>>>>    ttt <- na.omit(ttt)
+>>>>>    z.out <- zelig(putin ~ q15, weights = ttt$age, data = ttt, model =
+>>>>> "logit")
+>>>>> You do need to do the list wise deletion yourself if you specify
+>>>>> weights, and weights does need a $ in it to identify the data frame.
+>>>>>
+>>>>> Hope this helps, best,
+>>>>> Olivia
+>>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>> On 2/18/07, Kirill Kalinin <kkalinin-tU4UBwgj0uSHXe+LvDLADg at public.gmane.org> wrote:
+>>>>>> Dear Olivia,
+>>>>>>
+>>>>>> I am a PhD student with the European University at St. Petersburg,
+>>>>>> working
+>>>>>
+>>>>>> on electoral behavior issues. The dataset I am running is huge -
+>>>>>> 30000
+>>>>>> cases. I look forward to calculating  the first differences using
+>>>>>> 'logit'
+>>>>>> but when running setx() I get an error message: "Error: protect():
+>>>>>> protection stack overflow".  I was trying to decrease the size of
+>>>>>> then
+>>>>>> dataset, but it doesn't seem to help.
+>>>>>> The script is as follows:
+>>>>>>
+>>>>>> library (Zelig)
+>>>>>> library(foreign)
+>>>>>>
+>>>>>> Estdata <- read.spss(
+>>>>>>  "G:/geo_c.sav",
+>>>>>>  to.data.frame=T, use.value.labels=T)
+>>>>>> dim(Estdata)
+>>>>>> names(Estdata)
+>>>>>> attach(Estdata)
+>>>>>> q15<- as.ordered(Q15)   #ordered categorical variable with 4
+>>>>>> values (1-4)
+>>>>>> age<-as.ordered(AGE)    #ordered categorical variable with 4
+>>>>>> values (1-4)
+>>>>>> ttt<-data.frame(q15,age, PUTIN_BI)
+>>>>>> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+>>>>>> "logit")
+>>>>>>
+>>>>>> Then I run:
+>>>>>> x.low <- setx(z.out, q15=1)
+>>>>>> x.high <- setx(z.out, q15=4)
+>>>>>> So I get:
+>>>>>> protect(): protection stack overflow
+>>>>>>
+>>>>>>
+>>>>>> I wonder whether I am doing something wrong, as I am new to R and
+>>>>>> Zelig,
+>>>>> or
+>>>>>> this happens because of my computer limitations. In fact,
+>>>>>> everything is
+>>>>>> perfect with metric variables, this problem occurs just with the
+>>>>>> ordered
+>>>>>> categorical variables.  Could you help me to resolve the issue?
+>>>>>>
+>>>>>> Thank you very much!
+>>>>>>
+>>>>>> All the Best,
+>>>>>> Kirill
+>>>>>> P.S. Happy Chinese New Year!
+>>>>>>
+>>>>>>
+>>>>>
+>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>>
+>>>
+>>>
+>>>
+>>
+>>
+>>
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Mon Feb 19 07:36:52 2007
+From: olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Olivia Lau)
+Date: Mon, 19 Feb 2007 20:36:52 +1300
+Subject: Re: error: protection stack overflow!
+In-Reply-To: <8068885776B5D411A8AB00E0294863640421194C@mail>
+References: <8068885776B5D411A8AB00E0294863640421194C@mail>
+Message-ID: <8167262d0702182336u13c94ee6h2d6ea96af57442a3@mail.gmail.com>
+
+Dear Kirill,
+
+I think the problem is in:
+
+ttt<-data.frame(q15,age, PUTIN_BI)  # Step 1
+z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+"logit")  # Step 2
+
+This should be, for the first step:
+  ttt <- data.farme(q15 = q15, age = age, putin = PUTIN_BI)
+For the second step, I'm not sure what you're trying to do, but
+formulas should NEVER have $ in them!  That confuses setx and sim to
+no end.  And you should ALWAYS name every argument passed, since the
+order may vary.  If you want to run a regression for putin on age and
+q15, then use
+   z.out <- zelig(putin ~ age + q15, data = ttt, model = "logit")
+Note that I have named every argument after the default formula.  You
+don't need to say na.exclude() yourself, as zelig() will do that
+automatically.
+
+If you are trying to use age as weights for observations (don't see
+why you would want to, though):
+   ttt <- na.omit(ttt)
+   z.out <- zelig(putin ~ q15, weights = ttt$age, data = ttt, model = "logit")
+You do need to do the list wise deletion yourself if you specify
+weights, and weights does need a $ in it to identify the data frame.
+
+Hope this helps, best,
+Olivia
+
+
+
+On 2/18/07, Kirill Kalinin <kkalinin-tU4UBwgj0uSHXe+LvDLADg at public.gmane.org> wrote:
+> Dear Olivia,
+>
+> I am a PhD student with the European University at St. Petersburg, working
+> on electoral behavior issues. The dataset I am running is huge - 30000
+> cases. I look forward to calculating  the first differences using 'logit'
+> but when running setx() I get an error message: "Error: protect():
+> protection stack overflow".  I was trying to decrease the size of then
+> dataset, but it doesn't seem to help.
+> The script is as follows:
+>
+> library (Zelig)
+> library(foreign)
+>
+> Estdata <- read.spss(
+>  "G:/geo_c.sav",
+>  to.data.frame=T, use.value.labels=T)
+> dim(Estdata)
+> names(Estdata)
+> attach(Estdata)
+> q15<- as.ordered(Q15)   #ordered categorical variable with 4 values (1-4)
+> age<-as.ordered(AGE)    #ordered categorical variable with 4 values (1-4)
+> ttt<-data.frame(q15,age, PUTIN_BI)
+> z.out <- zelig(PUTIN_BI ~ ttt$q15, ttt$age, na.exclude(ttt), model =
+> "logit")
+>
+> Then I run:
+> x.low <- setx(z.out, q15=1)
+> x.high <- setx(z.out, q15=4)
+> So I get:
+> protect(): protection stack overflow
+>
+>
+> I wonder whether I am doing something wrong, as I am new to R and Zelig, or
+> this happens because of my computer limitations. In fact, everything is
+> perfect with metric variables, this problem occurs just with the ordered
+> categorical variables.  Could you help me to resolve the issue?
+>
+> Thank you very much!
+>
+> All the Best,
+> Kirill
+> P.S. Happy Chinese New Year!
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+

@@ -1,0 +1,337 @@
+From Kai.Widdecke-eap5A9aKA95j4WSHiO5qAw at public.gmane.org  Tue Apr  9 08:56:26 2019
+From: Kai.Widdecke-eap5A9aKA95j4WSHiO5qAw at public.gmane.org (Widdecke, Kai Arne)
+Date: Tue, 09 Apr 2019 08:56:26 +0000
+Subject: Do results of full matching depend on order of input data?
+Message-ID: <66a2dab717ff4e9e84cea4083d61c028@uni-hamburg.de>
+
+Hello all,
+
+When using the matchit-function for full matching, the results differ by the order of the input dataframe. That is, if the order of the data is changed, results change, too. This is surprising, because in my understanding, the optimal full algorithm should yield only one single best solution.
+
+Am I missing something or is this an error?
+
+Similar differences occur with the optimal algorithm.
+
+Below you find a reproducible example. In my understanding, subclasses should be identical for the two data sets, which they are not. Thank you very much for your help!
+
+Kai
+
+
+# create data
+set.seed(42)
+nr <- c(1:100)
+x1 <- rnorm(100, mean=50, sd=20)
+x2 <- c(rep("a", 20),rep("b", 60), rep("c", 20))
+x3 <- rnorm(100, mean=230, sd=2)
+outcome <- rnorm(100, mean=500, sd=20)
+group <- c(rep(0, 50),rep(1, 50))
+
+df <- data.frame(x1=x1, x2=x2, outcome=outcome, group=group, row.names=nr, nr=nr)
+df_neworder <- df[order(outcome),]  # re-order data.frame
+
+# perform matching
+model_oldorder <- matchit(group~x1, data=df, method="full", distance ="logit")
+model_neworder <- matchit(group~x1, data=df_neworder, method="full", distance ="logit")
+
+# store matching results
+matcheddata_oldorder <- match.data(model_oldorder, distance="pscore")
+matcheddata_neworder <- match.data(model_neworder, distance="pscore")
+
+
+# Results based on original data.frame
+head(matcheddata_oldorder[order(nr),], 10)
+          x1 x2  outcome group nr    pscore weights subclass
+1  69.773776  a 489.1769     0  1 0.5409943     1.0       27
+2  63.949637  a 529.2733     0  2 0.5283582     1.0       32
+3  52.217666  a 526.7928     0  3 0.5028106     0.5       17
+4  48.936397  a 492.9255     0  4 0.4956569     1.0        9
+5  36.501507  a 512.9301     0  5 0.4685876     1.0       16
+
+
+# Results based on re-ordered data.frame
+head(matcheddata_neworder[order(matcheddata_neworder$nr),], 10)
+          x1 x2  outcome group nr    pscore weights subclass
+1  69.773776  a 489.1769     0  1 0.5409943     1.0       25
+2  63.949637  a 529.2733     0  2 0.5283582     1.0       31
+3  52.217666  a 526.7928     0  3 0.5028106     0.5       15
+4  48.936397  a 492.9255     0  4 0.4956569     1.0        7
+5  36.501507  a 512.9301     0  5 0.4685876     2.0       14
+
+
+Kai Widdecke, M. Sc.
+Universität Hamburg
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From noah.greifer-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Apr 24 01:23:22 2019
+From: noah.greifer-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Noah Greifer)
+Date: Tue, 23 Apr 2019 21:23:22 -0400
+Subject: Re: Do results of full matching depend on order of input data?
+In-Reply-To: <66a2dab717ff4e9e84cea4083d61c028@uni-hamburg.de>
+References: <66a2dab717ff4e9e84cea4083d61c028@uni-hamburg.de>
+Message-ID: <CAPhhD8kGYF2-2UXSsL0NU6LPuCbgSwir6qUaQSd9_vtTXPP3PA@mail.gmail.com>
+
+Not sure if anyone has answered this, but here's what I've investigated.
+
+matchit relies on fullmatch from the optmatch package, and the issue you're
+seeing is a result of a quirk in fullmatch, not matchit. fullmatch only
+gives an approximate solution to the optimization problem, meaning it's
+possible that there is a better solution than the one given. This means
+it's possible to get different solutions based on small, meaningless
+changes to the data. This is akin to choosing different starting values in
+an optimization procedure. Any solution that falls within a given tolerance
+range can be the one output to the user. If the tolerance threshold is
+high, it's possible for suboptimal solutions to be found. Indeed, this is
+what has happened here. When you tight then tolerance by setting tol = 1e-5
+in the call to matchit, you get the same solution regardless of the order.
+You can tighten the tolerance even further to ensure you've found the sole
+optimal result. This is described in the fullmatch documentation.
+
+Noah
+
+On Tue, Apr 9, 2019 at 4:56 AM Widdecke, Kai Arne <
+Kai.Widdecke-eap5A9aKA95j4WSHiO5qAw at public.gmane.org> wrote:
+
+> Hello all,
+>
+> When using the matchit-function for full matching, the results differ by
+> the order of the input dataframe. That is, if the order of the data is
+> changed, results change, too. This is surprising, because in my
+> understanding, the optimal full algorithm should yield only one single best
+> solution.
+>
+> Am I missing something or is this an error?
+>
+> Similar differences occur with the optimal algorithm.
+>
+> Below you find a reproducible example. In my understanding, subclasses
+> should be identical for the two data sets, which they are not. Thank you
+> very much for your help!
+>
+> Kai
+>
+>
+>
+> # create data
+>
+> set.seed(42)
+>
+> nr <- c(1:100)
+>
+> x1 <- rnorm(100, mean=50, sd=20)
+>
+> x2 <- c(rep("a", 20),rep("b", 60), rep("c", 20))
+>
+> x3 <- rnorm(100, mean=230, sd=2)
+>
+> outcome <- rnorm(100, mean=500, sd=20)
+>
+> group <- c(rep(0, 50),rep(1, 50))
+>
+>
+>
+> df <- data.frame(x1=x1, x2=x2, outcome=outcome, group=group, row.names=nr,
+> nr=nr)
+>
+> df_neworder <- df[order(outcome),]  # re-order data.frame
+>
+>
+>
+> # perform matching
+>
+> model_oldorder <- matchit(group~x1, data=df, method="full", distance
+> ="logit")
+>
+> model_neworder <- matchit(group~x1, data=df_neworder, method="full",
+> distance ="logit")
+>
+>
+>
+> # store matching results
+>
+> matcheddata_oldorder <- match.data(model_oldorder, distance="pscore")
+>
+> matcheddata_neworder <- match.data(model_neworder, distance="pscore")
+>
+>
+>
+>
+>
+> # Results based on original data.frame
+>
+> head(matcheddata_oldorder[order(nr),], 10)
+>
+>           x1 x2  outcome group nr    pscore weights subclass
+>
+> 1  69.773776  a 489.1769     0  1 0.5409943     1.0       27
+>
+> 2  63.949637  a 529.2733     0  2 0.5283582     1.0       32
+>
+> 3  52.217666  a 526.7928     0  3 0.5028106     0.5       17
+>
+> 4  48.936397  a 492.9255     0  4 0.4956569     1.0        9
+>
+> 5  36.501507  a 512.9301     0  5 0.4685876     1.0       16
+>
+>
+>
+>
+>
+> # Results based on re-ordered data.frame
+>
+> head(matcheddata_neworder[order(matcheddata_neworder$nr),], 10)
+>
+>           x1 x2  outcome group nr    pscore weights subclass
+>
+> 1  69.773776  a 489.1769     0  1 0.5409943     1.0       25
+>
+> 2  63.949637  a 529.2733     0  2 0.5283582     1.0       31
+>
+> 3  52.217666  a 526.7928     0  3 0.5028106     0.5       15
+>
+> 4  48.936397  a 492.9255     0  4 0.4956569     1.0        7
+>
+> 5  36.501507  a 512.9301     0  5 0.4685876     2.0       14
+>
+>
+>
+>
+>
+> Kai Widdecke, M. Sc.
+>
+> Universität Hamburg
+>
+>
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search <http://gking.harvard.edu/matchit/Browse/Search> List
+> Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From bigstar863-9Onoh4P/yGk at public.gmane.org  Thu Apr 25 17:26:29 2019
+From: bigstar863-9Onoh4P/yGk at public.gmane.org (=?utf-8?b?5byg5rOi?=)
+Date: Fri, 26 Apr 2019 01:26:29 +0800
+Subject: [Question for help] Get pscore for unmatched data
+Message-ID: <3e8bacf0.527.16a5588cb0a.Coremail.bigstar863@163.com>
+
+Hello all,
+
+If I want to get pscore for unmatched data. Is there a method that I can use ?
+Thank you very much for your help!
+
+
+Bo
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From noah.greifer-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Apr 25 18:22:54 2019
+From: noah.greifer-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Noah Greifer)
+Date: Thu, 25 Apr 2019 14:22:54 -0400
+Subject: Re: [Question for help] Get pscore for unmatched data
+In-Reply-To: <3e8bacf0.527.16a5588cb0a.Coremail.bigstar863-9Onoh4P/yGk@public.gmane.org>
+References: <3e8bacf0.527.16a5588cb0a.Coremail.bigstar863@163.com>
+Message-ID: <CAPhhD8=8ebD2pFw8iBen_QcMbdPiRO58rhTTtGNhYG0ZcFuhaA@mail.gmail.com>
+
+It's stored in the "distance" entry of the matchit output object.
+
+m.out <- matchit(A ~ X1 + X2, ...)
+m.out$distance
+
+Note that this value corresponds to the argument to distance in the call to
+matchit. The default is "logit", the propensity score from a logistic
+regression.
+
+Noah
+
+On Thu, Apr 25, 2019 at 1:26 PM 张波 <bigstar863-9Onoh4P/yGk at public.gmane.org> wrote:
+
+> Hello all,
+>
+> If I want to get pscore for unmatched data. Is there a method that I can use ?
+> Thank you very much for your help!
+>
+> Bo
+>
+>
+>
+>
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search <http://gking.harvard.edu/matchit/Browse/Search> List
+> Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+

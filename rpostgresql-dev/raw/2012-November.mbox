@@ -1,0 +1,955 @@
+From snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org  Sat Nov 17 13:35:09 2012
+From: snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org (snaga)
+Date: Sat, 17 Nov 2012 05:35:09 -0800
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com>
+Message-ID: <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com>
+
+Hi,
+
+On Friday, October 5, 2012 1:03:07 AM UTC+9, Bibudh Lahiri wrote:
+>
+>
+>    Hi,
+>    I have been using RPostgreSQL for a while. Our company made some 
+> changes to the DB today and said we must have SSL enabled now in our 
+> configuration to connect. I don't have a problem connecting to the 
+> PostgreSQL command line (with "psql") but can't make a connection from R. 
+> Is there a way in RS-DBI to make the connection using SSL, like the way we 
+> can add a "?ssl=true" parameter in RJDBC? I ran this by Dirk and he 
+> suggested I post it here.
+>
+>    Thanks
+>
+
+
+I'm new to R and RPostgreSQL, and I guess I was encountered the same 
+situation.
+
+I have tried two ways to attempt enabling SSL, but RPostgreSQL did not 
+accept my connection string as followings. (Sorry, these error messages are 
+written in Japanese, because I'm not sure how I can switch the language to 
+English.)
+
+----------------------------------------------------------------
+> con <- dbConnect(PostgreSQL(), host= "dbhost", port="5432", user="snaga", 
+password="", dbname="snaga", sslmode="require")
+ 以下にエラー postgresqlNewConnection(drv, ...) :
+   使われていない引数 (sslmode = "require
+
+> con <- dbConnect(PostgreSQL(), host= "dbhost", port="5432", user="snaga", 
+password="", dbname="snaga")
+ 以下にエラー postgresqlNewConnection(drv, ...) :
+  RS-DBI driver: (could not connect snaga@dbhost on dbname "snaga"
+)
+----------------------------------------------------------------
+
+I looked into the source code of RPostgreSQL, and I found that a connection 
+function, RS_PostgreSQL_connectionInfo(), does not accept several 
+connection options, which are allowed in the libpq (PostgreSQL native 
+connection library) functions.
+
+----------------------------------------------------------------
+s_object *
+RS_PostgreSQL_connectionInfo(Con_Handle * conHandle)
+{
+    S_EVALUATOR PGconn * my_con;
+    RS_PostgreSQL_conParams *conParams;
+    RS_DBI_connection *con;
+    s_object *output;
+    Sint i, n = 7 /*8 */ , *res, nres;
+    char *conDesc[] = { "host", "user", "dbname",
+        "serverVersion", "protocolVersion",
+        "backendPId", "rsId"
+    };
+    Stype conType[] = { CHARACTER_TYPE, CHARACTER_TYPE, CHARACTER_TYPE,
+        /* CHARACTER_TYPE, */ CHARACTER_TYPE, INTEGER_TYPE,
+        INTEGER_TYPE, INTEGER_TYPE
+    };
+----------------------------------------------------------------
+
+This function allows "host", "user", "dbname", etc, but there are more 
+options being allowed in the libpq, including ones related to SSL features.
+
+PostgreSQL: Documentation: 9.1: Database Connection Control Functions
+http://www.postgresql.org/docs/9.1/static/libpq-connect.html
+
+AFAIK, at least, "sslmode" and "requiressl" must be accepted in the 
+connection function, RS_PostgreSQL_connectionInfo(), to support SSL 
+connections.
+
+And, PQsetdbLogin(), which is used in RS_PostgreSQL_newConnection() 
+function, would set many connection options to the defaults for 
+convenience, including "sslmode" and "requiressl". So, to allow SSL options 
+in RPostgreSQL, PQconnectdb() should be used instead of PQsetdbLogin().
+
+----------------------------------------------------------------
+    my_connection = PQsetdbLogin(host, port, options, tty, dbname, user, 
+password);
+
+    if (PQstatus(my_connection) != CONNECTION_OK) {
+        char buf[1000];
+        sprintf(buf, "could not connect %s@%s on dbname \"%s\"\n", 
+PQuser(my_connection), host?host:"local", PQdb(my_conne\
+ction));
+        RS_DBI_errorMessage(buf, RS_DBI_ERROR);
+    }
+----------------------------------------------------------------
+
+Would it be possible to support these options for SSL in the near future?
+
+Regards,
+
+-- 
+Satoshi Nagayasu <snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org>
+Uptime Technologies, LLC. http://www.uptime.jp
+
+From edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org  Sat Nov 17 14:51:04 2012
+From: edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org (Dirk Eddelbuettel)
+Date: Sat, 17 Nov 2012 08:51:04 -0600
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com>
+Message-ID: <20647.42072.732141.956328@max.nulle.part>
+
+
+Hi,
+
+Thanks for the thouhgtful and well-researched proposal.
+
+On 17 November 2012 at 05:35, snaga wrote:
+| This function allows "host", "user", "dbname", etc, but there are more options
+| being allowed in the libpq, including ones related to SSL features.
+
+One part of the problem is that the DBI protocol provides a framework. I
+guess would we could extend with extra optional parameters but ...
+ 
+| PostgreSQL: Documentation: 9.1: Database Connection Control Functions
+| http://www.postgresql.org/docs/9.1/static/libpq-connect.html
+| 
+| AFAIK, at least, "sslmode" and "requiressl" must be accepted in the connection
+| function, RS_PostgreSQL_connectionInfo(), to support SSL connections.
+| 
+| And, PQsetdbLogin(), which is used in RS_PostgreSQL_newConnection() function,
+| would set many connection options to the defaults for convenience, including
+| "sslmode" and "requiressl". So, to allow SSL options in RPostgreSQL,
+| PQconnectdb() should be used instead of PQsetdbLogin().
+| 
+| ----------------------------------------------------------------
+|     my_connection = PQsetdbLogin(host, port, options, tty, dbname, user,
+| password);
+| 
+|     if (PQstatus(my_connection) != CONNECTION_OK) {
+|         char buf[1000];
+|         sprintf(buf, "could not connect %s@%s on dbname \"%s\"\n", PQuser
+| (my_connection), host?host:"local", PQdb(my_conne\
+| ction));
+|         RS_DBI_errorMessage(buf, RS_DBI_ERROR);
+|     }
+| ----------------------------------------------------------------
+| 
+| Would it be possible to support these options for SSL in the near future?
+
+... this would require linking with ssl for every build which is suboptimal. 
+
+Can you consider the alternative of using ssh tunnels?  I know that within
+the Debian project a few Postgresql databases are being made available to
+developers --- and the access is via ssh + tunnel providing the illussion of
+two normal local ports, connected safely with a ssh connection bridging
+them.  I have been meaning to look for a good HOWTO on this as I did set it
+up once or twice for my use but that was a long time ago.  Anybody have any
+pointers?  We could at least document this...
+
+Dirk
+
+-- 
+Dirk Eddelbuettel | edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org | http://dirk.eddelbuettel.com
+
+From snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org  Sat Nov 17 15:58:46 2012
+From: snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org (Satoshi Nagayasu)
+Date: Sun, 18 Nov 2012 00:58:46 +0900
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <20647.42072.732141.956328@max.nulle.part>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part>
+Message-ID: <50A7B436.40701@uptime.jp>
+
+Hi Dirk,
+
+(2012/11/17 23:51), Dirk Eddelbuettel wrote:
+>
+> Hi,
+>
+> Thanks for the thouhgtful and well-researched proposal.
+>
+> On 17 November 2012 at 05:35, snaga wrote:
+> | This function allows "host", "user", "dbname", etc, but there are more options
+> | being allowed in the libpq, including ones related to SSL features.
+>
+> One part of the problem is that the DBI protocol provides a framework. I
+> guess would we could extend with extra optional parameters but ...
+>
+> | PostgreSQL: Documentation: 9.1: Database Connection Control Functions
+> | http://www.postgresql.org/docs/9.1/static/libpq-connect.html
+> |
+> | AFAIK, at least, "sslmode" and "requiressl" must be accepted in the connection
+> | function, RS_PostgreSQL_connectionInfo(), to support SSL connections.
+> |
+> | And, PQsetdbLogin(), which is used in RS_PostgreSQL_newConnection() function,
+> | would set many connection options to the defaults for convenience, including
+> | "sslmode" and "requiressl". So, to allow SSL options in RPostgreSQL,
+> | PQconnectdb() should be used instead of PQsetdbLogin().
+> |
+> | ----------------------------------------------------------------
+> |     my_connection = PQsetdbLogin(host, port, options, tty, dbname, user,
+> | password);
+> |
+> |     if (PQstatus(my_connection) != CONNECTION_OK) {
+> |         char buf[1000];
+> |         sprintf(buf, "could not connect %s@%s on dbname \"%s\"\n", PQuser
+> | (my_connection), host?host:"local", PQdb(my_conne\
+> | ction));
+> |         RS_DBI_errorMessage(buf, RS_DBI_ERROR);
+> |     }
+> | ----------------------------------------------------------------
+> |
+> | Would it be possible to support these options for SSL in the near future?
+>
+> ... this would require linking with ssl for every build which is suboptimal.
+>
+> Can you consider the alternative of using ssh tunnels?  I know that within
+> the Debian project a few Postgresql databases are being made available to
+> developers --- and the access is via ssh + tunnel providing the illussion of
+> two normal local ports, connected safely with a ssh connection bridging
+> them.  I have been meaning to look for a good HOWTO on this as I did set it
+> up once or twice for my use but that was a long time ago.  Anybody have any
+> pointers?  We could at least document this...
+
+Yeah, of course, it could be considerable, but I still prefer using SSL.
+
+BTW, I'm curious why RPostgreSQL is having own copy of the libpq code
+instead of having a dynamic-link to the external libpq library.
+
+If RPostgreSQL links to the libpq dynamically, I guess some of
+dependency issues you mentioned could be solved.
+
+Any reason to avoid a dynamic-link?
+
+Regards,
+-- 
+Satoshi Nagayasu <snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org>
+Uptime Technologies, LLC. http://www.uptime.jp
+
+From pgilbert902-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Nov 18 00:41:26 2012
+From: pgilbert902-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Paul Gilbert)
+Date: Sat, 17 Nov 2012 19:41:26 -0500
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <50A7B436.40701@uptime.jp>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp>
+Message-ID: <50A82EB6.6080204@gmail.com>
+
+I've had relatively poor luck with this sort of thing, and cannot speak 
+from personal experience regarding SSL, but the documentation suggests 
+that this information can be passed directly to the driver using 
+environment variables. That is, no changes are necessary in R, you just 
+need to set environment variables:
+
+PGSSLMODE 	'sslmode' # or something else, there are several options
+PGSSLKEY 	'sslkey'
+
+Please report back if you get it to work, I'm curious to know.
+
+Paul
+
+On 12-11-17 10:58 AM, Satoshi Nagayasu wrote:
+> Hi Dirk,
+>
+> (2012/11/17 23:51), Dirk Eddelbuettel wrote:
+>>
+>> Hi,
+>>
+>> Thanks for the thouhgtful and well-researched proposal.
+>>
+>> On 17 November 2012 at 05:35, snaga wrote:
+>> | This function allows "host", "user", "dbname", etc, but there are
+>> more options
+>> | being allowed in the libpq, including ones related to SSL features.
+>>
+>> One part of the problem is that the DBI protocol provides a framework. I
+>> guess would we could extend with extra optional parameters but ...
+>>
+>> | PostgreSQL: Documentation: 9.1: Database Connection Control Functions
+>> | http://www.postgresql.org/docs/9.1/static/libpq-connect.html
+>> |
+>> | AFAIK, at least, "sslmode" and "requiressl" must be accepted in the
+>> connection
+>> | function, RS_PostgreSQL_connectionInfo(), to support SSL connections.
+>> |
+>> | And, PQsetdbLogin(), which is used in RS_PostgreSQL_newConnection()
+>> function,
+>> | would set many connection options to the defaults for convenience,
+>> including
+>> | "sslmode" and "requiressl". So, to allow SSL options in RPostgreSQL,
+>> | PQconnectdb() should be used instead of PQsetdbLogin().
+>> |
+>> | ----------------------------------------------------------------
+>> |     my_connection = PQsetdbLogin(host, port, options, tty, dbname,
+>> user,
+>> | password);
+>> |
+>> |     if (PQstatus(my_connection) != CONNECTION_OK) {
+>> |         char buf[1000];
+>> |         sprintf(buf, "could not connect %s@%s on dbname \"%s\"\n",
+>> PQuser
+>> | (my_connection), host?host:"local", PQdb(my_conne\
+>> | ction));
+>> |         RS_DBI_errorMessage(buf, RS_DBI_ERROR);
+>> |     }
+>> | ----------------------------------------------------------------
+>> |
+>> | Would it be possible to support these options for SSL in the near
+>> future?
+>>
+>> ... this would require linking with ssl for every build which is
+>> suboptimal.
+>>
+>> Can you consider the alternative of using ssh tunnels?  I know that
+>> within
+>> the Debian project a few Postgresql databases are being made available to
+>> developers --- and the access is via ssh + tunnel providing the
+>> illussion of
+>> two normal local ports, connected safely with a ssh connection bridging
+>> them.  I have been meaning to look for a good HOWTO on this as I did
+>> set it
+>> up once or twice for my use but that was a long time ago.  Anybody
+>> have any
+>> pointers?  We could at least document this...
+>
+> Yeah, of course, it could be considerable, but I still prefer using SSL.
+>
+> BTW, I'm curious why RPostgreSQL is having own copy of the libpq code
+> instead of having a dynamic-link to the external libpq library.
+>
+> If RPostgreSQL links to the libpq dynamically, I guess some of
+> dependency issues you mentioned could be solved.
+>
+> Any reason to avoid a dynamic-link?
+>
+> Regards,
+
+From edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org  Sun Nov 18 01:05:17 2012
+From: edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org (Dirk Eddelbuettel)
+Date: Sat, 17 Nov 2012 19:05:17 -0600
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <50A7B436.40701@uptime.jp>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp>
+Message-ID: <20648.13389.765823.193115@max.nulle.part>
+
+
+Hi Satoshi,
+
+On 18 November 2012 at 00:58, Satoshi Nagayasu wrote:
+| BTW, I'm curious why RPostgreSQL is having own copy of the libpq code
+| instead of having a dynamic-link to the external libpq library.
+| 
+| If RPostgreSQL links to the libpq dynamically, I guess some of
+| dependency issues you mentioned could be solved.
+
+Point taken.
+ 
+| Any reason to avoid a dynamic-link?
+
+It makes the build easier and more portable. If we had the external library
+on Windows, folks would have to install it too, and this tends to be over the
+head of many users.
+
+If you really need/want ssl, you could try a local package, suitably
+modified.
+
+Dirk
+
+-- 
+Dirk Eddelbuettel | edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org | http://dirk.eddelbuettel.com
+
+From snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org  Sun Nov 18 04:15:01 2012
+From: snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org (Satoshi Nagayasu)
+Date: Sun, 18 Nov 2012 13:15:01 +0900
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <50A82EB6.6080204@gmail.com>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp> <50A82EB6.6080204@gmail.com>
+Message-ID: <50A860C5.2050605@uptime.jp>
+
+(2012/11/18 9:41), Paul Gilbert wrote:
+> I've had relatively poor luck with this sort of thing, and cannot speak
+> from personal experience regarding SSL, but the documentation suggests
+> that this information can be passed directly to the driver using
+> environment variables. That is, no changes are necessary in R, you just
+> need to set environment variables:
+>
+> PGSSLMODE     'sslmode' # or something else, there are several options
+> PGSSLKEY     'sslkey'
+>
+> Please report back if you get it to work, I'm curious to know.
+
+Unfortunately, it does not work.
+Please take a look at my report in the next mail.
+
+Regards,
+
+>
+> Paul
+>
+> On 12-11-17 10:58 AM, Satoshi Nagayasu wrote:
+>> Hi Dirk,
+>>
+>> (2012/11/17 23:51), Dirk Eddelbuettel wrote:
+>>>
+>>> Hi,
+>>>
+>>> Thanks for the thouhgtful and well-researched proposal.
+>>>
+>>> On 17 November 2012 at 05:35, snaga wrote:
+>>> | This function allows "host", "user", "dbname", etc, but there are
+>>> more options
+>>> | being allowed in the libpq, including ones related to SSL features.
+>>>
+>>> One part of the problem is that the DBI protocol provides a framework. I
+>>> guess would we could extend with extra optional parameters but ...
+>>>
+>>> | PostgreSQL: Documentation: 9.1: Database Connection Control Functions
+>>> | http://www.postgresql.org/docs/9.1/static/libpq-connect.html
+>>> |
+>>> | AFAIK, at least, "sslmode" and "requiressl" must be accepted in the
+>>> connection
+>>> | function, RS_PostgreSQL_connectionInfo(), to support SSL connections.
+>>> |
+>>> | And, PQsetdbLogin(), which is used in RS_PostgreSQL_newConnection()
+>>> function,
+>>> | would set many connection options to the defaults for convenience,
+>>> including
+>>> | "sslmode" and "requiressl". So, to allow SSL options in RPostgreSQL,
+>>> | PQconnectdb() should be used instead of PQsetdbLogin().
+>>> |
+>>> | ----------------------------------------------------------------
+>>> |     my_connection = PQsetdbLogin(host, port, options, tty, dbname,
+>>> user,
+>>> | password);
+>>> |
+>>> |     if (PQstatus(my_connection) != CONNECTION_OK) {
+>>> |         char buf[1000];
+>>> |         sprintf(buf, "could not connect %s@%s on dbname \"%s\"\n",
+>>> PQuser
+>>> | (my_connection), host?host:"local", PQdb(my_conne\
+>>> | ction));
+>>> |         RS_DBI_errorMessage(buf, RS_DBI_ERROR);
+>>> |     }
+>>> | ----------------------------------------------------------------
+>>> |
+>>> | Would it be possible to support these options for SSL in the near
+>>> future?
+>>>
+>>> ... this would require linking with ssl for every build which is
+>>> suboptimal.
+>>>
+>>> Can you consider the alternative of using ssh tunnels?  I know that
+>>> within
+>>> the Debian project a few Postgresql databases are being made
+>>> available to
+>>> developers --- and the access is via ssh + tunnel providing the
+>>> illussion of
+>>> two normal local ports, connected safely with a ssh connection bridging
+>>> them.  I have been meaning to look for a good HOWTO on this as I did
+>>> set it
+>>> up once or twice for my use but that was a long time ago.  Anybody
+>>> have any
+>>> pointers?  We could at least document this...
+>>
+>> Yeah, of course, it could be considerable, but I still prefer using SSL.
+>>
+>> BTW, I'm curious why RPostgreSQL is having own copy of the libpq code
+>> instead of having a dynamic-link to the external libpq library.
+>>
+>> If RPostgreSQL links to the libpq dynamically, I guess some of
+>> dependency issues you mentioned could be solved.
+>>
+>> Any reason to avoid a dynamic-link?
+>>
+>> Regards,
+
+
+-- 
+Satoshi Nagayasu <snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org>
+Uptime Technologies, LLC. http://www.uptime.jp
+
+From snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org  Sun Nov 18 04:15:51 2012
+From: snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org (Satoshi Nagayasu)
+Date: Sun, 18 Nov 2012 13:15:51 +0900
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <20648.13389.765823.193115@max.nulle.part>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp> <20648.13389.765823.193115@max.nulle.part>
+Message-ID: <50A860F7.6090701@uptime.jp>
+
+(2012/11/18 10:05), Dirk Eddelbuettel wrote:
+> On 18 November 2012 at 00:58, Satoshi Nagayasu wrote:
+> | BTW, I'm curious why RPostgreSQL is having own copy of the libpq code
+> | instead of having a dynamic-link to the external libpq library.
+> |
+> | If RPostgreSQL links to the libpq dynamically, I guess some of
+> | dependency issues you mentioned could be solved.
+>
+> Point taken.
+>
+> | Any reason to avoid a dynamic-link?
+>
+> It makes the build easier and more portable. If we had the external library
+> on Windows, folks would have to install it too, and this tends to be over the
+> head of many users.
+
+I understood.
+
+I found an interesting thing when trying SSL both on Windows and Linux.
+
+RPostgreSQL/Windows does not allow me to establish SSL connection.
+However, RPostgreSQL/Linux can establish SSL connection without any
+additional option or configuration.
+
+Server log while trying from Windows.
+----------------------------------------------------------
+[2012-11-18 12:54:52 JST] 31652: LOG:  connection received: 
+host=xxx.yyy.69.237 port=45342
+[2012-11-18 12:54:52 JST] 31652: FATAL:  no pg_hba.conf entry for host 
+"xxx.yyy.69.237", user "snaga", database "postgres", SSL off
+----------------------------------------------------------
+
+Server log while trying from Linux.
+----------------------------------------------------------
+[2012-11-18 12:44:14 JST] 31604: LOG:  connection received: 
+host=xxx.yyy.69.237 port=1478
+[2012-11-18 12:44:14 JST] 31604: LOG:  connection authorized: user=snaga 
+database=postgres
+[2012-11-18 12:47:31 JST] 31604: LOG:  could not receive data from 
+client: Connection reset by peer
+[2012-11-18 12:47:31 JST] 31604: LOG:  disconnection: session time: 
+0:03:16.619 user=snaga database=postgres host=xxx.yyy.69.237 port=1478
+----------------------------------------------------------
+
+And I confirmed that RPostgreSQL/Linux uses an external libpq
+dynamically.
+----------------------------------------------------------
+[snaga@devsv02 src]$ ldd 
+/usr/lib64/R/library/RPostgreSQL/libs/RPostgreSQL.so | grep pgsql
+         libpq.so.5 => /usr/pgsql-9.0/lib/libpq.so.5 (0x00002afa1888a000)
+[snaga@devsv02 src]$
+----------------------------------------------------------
+
+So, I guess RPostgreSQL/Windows, including its own copy of libpq,
+seems to be built without SSL support.
+
+Unfortunately, I'm not good at development on Windows, so it's
+difficult for me to clarify how RPostgreSQL/Windows binary is built.
+
+ > If you really need/want ssl, you could try a local package, suitably
+ > modified.
+
+Yes. I understood.
+
+Thanks for your help.
+
+Regards,
+-- 
+Satoshi Nagayasu <snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org>
+Uptime Technologies, LLC. http://www.uptime.jp
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Sun Nov 18 06:10:23 2012
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (Tomoaki Nishiyama)
+Date: Sun, 18 Nov 2012 15:10:23 +0900
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <50A860F7.6090701@uptime.jp>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp> <20648.13389.765823.193115@max.nulle.part> <50A860F7.6090701@uptime.jp>
+Message-ID: <A346915A-0F69-42D9-8E5B-292FB3B8325C@staff.kanazawa-u.ac.jp>
+
+Hi Satoshi,
+
+The included copy of libpq is for specific environment like
+Windows and MacOS where we want to provide binaries.
+In standard installation from source, the system libpq is will be used.
+
+Then the SSL should work if the libpq is linked with libssl at compile time
+on UNIX oses. However, it could be difficult to support in Windows vers.
+
+The libpq was copied from PostgreSQL-9.1.1 configured under a MingW64
+envirionment.  If you know how to compile SSL supporting PostgreSQL
+server and clients on Windows you should be able to make a SSL 
+supporting RPostgreSQL
+
+Shifting to PQconnectdbParams/PQconnectdb is probably the right way,
+irrespective of the SSL issue, if anyone
+writes the proper test and then change the code.
+
+Best regards,
+
+Tomoaki
+
+On 2012/11/18, at 13:15, Satoshi Nagayasu wrote:
+
+> (2012/11/18 10:05), Dirk Eddelbuettel wrote:
+>> On 18 November 2012 at 00:58, Satoshi Nagayasu wrote:
+>> | BTW, I'm curious why RPostgreSQL is having own copy of the libpq code
+>> | instead of having a dynamic-link to the external libpq library.
+>> |
+>> | If RPostgreSQL links to the libpq dynamically, I guess some of
+>> | dependency issues you mentioned could be solved.
+>> 
+>> Point taken.
+>> 
+>> | Any reason to avoid a dynamic-link?
+>> 
+>> It makes the build easier and more portable. If we had the external library
+>> on Windows, folks would have to install it too, and this tends to be over the
+>> head of many users.
+> 
+> I understood.
+> 
+> I found an interesting thing when trying SSL both on Windows and Linux.
+> 
+> RPostgreSQL/Windows does not allow me to establish SSL connection.
+> However, RPostgreSQL/Linux can establish SSL connection without any
+> additional option or configuration.
+> 
+> Server log while trying from Windows.
+> ----------------------------------------------------------
+> [2012-11-18 12:54:52 JST] 31652: LOG:  connection received: host=xxx.yyy.69.237 port=45342
+> [2012-11-18 12:54:52 JST] 31652: FATAL:  no pg_hba.conf entry for host "xxx.yyy.69.237", user "snaga", database "postgres", SSL off
+> ----------------------------------------------------------
+> 
+> Server log while trying from Linux.
+> ----------------------------------------------------------
+> [2012-11-18 12:44:14 JST] 31604: LOG:  connection received: host=xxx.yyy.69.237 port=1478
+> [2012-11-18 12:44:14 JST] 31604: LOG:  connection authorized: user=snaga database=postgres
+> [2012-11-18 12:47:31 JST] 31604: LOG:  could not receive data from client: Connection reset by peer
+> [2012-11-18 12:47:31 JST] 31604: LOG:  disconnection: session time: 0:03:16.619 user=snaga database=postgres host=xxx.yyy.69.237 port=1478
+> ----------------------------------------------------------
+> 
+> And I confirmed that RPostgreSQL/Linux uses an external libpq
+> dynamically.
+> ----------------------------------------------------------
+> [snaga@devsv02 src]$ ldd /usr/lib64/R/library/RPostgreSQL/libs/RPostgreSQL.so | grep pgsql
+>        libpq.so.5 => /usr/pgsql-9.0/lib/libpq.so.5 (0x00002afa1888a000)
+> [snaga@devsv02 src]$
+> ----------------------------------------------------------
+> 
+> So, I guess RPostgreSQL/Windows, including its own copy of libpq,
+> seems to be built without SSL support.
+> 
+> Unfortunately, I'm not good at development on Windows, so it's
+> difficult for me to clarify how RPostgreSQL/Windows binary is built.
+> 
+> > If you really need/want ssl, you could try a local package, suitably
+> > modified.
+> 
+> Yes. I understood.
+> 
+> Thanks for your help.
+> 
+> Regards,
+> -- 
+> Satoshi Nagayasu <snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org>
+> Uptime Technologies, LLC. http://www.uptime.jp
+
+From snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org  Sun Nov 18 11:07:27 2012
+From: snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org (Satoshi Nagayasu)
+Date: Sun, 18 Nov 2012 20:07:27 +0900
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <A346915A-0F69-42D9-8E5B-292FB3B8325C@staff.kanazawa-u.ac.jp>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp> <20648.13389.765823.193115@max.nulle.part> <50A860F7.6090701@uptime.jp> <A346915A-0F69-42D9-8E5B-292FB3B8325C@staff.kanazawa-u.ac.jp>
+Message-ID: <50A8C16F.2050006@uptime.jp>
+
+2012/11/18 15:10, Tomoaki Nishiyama wrote:
+> The included copy of libpq is for specific environment like
+> Windows and MacOS where we want to provide binaries.
+> In standard installation from source, the system libpq is will be used.
+>
+> Then the SSL should work if the libpq is linked with libssl at compile time
+> on UNIX oses. However, it could be difficult to support in Windows vers.
+
+Yeah, I know that it would be enough reasonable.
+
+> The libpq was copied from PostgreSQL-9.1.1 configured under a MingW64
+> envirionment.  If you know how to compile SSL supporting PostgreSQL
+> server and clients on Windows you should be able to make a SSL
+> supporting RPostgreSQL
+
+BTW, would it be considerable to distribute RPostgreSQL Windows binary
+with bundling a few additional library files, such as libpq.dll?
+
+ From my point of view, as a PostgreSQL developer, allowing dynamic
+link in RPostgreSQL/Windows and distributing it with additional DLL
+files would be another reasonable way to fully support libpq 
+functionality in RPostgreSQL.
+
+PostgreSQL Windows binary is distributed by EnterpriseDB, and
+it includes several library files (libpq.dll, libpq.lib and so on)
+with supporting SSL. So, I think using those external libraries
+(and bundling them) could be a better option to allow RPostgreSQL
+to support SSL and other stuff.
+
+Is it worth trying? Any comments?
+
+Regards,
+
+> Shifting to PQconnectdbParams/PQconnectdb is probably the right way,
+> irrespective of the SSL issue, if anyone
+> writes the proper test and then change the code.
+>
+> Best regards,
+>
+> Tomoaki
+>
+> On 2012/11/18, at 13:15, Satoshi Nagayasu wrote:
+>
+>> (2012/11/18 10:05), Dirk Eddelbuettel wrote:
+>>> On 18 November 2012 at 00:58, Satoshi Nagayasu wrote:
+>>> | BTW, I'm curious why RPostgreSQL is having own copy of the libpq code
+>>> | instead of having a dynamic-link to the external libpq library.
+>>> |
+>>> | If RPostgreSQL links to the libpq dynamically, I guess some of
+>>> | dependency issues you mentioned could be solved.
+>>>
+>>> Point taken.
+>>>
+>>> | Any reason to avoid a dynamic-link?
+>>>
+>>> It makes the build easier and more portable. If we had the external library
+>>> on Windows, folks would have to install it too, and this tends to be over the
+>>> head of many users.
+>>
+>> I understood.
+>>
+>> I found an interesting thing when trying SSL both on Windows and Linux.
+>>
+>> RPostgreSQL/Windows does not allow me to establish SSL connection.
+>> However, RPostgreSQL/Linux can establish SSL connection without any
+>> additional option or configuration.
+>>
+>> Server log while trying from Windows.
+>> ----------------------------------------------------------
+>> [2012-11-18 12:54:52 JST] 31652: LOG:  connection received: host=xxx.yyy.69.237 port=45342
+>> [2012-11-18 12:54:52 JST] 31652: FATAL:  no pg_hba.conf entry for host "xxx.yyy.69.237", user "snaga", database "postgres", SSL off
+>> ----------------------------------------------------------
+>>
+>> Server log while trying from Linux.
+>> ----------------------------------------------------------
+>> [2012-11-18 12:44:14 JST] 31604: LOG:  connection received: host=xxx.yyy.69.237 port=1478
+>> [2012-11-18 12:44:14 JST] 31604: LOG:  connection authorized: user=snaga database=postgres
+>> [2012-11-18 12:47:31 JST] 31604: LOG:  could not receive data from client: Connection reset by peer
+>> [2012-11-18 12:47:31 JST] 31604: LOG:  disconnection: session time: 0:03:16.619 user=snaga database=postgres host=xxx.yyy.69.237 port=1478
+>> ----------------------------------------------------------
+>>
+>> And I confirmed that RPostgreSQL/Linux uses an external libpq
+>> dynamically.
+>> ----------------------------------------------------------
+>> [snaga@devsv02 src]$ ldd /usr/lib64/R/library/RPostgreSQL/libs/RPostgreSQL.so | grep pgsql
+>>         libpq.so.5 => /usr/pgsql-9.0/lib/libpq.so.5 (0x00002afa1888a000)
+>> [snaga@devsv02 src]$
+>> ----------------------------------------------------------
+>>
+>> So, I guess RPostgreSQL/Windows, including its own copy of libpq,
+>> seems to be built without SSL support.
+>>
+>> Unfortunately, I'm not good at development on Windows, so it's
+>> difficult for me to clarify how RPostgreSQL/Windows binary is built.
+>>
+>>> If you really need/want ssl, you could try a local package, suitably
+>>> modified.
+>>
+>> Yes. I understood.
+>>
+>> Thanks for your help.
+>>
+>> Regards,
+>> --
+>> Satoshi Nagayasu <snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org>
+>> Uptime Technologies, LLC. http://www.uptime.jp
+>
+>
+
+
+-- 
+Satoshi Nagayasu <snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org>
+Uptime Technologies, LLC. http://www.uptime.jp
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Sun Nov 18 12:28:12 2012
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (Tomoaki Nishiyama)
+Date: Sun, 18 Nov 2012 21:28:12 +0900
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <50A8C16F.2050006@uptime.jp>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp> <20648.13389.765823.193115@max.nulle.part> <50A860F7.6090701@uptime.jp> <A346915A-0F69-42D9-8E5B-292FB3B8325C@staff.kanazawa-u.ac.jp> <50A8C16F.2050006@uptime.jp>
+Message-ID: <E7912B85-CD1E-4F9E-B0B3-B776687FB05B@staff.kanazawa-u.ac.jp>
+
+Hi,
+
+> From my point of view, as a PostgreSQL developer, allowing dynamic
+> link in RPostgreSQL/Windows and distributing it with additional DLL
+> files would be another reasonable way to fully support libpq functionality in RPostgreSQL.
+
+Because the CRAN policy requires the package are made from source code, 
+the condition is that you can make the DLL from the source files
+on the win-builder.r-project.org
+
+The other consideration is that the license of the library should be
+compatible with GPL.
+
+If these conditions are met, inclusion of part of the libssl might worth to try.
+
+Best regards,
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+From edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org  Sun Nov 18 14:20:24 2012
+From: edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org (Dirk Eddelbuettel)
+Date: Sun, 18 Nov 2012 08:20:24 -0600
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <E7912B85-CD1E-4F9E-B0B3-B776687FB05B@staff.kanazawa-u.ac.jp>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp> <20648.13389.765823.193115@max.nulle.part> <50A860F7.6090701@uptime.jp> <A346915A-0F69-42D9-8E5B-292FB3B8325C@staff.kanazawa-u.ac.jp> <50A8C16F.2050006@uptime.jp> <E7912B85-CD1E-4F9E-B0B3-B776687FB05B@staff.kanazawa-u.ac.jp>
+Message-ID: <20648.61096.422844.880565@max.nulle.part>
+
+
+Hi Satoshi and Tomoaki,
+
+Very nice and focused discussion.
+
+On 18 November 2012 at 21:28, Tomoaki Nishiyama wrote:
+| Hi,
+| 
+| > From my point of view, as a PostgreSQL developer, allowing dynamic
+| > link in RPostgreSQL/Windows and distributing it with additional DLL
+| > files would be another reasonable way to fully support libpq functionality in RPostgreSQL.
+| 
+| Because the CRAN policy requires the package are made from source code, 
+| the condition is that you can make the DLL from the source files
+| on the win-builder.r-project.org
+| 
+| The other consideration is that the license of the library should be
+| compatible with GPL.
+
+That is spot on. 
+
+For the CRAN package RPostgreSQL, the current setup developed by Tomoaki is
+the best we can do. [ And it is in fact way better than eg the MySQL mess
+where people still struggle to get it going on Windows, even after all these
+years ... But we all "know" and are happy PostgreSQL users :) ]
+| 
+| If these conditions are met, inclusion of part of the libssl might worth to try.
+
+There in fact incompatibility issues at the license level which is why Debian
+offers three different implementations: 
+
+  original openssl (which AFAIK cannot be used with GPL code) in libssl-dev
+
+  the gnutls replacement in packages libgnutls28-dev and libgnutls26-dev
+
+  a newer entrant from the Mozilla folks called call nss in libnss3-dev 
+
+A bit of a mess.
+
+So I think to help the Windows users, a fork off CRAN, available via a
+third-party repo, which contains additional dlls is the cleanest way.
+
+Dirk
+
+-- 
+Dirk Eddelbuettel | edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org | http://dirk.eddelbuettel.com
+
+From snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org  Mon Nov 19 02:09:28 2012
+From: snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org (Satoshi Nagayasu)
+Date: Mon, 19 Nov 2012 11:09:28 +0900
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <20648.61096.422844.880565@max.nulle.part>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp> <20648.13389.765823.193115@max.nulle.part> <50A860F7.6090701@uptime.jp> <A346915A-0F69-42D9-8E5B-292FB3B8325C@staff.kanazawa-u.ac.jp> <50A8C16F.2050006@uptime.jp> <E7912B85-CD1E-4F9E-B0B3-B776687FB05B@staff.kanazawa-u.ac.jp> <20648.61096.422844.880565@max.nulle.part>
+Message-ID: <50A994D8.8010305@uptime.jp>
+
+Hi,
+
+2012/11/18 23:20, Dirk Eddelbuettel wrote:
+>
+> Hi Satoshi and Tomoaki,
+>
+> Very nice and focused discussion.
+>
+> On 18 November 2012 at 21:28, Tomoaki Nishiyama wrote:
+> | Hi,
+> |
+> | > From my point of view, as a PostgreSQL developer, allowing dynamic
+> | > link in RPostgreSQL/Windows and distributing it with additional DLL
+> | > files would be another reasonable way to fully support libpq functionality in RPostgreSQL.
+> |
+> | Because the CRAN policy requires the package are made from source code,
+> | the condition is that you can make the DLL from the source files
+> | on the win-builder.r-project.org
+> |
+> | The other consideration is that the license of the library should be
+> | compatible with GPL.
+>
+> That is spot on.
+>
+> For the CRAN package RPostgreSQL, the current setup developed by Tomoaki is
+> the best we can do. [ And it is in fact way better than eg the MySQL mess
+> where people still struggle to get it going on Windows, even after all these
+> years ... But we all "know" and are happy PostgreSQL users :) ]
+
+Finally, I have understood where the issue comes from. Thanks.
+
+> | If these conditions are met, inclusion of part of the libssl might worth to try.
+>
+> There in fact incompatibility issues at the license level which is why Debian
+> offers three different implementations:
+>
+>    original openssl (which AFAIK cannot be used with GPL code) in libssl-dev
+>
+>    the gnutls replacement in packages libgnutls28-dev and libgnutls26-dev
+>
+>    a newer entrant from the Mozilla folks called call nss in libnss3-dev
+>
+> A bit of a mess.
+>
+> So I think to help the Windows users, a fork off CRAN, available via a
+> third-party repo, which contains additional dlls is the cleanest way.
+
+It would make sense, and I will try it.
+
+I'm going to meet an experienced PostgreSQL/Widnows developer
+at the end of this month. So, I will ask him for helping us
+build another RPostgreSQL/Windows binary with using an external
+DLLs, which would be distributed outside CRAN.
+
+Regards,
+
+-- 
+Satoshi Nagayasu <snaga-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org>
+Uptime Technologies, LLC. http://www.uptime.jp
+
+From edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org  Tue Nov 27 16:25:14 2012
+From: edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org (Dirk Eddelbuettel)
+Date: Tue, 27 Nov 2012 10:25:14 -0600
+Subject: PostgreSQL -> Postgres
+Message-ID: <20660.59754.278486.567420@max.nulle.part>
+
+
+Just heard about this: http://wiki.postgresql.org/wiki/Postgres
+
+   In summary: Postgres is an accepted nickname for the project, but is not
+   being considered for adoption as a replacement at this time. This page was
+   created to facilitate a reasoned discussion about changing the name, and
+   is left here to document that conversation and as a reference in the event
+   that the project is undertaken at some point in the future.
+
+Dirk
+
+-- 
+Dirk Eddelbuettel | edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org | http://dirk.eddelbuettel.com
+

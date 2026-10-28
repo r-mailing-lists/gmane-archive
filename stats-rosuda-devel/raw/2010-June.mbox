@@ -1,0 +1,947 @@
+From ilhami.visne at gmail.com  Fri Jun 11 10:48:54 2010
+From: ilhami.visne at gmail.com (ilhami visne)
+Date: Fri, 11 Jun 2010 12:48:54 +0200
+Subject: Loading a resource from a jar - ClassLoader issue
+Message-ID: <4C121496.2080401@gmail.com>
+
+Hello,
+
+I'm developing a java gui app and run it from R using rJava. For the GUI 
+i want use the Substance LookAndFeel library 
+(https://substance.dev.java.net/). I set the L&F the usual way:
+
+UIManager.setLookAndFeel(new SubstanceOfficeSilver2007LookAndFeel());
+
+It works if i run as normal java app but it fails when i run it from R 
+using rJava. It throws a NullPointerException. I examined the problem 
+and found that it can't load a resource 
+("org/pushingpixels/substance/api/skin/office2007.colorschemes") in the 
+substance.jar. Substance tries to load this resource from the 
+ClassLoader but the issue is how it gets the ClassLoader.
+
+    /**
+      * Returns the class loader for loading the resource files. It is a 
+fix by
+      * Dag Joar and Christian Schlichtherle for application running with
+      * -Xbootclasspath VM flag. In this case, the using
+      * MyClass.class.getClassLoader() would return null, but the 
+context class
+      * loader will function properly that classes will be properly loaded
+      * regardless of whether the lib is added to the system class path, the
+      * extension class path and regardless of the class loader 
+architecture set
+      * up by some frameworks.
+      *
+      * @return The class loader for loading the resource files.
+      */
+     public static ClassLoader getClassLoaderForResources() {
+         ClassLoader cl = (ClassLoader) UIManager.get("ClassLoader");
+         if (cl == null)
+             cl = Thread.currentThread().getContextClassLoader();
+         return cl;
+     }
+
+Above is the code to get the ClassLoader. The cl is an instance of 
+sun.misc.Launcher$AppClassLoader. This classloader can't find the 
+resource "org/pushingpixels/substance/api/skin/office2007.colorschemes", 
+although the javadoc of the method states that it works for any case. 
+However MyClass.class.getClassLoader() works, which is RJavaClassLoader.
+
+While substance is open source, i can solve this problem by changing the 
+code. But if it can be solved in rJava, of cource it would be the superior.
+
+best wishes,
+ilhami visne
+
+From simon.urbanek at r-project.org  Fri Jun 11 12:13:50 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 11 Jun 2010 08:13:50 -0400
+Subject: Re: Loading a resource from a jar - ClassLoader issue
+In-Reply-To: <4C121496.2080401@gmail.com>
+References: <4C121496.2080401@gmail.com>
+Message-ID: <415AAD29-8BE6-4DDF-A1F9-8544231CA76A@r-project.org>
+
+
+On Jun 11, 2010, at 6:48 AM, ilhami visne wrote:
+
+> Hello,
+> 
+> I'm developing a java gui app and run it from R using rJava. For the GUI i want use the Substance LookAndFeel library (https://substance.dev.java.net/). I set the L&F the usual way:
+> 
+> UIManager.setLookAndFeel(new SubstanceOfficeSilver2007LookAndFeel());
+> 
+> It works if i run as normal java app but it fails when i run it from R using rJava. It throws a NullPointerException. I examined the problem and found that it can't load a resource ("org/pushingpixels/substance/api/skin/office2007.colorschemes") in the substance.jar. Substance tries to load this resource from the ClassLoader but the issue is how it gets the ClassLoader.
+> 
+>   /**
+>     * Returns the class loader for loading the resource files. It is a fix by
+>     * Dag Joar and Christian Schlichtherle for application running with
+>     * -Xbootclasspath VM flag. In this case, the using
+>     * MyClass.class.getClassLoader() would return null, but the context class
+>     * loader will function properly that classes will be properly loaded
+>     * regardless of whether the lib is added to the system class path, the
+>     * extension class path and regardless of the class loader architecture set
+>     * up by some frameworks.
+>     *
+>     * @return The class loader for loading the resource files.
+>     */
+>    public static ClassLoader getClassLoaderForResources() {
+>        ClassLoader cl = (ClassLoader) UIManager.get("ClassLoader");
+>        if (cl == null)
+>            cl = Thread.currentThread().getContextClassLoader();
+>        return cl;
+>    }
+> 
+> Above is the code to get the ClassLoader. The cl is an instance of sun.misc.Launcher$AppClassLoader. This classloader can't find the resource "org/pushingpixels/substance/api/skin/office2007.colorschemes", although the javadoc of the method states that it works for any case. However MyClass.class.getClassLoader() works, which is RJavaClassLoader.
+> 
+> While substance is open source, i can solve this problem by changing the code. But if it can be solved in rJava, of cource it would be the superior.
+> 
+
+In theory you should be able to do that by using:
+
+J("java.lang.Thread")$currentThread()$setContextClassLoader(.jclassLoader())
+
+Please let me know if that fixes the issue I can make rJava do that in .jinit()
+
+Thanks,
+Simon
+
+From mary.auclair at hotmail.com  Tue Jun 29 03:09:20 2010
+From: mary.auclair at hotmail.com (Mary Auclair)
+Date: Mon, 28 Jun 2010 23:09:20 -0400
+Subject: [rJava] error installing rJava using IBM Java
+Message-ID: <SNT128-DS41D8490158336D9CE910487CB0@phx.gbl>
+
+Hi experts,
+
+ 
+
+I am trying to install rJava on an IBM iDataplex cluster.  
+
+I am installing on a DX360 node with 32GB mem and 2TB sata disks.  
+
+The DX360 has the RedHat5.3 linux installes
+(RHEL5.3-Server-20090106.0-x86_64-DVD.iso).  
+
+ 
+
+
+During the installation of rJava, a test compile is carried out, and I get
+an
+error message:
+
+checking whether JNI programs can be compiled... configure: error: Cannot
+compile a simple JNI program. See config.log for details. 
+
+I have tried to install rJava_0.8-4.tar.gz and rJava_0.8-5.tar.gz.  Both of
+the installs fail when I use IBM
+Java(ibm-java-x86_64-sdk-6.0-8.0.x86_64.rpm).
+
+
+
+Both versions of rJava install correctly when I use Sun Java.
+(jdk-6u20-linux-amd64.rpm)
+
+What am I missing in order to use IBM Java?  
+
+ 
+
+The script and the resulting output is listed below,
+
+ 
+
+Thanks in advance for your help.
+
+
+Mary
+
+ 
+
+
+# cat installRExt.sh
+
+
+!#/bin/bash
+R CMD INSTALL rjson_0.1.8.tar.gz
+sleep 3
+echo Done:Install rjson
+#export JAVA_HOME=/usr/java/jdk1.6.0_20
+export JAVA_HOME=/opt/ibm/java-x86_64-60
+export PATH=$PATH:$JAVA_HOME/bin
+sleep 3
+echo Done:set JAVA_HOME
+R CMD javareconf
+sleep 3
+echo Done:javareconf
+#R CMD INSTALL rJava_0.8-4.tar.gz
+R CMD INSTALL rJava_0.8-5.tar.gz
+sleep 3
+echo Done:Install rJava
+
+
+
+
+# ./installRExt.sh
+./installRExt.sh: line 1: !#/bin/bash: No such file or directory
+* installing to library â/usr/lib64/R/libraryâ
+* installing *source* package ârjsonâ ...
+** R
+** inst
+** preparing package for lazy loading
+** help
+*** installing help indices
+** building package indices ...
+* DONE (rjson)
+Done:Install rjson
+Done:set JAVA_HOME
+Java interpreter : /opt/ibm/java-x86_64-60/jre/bin/java
+Java version     : 1.6.0
+Java home path   : /opt/ibm/java-x86_64-60
+Java compiler    : /opt/ibm/java-x86_64-60/bin/javac
+Java headers gen.: /opt/ibm/java-x86_64-60/bin/javah
+Java archive tool: /opt/ibm/java-x86_64-60/bin/jar
+Java library path:
+$(JAVA_HOME)/jre/lib/amd64/default:$(JAVA_HOME)/jre/lib/amd64::/usr/lib
+JNI linker flags : -L$(JAVA_HOME)/jre/lib/amd64/default
+-L$(JAVA_HOME)/jre/lib/amd64 -L -L/usr/lib -ljvm
+JNI cpp flags    : -I$(JAVA_HOME)/include
+
+Updating Java configuration in /usr/lib64/R
+Done.
+
+Done:javareconf
+* installing to library â/usr/lib64/R/libraryâ
+* installing *source* package ârJavaâ ...
+checking for gcc... gcc -m64 -std=gnu99
+checking for C compiler default output file name... a.out
+checking whether the C compiler works... yes
+checking whether we are cross compiling... no
+checking for suffix of executables...
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc -m64 -std=gnu99 accepts -g... yes
+checking for gcc -m64 -std=gnu99 option to accept ISO C89... none needed
+checking how to run the C preprocessor... gcc -m64 -std=gnu99 -E
+checking for grep that handles long lines and -e... /bin/grep
+checking for egrep... /bin/grep -E
+checking for ANSI C header files... yes
+checking for sys/wait.h that is POSIX.1 compatible... yes
+checking for sys/types.h... yes
+checking for sys/stat.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for memory.h... yes
+checking for strings.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for unistd.h... yes
+checking for string.h... (cached) yes
+checking sys/time.h usability... yes
+checking sys/time.h presence... yes
+checking for sys/time.h... yes
+checking for unistd.h... (cached) yes
+checking for an ANSI C-conforming const... yes
+checking whether time.h and sys/time.h may both be included... yes
+configure: checking whether gcc -m64 -std=gnu99 supports static inline...
+yes
+checking whether setjmp.h is POSIX.1 compatible... yes
+checking whether sigsetjmp is declared... yes
+checking whether siglongjmp is declared... yes
+checking Java support in R... present:
+interpreter : '/opt/ibm/java-x86_64-60/jre/bin/java'
+archiver    : '/opt/ibm/java-x86_64-60/bin/jar'
+compiler    : '/opt/ibm/java-x86_64-60/bin/javac'
+header prep.: '/opt/ibm/java-x86_64-60/bin/javah'
+cpp flags   : '-I/opt/ibm/java-x86_64-60/include'
+java libs   : '-L/opt/ibm/java-x86_64-60/jre/lib/amd64/default
+-L/opt/ibm/java-x86_64-60/jre/lib/amd64 -L -L/usr/lib -ljvm'
+checking whether JNI programs can be compiled... configure: error: Cannot
+compile a simple JNI program. See config.log for details.
+
+Make sure you have Java Development Kit installed and correctly registered
+in
+R.
+If in doubt, re-run "R CMD javareconf" as root.
+
+ERROR: configuration failed for package ârJavaâ
+* removing â/usr/lib64/R/library/rJavaâ
+Done:Install rJava
+[root@shihc064 r_ext]#
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Jun 29 04:32:22 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 29 Jun 2010 00:32:22 -0400
+Subject: Re: [rJava] error installing rJava using IBM Java
+In-Reply-To: <SNT128-DS41D8490158336D9CE910487CB0@phx.gbl>
+References: <SNT128-DS41D8490158336D9CE910487CB0@phx.gbl>
+Message-ID: <06C040B9-BDCE-49DF-8CAA-372ED3A3C449@r-project.org>
+
+Mary,
+
+please include the config.log - as the message says that it the clue to why your installation doesn't work.
+
+Cheers,
+Simon
+
+
+On Jun 28, 2010, at 11:09 PM, Mary Auclair wrote:
+
+> Hi experts,
+>  
+> I am trying to install rJava on an IBM iDataplex cluster. 
+> I am installing on a DX360 node with 32GB mem and 2TB sata disks. 
+> The DX360 has the RedHat5.3 linux installes (RHEL5.3-Server-20090106.0-x86_64-DVD.iso). 
+>  
+> During the installation of rJava, a test compile is carried out, and I get an
+> error message:
+> 
+> checking whether JNI programs can be compiled... configure: error: Cannot
+> compile a simple JNI program. See config.log for details. 
+> 
+> I have tried to install rJava_0.8-4.tar.gz and rJava_0.8-5.tar.gz.  Both of the installs fail when I use IBM Java(ibm-java-x86_64-sdk-6.0-8.0.x86_64.rpm).
+> 
+> Both versions of rJava install correctly when I use Sun Java. (jdk-6u20-linux-amd64.rpm)
+> 
+> What am I missing in order to use IBM Java? 
+>  
+> The script and the resulting output is listed below,
+>  
+> Thanks in advance for your help.
+> 
+> Mary
+>  
+> 
+> # cat installRExt.sh
+> 
+> !#/bin/bash
+> R CMD INSTALL rjson_0.1.8.tar.gz
+> sleep 3
+> echo Done:Install rjson
+> #export JAVA_HOME=/usr/java/jdk1.6.0_20
+> export JAVA_HOME=/opt/ibm/java-x86_64-60
+> export PATH=$PATH:$JAVA_HOME/bin
+> sleep 3
+> echo Done:set JAVA_HOME
+> R CMD javareconf
+> sleep 3
+> echo Done:javareconf
+> #R CMD INSTALL rJava_0.8-4.tar.gz
+> R CMD INSTALL rJava_0.8-5.tar.gz
+> sleep 3
+> echo Done:Install rJava
+> 
+> 
+> # ./installRExt.sh
+> ./installRExt.sh: line 1: !#/bin/bash: No such file or directory
+> * installing to library â/usr/lib64/R/libraryâ
+> * installing *source* package ârjsonâ ...
+> ** R
+> ** inst
+> ** preparing package for lazy loading
+> ** help
+> *** installing help indices
+> ** building package indices ...
+> * DONE (rjson)
+> Done:Install rjson
+> Done:set JAVA_HOME
+> Java interpreter : /opt/ibm/java-x86_64-60/jre/bin/java
+> Java version     : 1.6.0
+> Java home path   : /opt/ibm/java-x86_64-60
+> Java compiler    : /opt/ibm/java-x86_64-60/bin/javac
+> Java headers gen.: /opt/ibm/java-x86_64-60/bin/javah
+> Java archive tool: /opt/ibm/java-x86_64-60/bin/jar
+> Java library path:
+> $(JAVA_HOME)/jre/lib/amd64/default:$(JAVA_HOME)/jre/lib/amd64::/usr/lib
+> JNI linker flags : -L$(JAVA_HOME)/jre/lib/amd64/default
+> -L$(JAVA_HOME)/jre/lib/amd64 -L -L/usr/lib -ljvm
+> JNI cpp flags    : -I$(JAVA_HOME)/include
+> 
+> Updating Java configuration in /usr/lib64/R
+> Done.
+> 
+> Done:javareconf
+> * installing to library â/usr/lib64/R/libraryâ
+> * installing *source* package ârJavaâ ...
+> checking for gcc... gcc -m64 -std=gnu99
+> checking for C compiler default output file name... a.out
+> checking whether the C compiler works... yes
+> checking whether we are cross compiling... no
+> checking for suffix of executables...
+> checking for suffix of object files... o
+> checking whether we are using the GNU C compiler... yes
+> checking whether gcc -m64 -std=gnu99 accepts -g... yes
+> checking for gcc -m64 -std=gnu99 option to accept ISO C89... none needed
+> checking how to run the C preprocessor... gcc -m64 -std=gnu99 -E
+> checking for grep that handles long lines and -e... /bin/grep
+> checking for egrep... /bin/grep -E
+> checking for ANSI C header files... yes
+> checking for sys/wait.h that is POSIX.1 compatible... yes
+> checking for sys/types.h... yes
+> checking for sys/stat.h... yes
+> checking for stdlib.h... yes
+> checking for string.h... yes
+> checking for memory.h... yes
+> checking for strings.h... yes
+> checking for inttypes.h... yes
+> checking for stdint.h... yes
+> checking for unistd.h... yes
+> checking for string.h... (cached) yes
+> checking sys/time.h usability... yes
+> checking sys/time.h presence... yes
+> checking for sys/time.h... yes
+> checking for unistd.h... (cached) yes
+> checking for an ANSI C-conforming const... yes
+> checking whether time.h and sys/time.h may both be included... yes
+> configure: checking whether gcc -m64 -std=gnu99 supports static inline...
+> yes
+> checking whether setjmp.h is POSIX.1 compatible... yes
+> checking whether sigsetjmp is declared... yes
+> checking whether siglongjmp is declared... yes
+> checking Java support in R... present:
+> interpreter : '/opt/ibm/java-x86_64-60/jre/bin/java'
+> archiver    : '/opt/ibm/java-x86_64-60/bin/jar'
+> compiler    : '/opt/ibm/java-x86_64-60/bin/javac'
+> header prep.: '/opt/ibm/java-x86_64-60/bin/javah'
+> cpp flags   : '-I/opt/ibm/java-x86_64-60/include'
+> java libs   : '-L/opt/ibm/java-x86_64-60/jre/lib/amd64/default
+> -L/opt/ibm/java-x86_64-60/jre/lib/amd64 -L -L/usr/lib -ljvm'
+> checking whether JNI programs can be compiled... configure: error: Cannot
+> compile a simple JNI program. See config.log for details.
+> 
+> Make sure you have Java Development Kit installed and correctly registered in
+> R.
+> If in doubt, re-run "R CMD javareconf" as root.
+> 
+> ERROR: configuration failed for package ârJavaâ
+> * removing â/usr/lib64/R/library/rJavaâ
+> Done:Install rJava
+> [root@shihc064 r_ext]#
+>  
+>  
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ejjunju at gmail.com  Tue Jun 29 11:36:14 2010
+From: ejjunju at gmail.com (Emmanuel Jjunju)
+Date: Tue, 29 Jun 2010 13:36:14 +0200
+Subject: Fwd: Fw: Be blessed
+In-Reply-To: <538847.64066.qm@web55701.mail.re3.yahoo.com>
+References: <538847.64066.qm@web55701.mail.re3.yahoo.com>
+Message-ID: <AANLkTin08argPy2_AhPtv7GNgUMSHU-MQacalfS9OR-D@mail.gmail.com>
+
+---------- Forwarded message ----------
+From: Rebecca Nandawula <rebnam2001 at yahoo.com>
+Date: Tue, Jun 29, 2010 at 1:01 PM
+Subject: Fw: Be blessed
+To: ejjunju at gmail.com
+
+
+
+
+--- On *Thu, 6/24/10, Kyarimpa Damalie <damdoris at yahoo.co.uk>* wrote:
+
+
+From: Kyarimpa Damalie <damdoris at yahoo.co.uk>
+Subject: Fw: Be blessed
+To: "sam matsiko" <sammatsiko at yahoo.com>, "rebecca nandawula" <
+rebnam2001 at yahoo.com>, "john Gumisiriza" <jbgumisiriza at chevron.com>, "steven
+bashaija" <sbashaija at yahoo.com>, "wamambe benjamin" <wamambe at yahoo.com>,
+"nakungu grace" <praisecharis at yahoo.com>
+Date: Thursday, June 24, 2010, 3:42 AM
+
+
+
+--- On *Tue, 17/3/09, nicholas namnanya <namnicholas at yahoo.com>* wrote:
+
+
+From: nicholas namnanya <namnicholas at yahoo.com>
+Subject: Fw: Be blessed
+To: "Adoa Moses" <adoamoses at yahoo.com>, "Agaba Edna" <agabaedna at yahoo.com>,
+"Aline De jesus" <alinedejesus2000 at yahoo.co.uk>, "Asimwe Robert" <
+asimwer at stanbic.com>, "ASIO CAROLINE" <carsio2 at yahoo.com>, "Mugume Boaz" <
+b2007shine at yahoo.com>, "Tamale Cathy" <tamalecathy at yahoo.co.uk>, "Dam Doris"
+<damdoris at yahoo.co.uk>
+Date: Tuesday, 17 March, 2009, 13:58
+
+
+
+--- On *Mon, 3/16/09, bibohere brian <bibohere at yahoo.com>* wrote:
+
+From: bibohere brian <bibohere at yahoo.com>
+Subject: Be blessed
+To: aligivan at yahoo.com, biboherebrian at hotmail.com, cxlxtix at yahoo.com,
+kgcissy at yahoo.co.uk, namnicholas at yahoo.com, richmuks at gmail.com, "Abwooli
+Kigge" <tkigge at hotmail.com>
+Date: Monday, March 16, 2009, 10:24 AM
+
+
+
+  *X X X X X X X X X  SMILE   X X X X X X X X X X X X X X X X X  X*
+
+
+*
+------------------------------
+*  *
+------------------------------
+*
+Let me know what happens to you the morning after you open this e-This is an
+unusual one.  It actually gives you a time tomorrow.. Let's see if it works.
+
+
+GUARDIAN  ANGEL
+Forward this message the same day you received it.  It may
+sound ridiculous, but it is right on time.  We believe that something is
+about to happen.  Angels exist, only sometimes they haven't got wings and we
+call them friends; you are one of them.  Something wonderful is about to
+happen to you and your friends.  Tomorrow at 11:09AM  somebody will address
+you and tell you some thing you have been waiting to hear.
+.  Send it to at least 7 of your friends!
+Just believe-God works in Miraculous Ways People and you know it.
+
+Be Blessed.
+*Bibohere Brian S.P*
+
+
+
+
+
+
+
+
+
+
+* <http://pimpmysearch.com/>*
+
+
+
+
+
+
+
+
+
+
+-- 
+<a href="http://inside-r.org/download" title="Download R"><img src="
+http://inside-r.org/sites/all/themes/rweb/assets/badges/download-r-badge-125-blue.png"
+border="0" /></a>
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: image/gif
+Size: 107985 bytes
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Jun 29 14:24:21 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 29 Jun 2010 10:24:21 -0400
+Subject: Re: [rJava] error installing rJava using IBM Java
+In-Reply-To: <SNT128-DS6962114EBCCEE04FC662B87CB0@phx.gbl>
+References: <SNT128-DS41D8490158336D9CE910487CB0@phx.gbl> <06C040B9-BDCE-49DF-8CAA-372ED3A3C449@r-project.org> <SNT128-DS6962114EBCCEE04FC662B87CB0@phx.gbl>
+Message-ID: <352B05A2-994D-4617-897C-C1CE0B3915F0@r-project.org>
+
+
+On Jun 29, 2010, at 3:13 AM, Mary Auclair wrote:
+
+> Hi Simon,
+> 
+> When I originally ran the install, I executed R CMD INSTALL
+> rJava_0.8-5.tar.gz.  This created a temp directory for the rjava install and
+> the config.log was deleted.  
+> 
+> So I had to re-run the install to get the config.log file. This time I ran
+> tar zxvf rJava_0.8-5.tar.gz and then ran R CMD INSTALL rJava.
+> 
+> Please find the attached file for config.log
+> 
+
+Great, thanks. Your JDK requires additional -ldl as it appears (see the missing symbols). Try setting
+
+JAVA_HOME=/opt/ibm/java-x86_64-60
+export JAVA_LIBS="-L${JAVA_HOME}/jre/lib/amd64/default -L${JAVA_HOME}/jre/lib/amd64 -L/usr/lib -ljvm -ldl"
+
+and then re-run 
+
+sudo R CMD javareconf
+
+Cheers,
+Simon
+
+
+> -----Original Message-----
+> From: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+> Sent: Tuesday, June 29, 2010 12:32 AM
+> To: Mary Auclair
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: Re: [stats-rosuda-devel] [rJava] error installing rJava using IBM
+> Java
+> 
+> Mary,
+> 
+> please include the config.log - as the message says that it the clue to why
+> your installation doesn't work.
+> 
+> Cheers,
+> Simon
+> 
+> 
+> On Jun 28, 2010, at 11:09 PM, Mary Auclair wrote:
+> 
+>> Hi experts,
+>> 
+>> I am trying to install rJava on an IBM iDataplex cluster. 
+>> I am installing on a DX360 node with 32GB mem and 2TB sata disks. 
+>> The DX360 has the RedHat5.3 linux installes
+> (RHEL5.3-Server-20090106.0-x86_64-DVD.iso). 
+>> 
+>> During the installation of rJava, a test compile is carried out, and I get
+> an
+>> error message:
+>> 
+>> checking whether JNI programs can be compiled... configure: error: Cannot
+>> compile a simple JNI program. See config.log for details. 
+>> 
+>> I have tried to install rJava_0.8-4.tar.gz and rJava_0.8-5.tar.gz.  Both
+> of the installs fail when I use IBM
+> Java(ibm-java-x86_64-sdk-6.0-8.0.x86_64.rpm).
+>> 
+>> Both versions of rJava install correctly when I use Sun Java.
+> (jdk-6u20-linux-amd64.rpm)
+>> 
+>> What am I missing in order to use IBM Java? 
+>> 
+>> The script and the resulting output is listed below,
+>> 
+>> Thanks in advance for your help.
+>> 
+>> Mary
+>> 
+>> 
+>> # cat installRExt.sh
+>> 
+>> !#/bin/bash
+>> R CMD INSTALL rjson_0.1.8.tar.gz
+>> sleep 3
+>> echo Done:Install rjson
+>> #export JAVA_HOME=/usr/java/jdk1.6.0_20
+>> export JAVA_HOME=/opt/ibm/java-x86_64-60
+>> export PATH=$PATH:$JAVA_HOME/bin
+>> sleep 3
+>> echo Done:set JAVA_HOME
+>> R CMD javareconf
+>> sleep 3
+>> echo Done:javareconf
+>> #R CMD INSTALL rJava_0.8-4.tar.gz
+>> R CMD INSTALL rJava_0.8-5.tar.gz
+>> sleep 3
+>> echo Done:Install rJava
+>> 
+>> 
+>> # ./installRExt.sh
+>> ./installRExt.sh: line 1: !#/bin/bash: No such file or directory
+>> * installing to library â/usr/lib64/R/libraryâ
+>> * installing *source* package ârjsonâ ...
+>> ** R
+>> ** inst
+>> ** preparing package for lazy loading
+>> ** help
+>> *** installing help indices
+>> ** building package indices ...
+>> * DONE (rjson)
+>> Done:Install rjson
+>> Done:set JAVA_HOME
+>> Java interpreter : /opt/ibm/java-x86_64-60/jre/bin/java
+>> Java version     : 1.6.0
+>> Java home path   : /opt/ibm/java-x86_64-60
+>> Java compiler    : /opt/ibm/java-x86_64-60/bin/javac
+>> Java headers gen.: /opt/ibm/java-x86_64-60/bin/javah
+>> Java archive tool: /opt/ibm/java-x86_64-60/bin/jar
+>> Java library path:
+>> $(JAVA_HOME)/jre/lib/amd64/default:$(JAVA_HOME)/jre/lib/amd64::/usr/lib
+>> JNI linker flags : -L$(JAVA_HOME)/jre/lib/amd64/default
+>> -L$(JAVA_HOME)/jre/lib/amd64 -L -L/usr/lib -ljvm
+>> JNI cpp flags    : -I$(JAVA_HOME)/include
+>> 
+>> Updating Java configuration in /usr/lib64/R
+>> Done.
+>> 
+>> Done:javareconf
+>> * installing to library â/usr/lib64/R/libraryâ
+>> * installing *source* package ârJavaâ ...
+>> checking for gcc... gcc -m64 -std=gnu99
+>> checking for C compiler default output file name... a.out
+>> checking whether the C compiler works... yes
+>> checking whether we are cross compiling... no
+>> checking for suffix of executables...
+>> checking for suffix of object files... o
+>> checking whether we are using the GNU C compiler... yes
+>> checking whether gcc -m64 -std=gnu99 accepts -g... yes
+>> checking for gcc -m64 -std=gnu99 option to accept ISO C89... none needed
+>> checking how to run the C preprocessor... gcc -m64 -std=gnu99 -E
+>> checking for grep that handles long lines and -e... /bin/grep
+>> checking for egrep... /bin/grep -E
+>> checking for ANSI C header files... yes
+>> checking for sys/wait.h that is POSIX.1 compatible... yes
+>> checking for sys/types.h... yes
+>> checking for sys/stat.h... yes
+>> checking for stdlib.h... yes
+>> checking for string.h... yes
+>> checking for memory.h... yes
+>> checking for strings.h... yes
+>> checking for inttypes.h... yes
+>> checking for stdint.h... yes
+>> checking for unistd.h... yes
+>> checking for string.h... (cached) yes
+>> checking sys/time.h usability... yes
+>> checking sys/time.h presence... yes
+>> checking for sys/time.h... yes
+>> checking for unistd.h... (cached) yes
+>> checking for an ANSI C-conforming const... yes
+>> checking whether time.h and sys/time.h may both be included... yes
+>> configure: checking whether gcc -m64 -std=gnu99 supports static inline...
+>> yes
+>> checking whether setjmp.h is POSIX.1 compatible... yes
+>> checking whether sigsetjmp is declared... yes
+>> checking whether siglongjmp is declared... yes
+>> checking Java support in R... present:
+>> interpreter : '/opt/ibm/java-x86_64-60/jre/bin/java'
+>> archiver    : '/opt/ibm/java-x86_64-60/bin/jar'
+>> compiler    : '/opt/ibm/java-x86_64-60/bin/javac'
+>> header prep.: '/opt/ibm/java-x86_64-60/bin/javah'
+>> cpp flags   : '-I/opt/ibm/java-x86_64-60/include'
+>> java libs   : '-L/opt/ibm/java-x86_64-60/jre/lib/amd64/default
+>> -L/opt/ibm/java-x86_64-60/jre/lib/amd64 -L -L/usr/lib -ljvm'
+>> checking whether JNI programs can be compiled... configure: error: Cannot
+>> compile a simple JNI program. See config.log for details.
+>> 
+>> Make sure you have Java Development Kit installed and correctly registered
+> in
+>> R.
+>> If in doubt, re-run "R CMD javareconf" as root.
+>> 
+>> ERROR: configuration failed for package ârJavaâ
+>> * removing â/usr/lib64/R/library/rJavaâ
+>> Done:Install rJava
+>> [root@shihc064 r_ext]#
+>> 
+>> 
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+> <config.log>
+
+From ejjunju at gmail.com  Wed Jun 30 03:42:28 2010
+From: ejjunju at gmail.com (Emmanuel Jjunju)
+Date: Wed, 30 Jun 2010 05:42:28 +0200
+Subject: Re: stats-rosuda-devel Digest, Vol 72, Issue 3 (Fwd: Fw: Be blessed (Emmanuel Jjunju))
+Message-ID: <AANLkTilH0NQjxZlQ5QfX51LGexgiBGEJFr9xSky4Y0Pu@mail.gmail.com>
+
+I am really sorry about the message with the subject Fwd: Fw: Be blessed
+(Emmanuel Jjunju).
+It was sent in error as I was clicking through my email messages.
+
+-------------- next part --------------
+
+
+From mary.auclair at hotmail.com  Tue Jun 29 07:13:46 2010
+From: mary.auclair at hotmail.com (Mary Auclair)
+Date: Tue, 29 Jun 2010 03:13:46 -0400
+Subject: Re: [rJava] error installing rJava using IBM Java
+In-Reply-To: <06C040B9-BDCE-49DF-8CAA-372ED3A3C449@r-project.org>
+References: <SNT128-DS41D8490158336D9CE910487CB0@phx.gbl> <06C040B9-BDCE-49DF-8CAA-372ED3A3C449@r-project.org>
+Message-ID: <SNT128-DS6962114EBCCEE04FC662B87CB0@phx.gbl>
+
+Hi Simon,
+
+When I originally ran the install, I executed R CMD INSTALL
+rJava_0.8-5.tar.gz.  This created a temp directory for the rjava install and
+the config.log was deleted.  
+
+So I had to re-run the install to get the config.log file. This time I ran
+tar zxvf rJava_0.8-5.tar.gz and then ran R CMD INSTALL rJava.
+
+Please find the attached file for config.log
+
+Regards,
+Mary
+
+-----Original Message-----
+From: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+Sent: Tuesday, June 29, 2010 12:32 AM
+To: Mary Auclair
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: Re: [stats-rosuda-devel] [rJava] error installing rJava using IBM
+Java
+
+Mary,
+
+please include the config.log - as the message says that it the clue to why
+your installation doesn't work.
+
+Cheers,
+Simon
+
+
+On Jun 28, 2010, at 11:09 PM, Mary Auclair wrote:
+
+> Hi experts,
+>  
+> I am trying to install rJava on an IBM iDataplex cluster. 
+> I am installing on a DX360 node with 32GB mem and 2TB sata disks. 
+> The DX360 has the RedHat5.3 linux installes
+(RHEL5.3-Server-20090106.0-x86_64-DVD.iso). 
+>  
+> During the installation of rJava, a test compile is carried out, and I get
+an
+> error message:
+> 
+> checking whether JNI programs can be compiled... configure: error: Cannot
+> compile a simple JNI program. See config.log for details. 
+> 
+> I have tried to install rJava_0.8-4.tar.gz and rJava_0.8-5.tar.gz.  Both
+of the installs fail when I use IBM
+Java(ibm-java-x86_64-sdk-6.0-8.0.x86_64.rpm).
+> 
+> Both versions of rJava install correctly when I use Sun Java.
+(jdk-6u20-linux-amd64.rpm)
+> 
+> What am I missing in order to use IBM Java? 
+>  
+> The script and the resulting output is listed below,
+>  
+> Thanks in advance for your help.
+> 
+> Mary
+>  
+> 
+> # cat installRExt.sh
+> 
+> !#/bin/bash
+> R CMD INSTALL rjson_0.1.8.tar.gz
+> sleep 3
+> echo Done:Install rjson
+> #export JAVA_HOME=/usr/java/jdk1.6.0_20
+> export JAVA_HOME=/opt/ibm/java-x86_64-60
+> export PATH=$PATH:$JAVA_HOME/bin
+> sleep 3
+> echo Done:set JAVA_HOME
+> R CMD javareconf
+> sleep 3
+> echo Done:javareconf
+> #R CMD INSTALL rJava_0.8-4.tar.gz
+> R CMD INSTALL rJava_0.8-5.tar.gz
+> sleep 3
+> echo Done:Install rJava
+> 
+> 
+> # ./installRExt.sh
+> ./installRExt.sh: line 1: !#/bin/bash: No such file or directory
+> * installing to library â/usr/lib64/R/libraryâ
+> * installing *source* package ârjsonâ ...
+> ** R
+> ** inst
+> ** preparing package for lazy loading
+> ** help
+> *** installing help indices
+> ** building package indices ...
+> * DONE (rjson)
+> Done:Install rjson
+> Done:set JAVA_HOME
+> Java interpreter : /opt/ibm/java-x86_64-60/jre/bin/java
+> Java version     : 1.6.0
+> Java home path   : /opt/ibm/java-x86_64-60
+> Java compiler    : /opt/ibm/java-x86_64-60/bin/javac
+> Java headers gen.: /opt/ibm/java-x86_64-60/bin/javah
+> Java archive tool: /opt/ibm/java-x86_64-60/bin/jar
+> Java library path:
+> $(JAVA_HOME)/jre/lib/amd64/default:$(JAVA_HOME)/jre/lib/amd64::/usr/lib
+> JNI linker flags : -L$(JAVA_HOME)/jre/lib/amd64/default
+> -L$(JAVA_HOME)/jre/lib/amd64 -L -L/usr/lib -ljvm
+> JNI cpp flags    : -I$(JAVA_HOME)/include
+> 
+> Updating Java configuration in /usr/lib64/R
+> Done.
+> 
+> Done:javareconf
+> * installing to library â/usr/lib64/R/libraryâ
+> * installing *source* package ârJavaâ ...
+> checking for gcc... gcc -m64 -std=gnu99
+> checking for C compiler default output file name... a.out
+> checking whether the C compiler works... yes
+> checking whether we are cross compiling... no
+> checking for suffix of executables...
+> checking for suffix of object files... o
+> checking whether we are using the GNU C compiler... yes
+> checking whether gcc -m64 -std=gnu99 accepts -g... yes
+> checking for gcc -m64 -std=gnu99 option to accept ISO C89... none needed
+> checking how to run the C preprocessor... gcc -m64 -std=gnu99 -E
+> checking for grep that handles long lines and -e... /bin/grep
+> checking for egrep... /bin/grep -E
+> checking for ANSI C header files... yes
+> checking for sys/wait.h that is POSIX.1 compatible... yes
+> checking for sys/types.h... yes
+> checking for sys/stat.h... yes
+> checking for stdlib.h... yes
+> checking for string.h... yes
+> checking for memory.h... yes
+> checking for strings.h... yes
+> checking for inttypes.h... yes
+> checking for stdint.h... yes
+> checking for unistd.h... yes
+> checking for string.h... (cached) yes
+> checking sys/time.h usability... yes
+> checking sys/time.h presence... yes
+> checking for sys/time.h... yes
+> checking for unistd.h... (cached) yes
+> checking for an ANSI C-conforming const... yes
+> checking whether time.h and sys/time.h may both be included... yes
+> configure: checking whether gcc -m64 -std=gnu99 supports static inline...
+> yes
+> checking whether setjmp.h is POSIX.1 compatible... yes
+> checking whether sigsetjmp is declared... yes
+> checking whether siglongjmp is declared... yes
+> checking Java support in R... present:
+> interpreter : '/opt/ibm/java-x86_64-60/jre/bin/java'
+> archiver    : '/opt/ibm/java-x86_64-60/bin/jar'
+> compiler    : '/opt/ibm/java-x86_64-60/bin/javac'
+> header prep.: '/opt/ibm/java-x86_64-60/bin/javah'
+> cpp flags   : '-I/opt/ibm/java-x86_64-60/include'
+> java libs   : '-L/opt/ibm/java-x86_64-60/jre/lib/amd64/default
+> -L/opt/ibm/java-x86_64-60/jre/lib/amd64 -L -L/usr/lib -ljvm'
+> checking whether JNI programs can be compiled... configure: error: Cannot
+> compile a simple JNI program. See config.log for details.
+> 
+> Make sure you have Java Development Kit installed and correctly registered
+in
+> R.
+> If in doubt, re-run "R CMD javareconf" as root.
+> 
+> ERROR: configuration failed for package ârJavaâ
+> * removing â/usr/lib64/R/library/rJavaâ
+> Done:Install rJava
+> [root@shihc064 r_ext]#
+>  
+>  
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: config.log
+Type: application/octet-stream
+Size: 16779 bytes
+
+-------------- next part --------------
+
+

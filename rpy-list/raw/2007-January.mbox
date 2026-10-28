@@ -1,0 +1,959 @@
+From borgulya at gyer2.sote.hu  Thu Jan  4 21:54:41 2007
+From: borgulya at gyer2.sote.hu (=?utf-8?q?BORGULYA_G=C3=A1bor?=)
+Date: Thu, 04 Jan 2007 22:54:41 +0100
+Subject: Re: [Rpy] Some help with this error message anyone?
+In-Reply-To: <5d8e35a70612200330nae1c7car9373211771349247@mail.gmail.com>
+References: <5d8e35a70612200330nae1c7car9373211771349247@mail.gmail.com>
+Message-ID: <200701042254.42127.borgulya@gyer2.sote.hu>
+
+Dear Geoframer,
+
+    This version works for me:
+
+from rpy import *
+set_default_mode(NO_CONVERSION)
+b = r.as_matrix(array(
+    [[1,2,3,4,5],[2,3,4,5,1],[3,4,5,1,2],[4,5,1,2,3],[5,1,2,3,4]] ))
+c = r.kmeans(b, 2, 5, 1, "Forgy")
+r.print_(c)
+
+    I hope this helps,
+
+Gábor
+
+
+2006. December 20. 12.30 dátummal Geoframer ezt írta:
+> from rpy import *
+>
+> class Test:
+>     def as_r(self):
+>         return
+> [[1,2,3,4,5],[2,3,4,5,1],[3,4,5,1,2],[4,5,1,2,3],[5,1,2,3,4]]
+>
+> if __name__ == "__main__":
+>     a=Test()
+>     b=r.matrix(a)
+>     r.kmeans(b, 2, 5, 1, "Forgy")
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From borgulya at gyer2.sote.hu  Thu Jan  4 22:28:18 2007
+From: borgulya at gyer2.sote.hu (=?utf-8?q?BORGULYA_G=C3=A1bor?=)
+Date: Thu, 04 Jan 2007 23:28:18 +0100
+Subject: [Rpy] getting the Nth row of a data_frame
+Message-ID: <200701042328.19455.borgulya@gyer2.sote.hu>
+
+Dear All,
+
+Could someone tell how to get the Nth row of a data_frame in Rpy?
+The R version works, but I dont know what to write in Rpy:
+
+R VERSION
+
+> d = data.frame(a=c(1,2,3), b=c(71,72,73))
+> r1 = d[1, ]
+> r1
+  a  b
+1 1 71
+
+
+RPY VERSION
+
+from rpy import *
+set_default_mode(NO_CONVERSION)
+d = r.data_frame(a=(1,2,3), b=(71,72,73))
+r1 = ????????
+
+
+Gábor
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From asburyt at musc.edu  Thu Jan  4 23:08:11 2007
+From: asburyt at musc.edu (Tom Asbury)
+Date: Thu, 04 Jan 2007 18:08:11 -0500
+Subject: [Rpy] annotate.py RPy script
+Message-ID: <459D88DB.2040808@musc.edu>
+
+
+Hello -
+
+Below is a simple script to grab annotation data from R packages and 
+dump it into a Python dictionary,
+where all sorts of interesting things can be done.
+
+You end up with the data structures:
+
+probes[] holds the probeIDs
+dict[] holds the annotation data for each probe
+e.g.:
+dict['GO'][0] contains GO info the the first probe
+
+The dict can be filled with all possible annotations from the package.
+
+Nothing special, but pretty useful for downstream analysis of probe ids, 
+and as far as I am concerned,
+Python is the place to do it - not R.
+
+Cheers-
+Tom
+
+> #! /usr/bin/env python
+>
+> #
+> # annotate.py
+> #
+> # does gene annotation automagically for a list of probes
+> #
+> # stores all the info in a Python dictionary
+> #
+> #
+>
+> import sys
+> import getopt
+> import string
+>
+> ###################################
+> # likely to be modified
+>
+> NoInfoString = "No Info"    # whatever
+>
+> def pprint ( pfunc, adata ):
+>     # can switch here for different pretty prints for
+>     # various annotations
+>     if pfunc == "GO" and adata != NoInfoString:
+>         print "\t", pfunc, "="
+>         for goId in adata:
+>             print "\t\t", goId, adata[goId]['Ontology']
+>     else:
+>         print "\t", pfunc, "=", adata
+>
+> def filter ( pfunc, flist ):
+>     # can switch here to filter various annotations
+>     # some of the things returns for the annonations
+>     # packages may be screwy
+>     if pfunc == "GO" or pfunc == "SUMFUNC" or \
+>            pfunc == "PATH":
+>         for i in range( len(flist)):
+>             if flist[i] == -2147483648:
+>                 flist[i] = NoInfoString
+>
+> # these members of the packages are ignored
+> # mainly non-Probe functions
+> nonProbeFuncs = [ "CHRLENGTHS", "ENZYME2PROBE",
+>                   "GO2ALLPROBES", "GO2PROBE",
+>                   "LOCUSID", # deprecated
+>                   "MAPCOUNTS",   "ORGANISM",
+>                   "PATH2PROBE", "PFAM",
+>                   "PMID2PROBE", "PROSITE", "QC", "QCDATA" ]
+>
+> #
+> ####################################
+>
+>
+> def processPkgFunc ( list, pkg, func ):
+>     data = []
+>     for i in list :
+>         cmd = "r.get(\"" + i  + "\", env = r." + pkg + func + ")"
+>         data . append( eval ( cmd ) )
+>     return data
+>
+> def annoteDesired ( all, annotes, func ):
+>     if all:
+>         return 1
+>     for i in annotes:
+>         if string . lower( func) == string . lower( i ) :
+>             return 1
+>     return 0
+>
+>
+> def usage ( ) :
+>     print "Usage: "
+>     print sys . argv [ 0 ], " [options] probeListFile(1 ID per line)"
+>     print "\t does automatic annotations - stores info in dictionary"
+>     print "\t options:"
+>     print "\t -P  pkgName      R annotation package containing the 
+> probe set[mouse4302]"
+>     print "\t -a  annoType     print out specific 
+> annotation(case-insensitive) per probe"
+>     print "\t                  Example: \"-a genename\" prints the 
+> probeID gene names"
+>     print "\t                  NOTE: can be used multplie times in 
+> cmdline"
+>     print "\t -A               print ALL annotations fpr each probe"
+>     print "\t -l               list available annotations"
+>
+> try:
+>     opts, args = getopt.getopt(sys.argv[1:], "P:a:Avl")
+> except getopt.error, msg:
+>     sys.stderr.write(sys.argv[0] + ': ' + str(msg) + '\n')
+>     usage ( )
+>     sys . exit( -1 )
+>
+> if len ( sys .argv ) == 1:
+>   usage()
+>   sys . exit(0)
+>
+> pkgName = "mouse4302"
+> annotes = []
+> allAnnotes = 0
+> listAnnotes = 0
+> verbose = 0
+>
+> for o, a in opts :
+>     if o == '-P':
+>         pkgName = a
+>     if o == '-a':
+>         annotes . append ( a )
+>     if o == 'v':
+>         verbose = 1
+>     if o == '-A':
+>         allAnnotes = 1
+>     if o == '-l':
+>         listAnnotes = 1
+>
+> if not len( pkgName ) :
+>     print "Error: no R annotation probe set specified - exiting."
+>     sys . exit( -1 )
+>
+> from rpy import *
+> r . library( "annotate" )
+> r . library( pkgName )
+>
+> pkgFuncs = r . ls( "package:" + pkgName )
+> # remove nonProbeFuncs
+> probeFuncs = []
+> for func in pkgFuncs:
+>     probeFunc = 1
+>     for npfunc in nonProbeFuncs:
+>         if func[len(pkgName):] == npfunc:
+>             probeFunc = 0
+>     if probeFunc and len( func ) > len(pkgName):
+>         probeFuncs . append ( func[len(pkgName):] )
+>
+> if listAnnotes:
+>     for i in probeFuncs:
+>         print i
+>     sys . exit(0)
+>
+> # grab probe list
+> pFile = open ( sys . argv[-1], "r" )
+> probes = []
+> for line in pFile  . readlines ( ) :
+>     data = string . split ( line )
+>     probes . append ( data [ 0 ] )
+>
+> # build annotation dict
+> dict = {}
+> for pfunc in probeFuncs:
+>     if annoteDesired( allAnnotes, annotes, pfunc ):
+>         if verbose:
+>             print "getting", pfunc, "data."
+>         data = processPkgFunc ( probes, pkgName, pfunc )
+>         filter ( pfunc, data )
+>         dict [ pfunc ] = data
+>
+> #########################################
+> #
+> # At this point you have a dict filled with the requested
+> #  annotation data for each probe
+> #  e.g:
+> #  dict["GO"][0]
+> #  holds GO info (which is itself a dict of dict) for the first probe
+> #
+> #########################################
+>
+> # prints
+> if allAnnotes or len( annotes ):
+>     for i in range( len( probes)):
+>         print probes[i] + ":"
+>         for pfunc in probeFuncs:
+>             if annoteDesired( allAnnotes, annotes, pfunc ):
+>                 pprint( pfunc, (dict[pfunc][i]) )
+
+
+
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From greg at warnes.net  Fri Jan  5 16:27:20 2007
+From: greg at warnes.net (Gregory. R. Warnes)
+Date: Fri, 05 Jan 2007 11:27:20 -0500
+Subject: Re: [Rpy] getting the Nth row of a data_frame
+In-Reply-To: <200701042328.19455.borgulya@gyer2.sote.hu>
+References: <200701042328.19455.borgulya@gyer2.sote.hu>
+Message-ID: <5FE39AAE-E745-497B-B188-FBEF9C28F224@rochester.edu>
+
+
+You should be able to use something like:
+
+> from rpy import *
+> set_default_mode(NO_CONVERSION)
+> d = r.data_frame(a=(1,2,3), b=(71,72,73))
+> getRow = r("function(d, i) d[i,,drop=FALSE]")
+> r1 = getRow(d,1)
+
+-Greg
+
+On Jan 4, 2007, at 5:28 PM, BORGULYA Gábor wrote:
+
+> Dear All,
+>
+> Could someone tell how to get the Nth row of a data_frame in Rpy?
+> The R version works, but I dont know what to write in Rpy:
+>
+> R VERSION
+>
+>> d = data.frame(a=c(1,2,3), b=c(71,72,73))
+>> r1 = d[1, ]
+>> r1
+>   a  b
+> 1 1 71
+>
+>
+> RPY VERSION
+>
+> from rpy import *
+> set_default_mode(NO_CONVERSION)
+> d = r.data_frame(a=(1,2,3), b=(71,72,73))
+> r1 = ????????
+>
+>
+> Gábor
+>
+> ---------------------------------------------------------------------- 
+> ---
+> Take Surveys. Earn Cash. Influence the Future of IT
+> Join SourceForge.net's Techsay panel and you'll get the chance to  
+> share your
+> opinions on IT & business topics through brief surveys - and earn cash
+> http://www.techsay.com/default.php? 
+> page=join.php&p=sourceforge&CID=DEVDEV
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From noreply at sourceforge.net  Sat Jan  6 18:40:31 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Sat, 06 Jan 2007 10:40:31 -0800
+Subject: [Rpy] [ rpy-Bugs-1629506 ] setup.py fails with R 2.4.1
+Message-ID: <E1H3GT1-00007W-MC@sc8-sf-web5.sourceforge.net>
+
+Bugs item #1629506, was opened at 2007-01-06 10:23
+Message generated for change (Comment added) made by bbarnard
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1629506&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Build
+Group: rpy
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Bill Barnard (bbarnard)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: setup.py fails with R 2.4.1
+
+Initial Comment:
+Running setup.py yields the following error:
+
+billb@lyell  rpy-0.99.2 $ python setup.py build
+RHOMES= []
+Setting RHOMES to  ['/usr/lib/R']
+Traceback (most recent call last):
+  File "setup.py", line 80, in ?
+    RVERSION = rpy_tools.get_R_VERSION(RHOME, force_exec=True)
+  File "/home/billb/rpm/BUILD/rpy-0.99.2/rpy_tools.py", line 102, in get_R_VERSION
+    raise RuntimeError("Couldn't obtain version number from output\n"
+RuntimeError: Couldn't obtain version number from output
+of `R --version'.
+
+This appears to be because the output of R --version has changed. It now outputs a string:
+
+R version 2.4.1 (2006-12-18)
+
+The fix is a minor change in rpy_tools.py in the get_R_VERSION() function (Line 100)
+
+Change:
+
+version = re.search("R +([0-9]\.[0-9]\.[0-9])", output)
+
+to:
+
+version = re.search("R +\D*([0-9]\.[0-9]\.[0-9])", output)
+
+You could use any other regexp besides \D* to match the string "version " which appears to be the new output portion.
+
+I have attached a patch with the proposed change.
+
+----------------------------------------------------------------------
+
+>Comment By: Bill Barnard (bbarnard)
+Date: 2007-01-06 10:40
+
+Message:
+Logged In: YES 
+user_id=1057791
+Originator: YES
+
+My apologies if this bug record is redundant. I checked the bugs lists but
+not the mailing lists so I did not realize there was a version 1.0 RCx
+available.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1629506&group_id=48422
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From noreply at sourceforge.net  Sat Jan  6 18:23:25 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Sat, 06 Jan 2007 10:23:25 -0800
+Subject: [Rpy] [ rpy-Bugs-1629506 ] setup.py fails with R 2.4.1
+Message-ID: <E1H3GCT-0005wT-Gt@sc8-sf-web9.sourceforge.net>
+
+Bugs item #1629506, was opened at 2007-01-06 10:23
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1629506&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Build
+Group: rpy
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Bill Barnard (bbarnard)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: setup.py fails with R 2.4.1
+
+Initial Comment:
+Running setup.py yields the following error:
+
+billb@lyell  rpy-0.99.2 $ python setup.py build
+RHOMES= []
+Setting RHOMES to  ['/usr/lib/R']
+Traceback (most recent call last):
+  File "setup.py", line 80, in ?
+    RVERSION = rpy_tools.get_R_VERSION(RHOME, force_exec=True)
+  File "/home/billb/rpm/BUILD/rpy-0.99.2/rpy_tools.py", line 102, in get_R_VERSION
+    raise RuntimeError("Couldn't obtain version number from output\n"
+RuntimeError: Couldn't obtain version number from output
+of `R --version'.
+
+This appears to be because the output of R --version has changed. It now outputs a string:
+
+R version 2.4.1 (2006-12-18)
+
+The fix is a minor change in rpy_tools.py in the get_R_VERSION() function (Line 100)
+
+Change:
+
+version = re.search("R +([0-9]\.[0-9]\.[0-9])", output)
+
+to:
+
+version = re.search("R +\D*([0-9]\.[0-9]\.[0-9])", output)
+
+You could use any other regexp besides \D* to match the string "version " which appears to be the new output portion.
+
+I have attached a patch with the proposed change.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1629506&group_id=48422
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From noreply at sourceforge.net  Sat Jan  6 19:15:43 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Sat, 06 Jan 2007 11:15:43 -0800
+Subject: [Rpy] [ rpy-Support Requests-1629519 ] segfault when plotting
+Message-ID: <E1H3H15-0003wx-MV@sc8-sf-web8.sourceforge.net>
+
+Support Requests item #1629519, was opened at 2007-01-06 11:15
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=1629519&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: v1.0 (example)
+Status: Open
+Priority: 5
+Private: No
+Submitted By: Bill Barnard (bbarnard)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: segfault when plotting
+
+Initial Comment:
+I searched the mailing lists and found an entry suggesting a bug would be filed but did not find the bug entry. Since I already committed one small faux-pas today (submitting an unneeded patch for a problem that's already fixed in 1.0-RC2) I don't want to enter another bug. Here is what I get when running the simple plot demo after installing v1.0-RC2 with R v2.4.1:
+
+billb@lyell  ~ $ python
+Python 2.4.3 (#1, Jun 13 2006, 16:41:18)
+[GCC 4.0.2 20051125 (Red Hat 4.0.2-8)] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from rpy import *
+RHOME= /usr/lib/R
+RVERSION= 2.4.1
+RVER= 2041
+RUSER= /home/billb
+Loading Rpy version 2041 .. Done.
+Creating the R object 'r' ..  Done
+>>> x = range(0,10)
+>>> y = [ 2*i for i in x ]
+>>> r.plot_default(x,y)
+>>> Error during wrapup: C stack usage is too close to the limit
+
+ *** caught segfault ***
+address 0x1, cause 'memory not mapped'
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=1629519&group_id=48422
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From noreply at sourceforge.net  Mon Jan  8 18:20:10 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 08 Jan 2007 10:20:10 -0800
+Subject: [Rpy] [ rpy-Support Requests-1629519 ] segfault when plotting
+Message-ID: <E1H3z6Q-0007o4-6O@sc8-sf-web5.sourceforge.net>
+
+Support Requests item #1629519, was opened at 2007-01-06 19:15
+Message generated for change (Comment added) made by maubp
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=1629519&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: v1.0 (example)
+Status: Open
+Priority: 5
+Private: No
+Submitted By: Bill Barnard (bbarnard)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: segfault when plotting
+
+Initial Comment:
+I searched the mailing lists and found an entry suggesting a bug would be filed but did not find the bug entry. Since I already committed one small faux-pas today (submitting an unneeded patch for a problem that's already fixed in 1.0-RC2) I don't want to enter another bug. Here is what I get when running the simple plot demo after installing v1.0-RC2 with R v2.4.1:
+
+billb@lyell  ~ $ python
+Python 2.4.3 (#1, Jun 13 2006, 16:41:18)
+[GCC 4.0.2 20051125 (Red Hat 4.0.2-8)] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from rpy import *
+RHOME= /usr/lib/R
+RVERSION= 2.4.1
+RVER= 2041
+RUSER= /home/billb
+Loading Rpy version 2041 .. Done.
+Creating the R object 'r' ..  Done
+>>> x = range(0,10)
+>>> y = [ 2*i for i in x ]
+>>> r.plot_default(x,y)
+>>> Error during wrapup: C stack usage is too close to the limit
+
+ *** caught segfault ***
+address 0x1, cause 'memory not mapped'
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2007-01-08 18:20
+
+Message:
+Logged In: YES 
+user_id=259020
+Originator: NO
+
+This may not help much but your example works for me using:
+
+Python 2.3.5, Windows XP with R 2.4.1 and rpy 1.0-RC2
+
+I have also tried a few combinations with the previous release, R 2.4.0
+
+Python 2.4.3, Windows XP with R 2.4.0 and rpy 1.0-RC2
+Python 2.3.5, Windows XP with R 2.4.0 and rpy 1.0-RC2
+Python 2.3.5, Windows XP with R 2.4.0 and rpy 0.99.2 (patched)
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=1629519&group_id=48422
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From noreply at sourceforge.net  Mon Jan  8 20:43:20 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 08 Jan 2007 12:43:20 -0800
+Subject: [Rpy] [ rpy-Support Requests-1629519 ] segfault when plotting
+Message-ID: <E1H41Ky-0002Iv-Vz@sc8-sf-web3.sourceforge.net>
+
+Support Requests item #1629519, was opened at 2007-01-06 11:15
+Message generated for change (Comment added) made by bbarnard
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=1629519&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: v1.0 (example)
+Status: Open
+Priority: 5
+Private: No
+Submitted By: Bill Barnard (bbarnard)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: segfault when plotting
+
+Initial Comment:
+I searched the mailing lists and found an entry suggesting a bug would be filed but did not find the bug entry. Since I already committed one small faux-pas today (submitting an unneeded patch for a problem that's already fixed in 1.0-RC2) I don't want to enter another bug. Here is what I get when running the simple plot demo after installing v1.0-RC2 with R v2.4.1:
+
+billb@lyell  ~ $ python
+Python 2.4.3 (#1, Jun 13 2006, 16:41:18)
+[GCC 4.0.2 20051125 (Red Hat 4.0.2-8)] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from rpy import *
+RHOME= /usr/lib/R
+RVERSION= 2.4.1
+RVER= 2041
+RUSER= /home/billb
+Loading Rpy version 2041 .. Done.
+Creating the R object 'r' ..  Done
+>>> x = range(0,10)
+>>> y = [ 2*i for i in x ]
+>>> r.plot_default(x,y)
+>>> Error during wrapup: C stack usage is too close to the limit
+
+ *** caught segfault ***
+address 0x1, cause 'memory not mapped'
+
+----------------------------------------------------------------------
+
+>Comment By: Bill Barnard (bbarnard)
+Date: 2007-01-08 12:43
+
+Message:
+Logged In: YES 
+user_id=1057791
+Originator: YES
+
+I found what sounds to me like the same problem in the mailing lists at
+https://sourceforge.net/mailarchive/message.php?msg_id=36118690, and
+possibly in
+https://sourceforge.net/mailarchive/message.php?msg_id=36859147. (I've just
+built new versions of R 2.4.1 with shared library, and built new rpy
+1.0-RC2.)
+
+Possibly there is something weird in gcc 4.0.2, but who knows?!...
+
+I try not to boot into Windows if I can help it! ;) Thanks for looking
+into this.
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2007-01-08 10:20
+
+Message:
+Logged In: YES 
+user_id=259020
+Originator: NO
+
+This may not help much but your example works for me using:
+
+Python 2.3.5, Windows XP with R 2.4.1 and rpy 1.0-RC2
+
+I have also tried a few combinations with the previous release, R 2.4.0
+
+Python 2.4.3, Windows XP with R 2.4.0 and rpy 1.0-RC2
+Python 2.3.5, Windows XP with R 2.4.0 and rpy 1.0-RC2
+Python 2.3.5, Windows XP with R 2.4.0 and rpy 0.99.2 (patched)
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=1629519&group_id=48422
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From noreply at sourceforge.net  Sat Jan 13 00:22:46 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 12 Jan 2007 16:22:46 -0800
+Subject: [Rpy] [ rpy-Bugs-1634465 ] rpy and lattice don't create plots
+Message-ID: <E1H5WfW-0002jf-TI@sc8-sf-web9.sourceforge.net>
+
+Bugs item #1634465, was opened at 2007-01-12 16:22
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1634465&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: rpy
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: rpy and lattice don't create plots
+
+Initial Comment:
+I am have difficulty getting graphical output from rpy and lattice.  In particular, I'm trying to plot a histogram.  The best I have done is to have the variable returned, but I get is a if I had done a:
+
+   f1 <- histogram(....)
+   f1
+
+in R.  I have tried surrounding this with print_ and plot_ with no success.  Is there a kind person who has solved this problem?
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1634465&group_id=48422
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From bbands at yahoo.com  Thu Jan 25 15:57:55 2007
+From: bbands at yahoo.com (BBands)
+Date: Thu, 25 Jan 2007 07:57:55 -0800
+Subject: [Rpy] Python 2.5
+In-Reply-To: <E1H5WfW-0002jf-TI@sc8-sf-web9.sourceforge.net>
+References: <E1H5WfW-0002jf-TI@sc8-sf-web9.sourceforge.net>
+Message-ID: <20070125155755.45688.qmail@web51811.mail.yahoo.com>
+
+Hello,
+
+Is there any support planned for Python 2.5, either Windows or Linux?
+
+I gather that this would mean a switch to NumPy.
+
+    jab
+
+John Bollinger, CFA, CMT
+www.BollingerBands.com
+
+If you advance far enough, you arrive at the beginning.
+
+
+ 
+____________________________________________________________________________________
+Yahoo! Music Unlimited
+Access over 1 million songs.
+http://music.yahoo.com/unlimited
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From rpy-list at maubp.freeserve.co.uk  Thu Jan 25 16:32:45 2007
+From: rpy-list at maubp.freeserve.co.uk (Peter (RPy List))
+Date: Thu, 25 Jan 2007 16:32:45 +0000
+Subject: Re: [Rpy] Python 2.5
+In-Reply-To: <20070125155755.45688.qmail@web51811.mail.yahoo.com>
+References: <20070125155755.45688.qmail@web51811.mail.yahoo.com>
+Message-ID: <45B8DBAD.3050707@maubp.freeserve.co.uk>
+
+BBands wrote:
+> Hello,
+> 
+> Is there any support planned for Python 2.5, either Windows or Linux?
+
+I expect so.
+
+> I gather that this would mean a switch to NumPy.
+
+Not really.
+
+The only trick is installing Numeric on Python 2.5 on Windows as they 
+don't provide an installer.  Its one way to encourage people to move to 
+NumPy ;)
+
+BioPython is another project still using Numeric, and they built their 
+own Numeric Windows installer for Python 2.3, you can download it here:
+
+http://biopython.org/wiki/Download
+http://biopython.org/DIST/Numeric-24.2.win32-py2.5.exe
+
+Peter
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From bbands at yahoo.com  Thu Jan 25 17:29:32 2007
+From: bbands at yahoo.com (BBands)
+Date: Thu, 25 Jan 2007 09:29:32 -0800
+Subject: Re: [Rpy] Python 2.5
+In-Reply-To: <45B8DBAD.3050707@maubp.freeserve.co.uk>
+References: <45B8DBAD.3050707@maubp.freeserve.co.uk>
+Message-ID: <167528.82895.qm@web51810.mail.yahoo.com>
+
+--- "Peter (RPy List)" <rpy-list at maubp.freeserve.co.uk> wrote:
+> BioPython is another project still using Numeric, and they built their 
+> own Numeric Windows installer for Python 2.3, you can download it here:
+> 
+> http://biopython.org/wiki/Download
+> http://biopython.org/DIST/Numeric-24.2.win32-py2.5.exe
+
+Oh, that's really handy. Thank you.
+
+      jab
+
+John Bollinger, CFA, CMT
+www.BollingerBands.com
+
+If you advance far enough, you arrive at the beginning.
+
+
+ 
+____________________________________________________________________________________
+Have a burning question?  
+Go to www.Answers.yahoo.com and get answers from real people who know.
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From bbands at yahoo.com  Thu Jan 25 17:49:53 2007
+From: bbands at yahoo.com (BBands)
+Date: Thu, 25 Jan 2007 09:49:53 -0800
+Subject: Re: [Rpy] Python 2.5
+In-Reply-To: <45B8DBAD.3050707@maubp.freeserve.co.uk>
+References: <45B8DBAD.3050707@maubp.freeserve.co.uk>
+Message-ID: <326790.9040.qm@web51803.mail.yahoo.com>
+
+--- "Peter (RPy List)" <rpy-list at maubp.freeserve.co.uk> wrote:
+> BioPython is another project still using Numeric, and they built their 
+> own Numeric Windows installer for Python 2.3, you can download it here:
+> 
+> http://biopython.org/wiki/Download
+> http://biopython.org/DIST/Numeric-24.2.win32-py2.5.exe
+
+Oh, that's really handy! Thank you.
+
+      jab
+
+John Bollinger, CFA, CMT
+www.BollingerBands.com
+
+If you advance far enough, you arrive at the beginning.
+
+
+ 
+____________________________________________________________________________________
+Bored stiff? Loosen up... 
+Download and play hundreds of games for free on Yahoo! Games.
+http://games.yahoo.com/games/front
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys - and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From noreply at sourceforge.net  Tue Jan 30 23:53:31 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Tue, 30 Jan 2007 15:53:31 -0800
+Subject: [Rpy] [ rpy-Patches-1648318 ] Patch so that RPy uses NumPy instead of Numeric
+Message-ID: <E1HC2n5-0003kP-9w@sc8-sf-web2.sourceforge.net>
+
+Patches item #1648318, was opened at 2007-01-30 15:53
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1648318&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Patch so that RPy uses NumPy instead of Numeric
+
+Initial Comment:
+Numeric is an obsolete array package and NumPy is the supported array package.  This patch converts revision 341 of RPy to use NumPy instead of Numeric. 
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1648318&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier.
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+

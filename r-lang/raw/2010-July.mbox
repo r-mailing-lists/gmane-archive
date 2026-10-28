@@ -1,0 +1,1635 @@
+From praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Jul  2 09:37:40 2010
+From: praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Xiao He)
+Date: Fri, 02 Jul 2010 02:37:40 -0700
+Subject: Binomial data using mixed-designs model
+Message-ID: <AANLkTikB0JRnMcVkxwWLdTL1ZqIt1xsOyB29IY93AmEZ@mail.gmail.com>
+
+Hi dear R-lang users,
+
+I have a set of binomial data that I would like to use lmer() to analyze.
+The data are about participants' choices of stress for two-word compound
+words (e.g. blackboard) - specifically, whether participants chose to stress
+the first word or the second word of a compound word. There are three groups
+of words, and all three groups have an equal number of words, and each
+group's words are different. Each participant sees all three lists.
+
+e.g.
+*Familiarity rating is on a scale of 1-7 -> 7 being very familiar and 1
+being not familiar at all.
+
+subject  group  word                N1     Familiarity
+1             G1     blackboard         1      7
+1             G1     checkbook         1      7
+*.               .      .                        .       .*
+*.               .      .                        .       .*
+*.               .      .                        . **      .*
+1             G2      roof-mounted      0      5
+*.               .      .                        .       .*
+*.               .      .                        .       .*
+*.               .      .                        . **      .*
+
+
+I made the following model:
+
+>cp.lmer1<-lmer(N1~group*FamiliarityRating + (1|subject) + (1|word),
+data=cp, family = "binomial")
+
+I have the following questions:
+
+(1). First of all, after I ran str(cp), the result shows that
+FamiliarityRating was considered to be int(ternals?). Should I change it to
+factors using as.factor, or 'int' is good?
+
+(2). Second, I would like to know whether the fit of the model looks right.
+
+(3). Third, maybe my understanding of lmer with binomial data is not
+correct, but I thought that if I used "binomial" family to fit the model,
+lmer() would use one level as the control (e.g. G1 of my data) and compare
+all the other levels with this control level (e.g. G1 vs. G2, G1 vs. G3, but
+crucially *not* G2 vs. G3). (the results I obtained by using lmer() are
+below)
+
+Generalized linear mixed model fit by the Laplace approximation
+Formula: N1 ~ group * Familiarity + (1 | Participant) + (1 | Word)
+   Data: cp
+   AIC BIC logLik deviance
+ 230.4 262 -107.2    214.4
+Random effects:
+ Groups      Name        Variance Std.Dev.
+ Word        (Intercept) 2.73735  1.65449
+ Participant (Intercept) 0.60344  0.77681
+Number of obs: 384, groups: Word, 24; Participant, 16
+
+Fixed effects:
+                         Estimate Std. Error z value Pr(>|z|)
+(Intercept)              -1.03647    0.79997  -1.296 0.195100
+groupG2               19.90576 3142.42809   0.006 0.994946
+groupG3                  3.69099    1.10661   3.335 0.000852 ***
+Familiarity               -0.08980    0.13171  -0.682 0.495336
+groupG2:Familiarity    0.10600  384.87250   0.000 0.999780
+groupG3:Familiarity      0.07617    0.18065   0.422 0.673302
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) grpgrn groprd Fmlrty grpg:F
+groupG2      0.000
+groupG3      -0.663  0.000
+Familiarity -0.525  0.000  0.344
+grpG2:Fmlr  0.000 -0.938  0.000  0.000
+grpG3:Fmlrt  0.346  0.000 -0.530 -0.659  0.000
+
+
+Since I am interested in all-pairwise comparisons (namely,  G1 vs. G2, G1
+vs. G3, and G2 vs. G3), I thought I should do post-hoc tests. So, I resorted
+to the 'multcomp' package by doing the following:
+
+>summary(glht(cp.lmer1, linfct=mcp(group = "Tukey")))
+
+Is it an appropriate method?
+
+
+(4). Lastly, after I ran the post-hoc test, I got an error message
+
+         Simultaneous Tests for General Linear Hypotheses
+
+Multiple Comparisons of Means: Tukey Contrasts
+
+
+Fit: glmer(formula = N1 ~ group * Familiarity + (1 | Participant) +
+    (1 | Word), data = cp, family = "binomial")
+
+Linear Hypotheses:
+                  Estimate Std. Error z value Pr(>|z|)
+G1 - G2 == 0   19.906   3142.428   0.006  0.99997
+G1 - G3 == 0      3.691      1.107   3.335  0.00170 **
+G2 - G3 == 0   -16.215   3142.428  -0.005  0.99998
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+(Adjusted p values reported -- single-step method)
+
+Warning message:
+In mcp2matrix(model, linfct = linfct) :
+  covariate interactions found -- default contrast might be inappropriate
+
+So I wonder if there is anyway to avoid this covariate interaction problem?
+
+
+Thank you in advance for your help!
+
+
+Xiao He
+Graduate student
+Department of Linguistics
+University of Southern California
+
+From zoekoinu-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Jul 19 17:28:12 2010
+From: zoekoinu-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Zoe Luk)
+Date: Mon, 19 Jul 2010 13:28:12 -0400
+Subject: Concerning glm with contrasts
+Message-ID: <AANLkTin_qu1_skN6nCcG7otKPzaTJJ4Mh2DNYDCbHaQI@mail.gmail.com>
+
+Dear R-lang users,
+
+I am new to the mailing list, and also rather new to R. I have a few
+questions concerning the results of glm().
+
+I am doing a study comparing the frequencies of different linguistic
+constructions used in a specific text that is in three languages (Japanese,
+Chinese, and English). The results I got are the following.
+
+
+Transitive  Passive Intransitive Adjectival Others Total  Japanese 164 9 291
+36 8 508  Chinese 198 3 221 69 17 508  English 174 31 214 57 32 508
+536 43 726 162 57 1524
+Chi-square test has a significant result. I intended to do further analysis
+to see if there is any difference among the languages, so i did the
+following:
+
+> glm.out4<-glm(freq~language*constructions, data=comps2.data,
+family=poisson, contrasts=list(language=contrastml,
+constructions=contrastmc))
+> summary(glm.out4)
+
+Call:
+glm(formula = freq ~ language * constructions, family = poisson,
+    data = comps2.data, contrasts = list(language = contrastml,
+        constructions = contrastmc))
+
+Deviance Residuals:
+ [1]  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+
+Coefficients:
+                         Estimate Std. Error z value Pr(>|z|)
+(Intercept)               3.93111    0.05890  66.746  < 2e-16 ***
+language1                 0.20443    0.08435   2.424 0.015363 *
+language2                 0.16064    0.09497   1.692 0.090740 .
+constructions1           -1.25129    0.06779 -18.459  < 2e-16 ***
+constructions2            1.68783    0.18775   8.990  < 2e-16 ***
+constructions3           -0.01655    0.08647  -0.191 0.848205
+constructions4            1.12805    0.13321   8.468  < 2e-16 ***
+language1:constructions1  0.12190    0.09726   1.253 0.210090
+language2:constructions1  0.26651    0.10562   2.523 0.011625 *
+language1:constructions2  0.15838    0.24722   0.641 0.521744
+language2:constructions2 -0.98403    0.32782  -3.002 0.002684 **
+language1:constructions3 -0.15971    0.12915  -1.237 0.216218
+language2:constructions3  0.44708    0.12620   3.543 0.000396 ***
+language1:constructions4 -0.51918    0.21538  -2.411 0.015931 *
+language2:constructions4  0.19079    0.18724   1.019 0.308207
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for poisson family taken to be 1)
+
+    Null deviance:  1.3744e+03  on 14  degrees of freedom
+Residual deviance: -3.1086e-15  on  0  degrees of freedom
+AIC: 116.66
+
+Number of Fisher Scoring iterations: 3
+
+> contrasts(language)
+         [,1] [,2]
+Chinese     0   -1
+English     1    1
+Japanese   -1    0
+> contrasts(constructions)
+             [,1] [,2] [,3] [,4]
+Adjectival      0    0   -1    0
+Intransitive    1    1    1    1
+Others          0    0    0   -1
+Passive         0   -1    0    0
+Transitive     -1    0    0    0
+
+So my questions are:
+(1) I am not sure how to interpret these results. Since language1 shows a
+significance difference, does it mean that "English and Japanese are
+significantly different in terms of the distribution of the different
+constructions used"?
+(2) Does the "intercept" represent anything at all? If yes, what does it
+represent in this case?
+(3) If I want to test whether English uses passive significantly more than
+Japanese, and Japanese uses intransitive significantly more than English,
+how should I modify the contrasts/commands?
+
+Any help is appreciated.
+Thanks.
+
+-- 
+Zoe Luk
+Department of Linguistics
+University of Pittsburgh
+
+From rlevy-XkckGZ689+c at public.gmane.org  Tue Jul 20 20:43:45 2010
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Tue, 20 Jul 2010 13:43:45 -0700
+Subject: Re: Concerning glm with contrasts
+In-Reply-To: <AANLkTin_qu1_skN6nCcG7otKPzaTJJ4Mh2DNYDCbHaQI@mail.gmail.com>
+References: <AANLkTin_qu1_skN6nCcG7otKPzaTJJ4Mh2DNYDCbHaQI@mail.gmail.com>
+Message-ID: <31F232F5-0766-4483-A51F-D9A37CA31757@ucsd.edu>
+
+Dear Zoe,
+
+On Jul 19, 2010, at 10:28 AM, Zoe Luk wrote:
+
+> Dear R-lang users,
+> 
+> I am new to the mailing list, and also rather new to R. I have a few questions concerning the results of glm(). 
+> 
+> I am doing a study comparing the frequencies of different linguistic constructions used in a specific text that is in three languages (Japanese, Chinese, and English). The results I got are the following. 
+> 
+> 
+> Transitive 	Passive	Intransitive	Adjectival	Others	Total
+> Japanese	164	9	291	36	8	508
+> Chinese	198	3	221	69	17	508
+> English	174	31	214	57	32	508
+> 
+> 536	43	726	162	57	1524
+> 
+> Chi-square test has a significant result. I intended to do further analysis to see if there is any difference among the languages, so i did the following:
+> 
+> > glm.out4<-glm(freq~language*constructions, data=comps2.data, family=poisson, contrasts=list(language=contrastml, constructions=contrastmc))
+
+The first question I'd like to ask is why you're using a Poisson model to analyze your data.  I see that the marginal totals for each language are the same at 508.  Were these marginal totals under your control (e.g., did you count in each text until you got 508), or are these totals something you want your model to account for?  A Poisson model devotes parameters to accounting for the marginal totals. If instead you're thinking that the language is an "independent variable" and the construction type is a "dependent variable", then analyzing the data with multinomial logistic regression might be more appropriate.  (Now, there *are* legitimate uses of Poisson models as surrogates for multinomial logistic regression, but using them in surrogates in this way affects how you interpret the mode
+ l parameters -- see below.)
+
+> > summary(glm.out4)
+> 
+> Call:
+> glm(formula = freq ~ language * constructions, family = poisson, 
+>     data = comps2.data, contrasts = list(language = contrastml, 
+>         constructions = contrastmc))
+> 
+> Deviance Residuals: 
+>  [1]  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+> 
+> Coefficients:
+>                          Estimate Std. Error z value Pr(>|z|)    
+> (Intercept)               3.93111    0.05890  66.746  < 2e-16 ***
+> language1                 0.20443    0.08435   2.424 0.015363 *  
+> language2                 0.16064    0.09497   1.692 0.090740 .  
+> constructions1           -1.25129    0.06779 -18.459  < 2e-16 ***
+> constructions2            1.68783    0.18775   8.990  < 2e-16 ***
+> constructions3           -0.01655    0.08647  -0.191 0.848205    
+> constructions4            1.12805    0.13321   8.468  < 2e-16 ***
+> language1:constructions1  0.12190    0.09726   1.253 0.210090    
+> language2:constructions1  0.26651    0.10562   2.523 0.011625 *  
+> language1:constructions2  0.15838    0.24722   0.641 0.521744    
+> language2:constructions2 -0.98403    0.32782  -3.002 0.002684 ** 
+> language1:constructions3 -0.15971    0.12915  -1.237 0.216218    
+> language2:constructions3  0.44708    0.12620   3.543 0.000396 ***
+> language1:constructions4 -0.51918    0.21538  -2.411 0.015931 *  
+> language2:constructions4  0.19079    0.18724   1.019 0.308207    
+> ---
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1 
+> 
+> (Dispersion parameter for poisson family taken to be 1)
+> 
+>     Null deviance:  1.3744e+03  on 14  degrees of freedom
+> Residual deviance: -3.1086e-15  on  0  degrees of freedom
+> AIC: 116.66
+> 
+> Number of Fisher Scoring iterations: 3
+> 
+> > contrasts(language)
+>          [,1] [,2]
+> Chinese     0   -1
+> English     1    1
+> Japanese   -1    0
+> > contrasts(constructions)
+>              [,1] [,2] [,3] [,4]
+> Adjectival      0    0   -1    0
+> Intransitive    1    1    1    1
+> Others          0    0    0   -1
+> Passive         0   -1    0    0
+> Transitive     -1    0    0    0
+> 
+> So my questions are:
+> (1) I am not sure how to interpret these results. Since language1 shows a significance difference, does it mean that "English and Japanese are significantly different in terms of the distribution of the different constructions used"? 
+
+No -- since you're using Poisson regression, the language1 variable more or less models the relative frequency of English observations to Japanese observations.
+
+If you were to double the number of observations in each Japanese cell, the biggest change in your model would be that the language1 parameter would decrease.  (The intercept and the language2 parameter would also adjust by smaller amounts, in compensation.)  The constructions and language:constructions parameters would stay the same
+
+> (2) Does the "intercept" represent anything at all? If yes, what does it represent in this case?
+
+It probably not anything you're interested in.  Because you're using true contrasts (i.e. each column in your contrast matrices sums to zero), the intercept is more or less modeling the total number of observations in your dataset (keep in mind that Poisson regression is trying to model cell counts, not proportions).
+
+If you were to double the counts of all cells in your dataset, the intercept would increase by a constant factor -- log(2) -- and the rest of the model would stay the same.
+
+> (3) If I want to test whether English uses passive significantly more than Japanese, and Japanese uses intransitive significantly more than English, how should I modify the contrasts/commands?
+
+Let's call the passive question 3a, and the intransitive question 3b.  Answering these question depends on the answers to a couple of other questions:
+
+* How, if at all, are the Chinese data relevant to either 3a or 3b?
+
+* How, if at all, are the distinctions among adjectival, intransitive, transitive, and "other" relevant to 3a?
+
+* How, if at all, are the distinctions among adjectival, passive, transitive, and "other" relevant to 3b?
+
+If the answer to all three questions is "irrelevant", you might just consider doing very simple chi-squared or Fisher's exact tests on 2x2 representations of the Japanese and English as (a) passive and non-passive counts, and (b) intransitive and non-intransitive counts.
+
+Also, I'd recommend Maureen Gillespie's coding tutorial as background reading:
+
+http://go2.wordpress.com/?id=725X1342&site=hlplab.wordpress.com&url=http%3A%2F%2Fhlplab.files.wordpress.com%2F2010%2F05%2Fcodingtutorial.pdf&sref=http%3A%2F%2Fhlplab.wordpress.com%2F2010%2F05%2F10%2Fmini-womm-montreal-slides-now-available%2F
+
+Best
+
+Roger
+
+--
+
+Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy
+
+From zoekoinu-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Jul 21 16:58:45 2010
+From: zoekoinu-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Zoe Luk)
+Date: Wed, 21 Jul 2010 12:58:45 -0400
+Subject: Re: Concerning glm with contrasts
+In-Reply-To: <31F232F5-0766-4483-A51F-D9A37CA31757-XkckGZ689+c@public.gmane.org>
+References: <AANLkTin_qu1_skN6nCcG7otKPzaTJJ4Mh2DNYDCbHaQI@mail.gmail.com> <31F232F5-0766-4483-A51F-D9A37CA31757@ucsd.edu>
+Message-ID: <AANLkTimYYJoBjjneQLtJcz9EeHjlPCFD-gHESGndkY6n@mail.gmail.com>
+
+Dear Dr. Levy,
+
+Thank you very much for your detailed response. Your information is very
+helpful.
+
+Here are my answers to your questions, and I have some further questions
+below.
+1) The totals are all 508 for all languages because I want to make sure that
+I am comparing the frequencies of constructions that are conveying the same
+meanings. The counts are based on a novel which is originally written in
+Japanese, and translated into Chinese and English. When I analyzed the
+texts, I only included those that have equivalents in all three languages.
+Therefore, they always have the same totals. I guess then the totals are not
+something that I'm interested in. I'm interested in how the languages differ
+in terms of the frequencies of different constructions.
+2) The reason I used Poisson is because I thought it is appropriate for
+count data. Also I have a friend who is a statistician, and this is her
+suggestion.
+3) Regarding Q3 in my original post, my hypothesis is that English prefers
+passive more than Japanese does, and Japanese prefers Intransitive more than
+English, but Chinese can be either in both cases.
+
+Here are my further questions:
+1) You mentioned "multinominal logistic regression". I do know a little
+about logistic regression, but not at all about this specific kind of
+logistic regression. Which command should I use? glm(), mlogit(), lmer(), or
+something else? And what kind of distribution (e.g., binomial) should I use?
+2) Regarding the significant difference shown in "language1" in the model,
+you said that "the language1 variable more or less models the relative
+frequency of English observations to Japanese observations". I am not sure I
+am following. So what can I claim (or what do I know) based on this result?
+3) As mentioned above, I do not have a specific hypothesis for Chinese. If I
+want to include it in the analysis anyway (e.g., comparing passive
+constructions in all three languages), what methods would you advise me to
+use?
+
+Thank you in advance, and I look forward to hearing from you.
+
+Regards,
+Zoe
+
+On Tue, Jul 20, 2010 at 4:43 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+
+> Dear Zoe,
+>
+> On Jul 19, 2010, at 10:28 AM, Zoe Luk wrote:
+>
+> > Dear R-lang users,
+> >
+> > I am new to the mailing list, and also rather new to R. I have a few
+> questions concerning the results of glm().
+> >
+> > I am doing a study comparing the frequencies of different linguistic
+> constructions used in a specific text that is in three languages (Japanese,
+> Chinese, and English). The results I got are the following.
+> >
+> >
+> > Transitive    Passive Intransitive    Adjectival      Others  Total
+> > Japanese      164     9       291     36      8       508
+> > Chinese       198     3       221     69      17      508
+> > English       174     31      214     57      32      508
+> >
+> > 536   43      726     162     57      1524
+> >
+> > Chi-square test has a significant result. I intended to do further
+> analysis to see if there is any difference among the languages, so i did the
+> following:
+> >
+> > > glm.out4<-glm(freq~language*constructions, data=comps2.data,
+> family=poisson, contrasts=list(language=contrastml,
+> constructions=contrastmc))
+>
+> The first question I'd like to ask is why you're using a Poisson model to
+> analyze your data.  I see that the marginal totals for each language are the
+> same at 508.  Were these marginal totals under your control (e.g., did you
+> count in each text until you got 508), or are these totals something you
+> want your model to account for?  A Poisson model devotes parameters to
+> accounting for the marginal totals. If instead you're thinking that the
+> language is an "independent variable" and the construction type is a
+> "dependent variable", then analyzing the data with multinomial logistic
+> regression might be more appropriate.  (Now, there *are* legitimate uses of
+> Poisson models as surrogates for multinomial logistic regression, but using
+> them in surrogates in this way affects how you interpret the model
+> parameters -- see below.)
+>
+> > > summary(glm.out4)
+> >
+> > Call:
+> > glm(formula = freq ~ language * constructions, family = poisson,
+> >     data = comps2.data, contrasts = list(language = contrastml,
+> >         constructions = contrastmc))
+> >
+> > Deviance Residuals:
+> >  [1]  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+> >
+> > Coefficients:
+> >                          Estimate Std. Error z value Pr(>|z|)
+> > (Intercept)               3.93111    0.05890  66.746  < 2e-16 ***
+> > language1                 0.20443    0.08435   2.424 0.015363 *
+> > language2                 0.16064    0.09497   1.692 0.090740 .
+> > constructions1           -1.25129    0.06779 -18.459  < 2e-16 ***
+> > constructions2            1.68783    0.18775   8.990  < 2e-16 ***
+> > constructions3           -0.01655    0.08647  -0.191 0.848205
+> > constructions4            1.12805    0.13321   8.468  < 2e-16 ***
+> > language1:constructions1  0.12190    0.09726   1.253 0.210090
+> > language2:constructions1  0.26651    0.10562   2.523 0.011625 *
+> > language1:constructions2  0.15838    0.24722   0.641 0.521744
+> > language2:constructions2 -0.98403    0.32782  -3.002 0.002684 **
+> > language1:constructions3 -0.15971    0.12915  -1.237 0.216218
+> > language2:constructions3  0.44708    0.12620   3.543 0.000396 ***
+> > language1:constructions4 -0.51918    0.21538  -2.411 0.015931 *
+> > language2:constructions4  0.19079    0.18724   1.019 0.308207
+> > ---
+> > Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> >
+> > (Dispersion parameter for poisson family taken to be 1)
+> >
+> >     Null deviance:  1.3744e+03  on 14  degrees of freedom
+> > Residual deviance: -3.1086e-15  on  0  degrees of freedom
+> > AIC: 116.66
+> >
+> > Number of Fisher Scoring iterations: 3
+> >
+> > > contrasts(language)
+> >          [,1] [,2]
+> > Chinese     0   -1
+> > English     1    1
+> > Japanese   -1    0
+> > > contrasts(constructions)
+> >              [,1] [,2] [,3] [,4]
+> > Adjectival      0    0   -1    0
+> > Intransitive    1    1    1    1
+> > Others          0    0    0   -1
+> > Passive         0   -1    0    0
+> > Transitive     -1    0    0    0
+> >
+> > So my questions are:
+> > (1) I am not sure how to interpret these results. Since language1 shows a
+> significance difference, does it mean that "English and Japanese are
+> significantly different in terms of the distribution of the different
+> constructions used"?
+>
+> No -- since you're using Poisson regression, the language1 variable more or
+> less models the relative frequency of English observations to Japanese
+> observations.
+>
+> If you were to double the number of observations in each Japanese cell, the
+> biggest change in your model would be that the language1 parameter would
+> decrease.  (The intercept and the language2 parameter would also adjust by
+> smaller amounts, in compensation.)  The constructions and
+> language:constructions parameters would stay the same
+>
+> > (2) Does the "intercept" represent anything at all? If yes, what does it
+> represent in this case?
+>
+> It probably not anything you're interested in.  Because you're using true
+> contrasts (i.e. each column in your contrast matrices sums to zero), the
+> intercept is more or less modeling the total number of observations in your
+> dataset (keep in mind that Poisson regression is trying to model cell
+> counts, not proportions).
+>
+> If you were to double the counts of all cells in your dataset, the
+> intercept would increase by a constant factor -- log(2) -- and the rest of
+> the model would stay the same.
+>
+> > (3) If I want to test whether English uses passive significantly more
+> than Japanese, and Japanese uses intransitive significantly more than
+> English, how should I modify the contrasts/commands?
+>
+> Let's call the passive question 3a, and the intransitive question 3b.
+>  Answering these question depends on the answers to a couple of other
+> questions:
+>
+> * How, if at all, are the Chinese data relevant to either 3a or 3b?
+>
+> * How, if at all, are the distinctions among adjectival, intransitive,
+> transitive, and "other" relevant to 3a?
+>
+> * How, if at all, are the distinctions among adjectival, passive,
+> transitive, and "other" relevant to 3b?
+>
+> If the answer to all three questions is "irrelevant", you might just
+> consider doing very simple chi-squared or Fisher's exact tests on 2x2
+> representations of the Japanese and English as (a) passive and non-passive
+> counts, and (b) intransitive and non-intransitive counts.
+>
+> Also, I'd recommend Maureen Gillespie's coding tutorial as background
+> reading:
+>
+>
+> http://go2.wordpress.com/?id=725X1342&site=hlplab.wordpress.com&url=http%3A%2F%2Fhlplab.files.wordpress.com%2F2010%2F05%2Fcodingtutorial.pdf&sref=http%3A%2F%2Fhlplab.wordpress.com%2F2010%2F05%2F10%2Fmini-womm-montreal-slides-now-available%2F
+>
+> Best
+>
+> Roger
+>
+> --
+>
+> Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> Assistant Professor             Phone: 858-534-7219
+> Department of Linguistics       Fax:   858-534-4789
+> UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy<http://ling.ucsd.edu/%7Erlevy>
+>
+>
+>
+>
+>
+>
+>
+>
+
+
+-- 
+Zoe Luk
+Department of Linguistics
+University of Pittsburgh
+
+From rlevy-XkckGZ689+c at public.gmane.org  Fri Jul 23 01:53:17 2010
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 22 Jul 2010 18:53:17 -0700
+Subject: Re: Concerning glm with contrasts
+In-Reply-To: <AANLkTimYYJoBjjneQLtJcz9EeHjlPCFD-gHESGndkY6n@mail.gmail.com>
+References: <AANLkTin_qu1_skN6nCcG7otKPzaTJJ4Mh2DNYDCbHaQI@mail.gmail.com> <31F232F5-0766-4483-A51F-D9A37CA31757@ucsd.edu> <AANLkTimYYJoBjjneQLtJcz9EeHjlPCFD-gHESGndkY6n@mail.gmail.com>
+Message-ID: <C7282BC2-39C0-45BE-BE7A-6B6FD5F0060E@ucsd.edu>
+
+On Jul 21, 2010, at 9:58 AM, Zoe Luk wrote:
+
+> Dear Dr. Levy,
+> 
+> Thank you very much for your detailed response. Your information is very helpful. 
+
+No problem, Zoe -- my follow-ups are below.
+
+> 
+> Here are my answers to your questions, and I have some further questions below.
+> 1) The totals are all 508 for all languages because I want to make sure that I am comparing the frequencies of constructions that are conveying the same meanings. The counts are based on a novel which is originally written in Japanese, and translated into Chinese and English. When I analyzed the texts, I only included those that have equivalents in all three languages. Therefore, they always have the same totals. I guess then the totals are not something that I'm interested in. I'm interested in how the languages differ in terms of the frequencies of different constructions.
+
+Yes, this makes a lot of sense and you clearly are not interested in the marginal counts in this case (though I guess that in principle you could have had a slightly different number of clauses in each language depending on the translation).
+
+> 2) The reason I used Poisson is because I thought it is appropriate for count data. Also I have a friend who is a statistician, and this is her suggestion.
+
+You're right -- it *is* appropriate for count data, and it's perfect, but my personal experience is that the interpretation of the Poisson formulation often comes a little less naturally to people than the interpretation of the (multinomial) logistic regression formulation.  Technically, the way you're using the Poisson model is what's called "surrogate Poisson" -- you're using Poisson regression to model what are actually multinomial frequencies.  Venables & Ripley section 7.3 has some discussion of this.
+
+> 3) Regarding Q3 in my original post, my hypothesis is that English prefers passive more than Japanese does, and Japanese prefers Intransitive more than English, but Chinese can be either in both cases. 
+
+OK (though I'm not sure I understood the last part regarding Chinese) -- but does "prefer passive" simply mean that a larger proportion of the clauses are passive in English than in Japanese?  Likewise for intransitive.
+
+> Here are my further questions:
+> 1) You mentioned "multinominal logistic regression". I do know a little about logistic regression, but not at all about this specific kind of logistic regression. Which command should I use? glm(), mlogit(), lmer(), or something else? And what kind of distribution (e.g., binomial) should I use?
+
+There are a few options, including the "multinom" function in the nnet package, and the "multinomial" function in the VGAM package.  If you wind up interested in mixed-effects models, some people have ben using the MCMCglmm package.
+
+> 2) Regarding the significant difference shown in "language1" in the model, you said that "the language1 variable more or less models the relative frequency of English observations to Japanese observations". I am not sure I am following. So what can I claim (or what do I know) based on this result?
+
+Given the way you have collected your data and set up your model, you would not be interested in the values of the intercept or the language parameters -- it's the construction and construction/language interaction parameters that matter.  But the way you've coded your contrasts makes the interpretation difficult; for the hypotheses you're interested in, I suggest you think about using "treatment" coding rather than the sum contrast coding that your original post had.
+
+> 3) As mentioned above, I do not have a specific hypothesis for Chinese. If I want to include it in the analysis anyway (e.g., comparing passive constructions in all three languages), what methods would you advise me to use?
+
+Well, I think it would depend on what underlying assumptions you have (e.g., do you implicitly think that Chinese is likely to be similar to English and Japanese overall, and so somehow including Chinese data would help you interpret the English & Japanese counts more reliably?).  If you have no hypotheses regarding Chinese at the moment, you might just consider not including those data in the analysis at this point.
+
+Best
+
+Roger
+
+> 
+> Thank you in advance, and I look forward to hearing from you.
+> 
+> Regards,
+> Zoe
+> 
+> On Tue, Jul 20, 2010 at 4:43 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+> Dear Zoe,
+> 
+> On Jul 19, 2010, at 10:28 AM, Zoe Luk wrote:
+> 
+> > Dear R-lang users,
+> >
+> > I am new to the mailing list, and also rather new to R. I have a few questions concerning the results of glm().
+> >
+> > I am doing a study comparing the frequencies of different linguistic constructions used in a specific text that is in three languages (Japanese, Chinese, and English). The results I got are the following.
+> >
+> >
+> > Transitive    Passive Intransitive    Adjectival      Others  Total
+> > Japanese      164     9       291     36      8       508
+> > Chinese       198     3       221     69      17      508
+> > English       174     31      214     57      32      508
+> >
+> > 536   43      726     162     57      1524
+> >
+> > Chi-square test has a significant result. I intended to do further analysis to see if there is any difference among the languages, so i did the following:
+> >
+> > > glm.out4<-glm(freq~language*constructions, data=comps2.data, family=poisson, contrasts=list(language=contrastml, constructions=contrastmc))
+> 
+> The first question I'd like to ask is why you're using a Poisson model to analyze your data.  I see that the marginal totals for each language are the same at 508.  Were these marginal totals under your control (e.g., did you count in each text until you got 508), or are these totals something you want your model to account for?  A Poisson model devotes parameters to accounting for the marginal totals. If instead you're thinking that the language is an "independent variable" and the construction type is a "dependent variable", then analyzing the data with multinomial logistic regression might be more appropriate.  (Now, there *are* legitimate uses of Poisson models as surrogates for multinomial logistic regression, but using them in surrogates in this way affects how you interpret the mo
+ del parameters -- see below.)
+> 
+> > > summary(glm.out4)
+> >
+> > Call:
+> > glm(formula = freq ~ language * constructions, family = poisson,
+> >     data = comps2.data, contrasts = list(language = contrastml,
+> >         constructions = contrastmc))
+> >
+> > Deviance Residuals:
+> >  [1]  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+> >
+> > Coefficients:
+> >                          Estimate Std. Error z value Pr(>|z|)
+> > (Intercept)               3.93111    0.05890  66.746  < 2e-16 ***
+> > language1                 0.20443    0.08435   2.424 0.015363 *
+> > language2                 0.16064    0.09497   1.692 0.090740 .
+> > constructions1           -1.25129    0.06779 -18.459  < 2e-16 ***
+> > constructions2            1.68783    0.18775   8.990  < 2e-16 ***
+> > constructions3           -0.01655    0.08647  -0.191 0.848205
+> > constructions4            1.12805    0.13321   8.468  < 2e-16 ***
+> > language1:constructions1  0.12190    0.09726   1.253 0.210090
+> > language2:constructions1  0.26651    0.10562   2.523 0.011625 *
+> > language1:constructions2  0.15838    0.24722   0.641 0.521744
+> > language2:constructions2 -0.98403    0.32782  -3.002 0.002684 **
+> > language1:constructions3 -0.15971    0.12915  -1.237 0.216218
+> > language2:constructions3  0.44708    0.12620   3.543 0.000396 ***
+> > language1:constructions4 -0.51918    0.21538  -2.411 0.015931 *
+> > language2:constructions4  0.19079    0.18724   1.019 0.308207
+> > ---
+> > Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> >
+> > (Dispersion parameter for poisson family taken to be 1)
+> >
+> >     Null deviance:  1.3744e+03  on 14  degrees of freedom
+> > Residual deviance: -3.1086e-15  on  0  degrees of freedom
+> > AIC: 116.66
+> >
+> > Number of Fisher Scoring iterations: 3
+> >
+> > > contrasts(language)
+> >          [,1] [,2]
+> > Chinese     0   -1
+> > English     1    1
+> > Japanese   -1    0
+> > > contrasts(constructions)
+> >              [,1] [,2] [,3] [,4]
+> > Adjectival      0    0   -1    0
+> > Intransitive    1    1    1    1
+> > Others          0    0    0   -1
+> > Passive         0   -1    0    0
+> > Transitive     -1    0    0    0
+> >
+> > So my questions are:
+> > (1) I am not sure how to interpret these results. Since language1 shows a significance difference, does it mean that "English and Japanese are significantly different in terms of the distribution of the different constructions used"?
+> 
+> No -- since you're using Poisson regression, the language1 variable more or less models the relative frequency of English observations to Japanese observations.
+> 
+> If you were to double the number of observations in each Japanese cell, the biggest change in your model would be that the language1 parameter would decrease.  (The intercept and the language2 parameter would also adjust by smaller amounts, in compensation.)  The constructions and language:constructions parameters would stay the same
+> 
+> > (2) Does the "intercept" represent anything at all? If yes, what does it represent in this case?
+> 
+> It probably not anything you're interested in.  Because you're using true contrasts (i.e. each column in your contrast matrices sums to zero), the intercept is more or less modeling the total number of observations in your dataset (keep in mind that Poisson regression is trying to model cell counts, not proportions).
+> 
+> If you were to double the counts of all cells in your dataset, the intercept would increase by a constant factor -- log(2) -- and the rest of the model would stay the same.
+> 
+> > (3) If I want to test whether English uses passive significantly more than Japanese, and Japanese uses intransitive significantly more than English, how should I modify the contrasts/commands?
+> 
+> Let's call the passive question 3a, and the intransitive question 3b.  Answering these question depends on the answers to a couple of other questions:
+> 
+> * How, if at all, are the Chinese data relevant to either 3a or 3b?
+> 
+> * How, if at all, are the distinctions among adjectival, intransitive, transitive, and "other" relevant to 3a?
+> 
+> * How, if at all, are the distinctions among adjectival, passive, transitive, and "other" relevant to 3b?
+> 
+> If the answer to all three questions is "irrelevant", you might just consider doing very simple chi-squared or Fisher's exact tests on 2x2 representations of the Japanese and English as (a) passive and non-passive counts, and (b) intransitive and non-intransitive counts.
+> 
+> Also, I'd recommend Maureen Gillespie's coding tutorial as background reading:
+> 
+> http://go2.wordpress.com/?id=725X1342&site=hlplab.wordpress.com&url=http%3A%2F%2Fhlplab.files.wordpress.com%2F2010%2F05%2Fcodingtutorial.pdf&sref=http%3A%2F%2Fhlplab.wordpress.com%2F2010%2F05%2F10%2Fmini-womm-montreal-slides-now-available%2F
+> 
+> Best
+> 
+> Roger
+> 
+> --
+> 
+> Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> Assistant Professor             Phone: 858-534-7219
+> Department of Linguistics       Fax:   858-534-4789
+> UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> -- 
+> Zoe Luk
+> Department of Linguistics
+> University of Pittsburgh
+> 
+> 
+
+--
+
+Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy
+
+From praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Jul 25 23:32:08 2010
+From: praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Xiao He)
+Date: Sun, 25 Jul 2010 19:32:08 -0400
+Subject: Collinearity and how to decide what predictors to include
+Message-ID: <AANLkTim3Cfkg6NrNRwATFevz-VRw9tiJQ33s1=BFUk2M@mail.gmail.com>
+
+Dear R-lang users,
+
+I have a set of binomial data of the stress production of second language
+learners of English on three types of compound words. If they stressed the
+first word of a compound word, they got 1; otherwise, they got 0. every
+participant saw all three lists of words.
+
+Some of the potential predictors are:
+(1). Age of Exposure to English (AoE);
+(2). Length of exposure to English (LE) (time of experiment - AoE);
+(3). Age of Arrival (AoA) in the US,
+(4). Length of Stay in the US. (time of experiment - AoA):
+
+(5). CompoundType
+(6). FamiliarityRating.
+
+Given that some of these predictors may be correlated (AoA and LS, and AoE
+and LE, FamiliarityRating and CompoundType), before I tried to fit a model,
+I examined these predictors to see if they were highly correlated.
+I used cor.test() to examine potential correlations. For example:
+
+cor.test(data$AoA, data$LS)
+the correlation I got was -0.44, and the p-value was very small.
+
+On the other hand, the correlation between AoE and LE was not that strong
+(0.11). though it was statistically significant. So there obvious problem is
+collinearity. From what I've read online, it seems that one way to solve the
+collinearity problem is the compare which of the correlated predictors can
+be removed. And to do so, one method is to do model comparison. So should I
+do model comparisons like the following?
+
+model1=lmer(word1~compoundType + AoA + (1|subject) + (1|word), family =
+"binomial", data=data)
+model2=lmer(word1~compoundType + AoA + LS + (1|subject) + (1|word), family =
+"binomial", data=data)
+model3=lmer(word1~compoundType + AoA + LS + AoE + (1|subject) + (1|word),
+family = "binomial", data=data)
+model4=lmer(word1~compoundType + AoA + LS + AoE + LE + (1|subject) +
+(1|word), family = "binomial", data=data)
+model5=lmer(word1~compoundType + AoA + LS + AoE + LE + familiarityRating +
+(1|subject) + (1|word), family = "binomial", data=data)
+
+And then I use anova() to compare these models.
+
+However, I am not sure if this is the right way to do it because these
+models only test for main effects. I would also like to see if the predictor
+"compoundType" interacts with any of the age related predictors as well as
+familiarityRating. But I am not really sure how model comparisons can be
+done with 4 predictors. I've only done model comparions with two
+predictors.
+
+Another solution seems to be centering predictors. I've centered data with 2
+two-leveled factors before, following examples from Jaeger's powerpoint
+slides, but I've never done centering with more than 2 factors, let alone
+when the predictors to be centered are numeric (or interval).
+
+It would be great if someone could give me some suggestions for my issues.
+Thank you in advance for your help!
+
+
+Best,
+Xiao He
+
+From afine-VdEqc86bP6bw3bTUDS9O4Idd74u8MsAO at public.gmane.org  Mon Jul 26 00:04:46 2010
+From: afine-VdEqc86bP6bw3bTUDS9O4Idd74u8MsAO at public.gmane.org (Alex Fine)
+Date: Sun, 25 Jul 2010 20:04:46 -0400
+Subject: Re: Collinearity and how to decide what predictors to include
+In-Reply-To: <AANLkTim3Cfkg6NrNRwATFevz-VRw9tiJQ33s1=BFUk2M@mail.gmail.com>
+References: <AANLkTim3Cfkg6NrNRwATFevz-VRw9tiJQ33s1=BFUk2M@mail.gmail.com>
+Message-ID: <4C4CD11E.8020605@bcs.rochester.edu>
+
+
+
+Xiao He wrote:
+> Dear R-lang users,
+>
+> I have a set of binomial data of the stress production of second 
+> language learners of English on three types of compound words. If they 
+> stressed the first word of a compound word, they got 1; otherwise, 
+> they got 0. every participant saw all three lists of words.
+>
+> Some of the potential predictors are: 
+> (1). Age of Exposure to English (AoE);
+> (2). Length of exposure to English (LE) (time of experiment - AoE);
+> (3). Age of Arrival (AoA) in the US,
+> (4). Length of Stay in the US. (time of experiment - AoA):
+>
+> (5). CompoundType
+> (6). FamiliarityRating.
+>
+> Given that some of these predictors may be correlated (AoA and LS, and 
+> AoE and LE, FamiliarityRating and CompoundType), before I tried to fit 
+> a model, I examined these predictors to see if they were highly 
+> correlated. 
+> I used cor.test() to examine potential correlations. For example:
+>
+> cor.test(data$AoA, data$LS)
+> the correlation I got was -0.44, and the p-value was very small.
+>
+> On the other hand, the correlation between AoE and LE was not that 
+> strong (0.11). though it was statistically significant. So there 
+> obvious problem is collinearity. From what I've read online, it seems 
+> that one way to solve the collinearity problem is the compare which of 
+> the correlated predictors can be removed. And to do so, one method is 
+> to do model comparison. So should I do model comparisons like the 
+> following?
+>
+> model1=lmer(word1~compoundType + AoA + (1|subject) + (1|word), family 
+> = "binomial", data=data)
+> model2=lmer(word1~compoundType + AoA + LS + (1|subject) + (1|word), 
+> family = "binomial", data=data)
+> model3=lmer(word1~compoundType + AoA + LS + AoE + (1|subject) + 
+> (1|word), family = "binomial", data=data)
+> model4=lmer(word1~compoundType + AoA + LS + AoE + LE + (1|subject) + 
+> (1|word), family = "binomial", data=data)
+> model5=lmer(word1~compoundType + AoA + LS + AoE + LE + 
+> familiarityRating + (1|subject) + (1|word), family = "binomial", 
+> data=data)
+>
+> And then I use anova() to compare these models.
+>
+> However, I am not sure if this is the right way to do it because these 
+> models only test for main effects. I would also like to see if the 
+> predictor "compoundType" interacts with any of the age related 
+> predictors as well as familiarityRating. But I am not really sure how 
+> model comparisons can be done with 4 predictors. I've only done model 
+> comparions with two predictors.
+Probably the first thing to do is check out Peter Graff's slides on 
+model comparison:  http://www.bcs.rochester.edu/people/fjaeger/  (look 
+for ModelComparisonTutorial).  I think these slides really do a good job 
+of conveying the basics, and include an adorable bear, so you can't go 
+wrong.
+
+You may also look into stepwise regression, where you start with all 
+predictors in the model, then remove non-significant predictors one at a 
+time until only those predictors justified by the data are left:  
+http://en.wikipedia.org/wiki/Stepwise_regression
+
+also I just ran across this, but don't know anything about it:  
+http://www.rensenieuwenhuis.nl/r-sessions-32/
+>
+> Another solution seems to be centering predictors. I've centered data 
+> with 2 two-leveled factors before, following examples from Jaeger's 
+> powerpoint slides, but I've never done centering with more than 2 
+> factors, let alone when the predictors to be centered are numeric (or 
+> interval).
+Centering a numeric predictor just means subtracting the mean of that 
+predictor from every value, so something like this:
+
+data$cAoE <- data$AoE - mean(data$AoE, na.rm=T)
+
+so now you have a new, improved, centered AoE variable.
+
+at least based on my experience, that should substantially reduce 
+collinearity.  It doesn't matter how many factors you're centering.  I 
+think in general you should just center all continuous predictors (I 
+don't know of a reason to ever not do this....). 
+>
+> It would be great if someone could give me some suggestions for my 
+> issues. Thank you in advance for your help!
+Hope that helps.  I'm sure other people on this list can add a lot to this.
+
+alex
+>
+>
+> Best,
+> Xiao He
+
+From afine-VdEqc86bP6bw3bTUDS9O4Idd74u8MsAO at public.gmane.org  Mon Jul 26 00:13:16 2010
+From: afine-VdEqc86bP6bw3bTUDS9O4Idd74u8MsAO at public.gmane.org (Alex Fine)
+Date: Sun, 25 Jul 2010 20:13:16 -0400
+Subject: Re: Collinearity and how to decide what predictors to include
+In-Reply-To: <AANLkTim3Cfkg6NrNRwATFevz-VRw9tiJQ33s1=BFUk2M@mail.gmail.com>
+References: <AANLkTim3Cfkg6NrNRwATFevz-VRw9tiJQ33s1=BFUk2M@mail.gmail.com>
+Message-ID: <4C4CD31C.6050609@bcs.rochester.edu>
+
+Sorry for flooding your inboxes, but I sent an underspecified link just 
+now.  The link to Peter's slides is here:
+
+ http://hlplab.wordpress.com/2010/05/10/mini-womm-montreal-slides-now-available/
+
+self-flagellating,
+alex
+
+Xiao He wrote:
+> Dear R-lang users,
+>
+> I have a set of binomial data of the stress production of second 
+> language learners of English on three types of compound words. If they 
+> stressed the first word of a compound word, they got 1; otherwise, 
+> they got 0. every participant saw all three lists of words.
+>
+> Some of the potential predictors are: 
+> (1). Age of Exposure to English (AoE);
+> (2). Length of exposure to English (LE) (time of experiment - AoE);
+> (3). Age of Arrival (AoA) in the US,
+> (4). Length of Stay in the US. (time of experiment - AoA):
+>
+> (5). CompoundType
+> (6). FamiliarityRating.
+>
+> Given that some of these predictors may be correlated (AoA and LS, and 
+> AoE and LE, FamiliarityRating and CompoundType), before I tried to fit 
+> a model, I examined these predictors to see if they were highly 
+> correlated. 
+> I used cor.test() to examine potential correlations. For example:
+>
+> cor.test(data$AoA, data$LS)
+> the correlation I got was -0.44, and the p-value was very small.
+>
+> On the other hand, the correlation between AoE and LE was not that 
+> strong (0.11). though it was statistically significant. So there 
+> obvious problem is collinearity. From what I've read online, it seems 
+> that one way to solve the collinearity problem is the compare which of 
+> the correlated predictors can be removed. And to do so, one method is 
+> to do model comparison. So should I do model comparisons like the 
+> following?
+>
+> model1=lmer(word1~compoundType + AoA + (1|subject) + (1|word), family 
+> = "binomial", data=data)
+> model2=lmer(word1~compoundType + AoA + LS + (1|subject) + (1|word), 
+> family = "binomial", data=data)
+> model3=lmer(word1~compoundType + AoA + LS + AoE + (1|subject) + 
+> (1|word), family = "binomial", data=data)
+> model4=lmer(word1~compoundType + AoA + LS + AoE + LE + (1|subject) + 
+> (1|word), family = "binomial", data=data)
+> model5=lmer(word1~compoundType + AoA + LS + AoE + LE + 
+> familiarityRating + (1|subject) + (1|word), family = "binomial", 
+> data=data)
+>
+> And then I use anova() to compare these models.
+>
+> However, I am not sure if this is the right way to do it because these 
+> models only test for main effects. I would also like to see if the 
+> predictor "compoundType" interacts with any of the age related 
+> predictors as well as familiarityRating. But I am not really sure how 
+> model comparisons can be done with 4 predictors. I've only done model 
+> comparions with two predictors. 
+>
+> Another solution seems to be centering predictors. I've centered data 
+> with 2 two-leveled factors before, following examples from Jaeger's 
+> powerpoint slides, but I've never done centering with more than 2 
+> factors, let alone when the predictors to be centered are numeric (or 
+> interval). 
+>
+> It would be great if someone could give me some suggestions for my 
+> issues. Thank you in advance for your help!
+>
+>
+> Best,
+> Xiao He
+
+From praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Jul 27 02:47:22 2010
+From: praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Xiao He)
+Date: Tue, 27 Jul 2010 04:47:22 +0200
+Subject: Re: Collinearity and how to decide what predictors to include
+In-Reply-To: <4C4CD31C.6050609@bcs.rochester.edu>
+References: <AANLkTim3Cfkg6NrNRwATFevz-VRw9tiJQ33s1=BFUk2M@mail.gmail.com> <4C4CD31C.6050609@bcs.rochester.edu>
+Message-ID: <AANLkTimPKU8rZzb9skQqnko-KcO36Gvk6Q3hd-w1xiY_@mail.gmail.com>
+
+Hi Alex,
+
+Thank you for the explanations. I have one more question regarding
+centering. I attempted centering, but found that it did not remove two
+predictors' correlations. Two examples are shown below. As you can see, the
+correlation between aoa and ls is the same as that between caoa and cls,
+namely, it is 0.527. I wonder if I did something wrong. Thank you in
+advance!
+
+For example:
+before centering
+> lmer(n1~aoa + ls + (1|subject) + (1|word), cpn, family="binomial")
+Generalized linear mixed model fit by the Laplace approximation
+Formula: n1 ~ aoa + ls + (1 | subject) + (1 | word)
+   Data: cpn
+   AIC BIC logLik deviance
+ 345.1 364 -167.6    335.1
+Random effects:
+ Groups  Name        Variance Std.Dev.
+ word    (Intercept) 5.03699  2.24432
+ subject (Intercept) 0.21577  0.46451
+Number of obs: 321, groups: word, 24; subject, 15
+
+Fixed effects:
+            Estimate Std. Error z value Pr(>|z|)
+(Intercept)  0.08425    0.93113   0.090    0.928
+aoa         -0.02672    0.02599  -1.028    0.304
+ls           0.01771    0.03361   0.527    0.598
+
+Correlation of Fixed Effects:
+    (Intr) aoa
+aoa -0.761
+ls  -0.706  *0.527*
+
+
+After centering:
+> lmer(n1~caoa + cls + (1|subject) + (1|word), cpn, family="binomial")
+Generalized linear mixed model fit by the Laplace approximation
+Formula: n1 ~ caoa + cls + (1 | subject) + (1 | word)
+   Data: cpn
+   AIC BIC logLik deviance
+ 345.1 364 -167.6    335.1
+Random effects:
+ Groups  Name        Variance Std.Dev.
+ word    (Intercept) 5.03699  2.24432
+ subject (Intercept) 0.21577  0.46451
+Number of obs: 321, groups: word, 24; subject, 15
+
+Fixed effects:
+            Estimate Std. Error z value Pr(>|z|)
+(Intercept) -0.22650    0.50370  -0.450    0.653
+caoa        -0.02672    0.02599  -1.028    0.304
+cls          0.01771    0.03361   0.527    0.598
+
+Correlation of Fixed Effects:
+     (Intr) caoa
+caoa 0.004
+cls  0.001  *0.527 *
+
+From afine-VdEqc86bP6bw3bTUDS9O4Idd74u8MsAO at public.gmane.org  Tue Jul 27 12:49:40 2010
+From: afine-VdEqc86bP6bw3bTUDS9O4Idd74u8MsAO at public.gmane.org (Alex Fine)
+Date: Tue, 27 Jul 2010 08:49:40 -0400
+Subject: Re: Collinearity and how to decide what predictors to include
+In-Reply-To: <AANLkTimPKU8rZzb9skQqnko-KcO36Gvk6Q3hd-w1xiY_@mail.gmail.com>
+References: <AANLkTim3Cfkg6NrNRwATFevz-VRw9tiJQ33s1=BFUk2M@mail.gmail.com> <4C4CD31C.6050609@bcs.rochester.edu> <AANLkTimPKU8rZzb9skQqnko-KcO36Gvk6Q3hd-w1xiY_@mail.gmail.com>
+Message-ID: <4C4ED5E4.5030701@bcs.rochester.edu>
+
+hey,
+
+you probably didn't do anything wrong (though i don't think you included 
+the code you used to center the predictors; i trust you, though).  LS 
+and AoA are just correlated.   (notice that centering did eliminate the 
+other two previously very high correlations, though.)
+
+so i guess there are a few things you can do.  as you said in your first 
+e-mail, you can do nested model comparison.  because it's a little 
+unclear what your original question about model comparison was, let me 
+just make sure it's clear that all you're doing with model comparison is 
+taking two models, where one is a subset of the other...
+
+model1=lmer(word1~compoundType + AoA + (1|subject) + (1|word), family = 
+"binomial", data=data)
+model2=lmer(word1~compoundType + AoA + LS + (1|subject) + (1|word), 
+family = "binomial", data=data)
+
+...and then when you compare these models---anova(model1, model2)---a 
+significant result means that LS is contributing to the model over and 
+above AoA.  interactions are no different.  if you want to know if an 
+interaction is justified, do this: 
+
+model2=lmer(word1~compoundType + AoA + LS + (1|subject) + (1|word), 
+family = "binomial", data=data)
+model3=lmer(word1~compoundType + AoA + LS + AoA:LS + (1|subject) + 
+(1|word), family = "binomial", data=data)
+
+anova(model2, model3) tells you whether the interaction between those 
+two variables contributes anything to explaining the data over and above 
+just the main effects.  the only caveat, i guess, is that model 
+comparison doesn't tell you anything about the direction of the effect.  
+(so, you may be able to conclude that LS is a significant predictor of 
+whether they use Word1, but you don't know whether it makes it more or 
+less likely.)
+
+another option would be PCA, where you reduce those two variables to one 
+variable that captures both, but that doesn't seem ideal in this case, 
+since you probably have theoretical reasons for thinking that AoA and LS 
+are not the same thing (given the whole pesky critical period thing).
+
+the last technique i know of is residualization, but i've never actually 
+done this, so i'd rather let someone else take over if you want to know 
+about that. 
+
+in keeping with my tradition of referring you to other people, you might 
+want to check out Florian Jaeger and Victor Kuperman's slides from the 
+CUNY 2009 workshop on multilevel models, which contain a lot of 
+comments/info concerning collinearity (including some comments on 
+residualization).  slides from all presentations at the workshop are here: 
+
+http://hlplab.wordpress.com/2009-pre-cuny-workshop-on-ordinary-and-multilevel-models-womm/
+
+the slides on collinearity are in the slideshow entitled "Issues and 
+Solutions....", and the coll. slides start around page 30.
+
+alex
+
+Xiao He wrote:
+> Hi Alex,
+>
+> Thank you for the explanations. I have one more question regarding 
+> centering. I attempted centering, but found that it did not remove two 
+> predictors' correlations. Two examples are shown below. As you can 
+> see, the correlation between aoa and ls is the same as that between 
+> caoa and cls, namely, it is 0.527. I wonder if I did something wrong. 
+> Thank you in advance!
+>
+> For example:
+> before centering
+> > lmer(n1~aoa + ls + (1|subject) + (1|word), cpn, family="binomial")
+> Generalized linear mixed model fit by the Laplace approximation 
+> Formula: n1 ~ aoa + ls + (1 | subject) + (1 | word) 
+>    Data: cpn 
+>    AIC BIC logLik deviance
+>  345.1 364 -167.6    335.1
+> Random effects:
+>  Groups  Name        Variance Std.Dev.
+>  word    (Intercept) 5.03699  2.24432 
+>  subject (Intercept) 0.21577  0.46451 
+> Number of obs: 321, groups: word, 24; subject, 15
+>
+> Fixed effects:
+>             Estimate Std. Error z value Pr(>|z|)
+> (Intercept)  0.08425    0.93113   0.090    0.928
+> aoa         -0.02672    0.02599  -1.028    0.304
+> ls           0.01771    0.03361   0.527    0.598
+>
+> Correlation of Fixed Effects:
+>     (Intr) aoa   
+> aoa -0.761       
+> ls  -0.706  *0.527*
+>
+>
+> After centering:
+> > lmer(n1~caoa + cls + (1|subject) + (1|word), cpn, family="binomial")
+> Generalized linear mixed model fit by the Laplace approximation 
+> Formula: n1 ~ caoa + cls + (1 | subject) + (1 | word) 
+>    Data: cpn 
+>    AIC BIC logLik deviance
+>  345.1 364 -167.6    335.1
+> Random effects:
+>  Groups  Name        Variance Std.Dev.
+>  word    (Intercept) 5.03699  2.24432 
+>  subject (Intercept) 0.21577  0.46451 
+> Number of obs: 321, groups: word, 24; subject, 15
+>
+> Fixed effects:
+>             Estimate Std. Error z value Pr(>|z|)
+> (Intercept) -0.22650    0.50370  -0.450    0.653
+> caoa        -0.02672    0.02599  -1.028    0.304
+> cls          0.01771    0.03361   0.527    0.598
+>
+> Correlation of Fixed Effects:
+>      (Intr) caoa 
+> caoa 0.004       
+> cls  0.001  *0.527 *
+>
+
+From zoekoinu-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Jul 28 23:15:41 2010
+From: zoekoinu-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Zoe Luk)
+Date: Wed, 28 Jul 2010 19:15:41 -0400
+Subject: Re: Concerning glm with contrasts
+In-Reply-To: <C7282BC2-39C0-45BE-BE7A-6B6FD5F0060E-XkckGZ689+c@public.gmane.org>
+References: <AANLkTin_qu1_skN6nCcG7otKPzaTJJ4Mh2DNYDCbHaQI@mail.gmail.com> <31F232F5-0766-4483-A51F-D9A37CA31757@ucsd.edu> <AANLkTimYYJoBjjneQLtJcz9EeHjlPCFD-gHESGndkY6n@mail.gmail.com> <C7282BC2-39C0-45BE-BE7A-6B6FD5F0060E@ucsd.edu>
+Message-ID: <AANLkTim=sLTrbNX2aqX_XJvNcueyDdiM6NKZwM0rdqRy@mail.gmail.com>
+
+Dear Dr. Levy,
+
+Thank you again for your response.
+
+I have two more questions:
+1) I have tried multinom(), and I got the following results
+
+> multinom(constructions~language, weights=freq, data=comps2.table)
+# weights:  20 (12 variable)
+initial  value 2452.783379
+iter  10 value 1859.186364
+iter  20 value 1784.597860
+final  value 1784.587274
+converged
+Call:
+multinom(formula = constructions ~ language, data = comps2.table,
+    weights = freq)
+
+Coefficients:
+             (Intercept) languageEnglish languageJapanese
+Intransitive  -1.5102351        1.392500       1.12173442
+Others        -3.9951945        7.196337       2.55254006
+Passive       -2.2605019        5.222556       0.01766591
+Transitive     0.2722331        1.556114      -2.45252235
+
+Residual Deviance: 3569.175
+AIC: 3593.175
+
+So what do these numbers represent? What can I conclude from these results
+(since there is no p value)? I have looked it up in several books, but I
+could not find an answer (even Venables and Ripley do not explain what these
+numbers are).
+
+2) Regarding your response to my second question, I actually did the
+treatment contrasts before I did the sum contrasts. And the results I got is
+as follows:
+
+> glm.out2<-glm(freq~language*constructions, family=poisson,
+data=comps2.data)
+> summary(glm.out2)
+
+Call:
+glm(formula = freq ~ language * constructions, family = poisson,
+    data = comps2.data)
+
+Deviance Residuals:
+ [1]  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+
+Coefficients:
+                                           Estimate Std. Error z value
+Pr(>|z|)
+(Intercept)                                 4.23411    0.12039  35.171  <
+2e-16 ***
+languageEnglish                            -0.20875    0.17986  -1.161
+0.24579
+languageJapanese                           -0.65059    0.20560  -3.164
+0.00155 **
+constructionsIntransitive                   1.16406    0.13790   8.441  <
+2e-16 ***
+constructionsOthers                        -1.40089    0.27077  -5.174
+2.29e-07 ***
+constructionsPassive                       -3.13549    0.58977  -5.316
+1.06e-07 ***
+constructionsTransitive                     1.05416    0.13980   7.541
+4.68e-14 ***
+languageEnglish:constructionsIntransitive   0.17657    0.20383   0.866
+0.38636
+languageJapanese:constructionsIntransitive  0.92918    0.22410   4.146
+3.38e-05 ***
+languageEnglish:constructionsOthers         0.87205    0.34853   2.502
+0.01235 *
+languageJapanese:constructionsOthers       -0.10318    0.47549  -0.217
+0.82820
+languageEnglish:constructionsPassive        2.54413    0.63083   4.033
+5.51e-05 ***
+languageJapanese:constructionsPassive       1.74920    0.69765   2.507
+0.01217 *
+languageEnglish:constructionsTransitive     0.07954    0.20772   0.383
+0.70177
+languageJapanese:constructionsTransitive    0.45607    0.23121   1.973
+0.04854 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for poisson family taken to be 1)
+
+    Null deviance:  1.3756e+03  on 14  degrees of freedom
+Residual deviance: -1.6653e-14  on  0  degrees of freedom
+AIC: 116.66
+
+Number of Fisher Scoring iterations: 3
+
+> anova(glm.out2, test="Chisq")
+Analysis of Deviance Table
+
+Model: poisson, link: log
+
+Response: freq
+
+Terms added sequentially (first to last)
+
+
+                       Df Deviance Resid. Df Resid. Dev P(>|Chi|)
+NULL                                      14    1375.55
+language                2     0.00        12    1375.55         1
+constructions           4  1299.50         8      76.05 < 2.2e-16 ***
+language:constructions  8    76.05         0       0.00 3.032e-13 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+However, I still have difficulty interpreting these results, and I do not
+think this provides me with what I want to compare. Could you tell me how
+you would interpret these results?
+
+Thank you so much again for your response and time.
+
+Regards,
+Zoe
+
+On Thu, Jul 22, 2010 at 9:53 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+
+> On Jul 21, 2010, at 9:58 AM, Zoe Luk wrote:
+>
+> > Dear Dr. Levy,
+> >
+> > Thank you very much for your detailed response. Your information is very
+> helpful.
+>
+> No problem, Zoe -- my follow-ups are below.
+>
+> >
+> > Here are my answers to your questions, and I have some further questions
+> below.
+> > 1) The totals are all 508 for all languages because I want to make sure
+> that I am comparing the frequencies of constructions that are conveying the
+> same meanings. The counts are based on a novel which is originally written
+> in Japanese, and translated into Chinese and English. When I analyzed the
+> texts, I only included those that have equivalents in all three languages.
+> Therefore, they always have the same totals. I guess then the totals are not
+> something that I'm interested in. I'm interested in how the languages differ
+> in terms of the frequencies of different constructions.
+>
+> Yes, this makes a lot of sense and you clearly are not interested in the
+> marginal counts in this case (though I guess that in principle you could
+> have had a slightly different number of clauses in each language depending
+> on the translation).
+>
+> > 2) The reason I used Poisson is because I thought it is appropriate for
+> count data. Also I have a friend who is a statistician, and this is her
+> suggestion.
+>
+> You're right -- it *is* appropriate for count data, and it's perfect, but
+> my personal experience is that the interpretation of the Poisson formulation
+> often comes a little less naturally to people than the interpretation of the
+> (multinomial) logistic regression formulation.  Technically, the way you're
+> using the Poisson model is what's called "surrogate Poisson" -- you're using
+> Poisson regression to model what are actually multinomial frequencies.
+>  Venables & Ripley section 7.3 has some discussion of this.
+>
+> > 3) Regarding Q3 in my original post, my hypothesis is that English
+> prefers passive more than Japanese does, and Japanese prefers Intransitive
+> more than English, but Chinese can be either in both cases.
+>
+> OK (though I'm not sure I understood the last part regarding Chinese) --
+> but does "prefer passive" simply mean that a larger proportion of the
+> clauses are passive in English than in Japanese?  Likewise for intransitive.
+>
+> > Here are my further questions:
+> > 1) You mentioned "multinominal logistic regression". I do know a little
+> about logistic regression, but not at all about this specific kind of
+> logistic regression. Which command should I use? glm(), mlogit(), lmer(), or
+> something else? And what kind of distribution (e.g., binomial) should I use?
+>
+> There are a few options, including the "multinom" function in the nnet
+> package, and the "multinomial" function in the VGAM package.  If you wind up
+> interested in mixed-effects models, some people have ben using the MCMCglmm
+> package.
+>
+> > 2) Regarding the significant difference shown in "language1" in the
+> model, you said that "the language1 variable more or less models the
+> relative frequency of English observations to Japanese observations". I am
+> not sure I am following. So what can I claim (or what do I know) based on
+> this result?
+>
+> Given the way you have collected your data and set up your model, you would
+> not be interested in the values of the intercept or the language parameters
+> -- it's the construction and construction/language interaction parameters
+> that matter.  But the way you've coded your contrasts makes the
+> interpretation difficult; for the hypotheses you're interested in, I suggest
+> you think about using "treatment" coding rather than the sum contrast coding
+> that your original post had.
+>
+> > 3) As mentioned above, I do not have a specific hypothesis for Chinese.
+> If I want to include it in the analysis anyway (e.g., comparing passive
+> constructions in all three languages), what methods would you advise me to
+> use?
+>
+> Well, I think it would depend on what underlying assumptions you have
+> (e.g., do you implicitly think that Chinese is likely to be similar to
+> English and Japanese overall, and so somehow including Chinese data would
+> help you interpret the English & Japanese counts more reliably?).  If you
+> have no hypotheses regarding Chinese at the moment, you might just consider
+> not including those data in the analysis at this point.
+>
+> Best
+>
+> Roger
+>
+> >
+> > Thank you in advance, and I look forward to hearing from you.
+> >
+> > Regards,
+> > Zoe
+> >
+> > On Tue, Jul 20, 2010 at 4:43 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+> > Dear Zoe,
+> >
+> > On Jul 19, 2010, at 10:28 AM, Zoe Luk wrote:
+> >
+> > > Dear R-lang users,
+> > >
+> > > I am new to the mailing list, and also rather new to R. I have a few
+> questions concerning the results of glm().
+> > >
+> > > I am doing a study comparing the frequencies of different linguistic
+> constructions used in a specific text that is in three languages (Japanese,
+> Chinese, and English). The results I got are the following.
+> > >
+> > >
+> > > Transitive    Passive Intransitive    Adjectival      Others  Total
+> > > Japanese      164     9       291     36      8       508
+> > > Chinese       198     3       221     69      17      508
+> > > English       174     31      214     57      32      508
+> > >
+> > > 536   43      726     162     57      1524
+> > >
+> > > Chi-square test has a significant result. I intended to do further
+> analysis to see if there is any difference among the languages, so i did the
+> following:
+> > >
+> > > > glm.out4<-glm(freq~language*constructions, data=comps2.data,
+> family=poisson, contrasts=list(language=contrastml,
+> constructions=contrastmc))
+> >
+> > The first question I'd like to ask is why you're using a Poisson model to
+> analyze your data.  I see that the marginal totals for each language are the
+> same at 508.  Were these marginal totals under your control (e.g., did you
+> count in each text until you got 508), or are these totals something you
+> want your model to account for?  A Poisson model devotes parameters to
+> accounting for the marginal totals. If instead you're thinking that the
+> language is an "independent variable" and the construction type is a
+> "dependent variable", then analyzing the data with multinomial logistic
+> regression might be more appropriate.  (Now, there *are* legitimate uses of
+> Poisson models as surrogates for multinomial logistic regression, but using
+> them in surrogates in this way affects how you interpret the model
+> parameters -- see below.)
+> >
+> > > > summary(glm.out4)
+> > >
+> > > Call:
+> > > glm(formula = freq ~ language * constructions, family = poisson,
+> > >     data = comps2.data, contrasts = list(language = contrastml,
+> > >         constructions = contrastmc))
+> > >
+> > > Deviance Residuals:
+> > >  [1]  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+> > >
+> > > Coefficients:
+> > >                          Estimate Std. Error z value Pr(>|z|)
+> > > (Intercept)               3.93111    0.05890  66.746  < 2e-16 ***
+> > > language1                 0.20443    0.08435   2.424 0.015363 *
+> > > language2                 0.16064    0.09497   1.692 0.090740 .
+> > > constructions1           -1.25129    0.06779 -18.459  < 2e-16 ***
+> > > constructions2            1.68783    0.18775   8.990  < 2e-16 ***
+> > > constructions3           -0.01655    0.08647  -0.191 0.848205
+> > > constructions4            1.12805    0.13321   8.468  < 2e-16 ***
+> > > language1:constructions1  0.12190    0.09726   1.253 0.210090
+> > > language2:constructions1  0.26651    0.10562   2.523 0.011625 *
+> > > language1:constructions2  0.15838    0.24722   0.641 0.521744
+> > > language2:constructions2 -0.98403    0.32782  -3.002 0.002684 **
+> > > language1:constructions3 -0.15971    0.12915  -1.237 0.216218
+> > > language2:constructions3  0.44708    0.12620   3.543 0.000396 ***
+> > > language1:constructions4 -0.51918    0.21538  -2.411 0.015931 *
+> > > language2:constructions4  0.19079    0.18724   1.019 0.308207
+> > > ---
+> > > Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> > >
+> > > (Dispersion parameter for poisson family taken to be 1)
+> > >
+> > >     Null deviance:  1.3744e+03  on 14  degrees of freedom
+> > > Residual deviance: -3.1086e-15  on  0  degrees of freedom
+> > > AIC: 116.66
+> > >
+> > > Number of Fisher Scoring iterations: 3
+> > >
+> > > > contrasts(language)
+> > >          [,1] [,2]
+> > > Chinese     0   -1
+> > > English     1    1
+> > > Japanese   -1    0
+> > > > contrasts(constructions)
+> > >              [,1] [,2] [,3] [,4]
+> > > Adjectival      0    0   -1    0
+> > > Intransitive    1    1    1    1
+> > > Others          0    0    0   -1
+> > > Passive         0   -1    0    0
+> > > Transitive     -1    0    0    0
+> > >
+> > > So my questions are:
+> > > (1) I am not sure how to interpret these results. Since language1 shows
+> a significance difference, does it mean that "English and Japanese are
+> significantly different in terms of the distribution of the different
+> constructions used"?
+> >
+> > No -- since you're using Poisson regression, the language1 variable more
+> or less models the relative frequency of English observations to Japanese
+> observations.
+> >
+> > If you were to double the number of observations in each Japanese cell,
+> the biggest change in your model would be that the language1 parameter would
+> decrease.  (The intercept and the language2 parameter would also adjust by
+> smaller amounts, in compensation.)  The constructions and
+> language:constructions parameters would stay the same
+> >
+> > > (2) Does the "intercept" represent anything at all? If yes, what does
+> it represent in this case?
+> >
+> > It probably not anything you're interested in.  Because you're using true
+> contrasts (i.e. each column in your contrast matrices sums to zero), the
+> intercept is more or less modeling the total number of observations in your
+> dataset (keep in mind that Poisson regression is trying to model cell
+> counts, not proportions).
+> >
+> > If you were to double the counts of all cells in your dataset, the
+> intercept would increase by a constant factor -- log(2) -- and the rest of
+> the model would stay the same.
+> >
+> > > (3) If I want to test whether English uses passive significantly more
+> than Japanese, and Japanese uses intransitive significantly more than
+> English, how should I modify the contrasts/commands?
+> >
+> > Let's call the passive question 3a, and the intransitive question 3b.
+>  Answering these question depends on the answers to a couple of other
+> questions:
+> >
+> > * How, if at all, are the Chinese data relevant to either 3a or 3b?
+> >
+> > * How, if at all, are the distinctions among adjectival, intransitive,
+> transitive, and "other" relevant to 3a?
+> >
+> > * How, if at all, are the distinctions among adjectival, passive,
+> transitive, and "other" relevant to 3b?
+> >
+> > If the answer to all three questions is "irrelevant", you might just
+> consider doing very simple chi-squared or Fisher's exact tests on 2x2
+> representations of the Japanese and English as (a) passive and non-passive
+> counts, and (b) intransitive and non-intransitive counts.
+> >
+> > Also, I'd recommend Maureen Gillespie's coding tutorial as background
+> reading:
+> >
+> >
+> http://go2.wordpress.com/?id=725X1342&site=hlplab.wordpress.com&url=http%3A%2F%2Fhlplab.files.wordpress.com%2F2010%2F05%2Fcodingtutorial.pdf&sref=http%3A%2F%2Fhlplab.wordpress.com%2F2010%2F05%2F10%2Fmini-womm-montreal-slides-now-available%2F
+> >
+> > Best
+> >
+> > Roger
+> >
+> > --
+> >
+> > Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> > Assistant Professor             Phone: 858-534-7219
+> > Department of Linguistics       Fax:   858-534-4789
+> > UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy<http://ling.ucsd.edu/%7Erlevy>
+> >
+> >
+> >
+> >
+> >
+> >
+> >
+> >
+> >
+> >
+> > --
+> > Zoe Luk
+> > Department of Linguistics
+> > University of Pittsburgh
+> >
+> >
+>
+> --
+>
+> Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> Assistant Professor             Phone: 858-534-7219
+> Department of Linguistics       Fax:   858-534-4789
+> UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy<http://ling.ucsd.edu/%7Erlevy>
+>
+>
+>
+>
+>
+>
+>
+>
+
+
+-- 
+Zoe Luk
+Department of Linguistics
+University of Pittsburgh
+

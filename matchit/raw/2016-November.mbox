@@ -1,0 +1,194 @@
+From ignacio82-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Nov 21 21:43:47 2016
+From: ignacio82-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ignacio Martinez)
+Date: Mon, 21 Nov 2016 21:43:47 +0000
+Subject: How does MatchIt handles multicoliniarity?
+Message-ID: <CAJA1VFyNa=qwQ=03eqyE3mPtGkWzo-AwFvC3pFgxc0ouHKmx0w@mail.gmail.com>
+
+Hi,
+
+Suppose my data looks something like this:
+
+
+library(tidyverse)
+set.seed(112116)
+df <- data.frame(treatment=sample(x = c(0,1), size = 100, replace = T),
+                 x1 = rnorm(n = 100, mean = 0, sd = 1),
+                 x2 = runif(n = 100, -10, 10)) %>%
+  mutate(x3 = x1+x2,
+         y = 0.5*treatment + 2*x1 + 3*x2 + rnorm(100,0,1))
+
+If I  run:
+
+lm(y~treatment+x1+x2+x3, data=df)
+
+`lm` will automatically drop `x3` because of multicoliniarity. I assume
+matchit is doing something similar. Is there a way of seeing which variable
+is drooped?
+
+m1 <- MatchIt::matchit(formula = treatment~x1+x2+x3, data = df, method =
+"nearest")
+
+summary(m1)
+
+Thanks,
+
+Ignacio
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From noah.greifer-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Nov 22 02:58:57 2016
+From: noah.greifer-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Noah Greifer)
+Date: Tue, 22 Nov 2016 02:58:57 +0000
+Subject: Re: How does MatchIt handles multicoliniarity?
+In-Reply-To: <CAJA1VFyNa=qwQ=03eqyE3mPtGkWzo-AwFvC3pFgxc0ouHKmx0w@mail.gmail.com>
+References: <CAJA1VFyNa=qwQ=03eqyE3mPtGkWzo-AwFvC3pFgxc0ouHKmx0w@mail.gmail.com>
+Message-ID: <CAPhhD8k8czE6-t8s-OxRRPfv79v1iV6Qy_MsH-s7o+jY6yv-ZQ@mail.gmail.com>
+
+After you've run matchit(), the model used to generate the propensity
+scores is stored in the matchit output object under m1$model. If you print
+m1$model$coefficients, the colinear variable that was removed will have the
+value NA. In general, the last variable(s) entered in the formula argument
+that is(are) colinear with others will be removed. For propensity scores
+using logistic regression (and probably others), matchit() uses glm(),
+which functions similar to lm() in its treatment of multicolinearity/rank
+deficiency.
+
+Noah Greifer
+
+On Mon, Nov 21, 2016 at 4:44 PM Ignacio Martinez <ignacio82-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+wrote:
+
+> Hi,
+>
+> Suppose my data looks something like this:
+>
+>
+> library(tidyverse)
+> set.seed(112116)
+> df <- data.frame(treatment=sample(x = c(0,1), size = 100, replace = T),
+>                  x1 = rnorm(n = 100, mean = 0, sd = 1),
+>                  x2 = runif(n = 100, -10, 10)) %>%
+>   mutate(x3 = x1+x2,
+>          y = 0.5*treatment + 2*x1 + 3*x2 + rnorm(100,0,1))
+>
+> If I  run:
+>
+> lm(y~treatment+x1+x2+x3, data=df)
+>
+> `lm` will automatically drop `x3` because of multicoliniarity. I assume
+> matchit is doing something similar. Is there a way of seeing which variable
+> is drooped?
+>
+> m1 <- MatchIt::matchit(formula = treatment~x1+x2+x3, data = df, method =
+> "nearest")
+>
+> summary(m1)
+>
+> Thanks,
+>
+> Ignacio
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search <http://gking.harvard.edu/matchit/Browse/Search> List
+> Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From wndudley-MzpWU9P86mU at public.gmane.org  Mon Nov 28 15:55:37 2016
+From: wndudley-MzpWU9P86mU at public.gmane.org (William Dudley)
+Date: Mon, 28 Nov 2016 10:55:37 -0500
+Subject: SUM.all
+Message-ID: <CAGZcBQU7RQ1iC0=9_5fFP3L8m-sf754AxOMnTuzyN7GwzbppLA@mail.gmail.com>
+
+I am currently working with a matching task in which I need to establish
+balance within funder's guidelines (SD <= .25).  At this point, I am
+running matchIT (Syntax provided below)  and then saving the matching
+solution as a CSV file and using Excel to compute the SD's for each of the
+covariates.
+
+However, I see in the Matchit documentation that the sum.all may accomplish
+this within the program in one step.
+
+My problem is that I cannot figure out how to include the sum.all command.
+Thanks in advance for any help,
+
+Bill
+
+
+
+*MI_mah_ctakPCT_11_20.out <- matchit(tx ~ CtakPCT +dropout + race + pov +
+Mathprfc + Readprfc +ACTComZ + size , data = MI11, method = "optimal",
+ratio=4,Distance ="Mahalanobis")*
+
+*MI_mah_ctakPCT_11_20.out*
+
+*MI_mah_ctakPCT_11_20.dat <- match.data(MI_mah_ctakPCT_11_20.out)*
+
+*MI_mah_ctakPCT_11_20.dat*
+
+*summary(MI_mah_ctakPCT_11_20.dat)*
+
+*write.table(MI_mah_ctakPCT_11_20.dat,"C:/SECEP/match/MI match
+output/MI_mah_ctakPCT_11_20.txt",sep="\t",row.names=FALSE)*
+
+-- 
+William N. Dudley, PhD
+Professor - Public Health Education
+The School of Health and Human Sciences
+The University of North Carolina at Greensboro
+437-L Coleman Building
+Greensboro, NC 27402-6170
+Visit my Web Site <http://www.uncg.edu/phe/faculty/dudley.html>
+VOICE 336.256 2475
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+

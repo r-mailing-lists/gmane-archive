@@ -1,0 +1,1747 @@
+From marcel.au at web.de  Thu Jan 22 14:00:04 2015
+From: marcel.au at web.de (marcel Austenfeld)
+Date: Thu, 22 Jan 2015 15:00:04 +0100
+Subject: Interrupt Rserve calculation instead closing connection
+Message-ID: <trinity-750d8d1d-9ac2-4205-8f1e-aec7fcbd9c59-1421935204562@3capp-webde-bs47>
+
+
+Hello,
+ 
+i use Rserve from within a running R session (http://www.rforge.net/doc/packages/Rserve/run.Rserve.html) on Linux . I would like to interrupt a running R calculation. This isn't a problem if i return in the same process to R. However if i send the signal (SIGINT with Ctrl+c) if Rserve is running it closes the connection which i would like to avoid.
+ 
+Is there a way to send an interrupt signal without to close the Rserve connection (e.g. interrupt Rserve calculation)?
+
+Thanks in advance for any information.
+ 
+ 
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Thu Jan 22 15:26:01 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 22 Jan 2015 10:26:01 -0500
+Subject: Re: Interrupt Rserve calculation instead closing connection
+In-Reply-To: <trinity-750d8d1d-9ac2-4205-8f1e-aec7fcbd9c59-1421935204562@3capp-webde-bs47>
+References: <trinity-750d8d1d-9ac2-4205-8f1e-aec7fcbd9c59-1421935204562@3capp-webde-bs47>
+Message-ID: <2D885B49-3A09-4D95-B1D9-9299892DC0AA@r-project.org>
+
+Marcel,
+
+can you give more specifics? Rserve doesn't close the connection on interrupt - it only closes if R has exited. We do use SIGINT routinely to interrupt computations in Rserve sessions, so this will likely have something to do with your code or R settings. The normal behavior is to simply send evaluation error:
+
+> c = RS.connect()
+> pid = RS.eval(c, Sys.getpid())
+> system(paste("sleep 5 && kill -INT", pid, "&"))
+> RS.eval(c, Sys.sleep(10))
+Error in RS.eval(c, Sys.sleep(10)) : 
+  command failed with status code 0x1: error in R during evaluation
+> RS.eval(c, getwd())
+[1] "/private/tmp/Rserv/conn54023"
+
+the connection is still well alive after that.
+
+Cheers,
+Simon
+
+
+
+> On Jan 22, 2015, at 9:00 AM, marcel Austenfeld <marcel.au at web.de> wrote:
+> 
+> 
+> Hello,
+>  
+> i use Rserve from within a running R session (http://www.rforge.net/doc/packages/Rserve/run.Rserve.html) on Linux . I would like to interrupt a running R calculation. This isn't a problem if i return in the same process to R. However if i send the signal (SIGINT with Ctrl+c) if Rserve is running it closes the connection which i would like to avoid.
+>  
+> Is there a way to send an interrupt signal without to close the Rserve connection (e.g. interrupt Rserve calculation)?
+> 
+> Thanks in advance for any information.
+>  
+>  
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ralphfehrer at gmail.com  Fri Jan 30 08:58:36 2015
+From: ralphfehrer at gmail.com (Ralph Fehrer)
+Date: Fri, 30 Jan 2015 09:58:36 +0100
+Subject: RcallMethod: cannot determine object class in .jcall
+Message-ID: <002a01d03c6a$ef46f830$cdd4e890$@gmail.com>
+
+Hi, 
+
+ 
+
+I want to call the main method from the following java class through .jall
+in rJava:
+
+ 
+
+package main;
+
+ 
+
+import io.LabeledDataSet;
+
+import io.ParsedReviewData;
+
+import io.StringLabelSet;
+
+ 
+
+import java.io.FileInputStream;
+
+import java.io.FileNotFoundException;
+
+import java.io.IOException;
+
+import java.io.ObjectInputStream;
+
+import java.io.PrintStream;
+
+import java.util.Collection;
+
+import java.util.HashMap;
+
+import java.util.List;
+
+import java.util.Map;
+
+ 
+
+import org.jblas.DoubleMatrix;
+
+ 
+
+import math.DifferentiableFunction;
+
+import math.DifferentiableMatrixFunction;
+
+import math.Minimizer;
+
+import math.Norm1Tanh;
+
+import math.QNMinimizer;
+
+import classify.ClassifierPerformanceMeasures;
+
+import classify.ClassifierTheta;
+
+import classify.LabeledDatum;
+
+import classify.SoftmaxClassifier;
+
+import rae.FineTunableTheta;
+
+import rae.RAECost;
+
+import rae.RAEFeatureExtractor;
+
+ 
+
+public class RAEBuilder {
+
+                FineTunableTheta InitialTheta;
+
+                RAEFeatureExtractor FeatureExtractor;
+
+                DifferentiableMatrixFunction f;
+
+ 
+
+                public RAEBuilder() {
+
+                               InitialTheta = null;
+
+                               FeatureExtractor = null;
+
+                               f = new Norm1Tanh();
+
+                }
+
+ 
+
+                public static void main(final String[] args) throws
+Exception {
+
+                               RAEBuilder rae = new RAEBuilder();
+
+ 
+
+                               Arguments params = new Arguments();
+
+                               params.parseArguments(args);
+
+                               if (params.exitOnReturn)
+
+                                               return;
+
+ 
+
+                               System.out.printf("DictionarySize :
+%d\nEmbeddingSize : %d\n",
+
+ 
+params.DictionarySize, params.hiddenSize);
+
+ 
+
+                               if (params.TrainModel) {
+
+                                               System.out.println("Training
+the RAE. Model file will be saved in "
+
+ 
++ params.ModelFile);
+
+                                               FineTunableTheta tunedTheta =
+rae.train(params);                                      
+
+ 
+tunedTheta.Dump(params.ModelFile);
+
+                                               
+
+                                               System.out.println("RAE
+trained. The model file is saved in "
+
+ 
++ params.ModelFile);
+
+ 
+
+                                               RAEFeatureExtractor fe = new
+RAEFeatureExtractor(
+
+ 
+params.EmbeddingSize, tunedTheta, params.AlphaCat,
+
+ 
+params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+
+ 
+rae.f);
+
+ 
+
+                                               List<LabeledDatum<Double,
+Integer>> classifierTrainingData 
+
+ 
+= fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.Data,
+params.TreeDumpDir);
+
+                                               
+
+                                               SoftmaxClassifier<Double,
+Integer> classifier = new SoftmaxClassifier<Double, Integer>();
+
+                                               ClassifierPerformanceMeasures
+TrainAccuracy = classifier.train(classifierTrainingData);
+
+                                               System.out.println("Train
+Accuracy :" + TrainAccuracy.toString());
+
+                                               
+
+                                               System.out
+
+ 
+.println("Classifier trained. The model file is saved in "
+
+ 
++ params.ClassifierFile);
+
+ 
+classifier.Dump(params.ClassifierFile);
+
+ 
+
+                                               if (params.featuresOutputFile
+!= null)
+
+ 
+rae.DumpFeatures(params.featuresOutputFile,
+
+ 
+classifierTrainingData);
+
+ 
+
+                                               if
+(params.ProbabilitiesOutputFile != null)
+
+ 
+rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+
+ 
+classifier.getTrainScores());
+
+ 
+
+//                                           if (params.TreeDumpDir != null)
+
+//
+rae.DumpTrees(Trees, params.TreeDumpDir, params.Dataset,
+params.Dataset.Data);
+
+ 
+
+                                               System.out.println("Dumping
+complete");
+
+                                               
+
+                               } else {
+
+                                               System.out.println
+
+ 
+("Using the trained RAE. Model file retrieved from " + params.ModelFile
+
+ 
++ "\nNote that this overrides all RAE specific arguments you passed.");
+
+ 
+
+                                               FineTunableTheta tunedTheta =
+rae.loadRAE(params);
+
+                                               assert
+tunedTheta.getNumCategories() == params.Dataset.getCatSize();
+
+ 
+
+                                               SoftmaxClassifier<Double,
+Integer> classifier = rae.loadClassifier(params);
+
+ 
+
+                                               RAEFeatureExtractor fe = new
+RAEFeatureExtractor(
+
+ 
+params.EmbeddingSize, tunedTheta, params.AlphaCat,
+
+ 
+params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+
+ 
+rae.f);
+
+                                               
+
+                                               if
+(params.Dataset.Data.size() > 0) {
+
+ 
+System.err.println("There is training data in the directory.");
+
+ 
+System.err.println("It will be ignored when you are not in the training
+mode.");
+
+                                               }
+
+ 
+
+                                               List<LabeledDatum<Double,
+Integer>> classifierTestingData 
+
+ 
+= fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.TestData,
+params.TreeDumpDir);
+
+ 
+
+                                               ClassifierPerformanceMeasures
+TestAccuracy = classifier.test(classifierTestingData);
+
+ 
+rae.DumpMisclassified(params.dir,
+
+ 
+params.LabelMapFile,
+
+ 
+TestAccuracy.GetMisclassified(),
+
+ 
+params.Dataset);
+
+                                               if (params.isTestLabelsKnown)
+{
+
+ 
+System.out.println("Test Accuracy : " + TestAccuracy);
+
+                                               }
+
+ 
+
+                                               if (params.featuresOutputFile
+!= null)
+
+ 
+rae.DumpFeatures(params.featuresOutputFile,
+
+ 
+classifierTestingData);
+
+ 
+
+                                               if
+(params.ProbabilitiesOutputFile != null)
+
+ 
+rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+
+ 
+classifier.getTestScores());
+
+                                               
+
+//                                           if (params.TreeDumpDir != null)
+
+//
+rae.DumpTrees(testTrees, params.TreeDumpDir, params.Dataset,
+params.Dataset.TestData);                                        
+
+                               }
+
+                               
+
+                               System.exit(0);
+
+                }
+
+}
+
+ 
+
+I tried 
+
+ 
+
+    .jcall("main/RAEBuilder","V","main")
+
+ 
+
+But got the following error:
+
+ 
+
+     RcallMethod: cannot determine object class
+ 
+What is going wrong and how can I fix it?
+ 
+Thanks,
+ 
+Raph
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Fri Jan 30 13:57:18 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 30 Jan 2015 08:57:18 -0500
+Subject: Re: RcallMethod: cannot determine object class in .jcall
+In-Reply-To: <002a01d03c6a$ef46f830$cdd4e890$@gmail.com>
+References: <002a01d03c6a$ef46f830$cdd4e890$@gmail.com>
+Message-ID: <F61D8CC5-D8E0-4176-AE0D-20A867B45A50@r-project.org>
+
+Ralph,
+
+the error means that your class cannot be loaded - typically because it is not on the class path - use .jaddClassPath() to add either the root directory of your class structure or the jar file containing the class. Another common issue is a JVM version mismatch - make sure your classes have been compiled with a JVM version not higher than what you load from R (check, e.g., with  J("java.lang.System")$getProperty("java.version")).
+
+But if you fix that you will get
+
+Error in .jcall("main/RAEBuilder","V","main")
+  method main with signature ()V not found
+
+because you are trying to call void main() method but you only have void main(String[]), so you either want to create main() or use something like
+
+.jcall("main/RAEBuilder","V","main", .jarray(character()))
+
+Cheers,
+Simon
+
+
+On Jan 30, 2015, at 3:58 AM, Ralph Fehrer <ralphfehrer at gmail.com> wrote:
+
+> Hi,
+>  
+> I want to call the main method from the following java class through .jall in rJava:
+>  
+> package main;
+>  
+> import io.LabeledDataSet;
+> import io.ParsedReviewData;
+> import io.StringLabelSet;
+>  
+> import java.io.FileInputStream;
+> import java.io.FileNotFoundException;
+> import java.io.IOException;
+> import java.io.ObjectInputStream;
+> import java.io.PrintStream;
+> import java.util.Collection;
+> import java.util.HashMap;
+> import java.util.List;
+> import java.util.Map;
+>  
+> import org.jblas.DoubleMatrix;
+>  
+> import math.DifferentiableFunction;
+> import math.DifferentiableMatrixFunction;
+> import math.Minimizer;
+> import math.Norm1Tanh;
+> import math.QNMinimizer;
+> import classify.ClassifierPerformanceMeasures;
+> import classify.ClassifierTheta;
+> import classify.LabeledDatum;
+> import classify.SoftmaxClassifier;
+> import rae.FineTunableTheta;
+> import rae.RAECost;
+> import rae.RAEFeatureExtractor;
+>  
+> public class RAEBuilder {
+>                 FineTunableTheta InitialTheta;
+>                 RAEFeatureExtractor FeatureExtractor;
+>                 DifferentiableMatrixFunction f;
+>  
+>                 public RAEBuilder() {
+>                                InitialTheta = null;
+>                                FeatureExtractor = null;
+>                                f = new Norm1Tanh();
+>                 }
+>  
+>                 public static void main(final String[] args) throws Exception {
+>                                RAEBuilder rae = new RAEBuilder();
+>  
+>                                Arguments params = new Arguments();
+>                                params.parseArguments(args);
+>                                if (params.exitOnReturn)
+>                                                return;
+>  
+>                                System.out.printf("DictionarySize : %d\nEmbeddingSize : %d\n",
+>                                                                params.DictionarySize, params.hiddenSize);
+>  
+>                                if (params.TrainModel) {
+>                                                System.out.println("Training the RAE. Model file will be saved in "
+>                                                                               + params.ModelFile);
+>                                                FineTunableTheta tunedTheta = rae.train(params);                                     
+>                                                tunedTheta.Dump(params.ModelFile);
+>                                               
+>                                                System.out.println("RAE trained. The model file is saved in "
+>                                                                               + params.ModelFile);
+>  
+>                                                RAEFeatureExtractor fe = new RAEFeatureExtractor(
+>                                                                               params.EmbeddingSize, tunedTheta, params.AlphaCat,
+>                                                                               params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+>                                                                               rae.f);
+>  
+>                                                List<LabeledDatum<Double, Integer>> classifierTrainingData
+>                                                                               = fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.Data, params.TreeDumpDir);
+>                                               
+>                                                SoftmaxClassifier<Double, Integer> classifier = new SoftmaxClassifier<Double, Integer>();
+>                                                ClassifierPerformanceMeasures  TrainAccuracy = classifier.train(classifierTrainingData);
+>                                                System.out.println("Train Accuracy :" + TrainAccuracy.toString());
+>                                               
+>                                                System.out
+>                                                                               .println("Classifier trained. The model file is saved in "
+>                                                                                                               + params.ClassifierFile);
+>                                                classifier.Dump(params.ClassifierFile);
+>  
+>                                                if (params.featuresOutputFile != null)
+>                                                                rae.DumpFeatures(params.featuresOutputFile,
+>                                                                                               classifierTrainingData);
+>  
+>                                                if (params.ProbabilitiesOutputFile != null)
+>                                                                rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+>                                                                                               classifier.getTrainScores());
+>  
+> //                                           if (params.TreeDumpDir != null)
+> //                                                           rae.DumpTrees(Trees, params.TreeDumpDir, params.Dataset, params.Dataset.Data);
+>  
+>                                                System.out.println("Dumping complete");
+>                                               
+>                                } else {
+>                                                System.out.println
+>                                                                               ("Using the trained RAE. Model file retrieved from " + params.ModelFile
+>                                                                               + "\nNote that this overrides all RAE specific arguments you passed.");
+>  
+>                                                FineTunableTheta tunedTheta = rae.loadRAE(params);
+>                                                assert tunedTheta.getNumCategories() == params.Dataset.getCatSize();
+>  
+>                                                SoftmaxClassifier<Double, Integer> classifier = rae.loadClassifier(params);
+>  
+>                                                RAEFeatureExtractor fe = new RAEFeatureExtractor(
+>                                                                               params.EmbeddingSize, tunedTheta, params.AlphaCat,
+>                                                                               params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+>                                                                               rae.f);
+>                                               
+>                                                if (params.Dataset.Data.size() > 0) {
+>                                                                System.err.println("There is training data in the directory.");
+>                                                                System.err.println("It will be ignored when you are not in the training mode.");
+>                                                }
+>  
+>                                                List<LabeledDatum<Double, Integer>> classifierTestingData
+>                                                                               = fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.TestData, params.TreeDumpDir);
+>  
+>                                                ClassifierPerformanceMeasures TestAccuracy = classifier.test(classifierTestingData);
+>                                                rae.DumpMisclassified(params.dir,
+>                                                                               params.LabelMapFile,
+>                                                                               TestAccuracy.GetMisclassified(),
+>                                                                               params.Dataset);
+>                                                if (params.isTestLabelsKnown) {
+>                                                                System.out.println("Test Accuracy : " + TestAccuracy);
+>                                                }
+>  
+>                                                if (params.featuresOutputFile != null)
+>                                                                rae.DumpFeatures(params.featuresOutputFile,
+>                                                                                               classifierTestingData);
+>  
+>                                                if (params.ProbabilitiesOutputFile != null)
+>                                                                rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+>                                                                                               classifier.getTestScores());
+>                                               
+> //                                           if (params.TreeDumpDir != null)
+> //                                                           rae.DumpTrees(testTrees, params.TreeDumpDir, params.Dataset, params.Dataset.TestData);                                       
+>                                }
+>                               
+>                                System.exit(0);
+>                 }
+> }
+>  
+> I tried
+>  
+>     .jcall("main/RAEBuilder","V","main")
+>  
+> But got the following error:
+>  
+>      RcallMethod: cannot determine object class
+>  
+> What is going wrong and how can I fix it?
+>  
+> Thanks,
+>  
+> Raph
+>  
+>  
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ralphfehrer at gmail.com  Fri Jan 30 14:09:28 2015
+From: ralphfehrer at gmail.com (Ralph Fehrer)
+Date: Fri, 30 Jan 2015 15:09:28 +0100
+Subject: Re: RcallMethod: cannot determine object class in .jcall
+In-Reply-To: <F61D8CC5-D8E0-4176-AE0D-20A867B45A50@r-project.org>
+References: <002a01d03c6a$ef46f830$cdd4e890$@gmail.com> <F61D8CC5-D8E0-4176-AE0D-20A867B45A50@r-project.org>
+Message-ID: <003801d03c96$5cc268b0$16473a10$@gmail.com>
+
+Hi Simon,
+
+thanks for your answer.
+
+I used .jaddClassPath to add the directory, where my .class file is located
+on my hard  drive. However, I still get the 
+
+    RcallMethod: cannot determine object class
+
+error in
+
+    .jcall("main/RAEBuilder.class","V","main")
+
+Interestingly, after modifying the object parameter to a class which
+definitely doesn't exist, I get a 
+
+  ClassNotFoundException
+
+Kind regards,
+
+Ralph
+
+-----Ursprüngliche Nachricht-----
+Von: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+Gesendet: Freitag, 30. Januar 2015 14:57
+An: Ralph Fehrer
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Betreff: Re: [stats-rosuda-devel] RcallMethod: cannot determine object class
+in .jcall
+
+Ralph,
+
+the error means that your class cannot be loaded - typically because it is
+not on the class path - use .jaddClassPath() to add either the root
+directory of your class structure or the jar file containing the class.
+Another common issue is a JVM version mismatch - make sure your classes have
+been compiled with a JVM version not higher than what you load from R
+(check, e.g., with  J("java.lang.System")$getProperty("java.version")).
+
+But if you fix that you will get
+
+Error in .jcall("main/RAEBuilder","V","main")
+  method main with signature ()V not found
+
+because you are trying to call void main() method but you only have void
+main(String[]), so you either want to create main() or use something like
+
+.jcall("main/RAEBuilder","V","main", .jarray(character()))
+
+Cheers,
+Simon
+
+
+On Jan 30, 2015, at 3:58 AM, Ralph Fehrer <ralphfehrer at gmail.com> wrote:
+
+> Hi,
+>  
+> I want to call the main method from the following java class through .jall
+in rJava:
+>  
+> package main;
+>  
+> import io.LabeledDataSet;
+> import io.ParsedReviewData;
+> import io.StringLabelSet;
+>  
+> import java.io.FileInputStream;
+> import java.io.FileNotFoundException;
+> import java.io.IOException;
+> import java.io.ObjectInputStream;
+> import java.io.PrintStream;
+> import java.util.Collection;
+> import java.util.HashMap;
+> import java.util.List;
+> import java.util.Map;
+>  
+> import org.jblas.DoubleMatrix;
+>  
+> import math.DifferentiableFunction;
+> import math.DifferentiableMatrixFunction;
+> import math.Minimizer;
+> import math.Norm1Tanh;
+> import math.QNMinimizer;
+> import classify.ClassifierPerformanceMeasures;
+> import classify.ClassifierTheta;
+> import classify.LabeledDatum;
+> import classify.SoftmaxClassifier;
+> import rae.FineTunableTheta;
+> import rae.RAECost;
+> import rae.RAEFeatureExtractor;
+>  
+> public class RAEBuilder {
+>                 FineTunableTheta InitialTheta;
+>                 RAEFeatureExtractor FeatureExtractor;
+>                 DifferentiableMatrixFunction f;
+>  
+>                 public RAEBuilder() {
+>                                InitialTheta = null;
+>                                FeatureExtractor = null;
+>                                f = new Norm1Tanh();
+>                 }
+>  
+>                 public static void main(final String[] args) throws
+Exception {
+>                                RAEBuilder rae = new RAEBuilder();
+>  
+>                                Arguments params = new Arguments();
+>                                params.parseArguments(args);
+>                                if (params.exitOnReturn)
+>                                                return;
+>  
+>                                System.out.printf("DictionarySize :
+%d\nEmbeddingSize : %d\n",
+>
+params.DictionarySize, params.hiddenSize);
+>  
+>                                if (params.TrainModel) {
+>
+System.out.println("Training the RAE. Model file will be saved in "
+>
++ params.ModelFile);
+>                                                FineTunableTheta tunedTheta
+= rae.train(params);                                     
+>
+tunedTheta.Dump(params.ModelFile);
+>                                               
+>                                                System.out.println("RAE
+trained. The model file is saved in "
+>
++ params.ModelFile);
+>  
+>                                                RAEFeatureExtractor fe =
+new RAEFeatureExtractor(
+>
+params.EmbeddingSize, tunedTheta, params.AlphaCat,
+>
+params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+>
+rae.f);
+>  
+>                                                List<LabeledDatum<Double,
+Integer>> classifierTrainingData
+>
+= fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.Data,
+params.TreeDumpDir);
+>                                               
+>                                                SoftmaxClassifier<Double,
+Integer> classifier = new SoftmaxClassifier<Double, Integer>();
+>
+ClassifierPerformanceMeasures  TrainAccuracy =
+classifier.train(classifierTrainingData);
+>                                                System.out.println("Train
+Accuracy :" + TrainAccuracy.toString());
+>                                               
+>                                                System.out
+>
+.println("Classifier trained. The model file is saved in "
+>
++ params.ClassifierFile);
+>
+classifier.Dump(params.ClassifierFile);
+>  
+>                                                if
+(params.featuresOutputFile != null)
+>
+rae.DumpFeatures(params.featuresOutputFile,
+>
+classifierTrainingData);
+>  
+>                                                if
+(params.ProbabilitiesOutputFile != null)
+>
+rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+>
+classifier.getTrainScores());
+>  
+> //                                           if (params.TreeDumpDir !=
+null)
+> //
+rae.DumpTrees(Trees, params.TreeDumpDir, params.Dataset,
+params.Dataset.Data);
+>  
+>                                                System.out.println("Dumping
+complete");
+>                                               
+>                                } else {
+>                                                System.out.println
+>
+("Using the trained RAE. Model file retrieved from " + params.ModelFile
+>
++ "\nNote that this overrides all RAE specific arguments you passed.");
+>  
+>                                                FineTunableTheta tunedTheta
+= rae.loadRAE(params);
+>                                                assert
+tunedTheta.getNumCategories() == params.Dataset.getCatSize();
+>  
+>                                                SoftmaxClassifier<Double,
+Integer> classifier = rae.loadClassifier(params);
+>  
+>                                                RAEFeatureExtractor fe =
+new RAEFeatureExtractor(
+>
+params.EmbeddingSize, tunedTheta, params.AlphaCat,
+>
+params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+>
+rae.f);
+>                                               
+>                                                if
+(params.Dataset.Data.size() > 0) {
+>
+System.err.println("There is training data in the directory.");
+>
+System.err.println("It will be ignored when you are not in the training
+mode.");
+>                                                }
+>  
+>                                                List<LabeledDatum<Double,
+Integer>> classifierTestingData
+>
+= fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.TestData,
+params.TreeDumpDir);
+>  
+>
+ClassifierPerformanceMeasures TestAccuracy =
+classifier.test(classifierTestingData);
+>
+rae.DumpMisclassified(params.dir,
+>
+params.LabelMapFile,
+>
+TestAccuracy.GetMisclassified(),
+>
+params.Dataset);
+>                                                if
+(params.isTestLabelsKnown) {
+>
+System.out.println("Test Accuracy : " + TestAccuracy);
+>                                                }
+>  
+>                                                if
+(params.featuresOutputFile != null)
+>
+rae.DumpFeatures(params.featuresOutputFile,
+>
+classifierTestingData);
+>  
+>                                                if
+(params.ProbabilitiesOutputFile != null)
+>
+rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+>
+classifier.getTestScores());
+>                                               
+> //                                           if (params.TreeDumpDir !=
+null)
+> //
+rae.DumpTrees(testTrees, params.TreeDumpDir, params.Dataset,
+params.Dataset.TestData);                                       
+>                                }
+>                               
+>                                System.exit(0);
+>                 }
+> }
+>  
+> I tried
+>  
+>     .jcall("main/RAEBuilder","V","main")
+>  
+> But got the following error:
+>  
+>      RcallMethod: cannot determine object class
+>  
+> What is going wrong and how can I fix it?
+>  
+> Thanks,
+>  
+> Raph
+>  
+>  
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Fri Jan 30 15:48:00 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 30 Jan 2015 10:48:00 -0500
+Subject: Re: RcallMethod: cannot determine object class in .jcall
+In-Reply-To: <003801d03c96$5cc268b0$16473a10$@gmail.com>
+References: <002a01d03c6a$ef46f830$cdd4e890$@gmail.com> <F61D8CC5-D8E0-4176-AE0D-20A867B45A50@r-project.org> <003801d03c96$5cc268b0$16473a10$@gmail.com>
+Message-ID: <035DA4CC-37DA-4592-B4AC-9ED6F38F692D@r-project.org>
+
+On Jan 30, 2015, at 9:09 AM, Ralph Fehrer <ralphfehrer at gmail.com> wrote:
+
+> Hi Simon,
+> 
+> thanks for your answer.
+> 
+> I used .jaddClassPath to add the directory, where my .class file is located
+> on my hard  drive.
+
+That is the wrong directory - it has to be the root of the class tree, i.e., the directory that contains the "main" directory.
+
+
+> However, I still get the 
+> 
+>   RcallMethod: cannot determine object class
+> 
+> error in
+> 
+>   .jcall("main/RAEBuilder.class","V","main")
+> 
+
+
+the name of the class is "RAEBuilder" not "RAEBuilder.class"
+
+
+> Interestingly, after modifying the object parameter to a class which
+> definitely doesn't exist, I get a 
+> 
+> ClassNotFoundException
+> 
+
+
+If you still get it after fixing the paths, check the JVM version (see below) - you get class load error also when you have a version mismatch.
+
+Cheers,
+Simon
+
+
+
+
+> Kind regards,
+> 
+> Ralph
+> 
+> -----Ursprüngliche Nachricht-----
+> Von: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+> Gesendet: Freitag, 30. Januar 2015 14:57
+> An: Ralph Fehrer
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Betreff: Re: [stats-rosuda-devel] RcallMethod: cannot determine object class
+> in .jcall
+> 
+> Ralph,
+> 
+> the error means that your class cannot be loaded - typically because it is
+> not on the class path - use .jaddClassPath() to add either the root
+> directory of your class structure or the jar file containing the class.
+> Another common issue is a JVM version mismatch - make sure your classes have
+> been compiled with a JVM version not higher than what you load from R
+> (check, e.g., with  J("java.lang.System")$getProperty("java.version")).
+> 
+> But if you fix that you will get
+> 
+> Error in .jcall("main/RAEBuilder","V","main")
+> method main with signature ()V not found
+> 
+> because you are trying to call void main() method but you only have void
+> main(String[]), so you either want to create main() or use something like
+> 
+> .jcall("main/RAEBuilder","V","main", .jarray(character()))
+> 
+> Cheers,
+> Simon
+> 
+> 
+> On Jan 30, 2015, at 3:58 AM, Ralph Fehrer <ralphfehrer at gmail.com> wrote:
+> 
+>> Hi,
+>> 
+>> I want to call the main method from the following java class through .jall
+> in rJava:
+>> 
+>> package main;
+>> 
+>> import io.LabeledDataSet;
+>> import io.ParsedReviewData;
+>> import io.StringLabelSet;
+>> 
+>> import java.io.FileInputStream;
+>> import java.io.FileNotFoundException;
+>> import java.io.IOException;
+>> import java.io.ObjectInputStream;
+>> import java.io.PrintStream;
+>> import java.util.Collection;
+>> import java.util.HashMap;
+>> import java.util.List;
+>> import java.util.Map;
+>> 
+>> import org.jblas.DoubleMatrix;
+>> 
+>> import math.DifferentiableFunction;
+>> import math.DifferentiableMatrixFunction;
+>> import math.Minimizer;
+>> import math.Norm1Tanh;
+>> import math.QNMinimizer;
+>> import classify.ClassifierPerformanceMeasures;
+>> import classify.ClassifierTheta;
+>> import classify.LabeledDatum;
+>> import classify.SoftmaxClassifier;
+>> import rae.FineTunableTheta;
+>> import rae.RAECost;
+>> import rae.RAEFeatureExtractor;
+>> 
+>> public class RAEBuilder {
+>>               FineTunableTheta InitialTheta;
+>>               RAEFeatureExtractor FeatureExtractor;
+>>               DifferentiableMatrixFunction f;
+>> 
+>>               public RAEBuilder() {
+>>                              InitialTheta = null;
+>>                              FeatureExtractor = null;
+>>                              f = new Norm1Tanh();
+>>               }
+>> 
+>>               public static void main(final String[] args) throws
+> Exception {
+>>                              RAEBuilder rae = new RAEBuilder();
+>> 
+>>                              Arguments params = new Arguments();
+>>                              params.parseArguments(args);
+>>                              if (params.exitOnReturn)
+>>                                              return;
+>> 
+>>                              System.out.printf("DictionarySize :
+> %d\nEmbeddingSize : %d\n",
+>> 
+> params.DictionarySize, params.hiddenSize);
+>> 
+>>                              if (params.TrainModel) {
+>> 
+> System.out.println("Training the RAE. Model file will be saved in "
+>> 
+> + params.ModelFile);
+>>                                              FineTunableTheta tunedTheta
+> = rae.train(params);                                     
+>> 
+> tunedTheta.Dump(params.ModelFile);
+>> 
+>>                                              System.out.println("RAE
+> trained. The model file is saved in "
+>> 
+> + params.ModelFile);
+>> 
+>>                                              RAEFeatureExtractor fe =
+> new RAEFeatureExtractor(
+>> 
+> params.EmbeddingSize, tunedTheta, params.AlphaCat,
+>> 
+> params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+>> 
+> rae.f);
+>> 
+>>                                              List<LabeledDatum<Double,
+> Integer>> classifierTrainingData
+>> 
+> = fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.Data,
+> params.TreeDumpDir);
+>> 
+>>                                              SoftmaxClassifier<Double,
+> Integer> classifier = new SoftmaxClassifier<Double, Integer>();
+>> 
+> ClassifierPerformanceMeasures  TrainAccuracy =
+> classifier.train(classifierTrainingData);
+>>                                              System.out.println("Train
+> Accuracy :" + TrainAccuracy.toString());
+>> 
+>>                                              System.out
+>> 
+> .println("Classifier trained. The model file is saved in "
+>> 
+> + params.ClassifierFile);
+>> 
+> classifier.Dump(params.ClassifierFile);
+>> 
+>>                                              if
+> (params.featuresOutputFile != null)
+>> 
+> rae.DumpFeatures(params.featuresOutputFile,
+>> 
+> classifierTrainingData);
+>> 
+>>                                              if
+> (params.ProbabilitiesOutputFile != null)
+>> 
+> rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+>> 
+> classifier.getTrainScores());
+>> 
+>> //                                           if (params.TreeDumpDir !=
+> null)
+>> //
+> rae.DumpTrees(Trees, params.TreeDumpDir, params.Dataset,
+> params.Dataset.Data);
+>> 
+>>                                              System.out.println("Dumping
+> complete");
+>> 
+>>                              } else {
+>>                                              System.out.println
+>> 
+> ("Using the trained RAE. Model file retrieved from " + params.ModelFile
+>> 
+> + "\nNote that this overrides all RAE specific arguments you passed.");
+>> 
+>>                                              FineTunableTheta tunedTheta
+> = rae.loadRAE(params);
+>>                                              assert
+> tunedTheta.getNumCategories() == params.Dataset.getCatSize();
+>> 
+>>                                              SoftmaxClassifier<Double,
+> Integer> classifier = rae.loadClassifier(params);
+>> 
+>>                                              RAEFeatureExtractor fe =
+> new RAEFeatureExtractor(
+>> 
+> params.EmbeddingSize, tunedTheta, params.AlphaCat,
+>> 
+> params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+>> 
+> rae.f);
+>> 
+>>                                              if
+> (params.Dataset.Data.size() > 0) {
+>> 
+> System.err.println("There is training data in the directory.");
+>> 
+> System.err.println("It will be ignored when you are not in the training
+> mode.");
+>>                                              }
+>> 
+>>                                              List<LabeledDatum<Double,
+> Integer>> classifierTestingData
+>> 
+> = fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.TestData,
+> params.TreeDumpDir);
+>> 
+>> 
+> ClassifierPerformanceMeasures TestAccuracy =
+> classifier.test(classifierTestingData);
+>> 
+> rae.DumpMisclassified(params.dir,
+>> 
+> params.LabelMapFile,
+>> 
+> TestAccuracy.GetMisclassified(),
+>> 
+> params.Dataset);
+>>                                              if
+> (params.isTestLabelsKnown) {
+>> 
+> System.out.println("Test Accuracy : " + TestAccuracy);
+>>                                              }
+>> 
+>>                                              if
+> (params.featuresOutputFile != null)
+>> 
+> rae.DumpFeatures(params.featuresOutputFile,
+>> 
+> classifierTestingData);
+>> 
+>>                                              if
+> (params.ProbabilitiesOutputFile != null)
+>> 
+> rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+>> 
+> classifier.getTestScores());
+>> 
+>> //                                           if (params.TreeDumpDir !=
+> null)
+>> //
+> rae.DumpTrees(testTrees, params.TreeDumpDir, params.Dataset,
+> params.Dataset.TestData);                                       
+>>                              }
+>> 
+>>                              System.exit(0);
+>>               }
+>> }
+>> 
+>> I tried
+>> 
+>>   .jcall("main/RAEBuilder","V","main")
+>> 
+>> But got the following error:
+>> 
+>>    RcallMethod: cannot determine object class
+>> 
+>> What is going wrong and how can I fix it?
+>> 
+>> Thanks,
+>> 
+>> Raph
+>> 
+>> 
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+> 
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ralphfehrer at gmail.com  Fri Jan 30 15:55:32 2015
+From: ralphfehrer at gmail.com (Ralph Fehrer)
+Date: Fri, 30 Jan 2015 16:55:32 +0100
+Subject: Re: RcallMethod: cannot determine object class in .jcall
+In-Reply-To: <035DA4CC-37DA-4592-B4AC-9ED6F38F692D@r-project.org>
+References: <002a01d03c6a$ef46f830$cdd4e890$@gmail.com> <F61D8CC5-D8E0-4176-AE0D-20A867B45A50@r-project.org> <003801d03c96$5cc268b0$16473a10$@gmail.com> <035DA4CC-37DA-4592-B4AC-9ED6F38F692D@r-project.org>
+Message-ID: <004601d03ca5$2de11320$89a33960$@gmail.com>
+
+Indeed, that was the wrong path. After correcting the path, I now get a
+method signature error, cause by the missing string arguments.
+
+Thanks a lot!
+
+-----Ursprüngliche Nachricht-----
+Von: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+Gesendet: Freitag, 30. Januar 2015 16:48
+An: Ralph Fehrer
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Betreff: Re: [stats-rosuda-devel] RcallMethod: cannot determine object class
+in .jcall
+
+On Jan 30, 2015, at 9:09 AM, Ralph Fehrer <ralphfehrer at gmail.com> wrote:
+
+> Hi Simon,
+> 
+> thanks for your answer.
+> 
+> I used .jaddClassPath to add the directory, where my .class file is 
+> located on my hard  drive.
+
+That is the wrong directory - it has to be the root of the class tree, i.e.,
+the directory that contains the "main" directory.
+
+
+> However, I still get the
+> 
+>   RcallMethod: cannot determine object class
+> 
+> error in
+> 
+>   .jcall("main/RAEBuilder.class","V","main")
+> 
+
+
+the name of the class is "RAEBuilder" not "RAEBuilder.class"
+
+
+> Interestingly, after modifying the object parameter to a class which 
+> definitely doesn't exist, I get a
+> 
+> ClassNotFoundException
+> 
+
+
+If you still get it after fixing the paths, check the JVM version (see
+below) - you get class load error also when you have a version mismatch.
+
+Cheers,
+Simon
+
+
+
+
+> Kind regards,
+> 
+> Ralph
+> 
+> -----Ursprüngliche Nachricht-----
+> Von: Simon Urbanek [mailto:simon.urbanek at r-project.org]
+> Gesendet: Freitag, 30. Januar 2015 14:57
+> An: Ralph Fehrer
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Betreff: Re: [stats-rosuda-devel] RcallMethod: cannot determine object 
+> class in .jcall
+> 
+> Ralph,
+> 
+> the error means that your class cannot be loaded - typically because 
+> it is not on the class path - use .jaddClassPath() to add either the 
+> root directory of your class structure or the jar file containing the
+class.
+> Another common issue is a JVM version mismatch - make sure your 
+> classes have been compiled with a JVM version not higher than what you 
+> load from R (check, e.g., with
+J("java.lang.System")$getProperty("java.version")).
+> 
+> But if you fix that you will get
+> 
+> Error in .jcall("main/RAEBuilder","V","main")
+> method main with signature ()V not found
+> 
+> because you are trying to call void main() method but you only have 
+> void main(String[]), so you either want to create main() or use 
+> something like
+> 
+> .jcall("main/RAEBuilder","V","main", .jarray(character()))
+> 
+> Cheers,
+> Simon
+> 
+> 
+> On Jan 30, 2015, at 3:58 AM, Ralph Fehrer <ralphfehrer at gmail.com> wrote:
+> 
+>> Hi,
+>> 
+>> I want to call the main method from the following java class through 
+>> .jall
+> in rJava:
+>> 
+>> package main;
+>> 
+>> import io.LabeledDataSet;
+>> import io.ParsedReviewData;
+>> import io.StringLabelSet;
+>> 
+>> import java.io.FileInputStream;
+>> import java.io.FileNotFoundException; import java.io.IOException; 
+>> import java.io.ObjectInputStream; import java.io.PrintStream; import 
+>> java.util.Collection; import java.util.HashMap; import 
+>> java.util.List; import java.util.Map;
+>> 
+>> import org.jblas.DoubleMatrix;
+>> 
+>> import math.DifferentiableFunction;
+>> import math.DifferentiableMatrixFunction;
+>> import math.Minimizer;
+>> import math.Norm1Tanh;
+>> import math.QNMinimizer;
+>> import classify.ClassifierPerformanceMeasures;
+>> import classify.ClassifierTheta;
+>> import classify.LabeledDatum;
+>> import classify.SoftmaxClassifier;
+>> import rae.FineTunableTheta;
+>> import rae.RAECost;
+>> import rae.RAEFeatureExtractor;
+>> 
+>> public class RAEBuilder {
+>>               FineTunableTheta InitialTheta;
+>>               RAEFeatureExtractor FeatureExtractor;
+>>               DifferentiableMatrixFunction f;
+>> 
+>>               public RAEBuilder() {
+>>                              InitialTheta = null;
+>>                              FeatureExtractor = null;
+>>                              f = new Norm1Tanh();
+>>               }
+>> 
+>>               public static void main(final String[] args) throws
+> Exception {
+>>                              RAEBuilder rae = new RAEBuilder();
+>> 
+>>                              Arguments params = new Arguments();
+>>                              params.parseArguments(args);
+>>                              if (params.exitOnReturn)
+>>                                              return;
+>> 
+>>                              System.out.printf("DictionarySize :
+> %d\nEmbeddingSize : %d\n",
+>> 
+> params.DictionarySize, params.hiddenSize);
+>> 
+>>                              if (params.TrainModel) {
+>> 
+> System.out.println("Training the RAE. Model file will be saved in "
+>> 
+> + params.ModelFile);
+>>                                              FineTunableTheta 
+>> tunedTheta
+> = rae.train(params);                                     
+>> 
+> tunedTheta.Dump(params.ModelFile);
+>> 
+>>                                              System.out.println("RAE
+> trained. The model file is saved in "
+>> 
+> + params.ModelFile);
+>> 
+>>                                              RAEFeatureExtractor fe =
+> new RAEFeatureExtractor(
+>> 
+> params.EmbeddingSize, tunedTheta, params.AlphaCat,
+>> 
+> params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+>> 
+> rae.f);
+>> 
+>>                                              
+>> List<LabeledDatum<Double,
+> Integer>> classifierTrainingData
+>> 
+> = fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.Data, 
+> params.TreeDumpDir);
+>> 
+>>                                              
+>> SoftmaxClassifier<Double,
+> Integer> classifier = new SoftmaxClassifier<Double, Integer>();
+>> 
+> ClassifierPerformanceMeasures  TrainAccuracy = 
+> classifier.train(classifierTrainingData);
+>>                                              
+>> System.out.println("Train
+> Accuracy :" + TrainAccuracy.toString());
+>> 
+>>                                              System.out
+>> 
+> .println("Classifier trained. The model file is saved in "
+>> 
+> + params.ClassifierFile);
+>> 
+> classifier.Dump(params.ClassifierFile);
+>> 
+>>                                              if
+> (params.featuresOutputFile != null)
+>> 
+> rae.DumpFeatures(params.featuresOutputFile,
+>> 
+> classifierTrainingData);
+>> 
+>>                                              if
+> (params.ProbabilitiesOutputFile != null)
+>> 
+> rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+>> 
+> classifier.getTrainScores());
+>> 
+>> //                                           if (params.TreeDumpDir !=
+> null)
+>> //
+> rae.DumpTrees(Trees, params.TreeDumpDir, params.Dataset, 
+> params.Dataset.Data);
+>> 
+>>                                              
+>> System.out.println("Dumping
+> complete");
+>> 
+>>                              } else {
+>>                                              System.out.println
+>> 
+> ("Using the trained RAE. Model file retrieved from " + 
+> params.ModelFile
+>> 
+> + "\nNote that this overrides all RAE specific arguments you 
+> + passed.");
+>> 
+>>                                              FineTunableTheta 
+>> tunedTheta
+> = rae.loadRAE(params);
+>>                                              assert
+> tunedTheta.getNumCategories() == params.Dataset.getCatSize();
+>> 
+>>                                              
+>> SoftmaxClassifier<Double,
+> Integer> classifier = rae.loadClassifier(params);
+>> 
+>>                                              RAEFeatureExtractor fe =
+> new RAEFeatureExtractor(
+>> 
+> params.EmbeddingSize, tunedTheta, params.AlphaCat,
+>> 
+> params.Beta, params.CatSize, params.Dataset.Vocab.size(),
+>> 
+> rae.f);
+>> 
+>>                                              if
+> (params.Dataset.Data.size() > 0) {
+>> 
+> System.err.println("There is training data in the directory.");
+>> 
+> System.err.println("It will be ignored when you are not in the 
+> training mode.");
+>>                                              }
+>> 
+>>                                              
+>> List<LabeledDatum<Double,
+> Integer>> classifierTestingData
+>> 
+> = fe.extractFeaturesIntoArray(params.Dataset, params.Dataset.TestData, 
+> params.TreeDumpDir);
+>> 
+>> 
+> ClassifierPerformanceMeasures TestAccuracy = 
+> classifier.test(classifierTestingData);
+>> 
+> rae.DumpMisclassified(params.dir,
+>> 
+> params.LabelMapFile,
+>> 
+> TestAccuracy.GetMisclassified(),
+>> 
+> params.Dataset);
+>>                                              if
+> (params.isTestLabelsKnown) {
+>> 
+> System.out.println("Test Accuracy : " + TestAccuracy);
+>>                                              }
+>> 
+>>                                              if
+> (params.featuresOutputFile != null)
+>> 
+> rae.DumpFeatures(params.featuresOutputFile,
+>> 
+> classifierTestingData);
+>> 
+>>                                              if
+> (params.ProbabilitiesOutputFile != null)
+>> 
+> rae.DumpProbabilities(params.ProbabilitiesOutputFile,
+>> 
+> classifier.getTestScores());
+>> 
+>> //                                           if (params.TreeDumpDir !=
+> null)
+>> //
+> rae.DumpTrees(testTrees, params.TreeDumpDir, params.Dataset,
+> params.Dataset.TestData);                                       
+>>                              }
+>> 
+>>                              System.exit(0);
+>>               }
+>> }
+>> 
+>> I tried
+>> 
+>>   .jcall("main/RAEBuilder","V","main")
+>> 
+>> But got the following error:
+>> 
+>>    RcallMethod: cannot determine object class
+>> 
+>> What is going wrong and how can I fix it?
+>> 
+>> Thanks,
+>> 
+>> Raph
+>> 
+>> 
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-deve
+>> l
+> 
+> 
+
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ralphfehrer at gmail.com  Sat Jan 31 11:35:37 2015
+From: ralphfehrer at gmail.com (Ralph Fehrer)
+Date: Sat, 31 Jan 2015 12:35:37 +0100
+Subject: Traces
+Message-ID: <004801d03d4a$08df23a0$1a9d6ae0$@gmail.com>
+
+Hi,
+
+I am using System.err.println(...) to trace my java code as a workaround,
+since System.out.println(...) apparrently isn't forwarded to 
+the R-studio-console. 
+Is there a better way to print out tracing messages (without using return
+parameters) ?
+
+Kind regards,
+
+Ralph
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ralphfehrer at gmail.com  Sat Jan 31 17:16:01 2015
+From: ralphfehrer at gmail.com (Ralph Fehrer)
+Date: Sat, 31 Jan 2015 18:16:01 +0100
+Subject: import .jar archives
+Message-ID: <005001d03d79$9ef8ff80$dceafe80$@gmail.com>
+
+I have several imports in my code from custom  ".jar"  files which are
+located at a path
+
+ 
+
+    C://MyProject/MyJars/
+
+ 
+
+How do I import the .jar-archives  through rJava to get my complete project
+to run correctly ? 
+
+ 
+
+I found the method
+
+ 
+
+    .jpackage(name, jars='*', morePaths='', nativeLibrary=FALSE,
+lib.loc=NULL)
+
+ 
+
+But I'm not really sure how to use it correctly. Can you help me?
+
+ 
+
+Best regards,
+
+ 
+
+Ralph
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Sat Jan 31 21:32:58 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sat, 31 Jan 2015 16:32:58 -0500
+Subject: Re: import .jar archives
+In-Reply-To: <005001d03d79$9ef8ff80$dceafe80$@gmail.com>
+References: <005001d03d79$9ef8ff80$dceafe80$@gmail.com>
+Message-ID: <3671F8C9-EC58-4A8D-8FB9-242B5E236530@r-project.org>
+
+Ralph,
+
+On Jan 31, 2015, at 12:16 PM, Ralph Fehrer <ralphfehrer at gmail.com> wrote:
+
+> I have several imports in my code from custom  „.jar“  files which are located at a path
+>  
+>     C://MyProject/MyJars/
+>  
+> How do I import the .jar-archives  through rJava to get my complete project to run correctly ?
+>  
+
+
+.jaddClassPath(Sys.glob("c://MyProject/MyJars/*.jar"))
+
+
+> I found the method
+>  
+>     .jpackage(name, jars='*', morePaths='', nativeLibrary=FALSE, lib.loc=NULL)
+>  
+> But I’m not really sure how to use it correctly.
+
+
+You don't - that command is special for packages, it locates JARs in a specific package, not random places.
+
+Cheers,
+Simon
+
+
+> Can you help me?
+>  
+
+
+> Best regards,
+>  
+> Ralph
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

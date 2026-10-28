@@ -1,0 +1,2923 @@
+From pingaultjb-Qt13gs6zZMY at public.gmane.org  Mon Dec  3 23:46:27 2012
+From: pingaultjb-Qt13gs6zZMY at public.gmane.org (Pingaul jb)
+Date: Mon, 03 Dec 2012 23:46:27 +0000
+Subject: Error message when fitting robust std error with weights
+Message-ID: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com>
+
+Dear All, 
+
+I try to a fit a poisson model with sandwich estimator for a binary outcome (a technique to obtain Risk Ratios as found in Cummings, 2009, "The relative merits of riks ratios and odds ratios").Two questions:
+1/ I get similar but still quite different risk ratios with zelig setx and this technique(in particular with covariates) and I would like to understand why
+2/ I get an error message when I try to include weights in my call.
+I send a syntax with lalonde data to illustrate the problem (see below or attached text file)
+
+Many Thanks!!
+JBP
+ library(MatchIt)
+data(lalonde)
+library(Zelig)
+
+#Bivariate Risk ratio with zelig setx
+z.out=zelig(treat~black,model="logit",data=lalonde)
+summary(z.out)
+x.low <- setx(z.out, black = 0)
+x.high <- setx(z.out, black = 1)
+s.out <- sim(z.out, x = x.low, x1 = x.high,num=10000)
+summary(s.out)
+#RR = 8.36
+
+#Bivariate Risk Ratio with poisson with robust standard errors
+obj <- zelig(treat~black, model = "poisson",  robust=list(method="weave"), data = lalonde)
+summary(obj)
+ exp(2.106)#=8.215314  somewhat different but similar results
+
+
+#Now bivariate Risk ratio with covariate married
+#setx
+z.out=zelig(treat~black+married,model="logit",data=lalonde)
+summary(z.out)
+x.low <- setx(z.out, black = 0)
+x.high <- setx(z.out, black = 1)
+s.out <- sim(z.out, x = x.low, x1 = x.high,num=10000)
+summary(s.out) 
+#RR=7.68
+
+#poisson
+obj <- zelig(treat~black+married, model = "poisson",  robust=list(method="weave"), data = lalonde)
+summary(obj)
+exp(1.956)#7.070986 quite different results
+#In my data, the results are even more striking when including a covariate 
+#(as for "married" here, my covariate is a binary variable and setx is taking the "mean", taking the mode gives even more different results)
+
+
+#SECOND PROBLEM: fitting poisson model with robust standard error and weight 
+length(lalonde$treat)
+#creation of false weights 
+lalonde$w=c(rep(1,300),rep(2,314))
+#fit
+obj <- zelig(treat~black+married, model = "poisson",  robust=list(method="weave"), weights="w",data = lalonde)
+summary(obj)
+#ERROR message:
+#Error in model.frame.default(formula = treat ~ black + married, data = lalonde,  : 
+#variable lengths differ (found for '(weights)')
+
+
+#I need to do that with imputed data so that it should work with the following syntax
+#creation of "new" data-frame
+lalonde1=lalonde
+lalonde1$w=c(rep(0,100),rep(1,214),rep(2,300))
+obj <- zelig(treat~black+married, model = "poisson",  robust=list(method="weave"), weights="w",data = mi(lalonde,lalonde1))
+summary(obj)
+#observation: when I take out weights from the previous call it works, 
+#However, it does not include the sentence: "Robust standard errors computed using weave". like with non-imputed data. Is it normal?
+
+-------------- next part --------------
+library(MatchIt)
+data(lalonde)
+library(Zelig)
+
+#Bivariate Risk ratio with zelig setx
+z.out=zelig(treat~black,model="logit",data=lalonde)
+summary(z.out)
+x.low <- setx(z.out, black = 0)
+x.high <- setx(z.out, black = 1)
+s.out <- sim(z.out, x = x.low, x1 = x.high,num=10000)
+summary(s.out)
+#RR = 8.36
+
+#Bivariate Risk Ratio with poisson with robust standard errors
+obj <- zelig(treat~black, model = "poisson",  robust=list(method="weave"), data = lalonde)
+summary(obj)
+ exp(2.106)#=8.215314  somewhat different but similar results
+
+
+#Now bivariate Risk ratio with covariate married
+#setx
+z.out=zelig(treat~black+married,model="logit",data=lalonde)
+summary(z.out)
+x.low <- setx(z.out, black = 0)
+x.high <- setx(z.out, black = 1)
+s.out <- sim(z.out, x = x.low, x1 = x.high,num=10000)
+summary(s.out) 
+#RR=7.68
+
+#poisson
+obj <- zelig(treat~black+married, model = "poisson",  robust=list(method="weave"), data = lalonde)
+summary(obj)
+exp(1.956)#7.070986 quite different results
+#In my data, the results are even more striking when including a covariate 
+#(as for "married" here, my covariate is a binary variable and setx is taking the "mean", taking the mode gives even more different results)
+
+
+#SECOND PROBLEM: fitting poisson model with robust standard error and weight 
+length(lalonde$treat)
+#creation of false weights 
+lalonde$w=c(rep(1,300),rep(2,314))
+#fit
+obj <- zelig(treat~black+married, model = "poisson",  robust=list(method="weave"), weights="w",data = lalonde)
+summary(obj)
+#ERROR message:
+#Error in model.frame.default(formula = treat ~ black + married, data = lalonde,  : 
+#variable lengths differ (found for '(weights)')
+
+
+#I need to do that with imputed data so that it should work with the following syntax
+#creation of "new" data-frame
+lalonde1=lalonde
+lalonde1$w=c(rep(0,100),rep(1,214),rep(2,300))
+obj <- zelig(treat~black+married, model = "poisson",  robust=list(method="weave"), weights="w",data = mi(lalonde,lalonde1))
+summary(obj)
+#observation: when I take out weights from the previous call it works, 
+#However, it does not include the sentence: "Robust standard errors computed using weave". like with non-imputed data. Is it normal?
+
+-------------- next part --------------
+
+
+From jricart-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Tue Dec  4 16:19:50 2012
+From: jricart-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Joan Ricart Huguet)
+Date: Tue, 04 Dec 2012 11:19:50 -0500
+Subject: older zelig version to run ologit won't install
+Message-ID: <CAGWQW5ALHkf9E_Qbvqe2n1iVZrrk_6ecQ9Qhvk5+HQ3PEsupPw@mail.gmail.com>
+
+Hi,
+
+I'm trying to use install an older version of Zelig (3.5.5) so that I can
+run an ordered logit with the multiply imputated datasets. However, when I
+try to use
+install.packages("Zelig_3.5.5.tar.gz", repos = NULL, type = "source")
+I receive the following error message. I tried both RStudio and RConsole to
+see if the software was the issue but it gives the same error message in
+both
+
+thanks,
+Joan
+
+> install.packages("Zelig_3.5.5.tar.gz", repos = NULL, type = "source")
+* installing *source* package 'Zelig' ...
+** package 'Zelig' successfully unpacked and MD5 sums checked
+Error in .read_description(dfile) :
+  file 'C:/Documents and Settings/Joan Ricart/Configuración
+local/Temp/RtmpYnzdbL/R.INSTALL65419e93e0a/Zelig/DESCRIPTION' does not exist
+ERROR: installing package DESCRIPTION failed for package 'Zelig'
+* removing 'C:/Archivos de programa/R/R-2.15.2/library/Zelig'
+* restoring previous 'C:/Archivos de programa/R/R-2.15.2/library/Zelig'
+Mensajes de aviso perdidos
+1: comando ejecutado 'C:/ARCHIV~1/R/R-215~1.2/bin/i386/R CMD INSTALL -l
+"C:/Archivos de programa/R/R-2.15.2/library"   "Zelig_3.5.5.tar.gz"' tiene
+estatus 1
+2: In install.packages("Zelig_3.5.5.tar.gz", repos = NULL, type = "source")
+:
+  installation of package ‘Zelig_3.5.5.tar.gz’ had non-zero exit status
+
+
+-- 
+Mr. Joan Ricart Huguet
+(347) 880 - 0128
+jricart-uX/v2g6dJhCyum0STUha2w at public.gmane.org <ricarthuguet-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+http://www.princeton.edu/~jricart/
+
+-------------- next part --------------
+
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Dec  4 22:11:14 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Tue, 04 Dec 2012 17:11:14 -0500
+Subject: Zelig 4.1 on CRAN!
+Message-ID: <64BCAF98-4A6F-4199-AA28-6A1BB0FF085C@iq.harvard.edu>
+
+Hi - Zelig 4.1 has been released on CRAN. More information on Zelig and its recent changes can be found here:
+  http://projects.iq.harvard.edu/zelig
+
+Regards,
+Matt Owen
+Software Maintainer, Zelig
+
+Attached please find the official announcement:
+
+- Zelig 4.1 is now on CRAN! -
+
+Zelig 4.1 has been released and is downloadable from CRAN. This release adds:
+ 1. Integration of several Zelig add-on packages to the core models
+    (e.g. "General Estimating Equations," "Survey-weighted regressions," etc.)
+ 2. Bug fixes for particular statistical models
+ 3. Informative error messages
+
+For the full documentation for Zelig 4.1, see:
+ http://projects.iq.harvard.edu/zelig/documentation
+
+For developer information, see:
+ http://projects.iq.harvard.edu/zelig/developers
+
+
+- Zelig 4 Structural Changes -
+
+While most features of Zelig have remained unchanged, the original software
+package has been divided into five distinct packages: Zelig, ZeligChoice,
+ZeligGAM, ZeligMultilevel and ZeligNetwork. These packages correspond directly
+to particular classes of statistical models: discrete choice models, general
+additive models, multilevel models, and network regression models. All other
+models from Zelig 3.5 remain in the main Zelig package.
+
+For a complete list of statistical models in Zelig, refer to:
+ http://projects.iq.harvard.edu/zelig/models
+
+General information on what's new can be found on the IQSS Zelig Project's page
+here:
+ http://projects.iq.harvard.edu/zelig/whats-new
+
+
+- Zelig 4 for Developers -
+
+Zelig 4 continues its tradition of being "Everyone's Statistical Software,"
+while now catering to developers with an API geared towards simplifying the
+development of statistical models. This means adding your statistical model to
+the Zelig software suite is easier than ever.
+
+
+- Install Zelig! -
+
+Instructions on installing Zelig 4 can be found on the IQSS Zelig Project's
+page here:
+ http://projects.iq.harvard.edu/zelig/install
+
+
+- Contribute to Zelig! -
+
+Developers can contribute to the Zelig project in numerous ways. Using the new
+API, any statistical package can be written to operate using Zelig's interface.
+To learn more about contributing to Zelig, visit the IQSS Zelig Project's page
+here:
+ http://projects.iq.harvard.edu/zelig/developers
+
+The latest version of the source code can be found on GitHub:
+ https://github.com/iqss/Zelig
+
+The full collection of Zelig packages can be found here:
+ https://github.com/iqss/
+
+
+- Join the discussion! -
+
+Zelig 4 is now on Google Groups! Discuss Zelig development and issues
+on this forum. Additionally, the latest news, help, and bug fixes are
+all available here:
+ http://bit.ly/Rw717L
+
+
+- Zelig 3.5 -
+
+Zelig 3.5 is still available for download via Harvard IQSS at:
+ http://r.iq.harvard.edu/archived/src/contrib/Zelig_3.5.4.tar.gz
+
+This can be downloaded installed automatically via an R-terminal by entering:
+ install.packages("Zelig", repos="http://r.iq.harvard.edu/archived/", type="source")
+
+-------------- next part --------------
+
+
+From skostysh-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Wed Dec  5 02:57:46 2012
+From: skostysh-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Scott Kostyshak)
+Date: Wed, 05 Dec 2012 02:57:46 +0000
+Subject: Re: Zelig 4.1 on CRAN!
+In-Reply-To: <64BCAF98-4A6F-4199-AA28-6A1BB0FF085C@iq.harvard.edu>
+References: <64BCAF98-4A6F-4199-AA28-6A1BB0FF085C@iq.harvard.edu>
+Message-ID: <055B2A349DB9C841BDBE4C28453CF09E2A5BB894@CSGMBX204W.pu.win.princeton.edu>
+
+Thanks, Matt.
+
+The github link on the "what's new" page is broken:
+http://projects.iq.harvard.edu/zelig/whats-new
+
+The github links in the email you sent work fine.
+
+Best,
+
+Scott
+________________________________
+From: zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [zelig-bounces-boHuZhbfW+Y6DHxCPSz5rA at public.gmane.orgard.edu] on behalf of Matt Owen [mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org]
+Sent: Tuesday, December 04, 2012 5:11 PM
+To: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org list
+Subject: [zelig] Zelig 4.1 on CRAN!
+
+Hi - Zelig 4.1 has been released on CRAN. More information on Zelig and its recent changes can be found here:
+  http://projects.iq.harvard.edu/zelig
+
+Regards,
+Matt Owen
+Software Maintainer, Zelig
+
+Attached please find the official announcement:
+
+- Zelig 4.1 is now on CRAN! -
+
+Zelig 4.1 has been released and is downloadable from CRAN. This release adds:
+ 1. Integration of several Zelig add-on packages to the core models
+    (e.g. "General Estimating Equations," "Survey-weighted regressions," etc.)
+ 2. Bug fixes for particular statistical models
+ 3. Informative error messages
+
+For the full documentation for Zelig 4.1, see:
+ http://projects.iq.harvard.edu/zelig/documentation
+
+For developer information, see:
+ http://projects.iq.harvard.edu/zelig/developers
+
+
+- Zelig 4 Structural Changes -
+
+While most features of Zelig have remained unchanged, the original software
+package has been divided into five distinct packages: Zelig, ZeligChoice,
+ZeligGAM, ZeligMultilevel and ZeligNetwork. These packages correspond directly
+to particular classes of statistical models: discrete choice models, general
+additive models, multilevel models, and network regression models. All other
+models from Zelig 3.5 remain in the main Zelig package.
+
+For a complete list of statistical models in Zelig, refer to:
+ http://projects.iq.harvard.edu/zelig/models
+
+General information on what's new can be found on the IQSS Zelig Project's page
+here:
+ http://projects.iq.harvard.edu/zelig/whats-new
+
+
+- Zelig 4 for Developers -
+
+Zelig 4 continues its tradition of being "Everyone's Statistical Software,"
+while now catering to developers with an API geared towards simplifying the
+development of statistical models. This means adding your statistical model to
+the Zelig software suite is easier than ever.
+
+
+- Install Zelig! -
+
+Instructions on installing Zelig 4 can be found on the IQSS Zelig Project's
+page here:
+ http://projects.iq.harvard.edu/zelig/install
+
+
+- Contribute to Zelig! -
+
+Developers can contribute to the Zelig project in numerous ways. Using the new
+API, any statistical package can be written to operate using Zelig's interface.
+To learn more about contributing to Zelig, visit the IQSS Zelig Project's page
+here:
+ http://projects.iq.harvard.edu/zelig/developers
+
+The latest version of the source code can be found on GitHub:
+ https://github.com/iqss/Zelig
+
+The full collection of Zelig packages can be found here:
+ https://github.com/iqss/
+
+
+- Join the discussion! -
+
+Zelig 4 is now on Google Groups! Discuss Zelig development and issues
+on this forum. Additionally, the latest news, help, and bug fixes are
+all available here:
+ http://bit.ly/Rw717L
+
+
+- Zelig 3.5 -
+
+Zelig 3.5 is still available for download via Harvard IQSS at:
+ http://r.iq.harvard.edu/archived/src/contrib/Zelig_3.5.4.tar.gz
+
+This can be downloaded installed automatically via an R-terminal by entering:
+ install.packages("Zelig", repos="http://r.iq.harvard.edu/archived/", type="source")
+
+-------------- next part --------------
+
+
+From mcrosas-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Wed Dec  5 03:04:38 2012
+From: mcrosas-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Merce Crosas)
+Date: Tue, 04 Dec 2012 22:04:38 -0500
+Subject: Re: Zelig 4.1 on CRAN!
+In-Reply-To: <055B2A349DB9C841BDBE4C28453CF09E2A5BB894@CSGMBX204W.pu.win.princeton.edu>
+References: <64BCAF98-4A6F-4199-AA28-6A1BB0FF085C@iq.harvard.edu> <055B2A349DB9C841BDBE4C28453CF09E2A5BB894@CSGMBX204W.pu.win.princeton.edu>
+Message-ID: <CAPAYmDPRFjiCQRum4t_P40ZDctgS1eEbqJHT4rBw11YWcqiBNA@mail.gmail.com>
+
+Thanks for pointing this out. It's fixed now.
+
+Best,
+Merce
+
+On Tue, Dec 4, 2012 at 9:57 PM, Scott Kostyshak <skostysh-uX/v2g6dJhCyum0STUha2w at public.gmane.org>wrote:
+
+>  Thanks, Matt.
+>
+> The github link on the "what's new" page is broken:
+> http://projects.iq.harvard.edu/zelig/whats-new
+>
+> The github links in the email you sent work fine.
+>
+> Best,
+>
+> Scott
+>  ------------------------------
+> *From:* zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [
+> zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org] on behalf of Matt Owen [
+> mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org]
+> *Sent:* Tuesday, December 04, 2012 5:11 PM
+> *To:* zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org list
+> *Subject:* [zelig] Zelig 4.1 on CRAN!
+>
+>   Hi - Zelig 4.1 has been released on CRAN. More information on Zelig and
+> its recent changes can be found here:
+>   http://projects.iq.harvard.edu/zelig
+>
+>  Regards,
+> Matt Owen
+> Software Maintainer, Zelig
+>
+>  Attached please find the official announcement:
+>
+>  - Zelig 4.1 is now on CRAN! -
+>
+>  Zelig 4.1 has been released and is downloadable from CRAN. This release
+> adds:
+>  1. Integration of several Zelig add-on packages to the core models
+>     (e.g. "General Estimating Equations," "Survey-weighted regressions,"
+> etc.)
+>  2. Bug fixes for particular statistical models
+>  3. Informative error messages
+>
+>  For the full documentation for Zelig 4.1, see:
+>  http://projects.iq.harvard.edu/zelig/documentation
+>
+>  For developer information, see:
+>  http://projects.iq.harvard.edu/zelig/developers
+>
+>
+>  - Zelig 4 Structural Changes -
+>
+>  While most features of Zelig have remained unchanged, the original
+> software
+> package has been divided into five distinct packages: Zelig, ZeligChoice,
+> ZeligGAM, ZeligMultilevel and ZeligNetwork. These packages correspond
+> directly
+> to particular classes of statistical models: discrete choice models,
+> general
+> additive models, multilevel models, and network regression models. All
+> other
+> models from Zelig 3.5 remain in the main Zelig package.
+>
+>  For a complete list of statistical models in Zelig, refer to:
+>  http://projects.iq.harvard.edu/zelig/models
+>
+>  General information on what's new can be found on the IQSS Zelig
+> Project's page
+> here:
+>  http://projects.iq.harvard.edu/zelig/whats-new
+>
+>
+>  - Zelig 4 for Developers -
+>
+>  Zelig 4 continues its tradition of being "Everyone's Statistical
+> Software,"
+> while now catering to developers with an API geared towards simplifying the
+> development of statistical models. This means adding your statistical
+> model to
+> the Zelig software suite is easier than ever.
+>
+>
+>  - Install Zelig! -
+>
+>  Instructions on installing Zelig 4 can be found on the IQSS Zelig
+> Project's
+> page here:
+>  http://projects.iq.harvard.edu/zelig/install
+>
+>
+>  - Contribute to Zelig! -
+>
+>  Developers can contribute to the Zelig project in numerous ways. Using
+> the new
+> API, any statistical package can be written to operate using Zelig's
+> interface.
+> To learn more about contributing to Zelig, visit the IQSS Zelig Project's
+> page
+> here:
+>  http://projects.iq.harvard.edu/zelig/developers
+>
+>  The latest version of the source code can be found on GitHub:
+>  https://github.com/iqss/Zelig
+>
+>  The full collection of Zelig packages can be found here:
+>  https://github.com/iqss/
+>
+>
+>  - Join the discussion! -
+>
+>  Zelig 4 is now on Google Groups! Discuss Zelig development and issues
+> on this forum. Additionally, the latest news, help, and bug fixes are
+> all available here:
+>  http://bit.ly/Rw717L
+>
+>
+>  - Zelig 3.5 -
+>
+>  Zelig 3.5 is still available for download via Harvard IQSS at:
+>  http://r.iq.harvard.edu/archived/src/contrib/Zelig_3.5.4.tar.gz
+>
+>  This can be downloaded installed automatically via an R-terminal by
+> entering:
+>  install.packages("Zelig", repos="http://r.iq.harvard.edu/archived/",
+> type="source")
+>
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+
+
+
+-- 
+Mercè Crosas, PhD
+Director of Product Development
+IQSS, Harvard University
+1737 Cambridge St., Cambridge, MA, 02138
+Room K329
+617-496-1274
+mcrosas-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org
+www.iq.harvard.edu
+
+-------------- next part --------------
+
+
+From shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Dec  5 11:58:37 2012
+From: shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Shige Song)
+Date: Wed, 05 Dec 2012 06:58:37 -0500
+Subject: Re: Summary of zelig results based on multiply imputed data
+In-Reply-To: <CAGuGQcx0mhb1bZ0MJJS_X2PvT1+CDM+Ek1BenhSt+87GBObkvQ@mail.gmail.com>
+References: <CAGuGQcz5vtTZPvpE3GpL0VvSOd-DsCz4Rkc2oP2_mk4-_-i5-w@mail.gmail.com> <CAGuGQcwX+U_Pxuxn7=h_Cu_VRW2ee_dA7b5Zz-mROUrYuAHXqg@mail.gmail.com> <CAGuGQcx0mhb1bZ0MJJS_X2PvT1+CDM+Ek1BenhSt+87GBObkvQ@mail.gmail.com>
+Message-ID: <CAGuGQcyuyMZ2YZ96WGr+hD=2WQzHZaC1=NABGuBEPZd8JGfk2A@mail.gmail.com>
+
+Can anyone tell me how to get combined results using Zelig 4? Or Zelig 3 is
+the only option?
+
+
+On Tue, Nov 13, 2012 at 6:28 PM, Shige Song <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> I see a new version of Zelig (4.10) is out but the problem with the
+> multiply imputed data is still there.
+>
+> Shige
+>
+>
+>
+> On Sun, Nov 11, 2012 at 4:18 PM, Shige Song <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>
+>> I removed Zelig4 and reinstalled Zelig 3.5.5, the old version did not
+>> have this problem.
+>>
+>> Shige
+>>
+>>
+>>
+>> On Sun, Nov 11, 2012 at 3:59 PM, Shige Song <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>>
+>>> I tried the following examples from the Zelig manual:
+>>>
+>>> --------------------------------
+>>> library(ZeligChoice)
+>>>
+>>> data(immi1, immi2, immi3, immi4, immi5)
+>>> z.out <- zelig(as.factor(ipip) ~ wage1992 + prtyid + ideol,
+>>>                model = "ologit",
+>>>                data = mi(immi1, immi2, immi3, immi4, immi5))
+>>> ---------------------------------
+>>>
+>>> And got the following:
+>>>
+>>> ---------------------------------
+>>> > summary(z.out)
+>>> $immi1
+>>> Call:
+>>> polr(formula = as.factor(as.factor(ipip)) ~ wage1992 + prtyid +
+>>>     ideol, data = Data.frame, Hess = TRUE, method = "logistic")
+>>>
+>>> Coefficients:
+>>>             Value Std. Error t value
+>>> wage1992 -0.47233    0.19834  -2.381
+>>> prtyid    0.02219    0.01974   1.124
+>>> ideol     0.10878    0.02879   3.779
+>>>
+>>> Intercepts:
+>>>     Value    Std. Error t value
+>>> 1|2  -2.9685   0.1835   -16.1768
+>>> 2|3  -1.9162   0.1646   -11.6420
+>>> 3|4   0.3207   0.1570     2.0424
+>>> 4|5   1.4746   0.1597     9.2359
+>>>
+>>> Residual Deviance: 6696.117
+>>> AIC: 6710.117
+>>>
+>>> $immi2
+>>> Call:
+>>> polr(formula = as.factor(as.factor(ipip)) ~ wage1992 + prtyid +
+>>>     ideol, data = Data.frame, Hess = TRUE, method = "logistic")
+>>>
+>>> Coefficients:
+>>>             Value Std. Error t value
+>>> wage1992 -0.38143    0.19860  -1.921
+>>> prtyid    0.02056    0.01979   1.039
+>>> ideol     0.07391    0.02898   2.551
+>>>
+>>> Intercepts:
+>>>     Value    Std. Error t value
+>>> 1|2  -3.1490   0.1855   -16.9795
+>>> 2|3  -2.0003   0.1639   -12.2076
+>>> 3|4   0.2255   0.1559     1.4459
+>>> 4|5   1.3535   0.1583     8.5523
+>>>
+>>> Residual Deviance: 6707.571
+>>> AIC: 6721.571
+>>>
+>>> $immi3
+>>> Call:
+>>> polr(formula = as.factor(as.factor(ipip)) ~ wage1992 + prtyid +
+>>>     ideol, data = Data.frame, Hess = TRUE, method = "logistic")
+>>>
+>>> Coefficients:
+>>>              Value Std. Error t value
+>>> wage1992 -0.475120    0.19841 -2.3947
+>>> prtyid   -0.002367    0.01998 -0.1185
+>>> ideol     0.139663    0.02919  4.7839
+>>>
+>>> Intercepts:
+>>>     Value    Std. Error t value
+>>> 1|2  -3.0410   0.1849   -16.4486
+>>> 2|3  -1.8938   0.1627   -11.6372
+>>> 3|4   0.3633   0.1554     2.3381
+>>> 4|5   1.4932   0.1580     9.4517
+>>>
+>>> Residual Deviance: 6670.636
+>>> AIC: 6684.636
+>>>
+>>> $immi4
+>>> Call:
+>>> polr(formula = as.factor(as.factor(ipip)) ~ wage1992 + prtyid +
+>>>     ideol, data = Data.frame, Hess = TRUE, method = "logistic")
+>>>
+>>> Coefficients:
+>>>             Value Std. Error t value
+>>> wage1992 -0.73006    0.19853  -3.677
+>>> prtyid    0.03575    0.01997   1.790
+>>> ideol     0.10920    0.02918   3.742
+>>>
+>>> Intercepts:
+>>>     Value    Std. Error t value
+>>> 1|2  -3.2126   0.1877   -17.1201
+>>> 2|3  -2.0535   0.1645   -12.4860
+>>> 3|4   0.2400   0.1557     1.5411
+>>> 4|5   1.4158   0.1582     8.9471
+>>>
+>>> Residual Deviance: 6628.474
+>>> AIC: 6642.474
+>>>
+>>> $immi5
+>>> Call:
+>>> polr(formula = as.factor(as.factor(ipip)) ~ wage1992 + prtyid +
+>>>     ideol, data = Data.frame, Hess = TRUE, method = "logistic")
+>>>
+>>> Coefficients:
+>>>            Value Std. Error t value
+>>> wage1992 -0.5001    0.19919  -2.510
+>>> prtyid    0.0225    0.01989   1.131
+>>> ideol     0.0967    0.02837   3.408
+>>>
+>>> Intercepts:
+>>>     Value    Std. Error t value
+>>> 1|2  -3.1471   0.1858   -16.9404
+>>> 2|3  -1.9431   0.1629   -11.9256
+>>> 3|4   0.2795   0.1554     1.7991
+>>> 4|5   1.4339   0.1579     9.0808
+>>>
+>>> Residual Deviance: 6699.731
+>>> AIC: 6713.731
+>>> ---------------------------------
+>>>
+>>> My question is: how do I get the combined results? I am using Zelig
+>>> 4.0-11.
+>>>
+>>> Thanks.
+>>>
+>>> Best,
+>>> Shige
+>>>
+>>
+>>
+>
+
+-------------- next part --------------
+
+
+From mattisbusiness-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Dec  4 22:03:29 2012
+From: mattisbusiness-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Matt)
+Date: Tue, 04 Dec 2012 17:03:29 -0500
+Subject: Zelig 4.1 on CRAN!
+Message-ID: <1009A3A8-109E-4492-A306-B7D4D8575C5C@gmail.com>
+
+Hi - Zelig 4.1 has been released on CRAN. More information on Zelig and its recent changes can be found here:
+  http://projects.iq.harvard.edu/zelig
+
+Regards,
+Matt Owen
+Software Maintainer, Zelig
+
+Attached please find the official announcement:
+
+- Zelig 4.1 is now on CRAN! -
+
+Zelig 4.1 has been released and is downloadable from CRAN. This release adds:
+ 1. Integration of several Zelig add-on packages to the core models
+    (e.g. "General Estimating Equations," "Survey-weighted regressions," etc.)
+ 2. Bug fixes for particular statistical models
+ 3. Informative error messages
+
+For the full documentation for Zelig 4.1, see:
+ http://projects.iq.harvard.edu/zelig/documentation
+
+For developer information, see:
+ http://projects.iq.harvard.edu/zelig/developers
+
+
+- Zelig 4 Structural Changes -
+
+While most features of Zelig have remained unchanged, the original software
+package has been divided into five distinct packages: Zelig, ZeligChoice,
+ZeligGAM, ZeligMultilevel and ZeligNetwork. These packages correspond directly
+to particular classes of statistical models: discrete choice models, general
+additive models, multilevel models, and network regression models. All other
+models from Zelig 3.5 remain in the main Zelig package.
+
+For a complete list of statistical models in Zelig, refer to:
+ http://projects.iq.harvard.edu/zelig/models
+
+General information on what's new can be found on the IQSS Zelig Project's page
+here:
+ http://projects.iq.harvard.edu/zelig/whats-new
+
+
+- Zelig 4 for Developers -
+
+Zelig 4 continues its tradition of being "Everyone's Statistical Software,"
+while now catering to developers with an API geared towards simplifying the
+development of statistical models. This means adding your statistical model to
+the Zelig software suite is easier than ever.
+
+
+- Install Zelig! -
+
+Instructions on installing Zelig 4 can be found on the IQSS Zelig Project's
+page here:
+ http://projects.iq.harvard.edu/zelig/install
+
+
+- Contribute to Zelig! -
+
+Developers can contribute to the Zelig project in numerous ways. Using the new
+API, any statistical package can be written to operate using Zelig's interface.
+To learn more about contributing to Zelig, visit the IQSS Zelig Project's page
+here:
+ http://projects.iq.harvard.edu/zelig/developers
+
+The latest version of the source code can be found on GitHub:
+ https://github.com/iqss/Zelig
+
+The full collection of Zelig packages can be found here:
+ https://github.com/iqss/
+
+
+- Join the discussion! -
+
+Zelig 4 is now on Google Groups! Discuss Zelig development and issues
+on this forum. Additionally, the latest news, help, and bug fixes are
+all available here:
+ http://bit.ly/Rw717L
+
+
+- Zelig 3.5 -
+
+Zelig 3.5 is still available for download via Harvard IQSS at:
+ http://r.iq.harvard.edu/archived/src/contrib/Zelig_3.5.4.tar.gz
+
+This can be downloaded installed automatically via an R-terminal by entering:
+ install.packages("Zelig", repos="http://r.iq.harvard.edu/archived/", type="source")
+
+-------------- next part --------------
+
+
+From suzanne.mcgaugh-4+jYJfmkT58 at public.gmane.org  Mon Dec 10 19:18:05 2012
+From: suzanne.mcgaugh-4+jYJfmkT58 at public.gmane.org (Suzanne McGaugh)
+Date: Mon, 10 Dec 2012 14:18:05 -0500
+Subject: Re: Rare Events logistic regression in Zelig
+In-Reply-To: <CA+KEgF05_hziS01iSNG70Tz8GNgabpgPVTiUiVyk5YY0n3TC+Q@mail.gmail.com>
+References: <CA+KEgF22kCgHT7u6dK=W6P92=De8Di2g2_UR6fznwza+-a_pKw@mail.gmail.com> <CA+KEgF2YrpVW5iQ9zAgh65oWs_T-qfTg=pwPmr4X1mEg8i_6hg@mail.gmail.com> <CA+KEgF05_hziS01iSNG70Tz8GNgabpgPVTiUiVyk5YY0n3TC+Q@mail.gmail.com>
+Message-ID: <CA+KEgF1vOqjXt+=x7QgAXP0K+u2yd=zMCje7PUujv=CuG13_CA@mail.gmail.com>
+
+> Hi,
+> I am trying to run a rare events logistic regression in Zelig using R
+> 2.15.2. All of my packages are updated and current.
+>
+> I am running an example found in your manual :
+> http://people.iq.harvard.edu/~falimadh/inst/doc/relogit.pdf
+> And I get an error asking for a describe function. It seems like relogit
+> is a built-in model for Zelig and should not require a describe function.
+>
+> I would appreciate any insight you have into this.  Please advise. Thank
+> you very much in advance for any insight.
+>
+>
+> ######### OUTPUT from R ########
+>
+> ZELIG (Versions 4.1-0, built: 2012-11-09)
+>
+> +----------------------------------------------------------------+
+> |  Please refer to http://gking.harvard.edu/zelig for full       |
+> |  documentation or help.zelig() for help with commands and      |
+> |  models support by Zelig.                                      |
+> |                                                                |
+> |  Zelig project citations:                                      |
+> |    Kosuke Imai, Gary King, and Olivia Lau.  (2009).            |
+> |    ``Zelig: Everyone's Statistical Software,''                 |
+> |    http://gking.harvard.edu/zelig                              |
+> |   and                                                          |
+> |    Kosuke Imai, Gary King, and Olivia Lau. (2008).             |
+> |    ``Toward A Common Framework for Statistical Analysis        |
+> |    and Development,'' Journal of Computational and             |
+> |    Graphical Statistics, Vol. 17, No. 4 (December)             |
+> |    pp. 892-913.                                                |
+> |                                                                |
+> |   To cite individual Zelig models, please use the citation     |
+> |   format printed with each model run and in the documentation. |
+> +----------------------------------------------------------------+
+>
+>
+>
+> > data(mid)
+> > z.out1 <- zelig(conflict ~ major + contig + power + maxdem + mindem +
+> years, data = mid, model = "relogit", tau = 1042/303772)
+>
+>
+>  How to cite this model in Zelig:
+>   Unknown Author. 2012.
+>   "relogit"
+>   in Kosuke Imai, Gary King, and Olivia Lau, "Zelig: Everyone's
+> Statistical Software,"
+>   http://gking.harvard.edu/zelig
+>
+> Warning message:
+> In describe.default(object) :
+>   The 'describe' method for this function is unspecified
+>
+
+-------------- next part --------------
+
+
+From apezzola-n0nk8Tn7BwQ at public.gmane.org  Tue Dec 11 21:12:53 2012
+From: apezzola-n0nk8Tn7BwQ at public.gmane.org (Anthony Pezzola)
+Date: Tue, 11 Dec 2012 21:12:53 +0000
+Subject: Cannot roll-back to Zelig 3.5
+Message-ID: <E0CD31379C231D449AA7850E9F05B16E7A95F073@Eros.ad.uc.cl>
+
+Dear Zelig users,
+
+I have tried to roll-back to Zelig 3.5 using the following command:
+
+remove.packages("Zelig")
+install.packages("Zelig", repos = "http://r.iq.harvard.edu/archived/", type = "source")
+
+However, I get the following error:
+******
+> install.packages("Zelig", repos = "http://r.iq.harvard.edu/archived/", type = "source")
+trying URL 'http://r.iq.harvard.edu/archived/src/contrib/Zelig_3.5.4.tar.gz'
+Content type 'application/x-gzip' length 5711031 bytes (5.4 Mb)
+opened URL
+downloaded 5.4 Mb
+
+* installing *source* package 'Zelig' ...
+files inst/doc/figs/icon_minus.gif, inst/doc/figs/icon_plus.gif, inst/doc/figs/increase.eps, inst/doc/figs/increase.pdf, inst/doc/figs/roc.eps, inst/doc/figs/roc.pdf, inst/doc/figs/sample1.eps, inst/doc/figs/sample1.pdf, inst/doc/figs/sample2.eps, inst/doc/figs/sample2.pdf, inst/doc/figs/ternary.eps, inst/doc/figs/ternary.pdf, inst/doc/figs/vertci.eps, inst/doc/figs/vertci.pdf are missing
+files 'DESCRIPTION', 'R/zelig2probit.R', 'inst/doc/blogit.pdf', 'inst/doc/bprobit.pdf', 'inst/doc/gamma.mixed.pdf', 'inst/doc/gamma.pdf', 'inst/doc/gamma.survey.pdf', 'inst/doc/logit.mixed.pdf', 'inst/doc/logit.pdf', 'inst/doc/logit.survey.pdf', 'inst/doc/ls.mixed.pdf', 'inst/doc/ls.pdf', 'inst/doc/negbin.pdf', 'inst/doc/normal.survey.pdf', 'inst/doc/poisson.mixed.pdf', 'inst/doc/poisson.pdf', 'inst/doc/poisson.survey.pdf', 'inst/doc/probit.mixed.pdf', 'inst/doc/probit.pdf', 'inst/doc/probit.survey.pdf', 'inst/doc/vigpics/blogit-BasicExamplePlot.pdf', 'inst/doc/vigpics/blogit-JointExamplePlot.pdf', 'inst/doc/vigpics/bprobit-BasicExamplePlot.pdf', 'inst/doc/vigpics/bprobit-JointEstimationPlot.pdf', 'inst/doc/vigpics/gamma-ExamplePlot.pdf', 'inst/doc/vigpics/gammasurvey-ExistingPlot.pdf', 'inst/doc/vigpics/gammasurvey-ReplicatePlot.pdf', 'inst/doc/vigpics/lmmixed-ExamplesPlot.pdf', 'inst/doc/vigpics/logit-ExamplePlot.pdf', 'inst/doc/vigpics/logit-FirstDifferencesPlot.pdf', 'inst/doc/vigpics/logit-ROCPlot.pdf', 'inst/doc/vigpics/logitsurvey-ExistingPlot.pdf', 'inst/doc/vigpics/logitsurvey-ReplicatePlot.pdf', 'inst/doc/vigpics/ls-DummyPlot.pdf', 'inst/doc/vigpics/ls-Example4Plot.pdf', 'inst/doc/vigpics/ls-ExamplesPlot.pdf', 'inst/doc/vigpics/negbin-Example1Plot.pdf', 'inst/doc/vigpics/normal-ExistingPlot.pdf', 'inst/doc/vigpics/normal-ReplicatePlot.pdf', 'inst/doc/vigpics/poisson-ExamplePlot.pdf', 'inst/doc/vigpics/poissonsurvey-ExistingPlot.pdf', 'inst/doc/vigpics/poissonsurvey-ReplicatePlot.pdf', 'inst/doc/vigpics/probitsurvey-ExistingPlot.pdf', 'inst/doc/vigpics/probitsurvey-ReplicatePlot.pdf', 'inst/doc/vigpics/weibull-ExamplePlot.pdf', 'inst/doc/weibull.pdf', 'man/Zelig-package.Rd' have the wrong MD5 checksums
+Error in .read_description(dfile) :
+  file 'C:/Documents and Settings/Pezzola/Configuración local/Temp/Rtmpy8Q9tj/R.INSTALL11b03e992678/Zelig/DESCRIPTION' does not exist
+ERROR: installing package DESCRIPTION failed for package 'Zelig'
+* removing 'C:/Archivos de programa/R/R-2.15.2/library/Zelig'
+
+The downloaded source packages are in
+        'C:\Documents and Settings\Pezzola\Configuración local\Temp\RtmpW00x9t\downloaded_packages'
+Warning messages:
+1: running command 'C:/ARCHIV~1/R/R-215~1.2/bin/i386/R CMD INSTALL -l "C:/Archivos de programa/R/R-2.15.2/library"   C:\DOCUME~1\Pezzola\CONFIG~1\Temp\RtmpW00x9t/downloaded_packages/Zelig_3.5.4.tar.gz' had status 1
+2: In install.packages("Zelig", repos = "http://r.iq.harvard.edu/archived/",  :
+  installation of package 'Zelig' had non-zero exit status
+*********
+
+I would appreciate any help that I could get with this issue.  Thank you in advance.
+
+------------------------------
+
+Anthony A. Pezzola
+Profesor Asistente
+Jefe del Magíster en Ciencia Política
+
+Instituto de Ciencia Política
+Pontificia Universidad Católica de Chile
+Santiago, Chile
+(56) 2 2354-7823
+
+To be sure of hitting the target, shoot first and call whatever you hit the target.
+
+-------------- next part --------------
+
+
+From pingaultjb-Qt13gs6zZMY at public.gmane.org  Tue Dec 11 23:04:48 2012
+From: pingaultjb-Qt13gs6zZMY at public.gmane.org (JBP)
+Date: Tue, 11 Dec 2012 23:04:48 +0000
+Subject: Re: Error message when fitting robust std error with weights
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com>
+Message-ID: <loom.20121212T000053-349@post.gmane.org>
+
+PS: 
+I used Zelig 3.5.5 (problems with version 4.1). It would be great if anyone had
+an answer on how to fit Poisson regression with robust std error using weights
+or tell me if the question is irrelevant, I need it to complete my analyses for
+a paper.
+Many Thanks!!
+JBP
+
+From jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Wed Dec 12 06:59:20 2012
+From: jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Honaker, James)
+Date: Wed, 12 Dec 2012 01:59:20 -0500
+Subject: Re: [Zelig] Cannot roll-back to Zelig 3.5
+Message-ID: <C20BA9DEEA2CB344BFC0EA2B8E9952105D7769236B@FASXCH01.fasmail.priv>
+
+Anthony,
+
+Your particular error is an R problem building sources in directory paths with non ascii characters (in this case the ó).  Windows allows unicode paths, but R has trouble with source builds with non ascii characters. 
+To change the path, either set the "lib" argument in the install.packages function to a new path, or to change the default, add a path to the top of the library location list with the .libPaths() function.
+
+Otherwise, I ran the command you attempted:
+install.packages("Zelig", repos = "http://r.iq.harvard.edu/archived/", type = "source")
+successfully on OSX and Windows machines, so it is not a problem with the repository.  
+
+Anticipating another problem you may have, note, that there is an issue (see previous Zelig list posts) with .readRDS() now being defunct in R-2.15.x.  (the function has been unmasked in R Core, so named simply readRDS() now).  I found no problem on OSX machines, but on Windows I found that after installation of the archived Zelig 3.5, attempting the library("Zelig") command will give an error on R-2.15.2 (and it looks from your post you are using 2.15.2 on an Win machine), so you would need an older version of  R, say 2.14.x, in order to run this older archived version of the Zelig library. 
+
+(Relatedly, if there is any issue in the current Zelig 4 that is not working in your application, and for which you are turning to version 3.5, let me know (on or off list) if I can help fix or address this issue more directly in the current Zelig package.)
+
+Best,
+James.
+
+--
+James Honaker, Senior Research Scientist
+//// Institute for Quantitative Social Science, Harvard University
+________________________________________
+
+Tue Dec 11 16:12:53 EST 2012 Anthony Pezzola wrote:
+
+Dear Zelig users,
+
+I have tried to roll-back to Zelig 3.5 using the following command:
+
+remove.packages("Zelig")
+install.packages("Zelig", repos = "http://r.iq.harvard.edu/archived/", type = "source")
+
+However, I get the following error:
+******
+> install.packages("Zelig", repos = "http://r.iq.harvard.edu/archived/", type = "source")
+trying URL 'http://r.iq.harvard.edu/archived/src/contrib/Zelig_3.5.4.tar.gz'
+Content type 'application/x-gzip' length 5711031 bytes (5.4 Mb)
+opened URL
+downloaded 5.4 Mb
+
+* installing *source* package 'Zelig' ...
+files inst/doc/figs/icon_minus.gif, inst/doc/figs/icon_plus.gif, inst/doc/figs/increase.eps, inst/doc/figs/increase.pdf, inst/doc/figs/roc.eps, inst/doc/figs/roc.pdf, inst/doc/figs/sample1.eps, inst/doc/figs/sample1.pdf, inst/doc/figs/sample2.eps, inst/doc/figs/sample2.pdf, inst/doc/figs/ternary.eps, inst/doc/figs/ternary.pdf, inst/doc/figs/vertci.eps, inst/doc/figs/vertci.pdf are missing
+files 'DESCRIPTION', 'R/zelig2probit.R', 'inst/doc/blogit.pdf', 'inst/doc/bprobit.pdf', 'inst/doc/gamma.mixed.pdf', 'inst/doc/gamma.pdf', 'inst/doc/gamma.survey.pdf', 'inst/doc/logit.mixed.pdf', 'inst/doc/logit.pdf', 'inst/doc/logit.survey.pdf', 'inst/doc/ls.mixed.pdf', 'inst/doc/ls.pdf', 'inst/doc/negbin.pdf', 'inst/doc/normal.survey.pdf', 'inst/doc/poisson.mixed.pdf', 'inst/doc/poisson.pdf', 'inst/doc/poisson.survey.pdf', 'inst/doc/probit.mixed.pdf', 'inst/doc/probit.pdf', 'inst/doc/probit.survey.pdf', 'inst/doc/vigpics/blogit-BasicExamplePlot.pdf', 'inst/doc/vigpics/blogit-JointExamplePlot.pdf', 'inst/doc/vigpics/bprobit-BasicExamplePlot.pdf', 'inst/doc/vigpics/bprobit-JointEstimationPlot.pdf', 'inst/doc/vigpics/gamma-ExamplePlot.pdf', 'inst/doc/vigpics/gammasurvey-ExistingPlot.pdf', 'inst/doc/vigpics/gammasurvey-ReplicatePlot.pdf', 'inst/doc/vigpics/lmmixed-ExamplesPlot.pdf', 'inst/doc/vigpics/logit-ExamplePlot.pdf', 'inst/doc/vigpics/logit-FirstDifferencesPlot.pdf', 'inst/doc/vigpics/logit-ROCPlot.pdf', 'inst/doc/vigpics/logitsurvey-ExistingPlot.pdf', 'inst/doc/vigpics/logitsurvey-ReplicatePlot.pdf', 'inst/doc/vigpics/ls-DummyPlot.pdf', 'inst/doc/vigpics/ls-Example4Plot.pdf', 'inst/doc/vigpics/ls-ExamplesPlot.pdf', 'inst/doc/vigpics/negbin-Example1Plot.pdf', 'inst/doc/vigpics/normal-ExistingPlot.pdf', 'inst/doc/vigpics/normal-ReplicatePlot.pdf', 'inst/doc/vigpics/poisson-ExamplePlot.pdf', 'inst/doc/vigpics/poissonsurvey-ExistingPlot.pdf', 'inst/doc/vigpics/poissonsurvey-ReplicatePlot.pdf', 'inst/doc/vigpics/probitsurvey-ExistingPlot.pdf', 'inst/doc/vigpics/probitsurvey-ReplicatePlot.pdf', 'inst/doc/vigpics/weibull-ExamplePlot.pdf', 'inst/doc/weibull.pdf', 'man/Zelig-package.Rd' have the wrong MD5 checksums
+Error in .read_description(dfile) :
+  file 'C:/Documents and Settings/Pezzola/Configuración local/Temp/Rtmpy8Q9tj/R.INSTALL11b03e992678/Zelig/DESCRIPTION' does not exist
+ERROR: installing package DESCRIPTION failed for package 'Zelig'
+* removing 'C:/Archivos de programa/R/R-2.15.2/library/Zelig'
+
+The downloaded source packages are in
+        'C:\Documents and Settings\Pezzola\Configuración local\Temp\RtmpW00x9t\downloaded_packages'
+Warning messages:
+1: running command 'C:/ARCHIV~1/R/R-215~1.2/bin/i386/R CMD INSTALL -l "C:/Archivos de programa/R/R-2.15.2/library"   C:\DOCUME~1\Pezzola\CONFIG~1\Temp\RtmpW00x9t/downloaded_packages/Zelig_3.5.4.tar.gz' had status 1
+2: In install.packages("Zelig", repos = "http://r.iq.harvard.edu/archived/",  :
+  installation of package 'Zelig' had non-zero exit status
+*********
+
+I would appreciate any help that I could get with this issue.  Thank you in advance.
+
+------------------------------
+
+Anthony A. Pezzola
+Profesor Asistente
+Jefe del Magíster en Ciencia Política
+
+Instituto de Ciencia Política
+Pontificia Universidad Católica de Chile
+Santiago, Chile
+(56) 2 2354-7823
+
+To be sure of hitting the target, shoot first and call whatever you hit the target.
+
+
+
+
+
+
+--
+James Honaker, Senior Research Scientist
+//// Institute for Quantitative Social Science, Harvard University
+
+From sgleason-yzrnoNBvjv4 at public.gmane.org  Wed Dec 12 20:42:33 2012
+From: sgleason-yzrnoNBvjv4 at public.gmane.org (Shane Gleason)
+Date: Wed, 12 Dec 2012 14:42:33 -0600
+Subject: graphing interaction terms with a relogit model
+Message-ID: <50C8EC39.2070308@siu.edu>
+
+Hello everyone,
+
+I am using the relogit command in Zelig and am trying to graph an 
+interaction term in my model.
+
+Looking through the lists, I found someone who had a similar problem a 
+few years back and I followed the solution posed therein:
+
+https://lists.gking.harvard.edu/pipermail/zelig/2009-March/000808.html
+
+However, I keep getting an error message:
+
+Error in x[[1]]$x : $ operator is invalid for atomic vectors
+
+
+I tried to use plot.ci on the example included in the Zelig manual (in 
+place of plot), but I got the same error message.  I'm relatively new to 
+R, so I imagine this is probably a pretty basic fix, but I appreciate 
+any and all help you can provide.
+
+Shane
+
+
+My code:::
+
+data(cbg)
+
+cbgov.model <- zelig(comeback ~ campaign_spending + incumbent + quality_cand + lagvote + corruption + unemployment + I(incumbent*quality_cand) + I(lagvote*incumbent) + I(unemployment*incumbent) + I(corruption*incumbent), tau=0.078, model="relogit", data=cbg)
+
+x.open <- setx(cbgov.model,unemployment= 0-4, incumbent=0)
+
+  x.incumbent <- setx(cbgov.model,unemployment= 0-4, incumbent=1)
+
+s.out <- sim(cbgov.model, x=x.incumbent, x1=x.open)
+
+Warning message:
+
+In eigen(Sigma, symmetric = TRUE, EISPACK = TRUE) :
+
+   EISPACK = TRUE is deprecated
+
+plot.ci(s.out, xlab="this is x", ylab="this is y")
+
+Error in x[[1]]$x : $ operator is invalid for atomic vectors
+
+
+
+
+
+
+
+-- 
+Shane Gleason
+Doctoral Candidate
+Southern Illinois University:Carbondale
+Department of Political Science
+Faner 3172
+
+From sgleason-yzrnoNBvjv4 at public.gmane.org  Thu Dec 13 06:18:46 2012
+From: sgleason-yzrnoNBvjv4 at public.gmane.org (Shane Gleason)
+Date: Thu, 13 Dec 2012 00:18:46 -0600
+Subject: Re: graphing interaction terms with a relogit model
+In-Reply-To: <50C8EC39.2070308-yzrnoNBvjv4@public.gmane.org>
+References: <50C8EC39.2070308@siu.edu>
+Message-ID: <50C97346.1010806@siu.edu>
+
+At the risk of posting too much, I think I have uncovered some relevant 
+updates.
+
+Aside from replacing my interactions from I(x1*x2) to x1*x2 and 
+reforming my data range from 0-3 to 0:3, I reran the provided code as a 
+logit rather than as a relogit.
+
+Everything worked as it should when things were ran as a logit and not a 
+relogit.  Might there be something wrong with relogit?  Or do I need 
+some kind of specialized code?
+
+Thanks everyone- I look forward to any insight into making this work 
+with a relogit.
+
+  Shane
+
+On 12/12/2012 02:42 PM, Shane Gleason wrote:
+> Hello everyone,
+>
+> I am using the relogit command in Zelig and am trying to graph an 
+> interaction term in my model.
+>
+> Looking through the lists, I found someone who had a similar problem a 
+> few years back and I followed the solution posed therein:
+>
+> https://lists.gking.harvard.edu/pipermail/zelig/2009-March/000808.html
+>
+> However, I keep getting an error message:
+>
+> Error in x[[1]]$x : $ operator is invalid for atomic vectors
+>
+>
+> I tried to use plot.ci on the example included in the Zelig manual (in 
+> place of plot), but I got the same error message.  I'm relatively new 
+> to R, so I imagine this is probably a pretty basic fix, but I 
+> appreciate any and all help you can provide.
+>
+> Shane
+>
+>
+> My code:::
+>
+> data(cbg)
+>
+> cbgov.model <- zelig(comeback ~ campaign_spending + incumbent + 
+> quality_cand + lagvote + corruption + unemployment + 
+> I(incumbent*quality_cand) + I(lagvote*incumbent) + 
+> I(unemployment*incumbent) + I(corruption*incumbent), tau=0.078, 
+> model="relogit", data=cbg)
+>
+> x.open <- setx(cbgov.model,unemployment= 0-4, incumbent=0)
+>
+>  x.incumbent <- setx(cbgov.model,unemployment= 0-4, incumbent=1)
+>
+> s.out <- sim(cbgov.model, x=x.incumbent, x1=x.open)
+>
+> Warning message:
+>
+> In eigen(Sigma, symmetric = TRUE, EISPACK = TRUE) :
+>
+>   EISPACK = TRUE is deprecated
+>
+> plot.ci(s.out, xlab="this is x", ylab="this is y")
+>
+> Error in x[[1]]$x : $ operator is invalid for atomic vectors
+>
+>
+>
+>
+>
+>
+>
+
+
+-- 
+Shane Gleason
+Doctoral Candidate
+Southern Illinois University:Carbondale
+Department of Political Science
+Faner 3172
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Thu Dec 13 20:54:03 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Thu, 13 Dec 2012 15:54:03 -0500
+Subject: Re: graphing interaction terms with a relogit model
+In-Reply-To: <50C8EC39.2070308-yzrnoNBvjv4@public.gmane.org>
+References: <50C8EC39.2070308@siu.edu>
+Message-ID: <C35DA5BF-E483-4BCA-8076-4D33665787C1@iq.harvard.edu>
+
+Hi Shane - 
+
+Regarding your code, I think you meant to type:
+ x.open <- setx(cbgov.model, unemployment = 0:4, incumbent=0)
+
+Instead of:
+ x.open <- setx(cbgov.model,unemployment= 0-4, incumbent=0)
+
+The former sets unemployment at the integer values 0 through 4, where as the latter sets uemployment at -4 (zero minus four).
+
+Additionally, there is an a current issue in "plot.ci" that prevents it from plotting confidence intervals of quantities of interest that contain only a single specified value. This example would break:
+ x.out <- setx(cbgov.model, umemployment = 0)
+ s.out <- sim(cbgov.model, x.out)
+ plot.ci(s.out)
+
+But this would not:
+ x.out <- setx(cbgov.model, umemployment = 0:4)
+ s.out <- sim(cbgov.model, x.out)
+ plot.ci(s.out)
+
+Note that the top lines of each code snippet differ. This issue is currently being patches and should be available early next week.
+
+Thanks for the report! Follow ups on this code can be tracker on GitHub here:
+ https://github.com/IQSS/Zelig/issues/28
+
+And on google groups here:
+ https://bit.ly/Te567J
+
+Matt
+
+On Dec 12, 2012, at 3:42 PM, Shane Gleason wrote:
+
+> Hello everyone,
+> 
+> I am using the relogit command in Zelig and am trying to graph an 
+> interaction term in my model.
+> 
+> Looking through the lists, I found someone who had a similar problem a 
+> few years back and I followed the solution posed therein:
+> 
+> https://lists.gking.harvard.edu/pipermail/zelig/2009-March/000808.html
+> 
+> However, I keep getting an error message:
+> 
+> Error in x[[1]]$x : $ operator is invalid for atomic vectors
+> 
+> 
+> I tried to use plot.ci on the example included in the Zelig manual (in 
+> place of plot), but I got the same error message.  I'm relatively new to 
+> R, so I imagine this is probably a pretty basic fix, but I appreciate 
+> any and all help you can provide.
+> 
+> Shane
+> 
+> 
+> My code:::
+> 
+> data(cbg)
+> 
+> cbgov.model <- zelig(comeback ~ campaign_spending + incumbent + quality_cand + lagvote + corruption + unemployment + I(incumbent*quality_cand) + I(lagvote*incumbent) + I(unemployment*incumbent) + I(corruption*incumbent), tau=0.078, model="relogit", data=cbg)
+> 
+> x.open <- setx(cbgov.model,unemployment= 0-4, incumbent=0)
+> 
+>  x.incumbent <- setx(cbgov.model,unemployment= 0-4, incumbent=1)
+> 
+> s.out <- sim(cbgov.model, x=x.incumbent, x1=x.open)
+> 
+> Warning message:
+> 
+> In eigen(Sigma, symmetric = TRUE, EISPACK = TRUE) :
+> 
+>   EISPACK = TRUE is deprecated
+> 
+> plot.ci(s.out, xlab="this is x", ylab="this is y")
+> 
+> Error in x[[1]]$x : $ operator is invalid for atomic vectors
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> -- 
+> Shane Gleason
+> Doctoral Candidate
+> Southern Illinois University:Carbondale
+> Department of Political Science
+> Faner 3172
+> 
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+-------------- next part --------------
+
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Thu Dec 13 20:58:06 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Thu, 13 Dec 2012 15:58:06 -0500
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <loom.20121212T000053-349@post.gmane.org>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org>
+Message-ID: <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu>
+
+Hi - It should be possible to roll back to Zelig 3.5 with:
+  install.packages("Zelig", repos = "http://r.iq.harvard.edu/archived/", type = "source")
+
+On Dec 11, 2012, at 6:04 PM, JBP wrote:
+
+> PS: 
+> I used Zelig 3.5.5 (problems with version 4.1). It would be great if anyone had
+> an answer on how to fit Poisson regression with robust std error using weights
+> or tell me if the question is irrelevant, I need it to complete my analyses for
+> a paper.
+> Many Thanks!!
+> JBP  
+> 
+> 
+> 
+> 
+> 
+> 
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Thu Dec 13 21:00:20 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Thu, 13 Dec 2012 16:00:20 -0500
+Subject: Re: Rare Events logistic regression in Zelig
+In-Reply-To: <CA+KEgF1vOqjXt+=x7QgAXP0K+u2yd=zMCje7PUujv=CuG13_CA@mail.gmail.com>
+References: <CA+KEgF22kCgHT7u6dK=W6P92=De8Di2g2_UR6fznwza+-a_pKw@mail.gmail.com> <CA+KEgF2YrpVW5iQ9zAgh65oWs_T-qfTg=pwPmr4X1mEg8i_6hg@mail.gmail.com> <CA+KEgF05_hziS01iSNG70Tz8GNgabpgPVTiUiVyk5YY0n3TC+Q@mail.gmail.com> <CA+KEgF1vOqjXt+=x7QgAXP0K+u2yd=zMCje7PUujv=CuG13_CA@mail.gmail.com>
+Message-ID: <1A7F70C3-22EC-46DA-BE52-ABF66DFB0EC0@iq.harvard.edu>
+
+Hi - 
+This is a bug, and should be patched shortly. To track progress on the bug, you can follow the issue here:
+ https://github.com/IQSS/Zelig/issues/29
+
+On Dec 10, 2012, at 2:18 PM, Suzanne McGaugh wrote:
+
+> 
+> Hi, 
+> I am trying to run a rare events logistic regression in Zelig using R 2.15.2. All of my packages are updated and current.
+> 
+> I am running an example found in your manual :http://people.iq.harvard.edu/~falimadh/inst/doc/relogit.pdf
+> And I get an error asking for a describe function. It seems like relogit is a built-in model for Zelig and should not require a describe function. 
+> 
+> I would appreciate any insight you have into this.  Please advise. Thank you very much in advance for any insight.
+> 
+> 
+> ######### OUTPUT from R ########
+> 
+> ZELIG (Versions 4.1-0, built: 2012-11-09)
+> 
+> +----------------------------------------------------------------+
+> |  Please refer to http://gking.harvard.edu/zelig for full       |
+> |  documentation or help.zelig() for help with commands and      |
+> |  models support by Zelig.                                      |
+> |                                                                |
+> |  Zelig project citations:                                      |
+> |    Kosuke Imai, Gary King, and Olivia Lau.  (2009).            |
+> |    ``Zelig: Everyone's Statistical Software,''                 |
+> |    http://gking.harvard.edu/zelig                              |
+> |   and                                                          |
+> |    Kosuke Imai, Gary King, and Olivia Lau. (2008).             |
+> |    ``Toward A Common Framework for Statistical Analysis        |
+> |    and Development,'' Journal of Computational and             |
+> |    Graphical Statistics, Vol. 17, No. 4 (December)             |
+> |    pp. 892-913.                                                |
+> |                                                                |
+> |   To cite individual Zelig models, please use the citation     |
+> |   format printed with each model run and in the documentation. |
+> +----------------------------------------------------------------+
+> 
+> 
+> 
+> > data(mid)
+> > z.out1 <- zelig(conflict ~ major + contig + power + maxdem + mindem + years, data = mid, model = "relogit", tau = 1042/303772)
+> 
+> 
+>  How to cite this model in Zelig:
+>   Unknown Author. 2012.
+>   "relogit"
+>   in Kosuke Imai, Gary King, and Olivia Lau, "Zelig: Everyone's Statistical Software,"
+>   http://gking.harvard.edu/zelig
+>  
+> Warning message:
+> In describe.default(object) :
+>   The 'describe' method for this function is unspecified
+> 
+> 
+> 
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+-------------- next part --------------
+
+
+From pingaultjb-Qt13gs6zZMY at public.gmane.org  Thu Dec 13 21:11:29 2012
+From: pingaultjb-Qt13gs6zZMY at public.gmane.org (JBP)
+Date: Thu, 13 Dec 2012 21:11:29 +0000
+Subject: Re: Error message when fitting robust std error with weights
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu>
+Message-ID: <loom.20121213T220436-293@post.gmane.org>
+
+Dear Matt,
+Thanks for your answer. My problem was not rolling back to Zelig 3.5 from Zelig
+4.1 which I did manually. The error message when fitting robust std error with
+weights in a Poisson regression(see syntax with data above) is with 3.5.5. Are
+you suggesting that this problem was not there before version 3.5.5? What I need
+is to be able to fit this model and make it work with multiple data sets,
+whatever Zelig version.
+Thanks a lot for taking the time to answer,
+JBP
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Thu Dec 13 21:34:39 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Thu, 13 Dec 2012 16:34:39 -0500
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <loom.20121213T220436-293@post.gmane.org>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu> <loom.20121213T220436-293@post.gmane.org>
+Message-ID: <07AE7CAC-096D-4648-830E-C1A00B13746D@iq.harvard.edu>
+
+I don't know much about this issue at the moment, but am investigating. Progress can be followed here:
+ https://github.com/IQSS/Zelig/issues/30
+
+As things develop with it, I'll keep you posted!
+
+On Dec 13, 2012, at 4:11 PM, JBP wrote:
+
+> Dear Matt,
+> Thanks for your answer. My problem was not rolling back to Zelig 3.5 from Zelig
+> 4.1 which I did manually. The error message when fitting robust std error with
+> weights in a Poisson regression(see syntax with data above) is with 3.5.5. Are
+> you suggesting that this problem was not there before version 3.5.5? What I need
+> is to be able to fit this model and make it work with multiple data sets,
+> whatever Zelig version.
+> Thanks a lot for taking the time to answer,
+> JBP
+> 
+> 
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+-------------- next part --------------
+
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Thu Dec 13 21:35:02 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Thu, 13 Dec 2012 16:35:02 -0500
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <loom.20121213T220436-293@post.gmane.org>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu> <loom.20121213T220436-293@post.gmane.org>
+Message-ID: <547DAEC6-889E-46DB-9367-F8648A18B451@iq.harvard.edu>
+
+PS: I'm investigating the other issue as well.
+
+On Dec 13, 2012, at 4:11 PM, JBP wrote:
+
+> Dear Matt,
+> Thanks for your answer. My problem was not rolling back to Zelig 3.5 from Zelig
+> 4.1 which I did manually. The error message when fitting robust std error with
+> weights in a Poisson regression(see syntax with data above) is with 3.5.5. Are
+> you suggesting that this problem was not there before version 3.5.5? What I need
+> is to be able to fit this model and make it work with multiple data sets,
+> whatever Zelig version.
+> Thanks a lot for taking the time to answer,
+> JBP
+> 
+> 
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+From istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Dec 13 21:51:15 2012
+From: istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ista Zahn)
+Date: Thu, 13 Dec 2012 16:51:15 -0500
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <07AE7CAC-096D-4648-830E-C1A00B13746D@iq.harvard.edu>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu> <loom.20121213T220436-293@post.gmane.org> <07AE7CAC-096D-4648-830E-C1A00B13746D@iq.harvard.edu>
+Message-ID: <CA+vqiLE_ta8HzqmkodH7-dXAWYAaMu3=xoDyvWRgZnerAnhzAg@mail.gmail.com>
+
+Hi Matt and JBP,
+
+The weights problem is easy -- weights should not be quoted! The
+proper specification is
+
+obj <- zelig(treat~black+married, model = "poisson",  robust=TRUE,
+weights=w,data = lalonde, cite=FALSE)
+summary(obj)
+
+The robust option does not seem to work at all 4.1-0 (I haven't rolled
+back to 3.5 to check it there):
+
+all.equal(summary(obj1)$coefficients, summary(obj2)$coefficients,
+summary(obj2)$coefficients)
+#[1] TRUE
+
+Finally version 4.1-0 doesn't average runs on multiply data
+imputations (see e.g.,
+http://comments.gmane.org/gmane.comp.lang.r.zelig/846) so again I
+haven't rolled back to 3.5 to see if this works. But JBP, if you're
+using 3.5 it could be as simple as removing the quotes around the
+weights = "w" argument.
+
+HTH,
+Ista
+
+On Thu, Dec 13, 2012 at 4:34 PM, Matt Owen <mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org> wrote:
+> I don't know much about this issue at the moment, but am investigating.
+> Progress can be followed here:
+>  https://github.com/IQSS/Zelig/issues/30
+>
+> As things develop with it, I'll keep you posted!
+>
+> On Dec 13, 2012, at 4:11 PM, JBP wrote:
+>
+> Dear Matt,
+> Thanks for your answer. My problem was not rolling back to Zelig 3.5 from
+> Zelig
+> 4.1 which I did manually. The error message when fitting robust std error
+> with
+> weights in a Poisson regression(see syntax with data above) is with 3.5.5.
+> Are
+> you suggesting that this problem was not there before version 3.5.5? What I
+> need
+> is to be able to fit this model and make it work with multiple data sets,
+> whatever Zelig version.
+> Thanks a lot for taking the time to answer,
+> JBP
+>
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+>
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+From istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Dec 13 21:54:59 2012
+From: istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ista Zahn)
+Date: Thu, 13 Dec 2012 16:54:59 -0500
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <CA+vqiLE_ta8HzqmkodH7-dXAWYAaMu3=xoDyvWRgZnerAnhzAg@mail.gmail.com>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu> <loom.20121213T220436-293@post.gmane.org> <07AE7CAC-096D-4648-830E-C1A00B13746D@iq.harvard.edu> <CA+vqiLE_ta8HzqmkodH7-dXAWYAaMu3=xoDyvWRgZnerAnhzAg@mail.gmail.com>
+Message-ID: <CA+vqiLF4ED-rfXRWhGofbH6dOX2O1LQv931H9qWgRhce4_hN2w@mail.gmail.com>
+
+Oops, left out part of the example. I meant to note that these three models:
+
+obj1 <- zelig(treat~black+married, model = "poisson",  robust=TRUE,
+weights=w,data = lalonde, cite=FALSE)
+
+obj2 <- zelig(treat~black+married, model = "poisson",  robust=FALSE,
+weights=w,data = lalonde, cite=FALSE)
+
+
+obj3 <- zelig(treat~black+married, model = "poisson",
+robust="YoDaddy", weights=w,data = lalonde, cite=FALSE)
+
+are equivalent:
+all.equal(summary(obj1)$coefficients, summary(obj2)$coefficients,
+summary(obj2)$coefficients)
+[1] TRUE
+
+implying that the robust argument does not do anything.
+
+On Thu, Dec 13, 2012 at 4:51 PM, Ista Zahn <istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> Hi Matt and JBP,
+>
+> The weights problem is easy -- weights should not be quoted! The
+> proper specification is
+>
+> obj <- zelig(treat~black+married, model = "poisson",  robust=TRUE,
+> weights=w,data = lalonde, cite=FALSE)
+> summary(obj)
+>
+> The robust option does not seem to work at all 4.1-0 (I haven't rolled
+> back to 3.5 to check it there):
+>
+> all.equal(summary(obj1)$coefficients, summary(obj2)$coefficients,
+> summary(obj2)$coefficients)
+> #[1] TRUE
+>
+> Finally version 4.1-0 doesn't average runs on multiply data
+> imputations (see e.g.,
+> http://comments.gmane.org/gmane.comp.lang.r.zelig/846) so again I
+> haven't rolled back to 3.5 to see if this works. But JBP, if you're
+> using 3.5 it could be as simple as removing the quotes around the
+> weights = "w" argument.
+>
+> HTH,
+> Ista
+>
+> On Thu, Dec 13, 2012 at 4:34 PM, Matt Owen <mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org> wrote:
+>> I don't know much about this issue at the moment, but am investigating.
+>> Progress can be followed here:
+>>  https://github.com/IQSS/Zelig/issues/30
+>>
+>> As things develop with it, I'll keep you posted!
+>>
+>> On Dec 13, 2012, at 4:11 PM, JBP wrote:
+>>
+>> Dear Matt,
+>> Thanks for your answer. My problem was not rolling back to Zelig 3.5 from
+>> Zelig
+>> 4.1 which I did manually. The error message when fitting robust std error
+>> with
+>> weights in a Poisson regression(see syntax with data above) is with 3.5.5.
+>> Are
+>> you suggesting that this problem was not there before version 3.5.5? What I
+>> need
+>> is to be able to fit this model and make it work with multiple data sets,
+>> whatever Zelig version.
+>> Thanks a lot for taking the time to answer,
+>> JBP
+>>
+>>
+>> -
+>> --
+>> Zelig Mailing List, served by HUIT
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>> Zelig mailing list
+>> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>
+>> To unsubscribe from this list or get other information:
+>>
+>> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>>
+>>
+>>
+>> -
+>> --
+>> Zelig Mailing List, served by HUIT
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>> Zelig mailing list
+>> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>
+>> To unsubscribe from this list or get other information:
+>>
+>> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+From pingaultjb-Qt13gs6zZMY at public.gmane.org  Fri Dec 14 02:04:26 2012
+From: pingaultjb-Qt13gs6zZMY at public.gmane.org (Pingaul jb)
+Date: Fri, 14 Dec 2012 02:04:26 +0000
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <CA+vqiLF4ED-rfXRWhGofbH6dOX2O1LQv931H9qWgRhce4_hN2w@mail.gmail.com>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu> <loom.20121213T220436-293@post.gmane.org> <07AE7CAC-096D-4648-830E-C1A00B13746D@iq.harvard.edu> <CA+vqiLE_ta8HzqmkodH7-dXAWYAaMu3=xoDyvWRgZnerAnhzAg@mail.gmail.com> <CA+vqiLF4ED-rfXRWhGofbH6dOX2O1LQv931H9qWgRhce4_hN2w@mail.gmail.com>
+Message-ID: <1355450666.52094.YahooMailNeo@web172005.mail.ir2.yahoo.com>
+
+ 
+Dear Matt and Ista,
+
+Ista, thanks for your suggestions, they
+solve part or the problem! To summarize:
+1/ Robust errors seem to work on version
+3.5.5, so maybe sth to check on version 4 (except for the weave option that
+produces unlikely small standards errors on lalonde, but seemed to work fine on
+my data, not sure why). 
+2/I got the use of quotes in weights =“w”
+in Ho et al, MatchIt, J of stat Soft, 2011, 42(8). It works fine without robust errors and weights seem to be taken
+into account. I tried  weights = w and it
+did not work (maybe version pb). However weights = lalonde$w worked and it also worked with robust
+= T!! So part of my problem solved.
+3/ As I need this to work with multiple data sets, my problem now is to specify the weights
+for each imputed data set. If I use lalonde$w it will take the weights in
+lalonde for all data set and won’t consider the proper weights for each imputed
+data set (here lalonde and lalonde1). That’s why the syntax weights= “w” was
+useful I think. I tried : weights =c(lalonde$w, lalonde1$w) but did not work. If
+this can be solved  hen I am good to go!
+Below is the syntax corresponding to my
+points
+
+Many Thanks!
+
+
+#1/ Robust errors work with Zelig 3.5.5
+data(lalonde)
+#without robust, with default and vcovHAC (the same) and two other options
+obj <- zelig(treat~black+married, model = "poisson", data = lalonde,cite=F)
+obj1 <- zelig(treat~black+married, model = "poisson",  robust=T, data = lalonde,cite=F)
+obj2 <- zelig(treat~black+married, model = "poisson",  robust=list(method="vcovHAC"), data = lalonde,cite=F)
+obj3 <- zelig(treat~black+married, model = "poisson",  robust=list(method="kernHAC"), data = lalonde,cite=F)
+obj4 <- zelig(treat~black+married, model = "poisson",  robust=list(method="weave"), data = lalonde,cite=F)
+
+#standards errors are indeed different (weird unlikely results for method="weave")
+data.frame(summary(obj)$coefficients[,2],
+           summary(obj1)$coefficients[,2],
+           summary(obj2)$coefficients[,2],
+           summary(obj3)$coefficients[,2],
+          summary(obj4)$coefficients[,2])
+
+#################################
+#2/ INCLUSION OF WEIGHTS
+lalonde$w=c(rep(1,300),rep(2,314))
+#comparison model without weight 
+obj <- zelig(treat~black+married, model = "poisson",data = lalonde,cite=F)
+summary(obj)
+
+#weights with quotes
+obj <- zelig(treat~black+married, model = "poisson",weights="w",data = lalonde,cite=F)
+summary(obj)
+
+#weights without quotes => error
+obj <- zelig(treat~black+married, model = "poisson",weights=w,data = lalonde,cite=F)
+summary(obj)
+
+#weights without quotes but identifying the data.frame
+obj <- zelig(treat~black+married, model = "poisson",weights=lalonde$w,data = lalonde,cite=F)
+summary(obj)
+
+ 
+##Weights  AND robust std errors
+#with quotes, same error as I previously mentioned
+obj <- zelig(treat~black+married, model = "poisson",  robust=T, weights="w",data = lalonde)
+summary(obj)
+
+#without quote it does work!! and the weights are indeed taken into account
+obj <- zelig(treat~black+married, model = "poisson",  robust=T, weights=lalonde$w,data = lalonde)
+summary(obj)
+
+#Just to check, if I remove the robust=T, standard differences are indeed different
+#half the pb solved!
+obj <- zelig(treat~black+married, model = "poisson",  weights=lalonde$w,data = lalonde)
+summary(obj)
+
+#############################
+#3/ multiple DATA SETS
+ lalonde1=lalonde
+lalonde1$w=c(rep(0,100),rep(1,214),rep(2,300))
+
+# How do I give every data sets its own vector of weights?
+#If I do lalonde$w it will just use weights from lalonde and not lalonde 1
+#tried the following but did not work
+obj <- zelig(treat~black+married, model = "poisson",  robust=T, weights=c("lalonde$w","lalonde1$w"),data = mi(lalonde,lalonde1))
+
+-------------- next part --------------
+
+
+From istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Dec 14 13:12:56 2012
+From: istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ista Zahn)
+Date: Fri, 14 Dec 2012 08:12:56 -0500
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <1355450666.52094.YahooMailNeo@web172005.mail.ir2.yahoo.com>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu> <loom.20121213T220436-293@post.gmane.org> <07AE7CAC-096D-4648-830E-C1A00B13746D@iq.harvard.edu> <CA+vqiLE_ta8HzqmkodH7-dXAWYAaMu3=xoDyvWRgZnerAnhzAg@mail.gmail.com> <CA+vqiLF4ED-rfXRWhGofbH6dOX2O1LQv931H9qWgRhce4_hN2w@mail.gmail.com> <1355450666.52094.YahooMailNeo@web172005.mail.ir2.yahoo.com>
+Message-ID: <CA+vqiLG=FFo1Ph7t7uX3iAdOmJC+qhqNfFNCQ0B=U7KCByRvFw@mail.gmail.com>
+
+Hi,
+
+OK, I downgraded to 3.5 so I can see what you're seeing. It seems that
+you can put the weights vector in the global environment and it will
+be picked up from there. To finish your example,
+
+library(MatchIt)
+library(Zelig) # must be 3.5.x
+data(lalonde)
+lalonde1=lalonde
+w <- c(rep(0,100),rep(1,214),rep(2,300))
+
+obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+weights=w,data = mi(lalonde,lalonde1))
+summary(obj)
+
+HTH,
+Ista
+
+On Thu, Dec 13, 2012 at 9:04 PM, Pingaul jb <pingaultjb-Qt13gs6zZMY at public.gmane.org> wrote:
+>
+> Dear Matt and Ista,
+>
+> Ista, thanks for your suggestions, they solve part or the problem! To
+> summarize:
+> 1/ Robust errors seem to work on version 3.5.5, so maybe sth to check on
+> version 4 (except for the weave option that produces unlikely small
+> standards errors on lalonde, but seemed to work fine on my data, not sure
+> why).
+> 2/I got the use of quotes in weights =“w” in Ho et al, MatchIt, J of stat
+> Soft, 2011, 42(8). It works fine without robust errors and weights seem to
+> be taken into account. I tried  weights = w and it did not work (maybe
+> version pb). However weights = lalonde$w worked and it also worked with
+> robust = T!! So part of my problem solved.
+> 3/ As I need this to work with multiple data sets, my problem now is to
+> specify the weights for each imputed data set. If I use lalonde$w it will
+> take the weights in lalonde for all data set and won’t consider the proper
+> weights for each imputed data set (here lalonde and lalonde1). That’s why
+> the syntax weights= “w” was useful I think. I tried : weights =c(lalonde$w,
+> lalonde1$w) but did not work. If this can be solved  hen I am good to go!
+> Below is the syntax corresponding to my points
+>
+> Many Thanks!
+>
+>
+> #1/ Robust errors work with Zelig 3.5.5
+> data(lalonde)
+> #without robust, with default and vcovHAC (the same) and two other options
+> obj <- zelig(treat~black+married, model = "poisson", data = lalonde,cite=F)
+> obj1 <- zelig(treat~black+married, model = "poisson",  robust=T, data =
+> lalonde,cite=F)
+> obj2 <- zelig(treat~black+married, model = "poisson",
+> robust=list(method="vcovHAC"), data = lalonde,cite=F)
+> obj3 <- zelig(treat~black+married, model = "poisson",
+> robust=list(method="kernHAC"), data = lalonde,cite=F)
+> obj4 <- zelig(treat~black+married, model = "poisson",
+> robust=list(method="weave"), data = lalonde,cite=F)
+>
+> #standards errors are indeed different (weird unlikely results for
+> method="weave")
+> data.frame(summary(obj)$coefficients[,2],
+>            summary(obj1)$coefficients[,2],
+>            summary(obj2)$coefficients[,2],
+>            summary(obj3)$coefficients[,2],
+>           summary(obj4)$coefficients[,2])
+>
+> #################################
+> #2/ INCLUSION OF WEIGHTS
+> lalonde$w=c(rep(1,300),rep(2,314))
+> #comparison model without weight
+> obj <- zelig(treat~black+married, model = "poisson",data = lalonde,cite=F)
+> summary(obj)
+>
+> #weights with quotes
+> obj <- zelig(treat~black+married, model = "poisson",weights="w",data =
+> lalonde,cite=F)
+> summary(obj)
+>
+> #weights without quotes => error
+> obj <- zelig(treat~black+married, model = "poisson",weights=w,data =
+> lalonde,cite=F)
+> summary(obj)
+>
+> #weights without quotes but identifying the data.frame
+> obj <- zelig(treat~black+married, model = "poisson",weights=lalonde$w,data =
+> lalonde,cite=F)
+> summary(obj)
+>
+>
+> ##Weights  AND robust std errors
+> #with quotes, same error as I previously mentioned
+> obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+> weights="w",data = lalonde)
+> summary(obj)
+>
+> #without quote it does work!! and the weights are indeed taken into account
+> obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+> weights=lalonde$w,data = lalonde)
+> summary(obj)
+>
+> #Just to check, if I remove the robust=T, standard differences are indeed
+> different
+> #half the pb solved!
+> obj <- zelig(treat~black+married, model = "poisson",  weights=lalonde$w,data
+> = lalonde)
+> summary(obj)
+>
+> #############################
+> #3/ multiple DATA SETS
+>  lalonde1=lalonde
+> lalonde1$w=c(rep(0,100),rep(1,214),rep(2,300))
+>
+> # How do I give every data sets its own vector of weights?
+> #If I do lalonde$w it will just use weights from lalonde and not lalonde 1
+> #tried the following but did not work
+> obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+> weights=c("lalonde$w","lalonde1$w"),data = mi(lalonde,lalonde1))
+>
+>
+>
+>
+>
+>
+>
+>
+
+From pingaultjb-Qt13gs6zZMY at public.gmane.org  Fri Dec 14 17:06:42 2012
+From: pingaultjb-Qt13gs6zZMY at public.gmane.org (Pingaul jb)
+Date: Fri, 14 Dec 2012 17:06:42 +0000
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <CA+vqiLG=FFo1Ph7t7uX3iAdOmJC+qhqNfFNCQ0B=U7KCByRvFw@mail.gmail.com>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu> <loom.20121213T220436-293@post.gmane.org> <07AE7CAC-096D-4648-830E-C1A00B13746D@iq.harvard.edu> <CA+vqiLE_ta8HzqmkodH7-dXAWYAaMu3=xoDyvWRgZnerAnhzAg@mail.gmail.com> <CA+vqiLF4ED-rfXRWhGofbH6dOX2O1LQv931H9qWgRhce4_hN2w@mail.gmail.com> <1355450666.52094.YahooMailNeo@web172005.mail.ir2.yahoo.com> <CA+vqiLG=FFo1Ph7t7uX3iAdOmJC+qhqNfFNCQ0B=U7KCByRvFw@mail.gmail.com>
+Message-ID: <1355504802.47365.YahooMailNeo@web172001.mail.ir2.yahoo.com>
+
+
+
+Dear Ista,
+Thanks for your answer! I find that the
+solution you give seem to apply the same vector of weights (corresponding to
+lalonde1$w) to both data sets. What I need however is a little trickier: as I
+am doing matching on several imputed data sets, I obtain a different vector of
+weights for each data set. I thus need to apply to each data set its own vector
+of weights (here lalonde$w and lalonde1$w). Sorry if that was not clear in the
+previous post. So I tried with different forms of weights combining the two
+vectors: a long vector in the environment, list or data frame, but none
+works. The only solution that partly works is weights=”w”, wich applies the
+proper weights to each data set. It works perfectly without robust = T. With
+robust = T it fits the model properly to each data sets. So the only problem is
+with summary() which I think is when std errors are calculated (I guess it may be because the robust = T also use weights?). The solution I
+see (maybe there are others) is that the summary() would have to be slightly
+modified to accommodate robust=T. Unfortunately that is above my
+competences…  Below is the syntax to
+illustrate the different points in the present post.
+Many Thanks!
+JBP
+ 
+############################
+#3/ multiple DATA SETS
+#weights for lalonde
+lalonde$w=c(rep(1,300),rep(2,314))
+#new weights for lalonde1
+ lalonde1=lalonde
+lalonde1$w=c(rep(0,100),rep(1,214),rep(2,300))
+
+#with only lalonde  weights applied to both data sets
+obj <- zelig(treat~black+married, model = "poisson",  robust=T, weights=lalonde$w,data = mi(lalonde,lalonde1),cite=F)
+summary(obj)
+
+#with only lalonde1 weights applied to both data sets
+obj <- zelig(treat~black+married, model = "poisson",  robust=T, weights=lalonde1$w,data = mi(lalonde,lalonde1),cite=F)
+summary(obj)#the result is diff so really applying different weights
+
+###POSSIBLE SOLUTIONS? to apply the two vectors of weights to the corresponding data set
+#vector in the environment
+w=c(lalonde$w, lalonde1$w)
+obj <- zelig(treat~black+married, model = "poisson",  robust=T, weights=w,data = mi(lalonde,lalonde1))
+#can't work because the vector w is longer than number of participants 
+
+#list
+listw=list(lalonde$w, lalonde1$w)#does not work either
+obj <- zelig(treat~black+married, model = "poisson",  robust=T, weights=listw,data = mi(lalonde,lalonde1))
+
+#data frame
+dfw=data.frame(lalonde$w, lalonde1$w)#does not work either
+obj <- zelig(treat~black+married, model = "poisson",  robust=T, weights=dfw,data = mi(lalonde,lalonde1))
+
+
+#so that we get back to the "w" which does apply the proper weight to each data set
+obj <- zelig(treat~black+married, model = "poisson", weights="w",data = mi(lalonde,lalonde1),cite=F)
+obj#here we can see the estimates for each data set 
+summary(obj)
+
+#The previous estimates do correspond to the estimates for each model estimated separately
+obj <- zelig(treat~black+married, model = "poisson", weights=lalonde$w,data = lalonde)
+summary(obj)
+obj <- zelig(treat~black+married, model = "poisson", weights=lalonde1$w,data = lalonde1)
+summary(obj)
+
+#however, does not work with Robust = T
+obj <- zelig(treat~black+married, model = "poisson", robust=T, weights="w",data = mi(lalonde,lalonde1),cite=F)
+obj#it does fit the model and find proper estimates
+summary(obj)#THE PROBLEM IS WITH THE SUMMARY FUNCTION THAT CANNOT COMBINE BETWEEN THE DATA SETS
+
+-------------- next part --------------
+
+
+From f.reiche-1V21x8GFL1deXsq7+8kxVA at public.gmane.org  Fri Dec 14 19:13:21 2012
+From: f.reiche-1V21x8GFL1deXsq7+8kxVA at public.gmane.org (Florian Reiche)
+Date: Fri, 14 Dec 2012 19:13:21 +0000
+Subject: Combined Coefficients for mi()
+Message-ID: <EDD16A19-156A-413C-A8C5-0E7FAB1A7FC0@sheffield.ac.uk>
+
+Hello,
+
+I have run my probit model in Zelig after using AmeliaII to impute the data sets. When I use the "summary(z.out)" command, I receive the coefficients for 50 separate data analyses, but no combined output for all data sets together. Am I doing anything wrong?
+
+Here is the code:
+
+>z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch + llife + 
+                        lfuelx + alesinae + alesinar + ldemoc + loglrgdpchldemoc + 
+                        loglodacldemoc + lurbanldemoc + logpopldemoc + lprimschldemoc +
+                        llifeldemoc + lfuelxldemoc + alesinaeldemoc + alesinarldemoc, 
+                        model="probit",
+                        data = mi(outdata1, outdata2,
+                        outdata3, outdata4, outdata5, outdata6, outdata7, outdata8, outdata9, outdata10,
+                        outdata11, outdata12, outdata13, outdata14, outdata15, outdata16, outdata17, outdata18,
+                        outdata19, outdata20, outdata21, outdata22, outdata23, outdata24, outdata25, outdata26,
+                        outdata27, outdata28, outdata29, outdata30, outdata31, outdata32, outdata33, outdata34,
+                        outdata35, outdata36, outdata37, outdata38, outdata39, outdata40, outdata41, outdata42, 
+                        outdata43, outdata44, outdata45, outdata46, outdata47, outdata48, outdata49, outdata50))
+
+>summary(z.out)
+
+Any help would be greatly appreciated. 
+
+All best
+Florian
+
+From istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Dec 14 19:16:23 2012
+From: istazahn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ista Zahn)
+Date: Fri, 14 Dec 2012 14:16:23 -0500
+Subject: Re: Error message when fitting robust std error with weights
+In-Reply-To: <1355504802.47365.YahooMailNeo@web172001.mail.ir2.yahoo.com>
+References: <1354578387.76893.YahooMailNeo@web171202.mail.ir2.yahoo.com> <loom.20121212T000053-349@post.gmane.org> <17A99E77-56BD-420C-8FB3-0AB525187433@iq.harvard.edu> <loom.20121213T220436-293@post.gmane.org> <07AE7CAC-096D-4648-830E-C1A00B13746D@iq.harvard.edu> <CA+vqiLE_ta8HzqmkodH7-dXAWYAaMu3=xoDyvWRgZnerAnhzAg@mail.gmail.com> <CA+vqiLF4ED-rfXRWhGofbH6dOX2O1LQv931H9qWgRhce4_hN2w@mail.gmail.com> <1355450666.52094.YahooMailNeo@web172005.mail.ir2.yahoo.com> <CA+vqiLG=FFo1Ph7t7uX3iAdOmJC+qhqNfFNCQ0B=U7KCByRvFw@mail.gmail.com> <1355504802.47365.YahooMailNeo@web172001.mail.ir2.yahoo.com>
+Message-ID: <CA+vqiLFXQ2QSRvSAnkFLMbd_z6zHNf_W2M3+6dWjpcSAeFRyeQ@mail.gmail.com>
+
+Ah, sorry missed the more complicated part of the task. I'm afraid I
+don't have a solution.
+
+On Fri, Dec 14, 2012 at 12:06 PM, Pingaul jb <pingaultjb-Qt13gs6zZMY at public.gmane.org> wrote:
+>
+> Dear Ista,
+> Thanks for your answer! I find that the solution you give seem to apply the
+> same vector of weights (corresponding to lalonde1$w) to both data sets. What
+> I need however is a little trickier: as I am doing matching on several
+> imputed data sets, I obtain a different vector of weights for each data set.
+> I thus need to apply to each data set its own vector of weights (here
+> lalonde$w and lalonde1$w). Sorry if that was not clear in the previous post.
+> So I tried with different forms of weights combining the two vectors: a long
+> vector in the environment, list or data frame, but none works. The only
+> solution that partly works is weights=”w”, wich applies the proper weights
+> to each data set. It works perfectly without robust = T. With robust = T it
+> fits the model properly to each data sets. So the only problem is with
+> summary() which I think is when std errors are calculated (I guess it may be
+> because the robust = T also use weights?). The solution I see (maybe there
+> are others) is that the summary() would have to be slightly modified to
+> accommodate robust=T. Unfortunately that is above my competences…  Below is
+> the syntax to illustrate the different points in the present post.
+> Many Thanks!
+> JBP
+>
+>
+> ############################
+> #3/ multiple DATA SETS
+> #weights for lalonde
+> lalonde$w=c(rep(1,300),rep(2,314))
+> #new weights for lalonde1
+>  lalonde1=lalonde
+> lalonde1$w=c(rep(0,100),rep(1,214),rep(2,300))
+>
+> #with only lalonde  weights applied to both data sets
+> obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+> weights=lalonde$w,data = mi(lalonde,lalonde1),cite=F)
+> summary(obj)
+>
+> #with only lalonde1 weights applied to both data sets
+> obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+> weights=lalonde1$w,data = mi(lalonde,lalonde1),cite=F)
+> summary(obj)#the result is diff so really applying different weights
+>
+> ###POSSIBLE SOLUTIONS? to apply the two vectors of weights to the
+> corresponding data set
+> #vector in the environment
+> w=c(lalonde$w, lalonde1$w)
+>
+> obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+> weights=w,data = mi(lalonde,lalonde1))
+> #can't work because the vector w is longer than number of participants
+>
+> #list
+> listw=list(lalonde$w, lalonde1$w)#does not work either
+> obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+> weights=listw,data = mi(lalonde,lalonde1))
+>
+> #data frame
+> dfw=data.frame(lalonde$w, lalonde1$w)#does not work either
+> obj <- zelig(treat~black+married, model = "poisson",  robust=T,
+> weights=dfw,data = mi(lalonde,lalonde1))
+>
+>
+> #so that we get back to the "w" which does apply the proper weight to each
+> data set
+> obj <- zelig(treat~black+married, model = "poisson", weights="w",data =
+> mi(lalonde,lalonde1),cite=F)
+> obj#here we can see the estimates for each data set
+> summary(obj)
+>
+> #The previous estimates do correspond to the estimates for each model
+> estimated separately
+>
+> obj <- zelig(treat~black+married, model = "poisson", weights=lalonde$w,data
+> = lalonde)
+> summary(obj)
+> obj <- zelig(treat~black+married, model = "poisson", weights=lalonde1$w,data
+> = lalonde1)
+> summary(obj)
+>
+> #however, does not work with Robust = T
+> obj <- zelig(treat~black+married, model = "poisson", robust=T,
+> weights="w",data = mi(lalonde,lalonde1),cite=F)
+> obj#it does fit the model and find proper estimates
+> summary(obj)#THE PROBLEM IS WITH THE SUMMARY FUNCTION THAT CANNOT COMBINE
+> BETWEEN THE DATA SETS
+>
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Fri Dec 14 20:04:16 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Fri, 14 Dec 2012 15:04:16 -0500
+Subject: Re: Combined Coefficients for mi()
+In-Reply-To: <EDD16A19-156A-413C-A8C5-0E7FAB1A7FC0@sheffield.ac.uk>
+References: <EDD16A19-156A-413C-A8C5-0E7FAB1A7FC0@sheffield.ac.uk>
+Message-ID: <B4921A84-07A6-4275-82C1-CA63AF7B8823@iq.harvard.edu>
+
+Hi Florian -
+
+Zelig 4 fits each of these models separately at the moment, and as a result . If you would like to merge these datasets into a single data table, then the usual practice is with this line:
+
+z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch + llife + 
+                       lfuelx + alesinae + alesinar + ldemoc + loglrgdpchldemoc + 
+                       loglodacldemoc + lurbanldemoc + logpopldemoc + lprimschldemoc +
+                       llifeldemoc + lfuelxldemoc + alesinaeldemoc + alesinarldemoc, 
+                       model="probit",
+                       data = rbind(outdata1, outdata2,
+                       outdata3, outdata4, outdata5, outdata6, outdata7, outdata8, outdata9, outdata10,
+                       outdata11, outdata12, outdata13, outdata14, outdata15, outdata16, outdata17, outdata18,
+                       outdata19, outdata20, outdata21, outdata22, outdata23, outdata24, outdata25, outdata26,
+                       outdata27, outdata28, outdata29, outdata30, outdata31, outdata32, outdata33, outdata34,
+                       outdata35, outdata36, outdata37, outdata38, outdata39, outdata40, outdata41, outdata42, 
+                       outdata43, outdata44, outdata45, outdata46, outdata47, outdata48, outdata49, outdata50))
+
+Note that the call to "mi" has been replaced with "rbind". This will workd if outdata1-50 have similar column structure.
+
+A feature request has been opened to support this. This can be found here:
+  https://github.com/IQSS/Zelig/issues/32
+
+
+On Dec 14, 2012, at 2:13 PM, Florian Reiche wrote:
+
+> Hello,
+> 
+> I have run my probit model in Zelig after using AmeliaII to impute the data sets. When I use the "summary(z.out)" command, I receive the coefficients for 50 separate data analyses, but no combined output for all data sets together. Am I doing anything wrong?
+> 
+> Here is the code:
+> 
+>> z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch + llife + 
+>                        lfuelx + alesinae + alesinar + ldemoc + loglrgdpchldemoc + 
+>                        loglodacldemoc + lurbanldemoc + logpopldemoc + lprimschldemoc +
+>                        llifeldemoc + lfuelxldemoc + alesinaeldemoc + alesinarldemoc, 
+>                        model="probit",
+>                        data = mi(outdata1, outdata2,
+>                        outdata3, outdata4, outdata5, outdata6, outdata7, outdata8, outdata9, outdata10,
+>                        outdata11, outdata12, outdata13, outdata14, outdata15, outdata16, outdata17, outdata18,
+>                        outdata19, outdata20, outdata21, outdata22, outdata23, outdata24, outdata25, outdata26,
+>                        outdata27, outdata28, outdata29, outdata30, outdata31, outdata32, outdata33, outdata34,
+>                        outdata35, outdata36, outdata37, outdata38, outdata39, outdata40, outdata41, outdata42, 
+>                        outdata43, outdata44, outdata45, outdata46, outdata47, outdata48, outdata49, outdata50))
+> 
+>> summary(z.out)
+> 
+> Any help would be greatly appreciated. 
+> 
+> All best
+> Florian
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+-------------- next part --------------
+
+
+From olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org  Fri Dec 14 20:59:41 2012
+From: olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org (Olivia Lau)
+Date: Fri, 14 Dec 2012 12:59:41 -0800
+Subject: Re: Combined Coefficients for mi()
+In-Reply-To: <B4921A84-07A6-4275-82C1-CA63AF7B8823@iq.harvard.edu>
+References: <EDD16A19-156A-413C-A8C5-0E7FAB1A7FC0@sheffield.ac.uk> <B4921A84-07A6-4275-82C1-CA63AF7B8823@iq.harvard.edu>
+Message-ID: <CAFKPR13ddZWa2uDySuznL06xXAVhhd22MriXrNBC5UGYoL=mcQ@mail.gmail.com>
+
+Matt, what happened to summary.mi() from previous Zelig releases?  We used
+to combine the MI output using the Rubin rules automatically in
+summary(z.out-of-class-mi).
+
+On Fri, Dec 14, 2012 at 12:04 PM, Matt Owen <mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org> wrote:
+
+> Hi Florian -
+>
+> Zelig 4 fits each of these models separately at the moment, and as a
+> result . If you would like to merge these datasets into a single data
+> table, then the usual practice is with this line:
+>
+> z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch
+> + llife +
+>                        lfuelx + alesinae + alesinar + ldemoc +
+> loglrgdpchldemoc +
+>                        loglodacldemoc + lurbanldemoc + logpopldemoc +
+> lprimschldemoc +
+>                        llifeldemoc + lfuelxldemoc + alesinaeldemoc +
+> alesinarldemoc,
+>                        model="probit",
+>                        data = rbind(outdata1, outdata2,
+>
+>                        outdata3, outdata4, outdata5, outdata6, outdata7,
+> outdata8, outdata9, outdata10,
+>                        outdata11, outdata12, outdata13, outdata14,
+> outdata15, outdata16, outdata17, outdata18,
+>                        outdata19, outdata20, outdata21, outdata22,
+> outdata23, outdata24, outdata25, outdata26,
+>                        outdata27, outdata28, outdata29, outdata30,
+> outdata31, outdata32, outdata33, outdata34,
+>                        outdata35, outdata36, outdata37, outdata38,
+> outdata39, outdata40, outdata41, outdata42,
+>                        outdata43, outdata44, outdata45, outdata46,
+> outdata47, outdata48, outdata49, outdata50))
+>
+> Note that the call to "mi" has been replaced with "rbind". This will workd
+> if outdata1-50 have similar column structure.
+>
+> A feature request has been opened to support this. This can be found here:
+>   https://github.com/IQSS/Zelig/issues/32
+>
+>
+> On Dec 14, 2012, at 2:13 PM, Florian Reiche wrote:
+>
+> Hello,
+>
+> I have run my probit model in Zelig after using AmeliaII to impute the
+> data sets. When I use the "summary(z.out)" command, I receive the
+> coefficients for 50 separate data analyses, but no combined output for all
+> data sets together. Am I doing anything wrong?
+>
+> Here is the code:
+>
+> z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch
+> + llife +
+>
+>                        lfuelx + alesinae + alesinar + ldemoc +
+> loglrgdpchldemoc +
+>                        loglodacldemoc + lurbanldemoc + logpopldemoc +
+> lprimschldemoc +
+>                        llifeldemoc + lfuelxldemoc + alesinaeldemoc +
+> alesinarldemoc,
+>                        model="probit",
+>                        data = mi(outdata1, outdata2,
+>                        outdata3, outdata4, outdata5, outdata6, outdata7,
+> outdata8, outdata9, outdata10,
+>                        outdata11, outdata12, outdata13, outdata14,
+> outdata15, outdata16, outdata17, outdata18,
+>                        outdata19, outdata20, outdata21, outdata22,
+> outdata23, outdata24, outdata25, outdata26,
+>                        outdata27, outdata28, outdata29, outdata30,
+> outdata31, outdata32, outdata33, outdata34,
+>                        outdata35, outdata36, outdata37, outdata38,
+> outdata39, outdata40, outdata41, outdata42,
+>                        outdata43, outdata44, outdata45, outdata46,
+> outdata47, outdata48, outdata49, outdata50))
+>
+> summary(z.out)
+>
+>
+> Any help would be greatly appreciated.
+>
+> All best
+> Florian
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+>
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+
+-------------- next part --------------
+
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Fri Dec 14 22:16:46 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Fri, 14 Dec 2012 17:16:46 -0500
+Subject: Re: Combined Coefficients for mi()
+In-Reply-To: <CAFKPR13ddZWa2uDySuznL06xXAVhhd22MriXrNBC5UGYoL=mcQ@mail.gmail.com>
+References: <EDD16A19-156A-413C-A8C5-0E7FAB1A7FC0@sheffield.ac.uk> <B4921A84-07A6-4275-82C1-CA63AF7B8823@iq.harvard.edu> <CAFKPR13ddZWa2uDySuznL06xXAVhhd22MriXrNBC5UGYoL=mcQ@mail.gmail.com>
+Message-ID: <63C04ADF-DB4E-4F3C-840B-A29C93D9D711@iq.harvard.edu>
+
+Olivia, summary was made to operate more similar to how vcov, etc. work with "mi" objects. However, the old-style is being reimplemented for the next release (late next week on CRAN, early next week as a nightly build). I posted this already, but the issue can be tracked here:
+ https://github.com/IQSS/Zelig/issues/25
+
+On Dec 14, 2012, at 3:59 PM, Olivia Lau wrote:
+
+> Matt, what happened to summary.mi() from previous Zelig releases?  We used to combine the MI output using the Rubin rules automatically in summary(z.out-of-class-mi).  
+> 
+> On Fri, Dec 14, 2012 at 12:04 PM, Matt Owen <mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org> wrote:
+> Hi Florian -
+> 
+> Zelig 4 fits each of these models separately at the moment, and as a result . If you would like to merge these datasets into a single data table, then the usual practice is with this line:
+> 
+> z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch + llife + 
+>                        lfuelx + alesinae + alesinar + ldemoc + loglrgdpchldemoc + 
+>                        loglodacldemoc + lurbanldemoc + logpopldemoc + lprimschldemoc +
+>                        llifeldemoc + lfuelxldemoc + alesinaeldemoc + alesinarldemoc, 
+>                        model="probit",
+>                        data = rbind(outdata1, outdata2,
+> 
+>                        outdata3, outdata4, outdata5, outdata6, outdata7, outdata8, outdata9, outdata10,
+>                        outdata11, outdata12, outdata13, outdata14, outdata15, outdata16, outdata17, outdata18,
+>                        outdata19, outdata20, outdata21, outdata22, outdata23, outdata24, outdata25, outdata26,
+>                        outdata27, outdata28, outdata29, outdata30, outdata31, outdata32, outdata33, outdata34,
+>                        outdata35, outdata36, outdata37, outdata38, outdata39, outdata40, outdata41, outdata42, 
+>                        outdata43, outdata44, outdata45, outdata46, outdata47, outdata48, outdata49, outdata50))
+> 
+> Note that the call to "mi" has been replaced with "rbind". This will workd if outdata1-50 have similar column structure.
+> 
+> A feature request has been opened to support this. This can be found here:
+>   https://github.com/IQSS/Zelig/issues/32
+> 
+> 
+> On Dec 14, 2012, at 2:13 PM, Florian Reiche wrote:
+> 
+>> Hello,
+>> 
+>> I have run my probit model in Zelig after using AmeliaII to impute the data sets. When I use the "summary(z.out)" command, I receive the coefficients for 50 separate data analyses, but no combined output for all data sets together. Am I doing anything wrong?
+>> 
+>> Here is the code:
+>> 
+>>> z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch + llife + 
+>>                        lfuelx + alesinae + alesinar + ldemoc + loglrgdpchldemoc + 
+>>                        loglodacldemoc + lurbanldemoc + logpopldemoc + lprimschldemoc +
+>>                        llifeldemoc + lfuelxldemoc + alesinaeldemoc + alesinarldemoc, 
+>>                        model="probit",
+>>                        data = mi(outdata1, outdata2,
+>>                        outdata3, outdata4, outdata5, outdata6, outdata7, outdata8, outdata9, outdata10,
+>>                        outdata11, outdata12, outdata13, outdata14, outdata15, outdata16, outdata17, outdata18,
+>>                        outdata19, outdata20, outdata21, outdata22, outdata23, outdata24, outdata25, outdata26,
+>>                        outdata27, outdata28, outdata29, outdata30, outdata31, outdata32, outdata33, outdata34,
+>>                        outdata35, outdata36, outdata37, outdata38, outdata39, outdata40, outdata41, outdata42, 
+>>                        outdata43, outdata44, outdata45, outdata46, outdata47, outdata48, outdata49, outdata50))
+>> 
+>>> summary(z.out)
+>> 
+>> Any help would be greatly appreciated. 
+>> 
+>> All best
+>> Florian
+>> -
+>> --
+>> Zelig Mailing List, served by HUIT
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>> Zelig mailing list
+>> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> 
+>> To unsubscribe from this list or get other information:
+>> 
+>> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+> 
+> 
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+
+-------------- next part --------------
+
+
+From f.reiche-1V21x8GFL1deXsq7+8kxVA at public.gmane.org  Sun Dec 16 18:33:04 2012
+From: f.reiche-1V21x8GFL1deXsq7+8kxVA at public.gmane.org (Florian Reiche)
+Date: Sun, 16 Dec 2012 18:33:04 +0000
+Subject: Error Message for sim()
+In-Reply-To: <63C04ADF-DB4E-4F3C-840B-A29C93D9D711@iq.harvard.edu>
+References: <EDD16A19-156A-413C-A8C5-0E7FAB1A7FC0@sheffield.ac.uk> <B4921A84-07A6-4275-82C1-CA63AF7B8823@iq.harvard.edu> <CAFKPR13ddZWa2uDySuznL06xXAVhhd22MriXrNBC5UGYoL=mcQ@mail.gmail.com> <63C04ADF-DB4E-4F3C-840B-A29C93D9D711@iq.harvard.edu>
+Message-ID: <A8E0153F-96C1-41D9-8D09-5728B8704060@sheffield.ac.uk>
+
+Hi!
+
+I have run my statistical model with zelig, and I am trying to simulate some quantities of interest now. The model is a dynamic probit model, using 50 imputed data sets created with Amelia II.
+
+The R-code I use is as follows:
+
+
+z.out <- zelig(democ ~ loglrgdpch + etc.....
+
+summary(z.out)
+
+x.out <- setx(z.out, loglrgdpch = 1000)
+
+s.out <- sim(z.out, x = x.out)
+
+This prompts the error message: "Error in pmax(eta, -thresh) : cannot mix 0-length vectors with others"
+
+
+
+Everything before, calculation the model parameters, creating x.out, etc. works fine. But zelig will not allow me to do the simulation. Where might I be going wrong?
+
+Thanks for your help!!
+
+Florian
+
+From weizhun.mao-boyO8OCvo7cFyTtuD1jkCg at public.gmane.org  Thu Dec 20 23:24:01 2012
+From: weizhun.mao-boyO8OCvo7cFyTtuD1jkCg at public.gmane.org (Weizhun Mao)
+Date: Fri, 21 Dec 2012 00:24:01 +0100
+Subject: Ask for Help on MatchIt and Zelig, Thanks
+Message-ID: <CACtbUp_Pp96H9tHYexydR7Kej89PhykG8knVXMnqnZnLNY39ig@mail.gmail.com>
+
+Dear all,
+
+I am learning the MatchIt paper by Ho et al. in Journal of Statistical
+Software (Vol. 42, No.8, 2011).
+However, when I went through all the codes in this paper I met two problems
+that troubled me for two days .
+As a result, I need your help. Thank you very much!
+
+In fact, all the problems once took place. Before this email, I have
+checked almost all the relevant solutions (like updating the software) in
+this emaillist, however it still doesn't work.
+
+In respect to the software, I am using the most updated software, including
+ZELIG (Versions 4.1-0, built: 2012-11-09) and
+MatchIt (Version 2.4-20, built: 2011-10-24) and R (version 2.15.2).
+Therefore, I don't think it is a problem from software.
+
+1. In the part of estimating "Average Treatment effect on the treated", I
+copy the following code into R.
+
+x.out1 <- setx(z.out1, data = match.data(m.out1, "treat"), cond = TRUE)
+
+However it will give a warning message as follows. Does it matter? What
+order does the new Zelig support?
+
+Warning message:
+In setx.default(z.out1, data = match.data(m.out1, "treat"), cond = TRUE) :
+  "cond" is not currently supported by this version of Zelig
+
+2. When I try to estimate the Average Treatment Effect (overall), I copy
+the following code.
+
+ate.all <- c(s.out1$qi$att.ev, -s.out2$qi$att.ev)
+
+It will indicates that "Error in -s.out2$qi$att.ev : invalid argument to
+unary operator", which finally make me failing to continue.
+
+I totally copy the codes in the article. Then what happened?
+
+Would you like to tell me how to get rid of the failure?
+
+Thank you very much!
+
+Best wishes,
+
+Mao
+
+
+-- 
+Mao Weizhun
+
+Department of Politics and Management
+Chair of International Politics
+University of Konstanz
+Room D 246
+P.O. Box D 86
+D-78457 Konstanz
+Germany
+
+Phone(O):+49-7531-88-4421
+Email: Weizhun.Mao-boyO8OCvo7cFyTtuD1jkCg at public.gmane.org
+Web:http://www.polver.uni-konstanz.de/gschneider/mitarbeiter/mao-weizhun/
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Fri Dec 21 15:22:08 2012
+From: kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Kosuke Imai)
+Date: Fri, 21 Dec 2012 10:22:08 -0500
+Subject: Re: [matchit] Ask for Help on MatchIt and Zelig, Thanks
+In-Reply-To: <CACtbUp_Pp96H9tHYexydR7Kej89PhykG8knVXMnqnZnLNY39ig@mail.gmail.com>
+References: <CACtbUp_Pp96H9tHYexydR7Kej89PhykG8knVXMnqnZnLNY39ig@mail.gmail.com>
+Message-ID: <CAEE523F-F182-41C7-9192-88869F37D78A@Princeton.Edu>
+
+This is a bug in the current version of Zelig. You should roll back to Zelig 3.5 for now while this bug is being resolved.  Thanks for your patience. 
+
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Dec 20, 2012, at 6:24 PM, Weizhun Mao <weizhun.mao-boyO8OCvo7cFyTtuD1jkCg at public.gmane.org> wrote:
+
+> Dear all, 
+> 
+> I am learning the MatchIt paper by Ho et al. in Journal of Statistical Software (Vol. 42, No.8, 2011).
+> However, when I went through all the codes in this paper I met two problems that troubled me for two days . 
+> As a result, I need your help. Thank you very much!
+> 
+> In fact, all the problems once took place. Before this email, I have checked almost all the relevant solutions (like updating the software) in this emaillist, however it still doesn't work.
+> 
+> In respect to the software, I am using the most updated software, including ZELIG (Versions 4.1-0, built: 2012-11-09) and
+> MatchIt (Version 2.4-20, built: 2011-10-24) and R (version 2.15.2). Therefore, I don't think it is a problem from software.
+> 
+> 1. In the part of estimating "Average Treatment effect on the treated", I copy the following code into R.
+> 
+> x.out1 <- setx(z.out1, data = match.data(m.out1, "treat"), cond = TRUE)
+> 
+> However it will give a warning message as follows. Does it matter? What order does the new Zelig support?
+> 
+> Warning message:
+> In setx.default(z.out1, data = match.data(m.out1, "treat"), cond = TRUE) :
+>   "cond" is not currently supported by this version of Zelig
+> 
+> 2. When I try to estimate the Average Treatment Effect (overall), I copy the following code.
+> 
+> ate.all <- c(s.out1$qi$att.ev, -s.out2$qi$att.ev)
+> 
+> It will indicates that "Error in -s.out2$qi$att.ev : invalid argument to unary operator", which finally make me failing to continue.
+> 
+> I totally copy the codes in the article. Then what happened?
+> 
+> Would you like to tell me how to get rid of the failure?
+> 
+> Thank you very much!
+> 
+> Best wishes,
+> 
+> Mao
+> 
+> 
+> -- 
+> Mao Weizhun
+>  
+> Department of Politics and Management
+> Chair of International Politics
+> University of Konstanz
+> Room D 246
+> P.O. Box D 86
+> D-78457 Konstanz
+> Germany
+>  
+> Phone(O):+49-7531-88-4421
+> Email: Weizhun.Mao-boyO8OCvo7cFyTtuD1jkCg at public.gmane.org
+> Web:http://www.polver.uni-konstanz.de/gschneider/mitarbeiter/mao-weizhun/
+> 
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Fri Dec 21 17:21:44 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Owen, Matthew)
+Date: Fri, 21 Dec 2012 12:21:44 -0500
+Subject: Re: [matchit] Ask for Help on MatchIt and Zelig, Thanks
+In-Reply-To: <CAEE523F-F182-41C7-9192-88869F37D78A@Princeton.Edu>
+References: <CACtbUp_Pp96H9tHYexydR7Kej89PhykG8knVXMnqnZnLNY39ig@mail.gmail.com> <CAEE523F-F182-41C7-9192-88869F37D78A@Princeton.Edu>
+Message-ID: <0259038B1AB5E646B0188D330F3C406A80D6C4E2@FASXCH02.fasmail.priv>
+
+Hi - in order to roll back to Zelig 3.5, you can copy and paste the following in the R Console:
+  install.packages("Zelig", repos="http://r.iq.harvard.edu/archived/", type = "source")
+________________________________________
+From: zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org] On Behalf Of Kosuke Imai [kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org]
+Sent: Friday, December 21, 2012 10:22 AM
+To: Weizhun Mao
+Cc: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org; zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subject: Re: [zelig] [matchit] Ask for Help on MatchIt and Zelig, Thanks
+
+This is a bug in the current version of Zelig. You should roll back to Zelig 3.5 for now while this bug is being resolved.  Thanks for your patience.
+
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Dec 20, 2012, at 6:24 PM, Weizhun Mao <weizhun.mao-boyO8OCvo7cFyTtuD1jkCg at public.gmane.org> wrote:
+
+> Dear all,
+>
+> I am learning the MatchIt paper by Ho et al. in Journal of Statistical Software (Vol. 42, No.8, 2011).
+> However, when I went through all the codes in this paper I met two problems that troubled me for two days .
+> As a result, I need your help. Thank you very much!
+>
+> In fact, all the problems once took place. Before this email, I have checked almost all the relevant solutions (like updating the software) in this emaillist, however it still doesn't work.
+>
+> In respect to the software, I am using the most updated software, including ZELIG (Versions 4.1-0, built: 2012-11-09) and
+> MatchIt (Version 2.4-20, built: 2011-10-24) and R (version 2.15.2). Therefore, I don't think it is a problem from software.
+>
+> 1. In the part of estimating "Average Treatment effect on the treated", I copy the following code into R.
+>
+> x.out1 <- setx(z.out1, data = match.data(m.out1, "treat"), cond = TRUE)
+>
+> However it will give a warning message as follows. Does it matter? What order does the new Zelig support?
+>
+> Warning message:
+> In setx.default(z.out1, data = match.data(m.out1, "treat"), cond = TRUE) :
+>   "cond" is not currently supported by this version of Zelig
+>
+> 2. When I try to estimate the Average Treatment Effect (overall), I copy the following code.
+>
+> ate.all <- c(s.out1$qi$att.ev, -s.out2$qi$att.ev)
+>
+> It will indicates that "Error in -s.out2$qi$att.ev : invalid argument to unary operator", which finally make me failing to continue.
+>
+> I totally copy the codes in the article. Then what happened?
+>
+> Would you like to tell me how to get rid of the failure?
+>
+> Thank you very much!
+>
+> Best wishes,
+>
+> Mao
+>
+>
+> --
+> Mao Weizhun
+>
+> Department of Politics and Management
+> Chair of International Politics
+> University of Konstanz
+> Room D 246
+> P.O. Box D 86
+> D-78457 Konstanz
+> Germany
+>
+> Phone(O):+49-7531-88-4421
+> Email: Weizhun.Mao-boyO8OCvo7cFyTtuD1jkCg at public.gmane.org
+> Web:http://www.polver.uni-konstanz.de/gschneider/mitarbeiter/mao-weizhun/
+>
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-
+--
+Zelig Mailing List, served by HUIT
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+Zelig mailing list
+Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+From shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Dec 27 15:03:51 2012
+From: shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Shige Song)
+Date: Thu, 27 Dec 2012 10:03:51 -0500
+Subject: Re: Combined Coefficients for mi()
+In-Reply-To: <63C04ADF-DB4E-4F3C-840B-A29C93D9D711@iq.harvard.edu>
+References: <EDD16A19-156A-413C-A8C5-0E7FAB1A7FC0@sheffield.ac.uk> <B4921A84-07A6-4275-82C1-CA63AF7B8823@iq.harvard.edu> <CAFKPR13ddZWa2uDySuznL06xXAVhhd22MriXrNBC5UGYoL=mcQ@mail.gmail.com> <63C04ADF-DB4E-4F3C-840B-A29C93D9D711@iq.harvard.edu>
+Message-ID: <CAGuGQcyJdjdZak5oPKM5qS5fr-VBO83D_r1nLzbmPiKTJ6X5UQ@mail.gmail.com>
+
+Can Zelig4 can deal with multiple imputation properly now?
+
+
+On Fri, Dec 14, 2012 at 5:16 PM, Matt Owen <mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org> wrote:
+
+> Olivia, summary was made to operate more similar to how vcov, etc. work
+> with "mi" objects. However, the old-style is being reimplemented for the
+> next release (late next week on CRAN, early next week as a nightly build).
+> I posted this already, but the issue can be tracked here:
+>  https://github.com/IQSS/Zelig/issues/25
+>
+> On Dec 14, 2012, at 3:59 PM, Olivia Lau wrote:
+>
+> Matt, what happened to summary.mi() from previous Zelig releases?  We used
+> to combine the MI output using the Rubin rules automatically in
+> summary(z.out-of-class-mi).
+>
+> On Fri, Dec 14, 2012 at 12:04 PM, Matt Owen <mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org> wrote:
+>
+>> Hi Florian -
+>>
+>> Zelig 4 fits each of these models separately at the moment, and as a
+>> result . If you would like to merge these datasets into a single data
+>> table, then the usual practice is with this line:
+>>
+>> z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch
+>> + llife +
+>>                        lfuelx + alesinae + alesinar + ldemoc +
+>> loglrgdpchldemoc +
+>>                        loglodacldemoc + lurbanldemoc + logpopldemoc +
+>> lprimschldemoc +
+>>                        llifeldemoc + lfuelxldemoc + alesinaeldemoc +
+>> alesinarldemoc,
+>>                        model="probit",
+>>                        data = rbind(outdata1, outdata2,
+>>
+>>                        outdata3, outdata4, outdata5, outdata6, outdata7,
+>> outdata8, outdata9, outdata10,
+>>                        outdata11, outdata12, outdata13, outdata14,
+>> outdata15, outdata16, outdata17, outdata18,
+>>                        outdata19, outdata20, outdata21, outdata22,
+>> outdata23, outdata24, outdata25, outdata26,
+>>                        outdata27, outdata28, outdata29, outdata30,
+>> outdata31, outdata32, outdata33, outdata34,
+>>                        outdata35, outdata36, outdata37, outdata38,
+>> outdata39, outdata40, outdata41, outdata42,
+>>                        outdata43, outdata44, outdata45, outdata46,
+>> outdata47, outdata48, outdata49, outdata50))
+>>
+>> Note that the call to "mi" has been replaced with "rbind". This will
+>> workd if outdata1-50 have similar column structure.
+>>
+>> A feature request has been opened to support this. This can be found here:
+>>   https://github.com/IQSS/Zelig/issues/32
+>>
+>>
+>> On Dec 14, 2012, at 2:13 PM, Florian Reiche wrote:
+>>
+>> Hello,
+>>
+>> I have run my probit model in Zelig after using AmeliaII to impute the
+>> data sets. When I use the "summary(z.out)" command, I receive the
+>> coefficients for 50 separate data analyses, but no combined output for all
+>> data sets together. Am I doing anything wrong?
+>>
+>> Here is the code:
+>>
+>> z.out <- zelig(democ ~ loglrgdpch + loglodac + lurban + logpop + lprimsch
+>> + llife +
+>>
+>>                        lfuelx + alesinae + alesinar + ldemoc +
+>> loglrgdpchldemoc +
+>>                        loglodacldemoc + lurbanldemoc + logpopldemoc +
+>> lprimschldemoc +
+>>                        llifeldemoc + lfuelxldemoc + alesinaeldemoc +
+>> alesinarldemoc,
+>>                        model="probit",
+>>                        data = mi(outdata1, outdata2,
+>>                        outdata3, outdata4, outdata5, outdata6, outdata7,
+>> outdata8, outdata9, outdata10,
+>>                        outdata11, outdata12, outdata13, outdata14,
+>> outdata15, outdata16, outdata17, outdata18,
+>>                        outdata19, outdata20, outdata21, outdata22,
+>> outdata23, outdata24, outdata25, outdata26,
+>>                        outdata27, outdata28, outdata29, outdata30,
+>> outdata31, outdata32, outdata33, outdata34,
+>>                        outdata35, outdata36, outdata37, outdata38,
+>> outdata39, outdata40, outdata41, outdata42,
+>>                        outdata43, outdata44, outdata45, outdata46,
+>> outdata47, outdata48, outdata49, outdata50))
+>>
+>> summary(z.out)
+>>
+>>
+>> Any help would be greatly appreciated.
+>>
+>> All best
+>> Florian
+>> -
+>> --
+>> Zelig Mailing List, served by HUIT
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options:
+>> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>> Zelig mailing list
+>> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>
+>> To unsubscribe from this list or get other information:
+>>
+>> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>>
+>>
+>>
+>> -
+>> --
+>> Zelig Mailing List, served by HUIT
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options:
+>> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>> Zelig mailing list
+>> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>
+>> To unsubscribe from this list or get other information:
+>>
+>> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>>
+>
+>
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+
+-------------- next part --------------
+
+

@@ -1,0 +1,154 @@
+From singmann-RoHN3oFRSd1LeFCyVrweRnIPMjoJpjVV at public.gmane.org  Tue Aug 25 12:32:22 2015
+From: singmann-RoHN3oFRSd1LeFCyVrweRnIPMjoJpjVV at public.gmane.org (Henrik Singmann)
+Date: Tue, 25 Aug 2015 14:32:22 +0200
+Subject: New afex version (0.14-2): || notation works with factors
+Message-ID: <mrhn8s$qfv$1@ger.gmane.org>
+
+Dear list, (I apologize for crossposting with R-SIG-MIXED)
+
+I have released a new version of afex (0.14-2) to CRAN with several new 
+features which may be of interest.
+
+The most important feature for this audience is perhaps that afex can 
+now correctly suppress the estimation of correlations among factor 
+random slopes using the "||" notation. This is achieved by first 
+creating the model matrix for the random factors and then passing the so 
+created numerical variables instead of the original factors. For 
+convenience, I have created a wrapper function, lmer_alt(), which 
+expands the random effects in such a way but otherwise behaves like lmer 
+(or glmer if a family argument is passed). That also means it does not 
+enforce a specific factor coding (in contrast to the other afex 
+functions that per default use sum-to-zero contrasts).
+The following example (from Reinhold Kliegl,
+https://rpubs.com/Reinhold/22193) shows this:
+
+require(afex)
+data("Machines", package = "MEMSS")
+contrasts(Machines$Machine) <- contr.treatment(3)
+m1a <- lmer(score ~ Machine + (Machine|Worker), Machines, REML=FALSE)
+summary(m1a)$varcor
+## Groups   Name        Std.Dev. Corr
+## Worker   (Intercept) 3.71695
+##          Machine2    5.35595   0.488
+##          Machine3    3.35308  -0.363  0.296
+## Residual             0.96158
+m1b <- lmer(score ~ Machine + (Machine||Worker), Machines, REML=FALSE)
+summary(m1b)$varcor
+## Groups   Name        Std.Dev. Corr
+## Worker   (Intercept) 0.49674
+## Worker.1 MachineA    3.68361
+##          MachineB    7.85482  0.805
+##          MachineC    3.96965  0.618 0.772
+## Residual             0.96158
+m1c <- lmer_alt(score~Machine+(Machine||Worker), Machines, REML=FALSE)
+summary(m1c)$varcor
+## Groups   Name         Std.Dev.
+## Worker   (Intercept)  3.71176
+## Worker.1 re1.Machine2 5.36912
+## Worker.2 re1.Machine3 3.30637
+## Residual              0.96257
+
+As can be seen, lmer_alt behaves like one would be expect and not like 
+lmer. This behavior can also be activated for the afex mixed() function 
+by setting expand_re = TRUE.
+
+Furthermore, afex is now fully integrated with lsmeans for all types of 
+follow-up tests and contrasts. This is particularly noteworthy for the 
+ANOVA functions (which have been renamed to aov_ez, aov_car, and aov_4) 
+which now return per default an object of class "afex_aov". This object 
+contains the ANOVA estimated with both car::Anova (for correct Type 
+II/II tests) and stats::aov (for follow-up tests) and can be directly 
+passed to lsmeans. This means one can directly run any type of post-hoc 
+tests/contrasts on ANOVA independent of whether or not these tests 
+relate to between- or within-factors or a mix thereof. The new vignette 
+shows this in detail:
+https://cran.rstudio.com/web/packages/afex/vignettes/anova_posthoc.html
+
+The full list of changes is available here:
+https://cran.rstudio.com/web/packages/afex/NEWS
+
+afex has also moved to github now (where all the cool kids are) so I am 
+happy for any comments there (https://github.com/singmann/afex), here, 
+or per mail.
+
+Cheers,
+Henrik
+
+PS: Due to a bug in the current CRAN version of stringi the following 
+warning message appears regularly in afex, but can be safely ignored:
+In stri_c(..., sep = sep, collapse = collapse, ignore_null = TRUE) :
+   longer object length is not a multiple of shorter object length
+
+Updating stringi from github (https://github.com/Rexamine/stringi/) 
+removes this warning.
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu Aug 27 22:19:24 2015
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 27 Aug 2015 22:19:24 +0000
+Subject: Re: New afex version (0.14-2): || notation works with factors
+In-Reply-To: <mrhn8s$qfv$1@ger.gmane.org>
+References: <mrhn8s$qfv$1@ger.gmane.org>
+Message-ID: <06E640A1-548D-4863-882C-CE0F138FEC61@ucsd.edu>
+
+Thank you, Henrik!  This is very useful!
+
+Best
+
+Roger
+
+> On Aug 25, 2015, at 5:32 AM, Henrik Singmann <singmann-RoHN3oFRSd1LeFCyVrweRnIPMjoJpjVV at public.gmane.org> wrote:
+> 
+> Dear list, (I apologize for crossposting with R-SIG-MIXED)
+> 
+> I have released a new version of afex (0.14-2) to CRAN with several new features which may be of interest.
+> 
+> The most important feature for this audience is perhaps that afex can now correctly suppress the estimation of correlations among factor random slopes using the "||" notation. This is achieved by first creating the model matrix for the random factors and then passing the so created numerical variables instead of the original factors. For convenience, I have created a wrapper function, lmer_alt(), which expands the random effects in such a way but otherwise behaves like lmer (or glmer if a family argument is passed). That also means it does not enforce a specific factor coding (in contrast to the other afex functions that per default use sum-to-zero contrasts).
+> The following example (from Reinhold Kliegl,
+> https://rpubs.com/Reinhold/22193) shows this:
+> 
+> require(afex)
+> data("Machines", package = "MEMSS")
+> contrasts(Machines$Machine) <- contr.treatment(3)
+> m1a <- lmer(score ~ Machine + (Machine|Worker), Machines, REML=FALSE)
+> summary(m1a)$varcor
+> ## Groups   Name        Std.Dev. Corr
+> ## Worker   (Intercept) 3.71695
+> ##          Machine2    5.35595   0.488
+> ##          Machine3    3.35308  -0.363  0.296
+> ## Residual             0.96158
+> m1b <- lmer(score ~ Machine + (Machine||Worker), Machines, REML=FALSE)
+> summary(m1b)$varcor
+> ## Groups   Name        Std.Dev. Corr
+> ## Worker   (Intercept) 0.49674
+> ## Worker.1 MachineA    3.68361
+> ##          MachineB    7.85482  0.805
+> ##          MachineC    3.96965  0.618 0.772
+> ## Residual             0.96158
+> m1c <- lmer_alt(score~Machine+(Machine||Worker), Machines, REML=FALSE)
+> summary(m1c)$varcor
+> ## Groups   Name         Std.Dev.
+> ## Worker   (Intercept)  3.71176
+> ## Worker.1 re1.Machine2 5.36912
+> ## Worker.2 re1.Machine3 3.30637
+> ## Residual              0.96257
+> 
+> As can be seen, lmer_alt behaves like one would be expect and not like lmer. This behavior can also be activated for the afex mixed() function by setting expand_re = TRUE.
+> 
+> Furthermore, afex is now fully integrated with lsmeans for all types of follow-up tests and contrasts. This is particularly noteworthy for the ANOVA functions (which have been renamed to aov_ez, aov_car, and aov_4) which now return per default an object of class "afex_aov". This object contains the ANOVA estimated with both car::Anova (for correct Type II/II tests) and stats::aov (for follow-up tests) and can be directly passed to lsmeans. This means one can directly run any type of post-hoc tests/contrasts on ANOVA independent of whether or not these tests relate to between- or within-factors or a mix thereof. The new vignette shows this in detail:
+> https://cran.rstudio.com/web/packages/afex/vignettes/anova_posthoc.html
+> 
+> The full list of changes is available here:
+> https://cran.rstudio.com/web/packages/afex/NEWS
+> 
+> afex has also moved to github now (where all the cool kids are) so I am happy for any comments there (https://github.com/singmann/afex), here, or per mail.
+> 
+> Cheers,
+> Henrik
+> 
+> PS: Due to a bug in the current CRAN version of stringi the following warning message appears regularly in afex, but can be safely ignored:
+> In stri_c(..., sep = sep, collapse = collapse, ignore_null = TRUE) :
+>  longer object length is not a multiple of shorter object length
+> 
+> Updating stringi from github (https://github.com/Rexamine/stringi/) removes this warning.
+>
+

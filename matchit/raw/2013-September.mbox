@@ -1,0 +1,375 @@
+From gilles.hejblum-j0dVNEL1V35MRLEeWHYi1g at public.gmane.org  Tue Sep  3 12:09:21 2013
+From: gilles.hejblum-j0dVNEL1V35MRLEeWHYi1g at public.gmane.org (Gilles Hejblum)
+Date: Tue, 03 Sep 2013 14:09:21 +0200
+Subject: problem when matching several controls (ratio>1) and requesting exact match on some variables
+Message-ID: <5225D171.6080704@u707.jussieu.fr>
+
+Hello,
+
+
+We found a problem in the matchit procedure when both 'exact' and 
+'caliper' features are used with more than 1 match per case (ratio >1).
+
+
+Matchit version : 2.4-21
+R version : 3.0.1
+
+
+The following example allows to reproduce the problem :
+Here, rows 1/2/3 should only be matched with rows 4/5/6 as an exact 
+match on "sex" is requested.
+
+ > tmp = data.frame(exposure=c(1,1,1,0,0,0,0,0,0),
+   sex=c(0,0,0,0,0,0,1,1,1),
+   age=c(1,2,3,4,5,6,1,2,3))
+
+
+
+   exposure sex age
+
+1           1    0   1
+2           1    0   2
+3           1    0   3
+4           0    0   4
+5           0    0   5
+6           0    0   6
+7           0    1   1
+8           0    1   2
+9           0    1   3
+
+However, the output is as follows :
+
+ > tmp.match = matchit(exposure~age,
+replace=TRUE,
+ratio=3,
+exact="sex",
+data=tmp,
+method = "nearest",
+caliper = 0.2,
+verbose = TRUE,
+calclosest=T)
+
+ > tmp.match$match.matrix
+
+   1   2   3
+1 "4" "9" "5"
+2 "4" "9" "7"
+3 "4" "5" "6"
+
+
+The first match complies with the exact request, but the second and 
+third do not.
+
+We traced the error to function match2mearest, line 205 :
+
+     mindev <- 
+clabels[!clabels%in%match.matrix[itert,(1:r-1)]][min(deviation)==deviation]
+
+should be
+
+     mindev <- clabels[!clabels%in%match.matrix[itert,(1:r-1)] & 
+(matchedc2 == 0)][min(deviation)==deviation]
+
+
+
+Otherwise, the exact condition in matching is not taken into account 
+when r>1 (i.e. after the first match when several controls are requested).
+
+
+
+
+
+Best regards,
+
+-- 
+
+_______________________________________________
+Gilles Hejblum,
+Inserm-UPMC UMR S 707 / Unite de Sante Publique,
+Batiment Caroli (Porte 2, rez-de-chaussee),
+Hopital Saint-Antoine,
+184, Rue du Faubourg Saint Antoine,
+75571 PARIS CEDEX 12,
+FRANCE
+
+Tel : (33) (1) 49-28-32-28
+Fax : (33) (1) 49-28-32-33
+Email : gilles.hejblum-j0dVNEL1V35MRLEeWHYi1g at public.gmane.org
+_______________________________________________
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Thu Sep 12 16:44:58 2013
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Thu, 12 Sep 2013 16:44:58 +0000
+Subject: Re: Dear, Professor Imai
+In-Reply-To: <CANTfCraXvzD5wbm1XPa3i25vssb6nod_1KbcVhaKEZe2pJMSaA@mail.gmail.com>
+References: <CANTfCraXvzD5wbm1XPa3i25vssb6nod_1KbcVhaKEZe2pJMSaA@mail.gmail.com>
+Message-ID: <5ECFF8D7-DC53-4003-BD76-75B67EE6FA81@Princeton.EDU>
+
+You can feed your own propensity score into the matchit function.
+
+Kosuke Imai
+Princeton University
+http://imai.princeton.edu
+
+Sent from my iPhone
+
+On Sep 10, 2013, at 9:09 AM, "Seungwon Song" <seungwonsong12-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org<mailto:seungwonsong12-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>> wrote:
+
+
+Dear, Professor Imai
+
+
+Allow me to introduce myself.
+My name is Seungwon Song and I am a Graduate student at Yonsei University in Seoul Korea.
+
+I write today to ask some questions about the "MatchIt" package you developed for the R program.
+
+I am currently majoring in Evaluation & Assesment and am in the middle of my graduation thesis.
+The subject of my research is related to the Propensity Score method.
+The title is <Comparison of Logistic Multilevel Model and Logistic Regression Model in Estimating Propensity Scores and Causal Inference>.
+
+The main purpose of my research is to test the effects of the hierarchical data structure on the estimation of the propensity score and the causal effect inference using the Propensity Score Matching Method.
+
+To accomplish this task I propose to estimate propensity score with Logistic regression model ignored nested data structure and Logistic multilevel model reflected data properties, after that, to infer causal effect using matching method. Through this procedure, I want to compare the results(estimated propensity score, matching diagnosis, causal effect inference) between logistic regression model and logistic multilevel model to clarify relatively appropriate model.
+
+In my study I am utilizing your program matching package the “MatchIt”. But as I have noted above, my study contains the propensity score estimated by the use of logistic multilevel model, one of Generalized linear mixed models.
+
+As you may know, Logistic multilevel model can be analyzed by using the glmmPQL function with the “Mass” package and glmer function with “lme4” package in R.(Or using HLM, SAS program)
+But in your 2011 research on <MatchIt: Nonparametric Preprocessing for Parametric Causal Inference> the glmmPQL & glmer cannot be applied to estimating the Propensity Score. I cannot choose those functions as the “distance” options.
+During my research I by chance became aware of the fact that it is possible to use another program or another R Package only to estimate the propensity score and put this estimated propensity score in “MatchIt” with the matching process. That is, I want to use “MatchIt” from not estimating propensity score, but matching procedure.
+
+I wish to apply this method to my study but find I have no tangible way to go about this task. So here I am.
+If this is appliable I am very curious as to how this will take shape.
+
+Your reply will be a great help in my endeavor to accomplish this task.
+
+I eagerly await for your reply.
+
+
+
+Your's Sincerely,
+
+Seungwon Song
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From yashar.atefi-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Sep 19 14:08:39 2013
+From: yashar.atefi-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (yashar atefi)
+Date: Thu, 19 Sep 2013 09:08:39 -0500
+Subject: Multilevel Propensity Score Matching
+Message-ID: <CAAc1OX9cAUUSVJtPqc2EffWkHBE4Oznt8cu-rtwqoEK3RUjUGA@mail.gmail.com>
+
+Hi,
+
+I have a data set with three levels: stores, salespeople, and customers. I
+want to use a multilevel propensity score matching to include covariates at
+both store and salespeople levels, so I need to use a multilevel logisitic
+regression to estimate the propensity score. Is there an option that I can
+specify this type of matching?
+Thanks a lot,
+
+Yashar
+
+-- 
+*Yashar Atefi*
+
+Doctoral Student in Marketing
+University of Houston | C. T. Bauer College of Business
+Department of Marketing & Entrepreneurship
+334 Melcher Hall
+Houston, Texas 77204-6021
+
+Tel: (713) 743 4577
+Emails: yatefi-L2oLaIQ3yl32fBVCVOL8/A at public.gmane.org
+Web Page: *http://www.bauer.uh.edu/yatefi/*
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From pkphlam-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Sep 19 16:55:47 2013
+From: pkphlam-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Patrick Lam)
+Date: Thu, 19 Sep 2013 12:55:47 -0400
+Subject: Re: Multilevel Propensity Score Matching
+In-Reply-To: <CAAc1OX9cAUUSVJtPqc2EffWkHBE4Oznt8cu-rtwqoEK3RUjUGA@mail.gmail.com>
+References: <CAAc1OX9cAUUSVJtPqc2EffWkHBE4Oznt8cu-rtwqoEK3RUjUGA@mail.gmail.com>
+Message-ID: <CAKV6_L9N6LJnxEGM_Z8z8Ppv9inc=+66XGmbyC-tgN+hyKvAvA@mail.gmail.com>
+
+You can just run your multilevel model separately, get out propensity
+scores, and then plug those into MatchIt.
+
+On the same issue, I'm not sure whether running a multilevel model is even
+useful here.  As the number of observations within each group increases,
+your multilevel estimates will probably converge to the simple logit
+estimates depending on the specification of your multilevel model.  And
+since you're not interested in uncertainty, the standard errors won't
+matter.
+
+
+On Thu, Sep 19, 2013 at 10:08 AM, yashar atefi <yashar.atefi-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:
+
+> Hi,
+>
+> I have a data set with three levels: stores, salespeople, and customers. I
+> want to use a multilevel propensity score matching to include covariates at
+> both store and salespeople levels, so I need to use a multilevel logisitic
+> regression to estimate the propensity score. Is there an option that I can
+> specify this type of matching?
+> Thanks a lot,
+>
+> Yashar
+>
+> --
+> *Yashar Atefi*
+>
+> Doctoral Student in Marketing
+> University of Houston | C. T. Bauer College of Business
+> Department of Marketing & Entrepreneurship
+> 334 Melcher Hall
+> Houston, Texas 77204-6021
+>
+> Tel: (713) 743 4577
+> Emails: yatefi-L2oLaIQ3yl32fBVCVOL8/A at public.gmane.org
+> Web Page: *http://www.bauer.uh.edu/yatefi/*
+>
+>
+>
+>
+>
+>
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive:
+> http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+>
+
+
+
+-- 
+Patrick Lam
+Department of Government and Institute for Quantitative Social Science,
+Harvard University
+http://www.patricklam.org
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From yashar.atefi-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Sep 24 23:44:30 2013
+From: yashar.atefi-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (yashar atefi)
+Date: Tue, 24 Sep 2013 18:44:30 -0500
+Subject: error in subclassification
+Message-ID: <CAAc1OX-3iGcvR0V8SQ9iOAxpMg6S0HOoSVY22GEk2Hi_8MhBkQ@mail.gmail.com>
+
+Hi,
+I receive this message when I try to use my own vector of propensity score
+in matchit.
+Error in weights.subclass(psclass, treat) : No units were matched
+In addition: Warning messages:
+1: In if (distance %in% c("GAMlogit", "GAMprobit", "GAMcloglog", "GAMlog",
+:
+  the condition has length > 1 and only the first element will be used
+2: In max(pscore[treat == 0]) :
+  no non-missing arguments to max; returning -Inf
+3: In max(pscore[treat == 1]) :
+  no non-missing arguments to max; returning -Inf
+4: In min(pscore[treat == 0]) :
+  no non-missing arguments to min; returning Inf
+5: In min(pscore[treat == 1]) :
+  no non-missing arguments to min; returning Inf
+The code is something like
+mHigh.out <- matchit(training ~ sed+ebrdqual+eprestige+
+efullpart,data=cov_H, method="subclass", distance= cov_H$FITVAL,subclass=5,
+sub.by="all")
+
+I really appreciate your help.
+Best,
+
+-- 
+*Yashar Atefi*
+
+Doctoral Student in Marketing
+University of Houston | C. T. Bauer College of Business
+Department of Marketing & Entrepreneurship
+334 Melcher Hall
+Houston, Texas 77204-6021
+
+Tel: (713) 743 4577
+Emails: yatefi-L2oLaIQ3yl32fBVCVOL8/A at public.gmane.org
+Web Page: *http://www.bauer.uh.edu/yatefi/*
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+

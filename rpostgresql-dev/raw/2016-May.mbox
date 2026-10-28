@@ -1,0 +1,156 @@
+From drjohnpayne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri May  6 16:40:02 2016
+From: drjohnpayne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (John Payne)
+Date: Fri, 06 May 2016 09:40:02 -0700
+Subject: Losing times from 'Timestamp without time zone'
+Message-ID: <628dde86-d898-4687-b2ea-db486c55a800@googlegroups.com>
+
+I've run into some strange behavior while loading a medium-large (400K 
+rows) PostgreSQL data set into R, using RPostgreSQL.  The data include 
+date/times in a column with the PostgreSQL data type 'Timestamp without 
+time zone'.  When I load a small subsection of the data set, everything 
+works properly.  When I load the whole data set, the times are lost and the 
+resulting column in R is a POSIXct object that only has the date part of 
+the timestamp (for example, '2014-03-21 08:44:17' becomes '2014-03-21'). 
+ I've confirmed that it's not just an issue of how the times are displayed; 
+they really are missing.
+
+I can work around it by exporting the PostgreSQL table to .csv and then 
+importing the .csv file into R, but I wanted to document the behavior in 
+case others are having similar troubles.
+
+Thanks everyone for your work on the library, which has been very useful to 
+me in the past.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From andrewhn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon May  9 22:54:31 2016
+From: andrewhn-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Andrew Newnham)
+Date: Mon, 09 May 2016 15:54:31 -0700
+Subject: Re: Losing times from 'Timestamp without time zone'
+In-Reply-To: <628dde86-d898-4687-b2ea-db486c55a800@googlegroups.com>
+References: <628dde86-d898-4687-b2ea-db486c55a800@googlegroups.com>
+Message-ID: <38636bec-a26e-4db3-bccb-9eeb0b106e42@googlegroups.com>
+
+We have the same problem. From memory the issue occurs when timezones 
+change (e.g. daylight savings), which is perhaps why subsets work for you.
+
+By default now we use a workaround: casting any datetime to a character 
+string (via to_char) and then parsing dates with lubridate::ymd_hms.
+
+On Saturday, May 7, 2016 at 2:40:02 AM UTC+10, John Payne wrote:
+>
+> I've run into some strange behavior while loading a medium-large (400K 
+> rows) PostgreSQL data set into R, using RPostgreSQL.  The data include 
+> date/times in a column with the PostgreSQL data type 'Timestamp without 
+> time zone'.  When I load a small subsection of the data set, everything 
+> works properly.  When I load the whole data set, the times are lost and the 
+> resulting column in R is a POSIXct object that only has the date part of 
+> the timestamp (for example, '2014-03-21 08:44:17' becomes '2014-03-21'). 
+>  I've confirmed that it's not just an issue of how the times are displayed; 
+> they really are missing.
+>
+> I can work around it by exporting the PostgreSQL table to .csv and then 
+> importing the .csv file into R, but I wanted to document the behavior in 
+> case others are having similar troubles.
+>
+> Thanks everyone for your work on the library, which has been very useful 
+> to me in the past.
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From drjohnpayne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue May 10 22:47:09 2016
+From: drjohnpayne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (John Payne)
+Date: Tue, 10 May 2016 15:47:09 -0700
+Subject: Re: Losing times from 'Timestamp without time zone'
+In-Reply-To: <38636bec-a26e-4db3-bccb-9eeb0b106e42@googlegroups.com>
+References: <628dde86-d898-4687-b2ea-db486c55a800@googlegroups.com> <38636bec-a26e-4db3-bccb-9eeb0b106e42@googlegroups.com>
+Message-ID: <ea90b37b-6891-492b-8bdc-cf5022fdd1d3@googlegroups.com>
+
+Thanks Andrew, that's useful.  I note an earlier comment that seems to 
+suggest that this Google Groups page has been replaced by the Github issues 
+page, so I'm going to copy the question there.
+
+On Monday, May 9, 2016 at 3:54:31 PM UTC-7, Andrew Newnham wrote:
+>
+> We have the same problem. From memory the issue occurs when timezones 
+> change (e.g. daylight savings), which is perhaps why subsets work for you.
+>
+> By default now we use a workaround: casting any datetime to a character 
+> string (via to_char) and then parsing dates with lubridate::ymd_hms.
+>
+> On Saturday, May 7, 2016 at 2:40:02 AM UTC+10, John Payne wrote:
+>>
+>> I've run into some strange behavior while loading a medium-large (400K 
+>> rows) PostgreSQL data set into R, using RPostgreSQL.  The data include 
+>> date/times in a column with the PostgreSQL data type 'Timestamp without 
+>> time zone'.  When I load a small subsection of the data set, everything 
+>> works properly.  When I load the whole data set, the times are lost and the 
+>> resulting column in R is a POSIXct object that only has the date part of 
+>> the timestamp (for example, '2014-03-21 08:44:17' becomes '2014-03-21'). 
+>>  I've confirmed that it's not just an issue of how the times are displayed; 
+>> they really are missing.
+>>
+>> I can work around it by exporting the PostgreSQL table to .csv and then 
+>> importing the .csv file into R, but I wanted to document the behavior in 
+>> case others are having similar troubles.
+>>
+>> Thanks everyone for your work on the library, which has been very useful 
+>> to me in the past.
+>>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From noses-fUx1o85CufIdYYaOPf09RA at public.gmane.org  Thu May 26 11:40:22 2016
+From: noses-fUx1o85CufIdYYaOPf09RA at public.gmane.org
+Date: Thu, 26 May 2016 04:40:22 -0700
+Subject: Error in postgresqlNewConnection(drv, ...) : expired manager
+Message-ID: <f9cc2c7e-2228-420e-a29f-4aaccd899ea1@googlegroups.com>
+
+
+Hi all,
+
+I have a piece of code to connect to a postgresql DB that was working fine 
+until now. The code is simple:
+
+    library("RPostgreSQL")
+    drv <- dbDriver("PostgreSQL")    
+    con <- dbConnect(drv, host=myhost, dbname=somename, user=someuser, 
+password=somepassword)
+
+
+But after that last line I get an error:
+
+    Error in postgresqlNewConnection(drv, ...) : expired manager
+
+
+I think my software update program has recently updated R.
+
+Has something changed in R that now I can't connect?
+
+My OS is Ubuntu 14.04. Current R version: R version 3.3.0 (2016-05-03) -- 
+"Supposedly Educational"
+
+Thank you very much for any help!
+
+Regards,
+Noelia
+
+
+     
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+

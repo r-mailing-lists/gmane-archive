@@ -1,0 +1,191 @@
+From ilhami.visne at gmail.com  Thu May 15 12:21:44 2014
+From: ilhami.visne at gmail.com (Ilhami Visne)
+Date: Thu, 15 May 2014 14:21:44 +0200
+Subject: parseAndEval does not return
+Message-ID: <CAD=6sV1EU7St8mLsXNtdySaFswmVwCrq4+a_TA0gP8j-rhsP4A@mail.gmail.com>
+
+Hi,
+
+I run a script on a remote Rserve like below:
+
+connection.assign(".tmp.", script);
+REXP r =
+connection.parseAndEval("try(eval(parse(text=.tmp.)),silent=TRUE)");
+
+The execution time is dependent on the given parameters. If my script runs
+longer than ~30 min or so, the parseAndEval above returns never and my java
+code is blocked forever. However on the server side, i see that the script
+has finished running. Below 25-30 minutes execution time, it returns normal
+and my java code does continue.
+
+To debug the issue, i have started the Rserve in debug mode and added to
+the last line a print("finished") statement. Then observed on the command
+line:
+
+[1] "finished"
+Expression 1, error code: 0
+expression(s) evaluated (Rerror=0).
+String vector of length 1:
+scalar string: "finished"
+getStorageSize(0x2b7c938,type=16,len=1)
+getStorageSize(0x2b7c908,type=9,len=5) = 12
+= 16
+result storage size = 4112 bytes
+stored 0x2b7c938 at 0x7ffc25c1c018, 8 bytes
+stored SEXP; length=16 (incl. DT_SEXP header)
+OUT.sendRespData
+HEAD DUMP [16]: 01 00 01 00 10 00 00 00 00 00 00 00 00 00 00 00
+ |................
+BODY DUMP [16]: 0a 0c 00 00 22 08 00 00 62 69 74 74 69 00 01 01
+ |...."...finished...
+reply sent.
+
+>From the last line, i understand that the Rserve sent the reply but then
+what happens?
+
+The Rserve runs on an Ubuntu 12.04 with java version "1.7.0_25" OpenJDK
+Runtime Environment (IcedTea 2.3.10) (7u25-2.3.10-1ubuntu0.12.04.2).
+
+What more information could i provide to understand this issue?
+
+Best,Ilhami
+
+-------------- next part --------------
+
+
+From peeyush215 at gmail.com  Mon May 19 15:10:53 2014
+From: peeyush215 at gmail.com (peeyush)
+Date: Mon, 19 May 2014 17:10:53 +0200
+Subject: Running R script from java
+Message-ID: <537A1EFD.6070806@gmail.com>
+
+Dear Rosuda Developers,
+
+I am using RServe.
+
+I want to run R script (whole function) from java and want to source 
+script to java. I am using this code:
+
+import org.rosuda.REngine.REXP;
+import org.rosuda.REngine.REXPMismatchException;
+import org.rosuda.REngine.Rserve.RConnection;
+import org.rosuda.REngine.Rserve.RserveException;
+
+public class SourcingRFile {
+     public static void main(String[] args) throws RserveException,
+             REXPMismatchException {
+         RConnection c = new RConnection();
+         // source the Palindrom function
+c.eval("source(\"/home/peeyush/Desktop/Analysing_GeneMinerResults.R\")");
+
+         // call the function. Return true
+Line 26: c.eval("GeneMiner()");
+     }
+}
+
+I am getting this error:
+
+Exception in thread "main" org.rosuda.REngine.Rserve.RserveException: 
+eval failed, request status: error code: 127
+     at org.rosuda.REngine.Rserve.RConnection.eval(RConnection.java:234)
+     at de.bonn.limes.core.SourcingRFile.main(SourcingRFile.java:26)
+
+Help me please, Thanks in advance.
+
+Best,
+Peeyush
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue May 20 14:40:46 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 20 May 2014 10:40:46 -0400
+Subject: Re: Running R script from java
+In-Reply-To: <537A1EFD.6070806@gmail.com>
+References: <537A1EFD.6070806@gmail.com>
+Message-ID: <C0EAE7B5-FA7E-4F60-890D-060071B7DDA9@r-project.org>
+
+Peeyush,
+
+On May 19, 2014, at 11:10 AM, peeyush <peeyush215 at gmail.com> wrote:
+
+> Dear Rosuda Developers,
+> 
+> I am using RServe.
+> 
+> I want to run R script (whole function) from java and want to source script to java. I am using this code:
+> 
+> import org.rosuda.REngine.REXP;
+> import org.rosuda.REngine.REXPMismatchException;
+> import org.rosuda.REngine.Rserve.RConnection;
+> import org.rosuda.REngine.Rserve.RserveException;
+>  
+> public class SourcingRFile {
+>     public static void main(String[] args) throws RserveException,
+>             REXPMismatchException {
+>         RConnection c = new RConnection();
+>         // source the Palindrom function
+>         c.eval("source(\"/home/peeyush/Desktop/Analysing_GeneMinerResults.R\")");
+>  
+>         // call the function. Return true
+> Line 26: c.eval("GeneMiner()");
+>     } 
+> }
+> 
+> I am getting this error:
+> 
+> Exception in thread "main" org.rosuda.REngine.Rserve.RserveException: eval failed, request status: error code: 127
+>     at org.rosuda.REngine.Rserve.RConnection.eval(RConnection.java:234)
+>     at de.bonn.limes.core.SourcingRFile.main(SourcingRFile.java:26)
+> 
+> Help me please, Thanks in advance.
+> 
+
+Please check the error in R - your code is failing there - either by looking at the server side or by using
+c.eval("try(GeneMiner(), silent=TRUE)")
+and looking at the result.
+
+Note that the source() command is executed server-side, so the path you're using must be on the server.
+
+Cheers,
+Simon
+
+From tmartin at wcu.edu  Sat May 24 11:02:29 2014
+From: tmartin at wcu.edu (Tom Martin)
+Date: Sat, 24 May 2014 11:02:29 +0000
+Subject: Re: Mac OS X 10.9 Mavericks - JGR and Java tips
+References: <B9343F4F-1C4B-4DBA-BF69-285F8974BD32@research.att.com>
+Message-ID: <loom.20140524T130014-401@post.gmane.org>
+
+Simon Urbanek <urbanek <at> research.att.com> writes:
+
+> 
+> Note that Mac OS X 10.9 upgrade creates a bit of a Java mess. If you try
+to use Java it may be removed by the
+> installer and crashes with CRAN binaries. Easiest to see is if you start
+JGR and it just crashes - then you
+> don't have the right Java installed. Unfortunately Apple's JAva updates
+doesn't work if not run from
+> their java command.
+> 
+> The trick is to get Apple's Java 1.6 - probably the easiest is to go to
+Terminal and type
+> 
+> R CMD javareconf -n
+> 
+> which tries to configure Java for R and should trigger a prompt where the
+OS is asking if you want to install
+> Java 1.6 and you say yes. Once it downloads Java you can try to re-runt he
+above and it should succeed.
+> (Possibly just typing "java" may also do the trick, but checking it with R
+is a good idea).
+> 
+> Cheers,
+> Simon
+> 
+> 
+
+Java 7 update 55 allows JGR to run, but JGR is crippled and often demands a
+force quit.
+

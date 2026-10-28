@@ -1,0 +1,5282 @@
+From b.rowlingson at lancaster.ac.uk  Wed Jan  2 12:09:56 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Wed, 02 Jan 2008 12:09:56 +0000
+Subject: [Rpy] error reading Rconsole
+Message-ID: <477B7F14.1050904@lancaster.ac.uk>
+
+Starting with a fresh Windows XP system I've installed R 2.6.1 and the 
+latest Rpy and Python 2.5 from binaries. That all works fine together.
+
+I've also installed Quantum GIS (QGIS) 0.9.1 from released binaries. 
+QGIS has an embedded python interpreter which gives access to the 
+geographic data and via C++ SIP bindings. Very nice. It also has a 
+Python command line console.
+
+I want to use Rpy from QGIS' python to do statistical analysis on 
+geographic data. So I start up QGIS, fire up the console, and 'from rpy 
+import r'.
+
+  Pretty rapidly R pops up an error dialog from reading the Rconsole 
+file. The line number given is a blank line in the file. It then 
+proceeds to error on all the blank lines and four non-blank lines:
+
+background = White
+normaltext = NavyBlue
+usertext = Red
+highlight = DarkRed
+
+  If I remove the blank lines and comment out those four, it works fine. 
+The error is coming from R's SRC/gnuwin32/preferences.c, so it may be 
+something in the opt.c file not reading right.
+
+  Rpy works fine when called from Python run from CMD or cygwin shells, 
+or from the ERIC IDE. R runs fine when called from os.spawnv() from 
+QGIS' python console.
+
+  I've checked the environment variables in these cases and they're the 
+same, so it's not a language setting. I'm stumped.
+
+  Anyone else seen this? Any workarounds? Can I tell Rpy to startup R 
+with the '--no-Rconsole' option? Any clues or hints as to what I can do 
+to see what's going on are welcome...
+
+  I've had this working before, but probably with slightly different 
+versions. It all works fine on Linux.
+
+Barry
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Wed Jan  2 17:15:20 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Wed, 02 Jan 2008 12:15:20 -0500
+Subject: Re: [Rpy] error reading Rconsole
+In-Reply-To: <477B7F14.1050904@lancaster.ac.uk>
+References: <477B7F14.1050904@lancaster.ac.uk>
+Message-ID: <954ED0D1-E9DF-47B5-A77A-DA722719131D@mac.com>
+
+
+Hi Barry,
+
+I suspect the problem is that QGIS has set up python's console input  
+differently than rpy expects.   At the moment, there is no way to  
+tell RPy to do something different with i/o during startup.  (After  
+startup you can call set_rpy_output() and set_rpy_input() to provide  
+new i/o handlers.)
+
+As a first pass, try making this change to rpy.py, and see if this  
+solves your problem:
+>
+> Index: rpy.py
+> ===================================================================
+> --- rpy.py	(revision 388)
+> +++ rpy.py	(working copy)
+> @@ -195,7 +195,8 @@
+>
+>  # Default I/O to functions in the 'rpy_io' module
+>  set_rpy_output(rpy_io.rpy_output)
+> -set_rpy_input(rpy_io.rpy_input)
+> +print "Skipping initializtion of R console *read* support"
+> +#set_rpy_input(rpy_io.rpy_input)
+>  if sys.platform != 'win32':
+>      set_rpy_showfiles(rpy_io.rpy_showfiles)
+>
+
+
+This will prevent R/Rpy from being able to ready *anything* from the  
+console, so be careful.   If this works, then you should find out how  
+QGIS sets up Python's console read operation and do the same thing  
+for R/Rpy.
+
+
+-Greg
+
+
+
+On Jan 2, 2008, at 7:09AM , Barry Rowlingson wrote:
+
+> Starting with a fresh Windows XP system I've installed R 2.6.1 and the
+> latest Rpy and Python 2.5 from binaries. That all works fine together.
+>
+> I've also installed Quantum GIS (QGIS) 0.9.1 from released binaries.
+> QGIS has an embedded python interpreter which gives access to the
+> geographic data and via C++ SIP bindings. Very nice. It also has a
+> Python command line console.
+>
+> I want to use Rpy from QGIS' python to do statistical analysis on
+> geographic data. So I start up QGIS, fire up the console, and 'from  
+> rpy
+> import r'.
+>
+>   Pretty rapidly R pops up an error dialog from reading the Rconsole
+> file. The line number given is a blank line in the file. It then
+> proceeds to error on all the blank lines and four non-blank lines:
+>
+> background = White
+> normaltext = NavyBlue
+> usertext = Red
+> highlight = DarkRed
+>
+>   If I remove the blank lines and comment out those four, it works  
+> fine.
+> The error is coming from R's SRC/gnuwin32/preferences.c, so it may be
+> something in the opt.c file not reading right.
+>
+>   Rpy works fine when called from Python run from CMD or cygwin  
+> shells,
+> or from the ERIC IDE. R runs fine when called from os.spawnv() from
+> QGIS' python console.
+>
+>   I've checked the environment variables in these cases and they're  
+> the
+> same, so it's not a language setting. I'm stumped.
+>
+>   Anyone else seen this? Any workarounds? Can I tell Rpy to startup R
+> with the '--no-Rconsole' option? Any clues or hints as to what I  
+> can do
+> to see what's going on are welcome...
+>
+>   I've had this working before, but probably with slightly different
+> versions. It all works fine on Linux.
+>
+> Barry
+>
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From b.rowlingson at lancaster.ac.uk  Wed Jan  2 17:19:36 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Wed, 02 Jan 2008 17:19:36 +0000
+Subject: Re: [Rpy] error reading Rconsole
+In-Reply-To: <954ED0D1-E9DF-47B5-A77A-DA722719131D@mac.com>
+References: <477B7F14.1050904@lancaster.ac.uk> <954ED0D1-E9DF-47B5-A77A-DA722719131D@mac.com>
+Message-ID: <477BC7A8.2060301@lancaster.ac.uk>
+
+Gregory Warnes wrote:
+> Hi Barry,
+
+> This will prevent R/Rpy from being able to ready *anything* from the  
+> console, so be careful.   If this works, then you should find out how  
+> QGIS sets up Python's console read operation and do the same thing  
+> for R/Rpy.
+
+  Righto, I'll try that later tonight when I get home (am doing this on 
+my Windows box there).
+
+  QGIS does muck with stdin and stdout when it launches the Python 
+console, since stdout becomes an object that catches the output. I did 
+try running rpy from a QGIS python plugin which I thought bypassed the 
+console setup, but that failed too.
+
+  I'll let you know how your patch fares...
+
+Barry
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From warnes at users.sourceforge.net  Wed Jan  2 17:29:56 2008
+From: warnes at users.sourceforge.net
+Date: Wed, 02 Jan 2008 09:29:56 -0800
+Subject: [Rpy] SF.net SVN: rpy: [391] trunk/rpy
+Message-ID: <E1JA7Pg-0007SG-8s@sc8-pr-svn2.sourceforge.net>
+
+Revision: 391
+          http://rpy.svn.sourceforge.net/rpy/?rev=391&view=rev
+Author:   warnes
+Date:     2008-01-02 09:29:55 -0800 (Wed, 02 Jan 2008)
+
+Log Message:
+-----------
+Add startup options to prevent initialization of console read/write/showfiles
+
+Modified Paths:
+--------------
+    trunk/rpy/rpy.py
+    trunk/rpy/rpy_options.py
+
+Modified: trunk/rpy/rpy.py
+===================================================================
+--- trunk/rpy/rpy.py	2007-11-30 01:44:49 UTC (rev 390)
++++ trunk/rpy/rpy.py	2008-01-02 17:29:55 UTC (rev 391)
+@@ -194,11 +194,22 @@
+     get_rpy_showfiles = _rpy.get_showfiles
+ 
+ # Default I/O to functions in the 'rpy_io' module
+-set_rpy_output(rpy_io.rpy_output)
+-set_rpy_input(rpy_io.rpy_input)
+-if sys.platform != 'win32':
+-    set_rpy_showfiles(rpy_io.rpy_showfiles)
++if rpy_options['SETUP_WRITE_CONSOLE']:
++    set_rpy_output(rpy_io.rpy_output)
++else:
++    print "\nSkipping initialization of R console *write* support.\n"
+ 
++if rpy_options['SETUP_READ_CONSOLE']:
++    set_rpy_input(rpy_io.rpy_input)
++else:
++    print "\nSkipping initialization of R console *read* support.\n"
++
++if rpy_options['SETUP_SHOWFILES']:
++    if sys.platform != 'win32':
++        set_rpy_showfiles(rpy_io.rpy_showfiles)
++else:
++    print "\nSkipping initialization of R console *file viewer* support\n"    
++
+ # Functions for processing events
+ import threading
+ 
+
+Modified: trunk/rpy/rpy_options.py
+===================================================================
+--- trunk/rpy/rpy_options.py	2007-11-30 01:44:49 UTC (rev 390)
++++ trunk/rpy/rpy_options.py	2008-01-02 17:29:55 UTC (rev 391)
+@@ -28,14 +28,23 @@
+   'RVER':None,        # R Version *number*
+   'RUSER':None,       # R User's Home Directory
+   'USE_NUMERIC':None, # Is Numeric module available
+-  'VERBOSE':False      # Should status messages be displated.
++  'VERBOSE':False,      # Should status messages be displated.
++  'SETUP_READ_CONSOLE':  True,  # Set to False to prevent standard console read config
++  'SETUP_WRITE_CONSOLE': True,  # Set to False to prevent standard console write config
++  'SETUP_SHOWFILES':     True   # Set to False to prevent standard console file viewerd config
+   }
+ 
+-def set_options(RHOME=None, USE_NUMERIC=None, VERBOSE=None):
++def set_options(RHOME=None, USE_NUMERIC=None, VERBOSE=None, SETUP_READ_CONSOLE=None, SETUP_WRITE_CONSOLE=None, SETUP_SHOWFILES=None):
+   if RHOME != None and os.path.isdir(RHOME):
+     rpy_options['RHOME'] = RHOME
+   if USE_NUMERIC != None and USE_NUMERIC in [True, False]:
+     rpy_options['USE_NUMERIC'] = USE_NUMERIC
+   if VERBOSE != None and VERBOSE in [True, False]:
+     rpy_options['VERBOSE'] = VERBOSE
++  if SETUP_READ_CONSOLE != None and SETUP_READ_CONSOLE in [True, False]:
++    rpy_options['SETUP_READ_CONSOLE'] = VERBOSE
++  if SETUP_WRITE_CONSOLE != None and SETUP_WRITE_CONSOLE in [True, False]:
++    rpy_options['SETUP_WRITE_CONSOLE'] = VERBOSE
++  if SETUP_SHOWFILES != None and SETUP_SHOWFILES in [True, False]:
++    rpy_options['SETUP_SHOWFILES'] = VERBOSE
+   
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From warnes at users.sourceforge.net  Wed Jan  2 17:33:42 2008
+From: warnes at users.sourceforge.net
+Date: Wed, 02 Jan 2008 09:33:42 -0800
+Subject: [Rpy] SF.net SVN: rpy: [392] trunk/rpy/rpy_tools.py
+Message-ID: <E1JA7TK-0008JR-BJ@sc8-pr-svn2.sourceforge.net>
+
+Revision: 392
+          http://rpy.svn.sourceforge.net/rpy/?rev=392&view=rev
+Author:   warnes
+Date:     2008-01-02 09:33:42 -0800 (Wed, 02 Jan 2008)
+
+Log Message:
+-----------
+Use 'tail -n 1' instead of 'tail -1' when calling 'R RHOME' to make recent versions of tail happy
+
+Modified Paths:
+--------------
+    trunk/rpy/rpy_tools.py
+
+Modified: trunk/rpy/rpy_tools.py
+===================================================================
+--- trunk/rpy/rpy_tools.py	2008-01-02 17:29:55 UTC (rev 391)
++++ trunk/rpy/rpy_tools.py	2008-01-02 17:33:42 UTC (rev 392)
+@@ -53,7 +53,7 @@
+     if sys.platform == 'win32':
+       stat, rhome = getstatusoutput('R RHOME')
+     else:
+-      stat, rhome = getstatusoutput('R RHOME | tail -1')
++      stat, rhome = getstatusoutput('R RHOME | tail -n 1')
+     if stat or len(rhome)<=0:
+       raise RuntimeExecError("Couldn't execute the R interpreter.\n"
+                              "Check whether R is in the execution path.")
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From warnes at users.sourceforge.net  Wed Jan  2 17:34:29 2008
+From: warnes at users.sourceforge.net
+Date: Wed, 02 Jan 2008 09:34:29 -0800
+Subject: [Rpy] SF.net SVN: rpy: [393] trunk/rpy/src/io.c
+Message-ID: <E1JA7U5-000050-3B@sc8-pr-svn2.sourceforge.net>
+
+Revision: 393
+          http://rpy.svn.sourceforge.net/rpy/?rev=393&view=rev
+Author:   warnes
+Date:     2008-01-02 09:34:28 -0800 (Wed, 02 Jan 2008)
+
+Log Message:
+-----------
+Minor code reformatting in io.c
+
+Modified Paths:
+--------------
+    trunk/rpy/src/io.c
+
+Modified: trunk/rpy/src/io.c
+===================================================================
+--- trunk/rpy/src/io.c	2008-01-02 17:33:42 UTC (rev 392)
++++ trunk/rpy/src/io.c	2008-01-02 17:34:28 UTC (rev 393)
+@@ -98,12 +98,14 @@
+ int
+ RPy_ReadConsole(char *prompt, 
+                 char *buf, 
+-                int len, int addtohistory)
++                int len, 
++		int addtohistory)
+ #else
+ int
+ RPy_ReadConsole(char *prompt, 
+                 unsigned char *buf, 
+-                int len, int addtohistory)
++                int len, 
++		int addtohistory)
+ #endif
+ {
+   PyObject *input_data;
+@@ -258,7 +260,9 @@
+ void
+ init_io_routines(void)
+ #ifdef _WIN32
+-{ return; }
++{ 
++  return; 
++}
+ #else
+ {
+   R_Outputfile = NULL;
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From warnes at users.sourceforge.net  Wed Jan  2 17:57:12 2008
+From: warnes at users.sourceforge.net
+Date: Wed, 02 Jan 2008 09:57:12 -0800
+Subject: [Rpy] SF.net SVN: rpy: [394] trunk/rpy
+Message-ID: <E1JA7q4-0004es-1q@sc8-pr-svn2.sourceforge.net>
+
+Revision: 394
+          http://rpy.svn.sourceforge.net/rpy/?rev=394&view=rev
+Author:   warnes
+Date:     2008-01-02 09:57:04 -0800 (Wed, 02 Jan 2008)
+
+Log Message:
+-----------
+Add code to export 'Robj' type
+
+Modified Paths:
+--------------
+    trunk/rpy/rpy.py
+    trunk/rpy/src/rpymodule.c
+
+Modified: trunk/rpy/rpy.py
+===================================================================
+--- trunk/rpy/rpy.py	2008-01-02 17:34:28 UTC (rev 393)
++++ trunk/rpy/rpy.py	2008-01-02 17:57:04 UTC (rev 394)
+@@ -181,6 +181,7 @@
+ # for backwards compatibility
+ RException = RPyException
+ 
++Robj = _rpy.Robj
+ 
+ 
+ # I/O setters
+
+Modified: trunk/rpy/src/rpymodule.c
+===================================================================
+--- trunk/rpy/src/rpymodule.c	2008-01-02 17:34:28 UTC (rev 393)
++++ trunk/rpy/src/rpymodule.c	2008-01-02 17:57:04 UTC (rev 394)
+@@ -1899,7 +1899,16 @@
+   Robj_Type.tp_alloc = PyType_GenericAlloc;
+ #endif
+ 
+-  m = Py_InitModule(xstr(RPY_SHNAME), rpy_methods);
++  /* Initialize the module with its content */
++  if (PyType_Ready(&Robj_Type) < 0)
++    return;
++  m = Py_InitModule3(xstr(RPY_SHNAME), 
++		     rpy_methods,
++		     "Python interface to the R Programming Language");
++  Py_INCREF(&Robj_Type);
++  PyModule_AddObject(m, Robj_Type.tp_name, 
++		     (PyObject *)&Robj_Type);
++
+   d = PyModule_GetDict(m);
+ 
+   /* Save this interpreter */
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Wed Jan  2 17:53:02 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Wed, 02 Jan 2008 09:53:02 -0800
+Subject: [Rpy] [ rpy-Patches-1417834 ] Numpy support
+Message-ID: <E1JA7m2-0004Qz-B1@sc8-sf-web21.sourceforge.net>
+
+Patches item #1417834, was opened at 2006-01-29 02:22
+Message generated for change (Settings changed) made by warnes
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1417834&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+>Status: Closed
+Resolution: Accepted
+Priority: 5
+Private: No
+Submitted By: Alexander Belopolsky (belopolsky)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Numpy support
+
+Initial Comment:
+Allows RPy use NumPy and fall back to Numeric if NumPy is not installed.
+
+
+----------------------------------------------------------------------
+
+Comment By: Gregory Warnes (warnes)
+Date: 2008-01-02 12:52
+
+Message:
+Logged In: YES 
+user_id=9316
+Originator: NO
+
+Applied some time ago.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1417834&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Wed Jan  2 17:52:05 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Wed, 02 Jan 2008 09:52:05 -0800
+Subject: [Rpy] [ rpy-Patches-1861673 ] Robj type not exported
+Message-ID: <E1JA7l7-0004LO-71@sc8-sf-web21.sourceforge.net>
+
+Patches item #1861673, was opened at 2008-01-01 08:42
+Message generated for change (Settings changed) made by warnes
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1861673&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+>Status: Closed
+>Resolution: Accepted
+Priority: 5
+Private: No
+Submitted By: lgautier (lgautier)
+>Assigned to: Gregory Warnes (warnes)
+Summary: Robj type not exported
+
+Initial Comment:
+The type Robj defined in rpymodule.c did not appear exported.
+
+After applying the patch attached, it becomes possible
+to do:
+
+import rpy
+rpy.Robj
+
+and get in return:
+<type 'Robj'>
+
+
+
+
+
+----------------------------------------------------------------------
+
+>Comment By: Gregory Warnes (warnes)
+Date: 2008-01-02 12:52
+
+Message:
+Logged In: YES 
+user_id=9316
+Originator: NO
+
+Thanks, patch applied.
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1861673&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Tue Jan  1 13:42:15 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Tue, 01 Jan 2008 05:42:15 -0800
+Subject: [Rpy] [ rpy-Patches-1861673 ] Robj type not exported
+Message-ID: <E1J9hNn-0006M7-Ku@sc8-sf-web22.sourceforge.net>
+
+Patches item #1861673, was opened at 2008-01-01 21:42
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1861673&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: lgautier (lgautier)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Robj type not exported
+
+Initial Comment:
+The type Robj defined in rpymodule.c did not appear exported.
+
+After applying the patch attached, it becomes possible
+to do:
+
+import rpy
+rpy.Robj
+
+and get in return:
+<type 'Robj'>
+
+
+
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1861673&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Wed Jan  2 17:52:34 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Wed, 02 Jan 2008 09:52:34 -0800
+Subject: [Rpy] [ rpy-Patches-1417834 ] Numpy support
+Message-ID: <E1JA7la-0004M0-TK@sc8-sf-web21.sourceforge.net>
+
+Patches item #1417834, was opened at 2006-01-29 02:22
+Message generated for change (Comment added) made by warnes
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1417834&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+>Resolution: Accepted
+Priority: 5
+Private: No
+Submitted By: Alexander Belopolsky (belopolsky)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Numpy support
+
+Initial Comment:
+Allows RPy use NumPy and fall back to Numeric if NumPy is not installed.
+
+
+----------------------------------------------------------------------
+
+>Comment By: Gregory Warnes (warnes)
+Date: 2008-01-02 12:52
+
+Message:
+Logged In: YES 
+user_id=9316
+Originator: NO
+
+Applied some time ago.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1417834&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at gmail.com  Thu Jan  3 19:54:09 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Thu, 03 Jan 2008 20:54:09 +0100
+Subject: [Rpy] back-compatibility for python
+Message-ID: <27d1e6020801031154n1623e4as4b0ba0324594b18f@mail.gmail.com>
+
+Hi,
+
+I am currently going into the details of rpy
+(and sending patches).
+
+I find that a number of things are a little oldish python-wise:
+a number of conditional definitions refer to a python version lower
+than 2.2.
+Is there interest in keeping back-compatibility that would go that far ?
+
+
+
+Laurent
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Thu Jan  3 22:03:10 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Thu, 03 Jan 2008 17:03:10 -0500
+Subject: Re: [Rpy] back-compatibility for python
+In-Reply-To: <27d1e6020801031154n1623e4as4b0ba0324594b18f@mail.gmail.com>
+References: <27d1e6020801031154n1623e4as4b0ba0324594b18f@mail.gmail.com>
+Message-ID: <013F2B09-A41C-471A-B081-976FC024E7C4@mac.com>
+
+
+Hi Laurent,
+
+I'm glad to see your contributions.  Robj, in particular, has needed  
+to be expanded to support all of the (appropriate) python operations  
+for some time.  Make sure and look at the stuff in /sandbox ...
+
+Since 2.2 was released Dec 2001, I expect that we can now drop  
+support for pre-2.2 without causing anyone too much trouble.
+
+-G
+
+
+On Jan 3, 2008, at 2:54PM , Laurent Gautier wrote:
+
+> Hi,
+>
+> I am currently going into the details of rpy
+> (and sending patches).
+>
+> I find that a number of things are a little oldish python-wise:
+> a number of conditional definitions refer to a python version lower
+> than 2.2.
+> Is there interest in keeping back-compatibility that would go that  
+> far ?
+>
+>
+>
+> Laurent
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Fri Jan  4 00:03:38 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Thu, 03 Jan 2008 19:03:38 -0500
+Subject: Re: [Rpy] error reading Rconsole
+In-Reply-To: <477C0E9A.7080504@lancaster.ac.uk>
+References: <477C0E9A.7080504@lancaster.ac.uk>
+Message-ID: <FAAC93B9-B8A2-462B-9EFE-2AA3DB26947C@mac.com>
+
+Hi Barry,
+
+Grab the latest SVN version of rpy.  I've added the ability to avoid  
+setting up reading and writing the console via rpy_options:
+
+	import rpy_options
+	rpy_options.set_options(SETUP_READ_CONSOLE=False,  
+SETUP_WRITE_CONSOLE=False, SETUP_SHOWFILES=False)
+	from rpy import *
+
+If that works, you'll need to add calls to
+
+	set_rpy_output(...)
+	set_rpy_input(...)
+	set_rpy_showfiles(...)
+
+to appropriate functions, perhaps
+
+	set_rpy_output( console_display_hook )
+
+would be enough.
+
+-G
+
+
+On Jan 2, 2008, at 5:22PM , Barry Rowlingson wrote:
+
+> Greg,
+>  that patch of yours doesn't work. I tried a few other things - no  
+> luck.
+>
+>  The Qgis code that initialises python is here:
+>
+> http://svn.qgis.org/api_doc/html/qgspythonutils_8cpp- 
+> source.html#l00036
+>
+>  anything in there look suspicious?
+>
+> Barry
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Fri Jan  4 00:16:04 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Thu, 03 Jan 2008 19:16:04 -0500
+Subject: Re: [Rpy] still cannot import rpy on XP
+In-Reply-To: <f5a8aca50712201921s15b12d3fue3e0322250338a1a@mail.gmail.com>
+References: <f5a8aca50712191904x33b388ev72e580e44f06f676@mail.gmail.com><C4741E55-9BDE-4D65-83D1-CCA72EB627E6@mac.com> <f5a8aca50712201921s15b12d3fue3e0322250338a1a@mail.gmail.com>
+Message-ID: <A3288513-3949-4D7F-99A6-C689541954D6@mac.com>
+
+Hmm.  Other folks (including myself) don't seem to be having a  
+problem with the new version.   Can you add a print statement into  
+the rpy.py file to make sure you are getting the one you are looking at?
+
+-G
+
+
+
+On Dec 20, 2007, at 10:21PM , Mario Beauchamp wrote:
+
+> Hi Gregory,
+>
+> On Dec 20, 2007 5:20 PM, Gregory Warnes <gregory.warnes at mac.com>  
+> wrote:
+>> Hi Mario,
+>>
+>> Can you check the python local packages directory to check the
+>> version of rpy that is actually getting installed.  I did have a
+>> small problem in the first version of the file I uploaded, but I
+>> thought that I had fixed it....
+>
+> Not sure what you are asking... if it's rpy_version.py, it's 1.0.1.
+> And the rpy.py is rev 387.
+> Let me know if you need more info.
+>
+> cheers
+> -- 
+> Mario B.
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at gmail.com  Fri Jan  4 16:15:43 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Fri, 04 Jan 2008 17:15:43 +0100
+Subject: Re: [Rpy] back-compatibility for python
+In-Reply-To: <013F2B09-A41C-471A-B081-976FC024E7C4@mac.com>
+References: <27d1e6020801031154n1623e4as4b0ba0324594b18f@mail.gmail.com> <013F2B09-A41C-471A-B081-976FC024E7C4@mac.com>
+Message-ID: <27d1e6020801040815p1438edcbm7c77335a6e4e278e@mail.gmail.com>
+
+Thanks. I currently have a bit of time for one side project
+(and the path is going through R and Python).
+
+What is exactly in /sandbox ? (complete rewrites breaking
+too many things ? else ?)
+All the commits are from one developper, shouldn't I get
+in touch with him to know what is in there ?
+
+Laurent
+
+
+2008/1/3, Gregory Warnes <gregory.warnes at mac.com>:
+>
+> Hi Laurent,
+>
+> I'm glad to see your contributions.  Robj, in particular, has needed
+> to be expanded to support all of the (appropriate) python operations
+> for some time.  Make sure and look at the stuff in /sandbox ...
+>
+> Since 2.2 was released Dec 2001, I expect that we can now drop
+> support for pre-2.2 without causing anyone too much trouble.
+>
+> -G
+>
+>
+> On Jan 3, 2008, at 2:54PM , Laurent Gautier wrote:
+>
+> > Hi,
+> >
+> > I am currently going into the details of rpy
+> > (and sending patches).
+> >
+> > I find that a number of things are a little oldish python-wise:
+> > a number of conditional definitions refer to a python version lower
+> > than 2.2.
+> > Is there interest in keeping back-compatibility that would go that
+> > far ?
+> >
+> >
+> >
+> > Laurent
+> >
+> > ----------------------------------------------------------------------
+> > ---
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio 2005.
+> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+
+-- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+=JPph
+-----END PGP SIGNATURE-----
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Fri Jan  4 03:20:07 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Thu, 03 Jan 2008 19:20:07 -0800
+Subject: [Rpy] [ rpy-Bugs-1852089 ] rpy build fails if tail -1 fails
+Message-ID: <E1JAd6N-0000eJ-Ir@sc8-sf-glue1.sourceforge.net>
+
+Bugs item #1852089, was opened at 2007-12-16 19:06
+Message generated for change (Comment added) made by sf-robot
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1852089&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Build
+Group: None
+>Status: Closed
+Resolution: Fixed
+Priority: 5
+Private: No
+Submitted By: Craig Citro (craigcitro)
+Assigned to: Gregory Warnes (warnes)
+Summary: rpy build fails if tail -1 fails
+
+Initial Comment:
+Hi,
+
+On some systems (such as mine), tail -1 produces an error, telling the user that this is deprecated, and that you should use tail -n 1 instead. This is used in rpy_tools.py, which causes rpy to not be able to find R at build time, and thus the build fails. It's a two-character fix (add 'n ' between - and 1), so I don't know if it's worth posting the file. 
+
+-cc
+
+----------------------------------------------------------------------
+
+>Comment By: SourceForge Robot (sf-robot)
+Date: 2008-01-03 19:20
+
+Message:
+Logged In: YES 
+user_id=1312539
+Originator: NO
+
+This Tracker item was closed automatically by the system. It was
+previously set to a Pending status, and the original submitter
+did not respond within 14 days (the time period specified by
+the administrator of this Tracker).
+
+----------------------------------------------------------------------
+
+Comment By: Gregory Warnes (warnes)
+Date: 2007-12-20 14:39
+
+Message:
+Logged In: YES 
+user_id=9316
+Originator: NO
+
+Fixed in svn.  Will be included in the next release.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1852089&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Thu Jan  3 19:30:17 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Thu, 03 Jan 2008 11:30:17 -0800
+Subject: [Rpy] [ rpy-Patches-1863375 ] Add slicing to instances of type 'Robj'
+Message-ID: <E1JAVlh-0007yy-6H@sc8-sf-web24.sourceforge.net>
+
+Patches item #1863375, was opened at 2008-01-04 03:29
+Message generated for change (Comment added) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: lgautier (lgautier)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Add slicing to instances of type 'Robj'
+
+Initial Comment:
+Add slicing capabilities to the type Robj
+(it implements the sequence protocol, and it was not
+implemented so far).
+
+The implementation is quite straightforward, and
+is a little nervous about 'non R-like' slices
+(negative index, etc): it fires Out-of-bound exception.
+I am planning to deal with them soon (since the slicing is in Python, not in R). 
+
+Unit tests are also missing (and will come with the complete implementation mentioned above).
+
+
+
+----------------------------------------------------------------------
+
+>Comment By: lgautier (lgautier)
+Date: 2008-01-04 03:30
+
+Message:
+Logged In: YES 
+user_id=1623918
+Originator: YES
+
+File Added: rpy_slice.patch
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Thu Jan  3 19:29:15 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Thu, 03 Jan 2008 11:29:15 -0800
+Subject: [Rpy] [ rpy-Patches-1863375 ] Add slicing to instances of type 'Robj'
+Message-ID: <E1JAVkh-0007rf-7e@sc8-sf-web24.sourceforge.net>
+
+Patches item #1863375, was opened at 2008-01-04 03:29
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: lgautier (lgautier)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Add slicing to instances of type 'Robj'
+
+Initial Comment:
+Add slicing capabilities to the type Robj
+(it implements the sequence protocol, and it was not
+implemented so far).
+
+The implementation is quite straightforward, and
+is a little nervous about 'non R-like' slices
+(negative index, etc): it fires Out-of-bound exception.
+I am planning to deal with them soon (since the slicing is in Python, not in R). 
+
+Unit tests are also missing (and will come with the complete implementation mentioned above).
+
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Fri Jan  4 18:37:24 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Fri, 04 Jan 2008 13:37:24 -0500
+Subject: Re: [Rpy] back-compatibility for python
+In-Reply-To: <27d1e6020801040815p1438edcbm7c77335a6e4e278e@mail.gmail.com>
+References: <27d1e6020801031154n1623e4as4b0ba0324594b18f@mail.gmail.com><013F2B09-A41C-471A-B081-976FC024E7C4@mac.com> <27d1e6020801040815p1438edcbm7c77335a6e4e278e@mail.gmail.com>
+Message-ID: <63BC2114-45FD-4EFE-AF53-9254BCF02163@mac.com>
+
+
+The stuff in sandbox was a donated code to implement the full object  
+protocol for Robj objects.  I've never really looked at the code, but  
+have hoped to finally get to it in the next couple of months.
+
+You are welcome to contact the developer.
+
+-G
+
+
+On Jan 4, 2008, at 11:15AM , Laurent Gautier wrote:
+
+> Thanks. I currently have a bit of time for one side project
+> (and the path is going through R and Python).
+>
+> What is exactly in /sandbox ? (complete rewrites breaking
+> too many things ? else ?)
+> All the commits are from one developper, shouldn't I get
+> in touch with him to know what is in there ?
+>
+> Laurent
+>
+>
+> 2008/1/3, Gregory Warnes <gregory.warnes at mac.com>:
+>>
+>> Hi Laurent,
+>>
+>> I'm glad to see your contributions.  Robj, in particular, has needed
+>> to be expanded to support all of the (appropriate) python operations
+>> for some time.  Make sure and look at the stuff in /sandbox ...
+>>
+>> Since 2.2 was released Dec 2001, I expect that we can now drop
+>> support for pre-2.2 without causing anyone too much trouble.
+>>
+>> -G
+>>
+>>
+>> On Jan 3, 2008, at 2:54PM , Laurent Gautier wrote:
+>>
+>>> Hi,
+>>>
+>>> I am currently going into the details of rpy
+>>> (and sending patches).
+>>>
+>>> I find that a number of things are a little oldish python-wise:
+>>> a number of conditional definitions refer to a python version lower
+>>> than 2.2.
+>>> Is there interest in keeping back-compatibility that would go that
+>>> far ?
+>>>
+>>>
+>>>
+>>> Laurent
+>>>
+>>> -------------------------------------------------------------------- 
+>>> --
+>>> ---
+>>> This SF.net email is sponsored by: Microsoft
+>>> Defy all challenges. Microsoft(R) Visual Studio 2005.
+>>> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+>>> _______________________________________________
+>>> rpy-list mailing list
+>>> rpy-list at lists.sourceforge.net
+>>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>
+>> --------------------------------------------------------------------- 
+>> ----
+>> This SF.net email is sponsored by: Microsoft
+>> Defy all challenges. Microsoft(R) Visual Studio 2005.
+>> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>
+>
+> -- 
+> -----BEGIN PGP SIGNATURE-----
+> Version: GnuPG v1.4.6 (GNU/Linux)
+>
+> iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+> 2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+> =JPph
+> -----END PGP SIGNATURE-----
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at gmail.com  Sat Jan  5 14:24:21 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Sat, 05 Jan 2008 22:24:21 +0800
+Subject: Re: [Rpy] back-compatibility for python
+In-Reply-To: <63BC2114-45FD-4EFE-AF53-9254BCF02163@mac.com>
+References: <27d1e6020801031154n1623e4as4b0ba0324594b18f@mail.gmail.com> <013F2B09-A41C-471A-B081-976FC024E7C4@mac.com> <27d1e6020801040815p1438edcbm7c77335a6e4e278e@mail.gmail.com> <63BC2114-45FD-4EFE-AF53-9254BCF02163@mac.com>
+Message-ID: <27d1e6020801050624k84b09fama6c1f12c20b4b8cd@mail.gmail.com>
+
+Hi Greg,
+
+I'll have a look at it and contact the author.
+It seems that some of the things I had in mind
+(and that I could not achieve, which draw me into looking at the
+current code base) could be going the same direction.
+
+I particular I was interested in avoiding the duplication of objects
+(and more or less suppress the need for the current "conversion"
+layer). You also mentionned something along those lines in your
+other email, if I get you right.
+
+Good ! There is nothing like generally converging ideas for a start !!!
+
+[I knew I would spend too much on this ;-) ]
+
+Laurent
+
+2008/1/5, Gregory Warnes <gregory.warnes at mac.com>:
+>
+> The stuff in sandbox was a donated code to implement the full object
+> protocol for Robj objects.  I've never really looked at the code, but
+> have hoped to finally get to it in the next couple of months.
+>
+> You are welcome to contact the developer.
+>
+> -G
+>
+>
+> On Jan 4, 2008, at 11:15AM , Laurent Gautier wrote:
+>
+> > Thanks. I currently have a bit of time for one side project
+> > (and the path is going through R and Python).
+> >
+> > What is exactly in /sandbox ? (complete rewrites breaking
+> > too many things ? else ?)
+> > All the commits are from one developper, shouldn't I get
+> > in touch with him to know what is in there ?
+> >
+> > Laurent
+> >
+> >
+> > 2008/1/3, Gregory Warnes <gregory.warnes at mac.com>:
+> >>
+> >> Hi Laurent,
+> >>
+> >> I'm glad to see your contributions.  Robj, in particular, has needed
+> >> to be expanded to support all of the (appropriate) python operations
+> >> for some time.  Make sure and look at the stuff in /sandbox ...
+> >>
+> >> Since 2.2 was released Dec 2001, I expect that we can now drop
+> >> support for pre-2.2 without causing anyone too much trouble.
+> >>
+> >> -G
+> >>
+> >>
+> >> On Jan 3, 2008, at 2:54PM , Laurent Gautier wrote:
+> >>
+> >>> Hi,
+> >>>
+> >>> I am currently going into the details of rpy
+> >>> (and sending patches).
+> >>>
+> >>> I find that a number of things are a little oldish python-wise:
+> >>> a number of conditional definitions refer to a python version lower
+> >>> than 2.2.
+> >>> Is there interest in keeping back-compatibility that would go that
+> >>> far ?
+> >>>
+> >>>
+> >>>
+> >>> Laurent
+> >>>
+> >>> --------------------------------------------------------------------
+> >>> --
+> >>> ---
+> >>> This SF.net email is sponsored by: Microsoft
+> >>> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> >>> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> >>> _______________________________________________
+> >>> rpy-list mailing list
+> >>> rpy-list at lists.sourceforge.net
+> >>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>
+> >>
+> >> ---------------------------------------------------------------------
+> >> ----
+> >> This SF.net email is sponsored by: Microsoft
+> >> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> >> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> >> _______________________________________________
+> >> rpy-list mailing list
+> >> rpy-list at lists.sourceforge.net
+> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>
+> >
+> >
+> > --
+> > -----BEGIN PGP SIGNATURE-----
+> > Version: GnuPG v1.4.6 (GNU/Linux)
+> >
+> > iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+> > 2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+> > =JPph
+> > -----END PGP SIGNATURE-----
+> >
+> > ----------------------------------------------------------------------
+> > ---
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio 2005.
+> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+
+-- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+=JPph
+-----END PGP SIGNATURE-----
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From zhangchipr at gmail.com  Sun Jan  6 11:23:43 2008
+From: zhangchipr at gmail.com (zhang chi)
+Date: Sun, 06 Jan 2008 19:23:43 +0800
+Subject: [Rpy] How can add-on packages be used in Rpy?
+Message-ID: <90c482ab0801060323h52ae9c1eqe9449bb860ea2b6b@mail.gmail.com>
+
+For example:
+I install a package like the following:
+
+R CMD INSTALL ~/kernlab_0.9-5.tar.gz
+
+I use this package like the following:
+
+library(kernlab)
+rbf <- rbfdot(sigma = 0.05)
+
+My questions is how I can use this package in Rpy environment?
+
+thank you very much.
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From b.rowlingson at lancaster.ac.uk  Sun Jan  6 11:34:40 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Sun, 06 Jan 2008 11:34:40 +0000
+Subject: Re: [Rpy] How can add-on packages be used in Rpy?
+In-Reply-To: <90c482ab0801060323h52ae9c1eqe9449bb860ea2b6b@mail.gmail.com>
+References: <90c482ab0801060323h52ae9c1eqe9449bb860ea2b6b@mail.gmail.com>
+Message-ID: <4780BCD0.1060204@lancaster.ac.uk>
+
+zhang chi wrote:
+> For example:
+> I install a package like the following:
+> 
+> R CMD INSTALL ~/kernlab_0.9-5.tar.gz
+> 
+> I use this package like the following:
+> 
+> library(kernlab)
+> rbf <- rbfdot(sigma = 
+> 0.05)
+> 
+> My questions is how I can use this package in Rpy environment?
+
+# start rpy:
+from rpy import r
+# load package:
+r.library("kernlab")
+# create object:
+rbd = r.rbfdot(sigma=0.05)
+# use R's print method to print it, since its an R object:
+r.print_(rbd)
+Gaussian Radial Basis kernel function.
+   Hyperparameter : sigma =  0.05
+
+  - basically a package can be loaded with r.library("foo"), and any 
+functions in a package can be run with r.bar(args) in the usual way.
+
+Barry
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From zhangchipr at gmail.com  Sun Jan  6 12:02:00 2008
+From: zhangchipr at gmail.com (zhang chi)
+Date: Sun, 06 Jan 2008 20:02:00 +0800
+Subject: Re: [Rpy] How can add-on packages be used in Rpy?
+In-Reply-To: <4780BCD0.1060204@lancaster.ac.uk>
+References: <90c482ab0801060323h52ae9c1eqe9449bb860ea2b6b@mail.gmail.com> <4780BCD0.1060204@lancaster.ac.uk>
+Message-ID: <90c482ab0801060402j6ca06aacnc2a2a9c74ae035de@mail.gmail.com>
+
+Thank you very much:)
+
+On Jan 6, 2008 7:34 PM, Barry Rowlingson <b.rowlingson at lancaster.ac.uk>
+wrote:
+
+> zhang chi wrote:
+> > For example:
+> > I install a package like the following:
+> >
+> > R CMD INSTALL ~/kernlab_0.9-5.tar.gz
+> >
+> > I use this package like the following:
+> >
+> > library(kernlab)
+> > rbf <- rbfdot(sigma =
+> > 0.05)
+> >
+> > My questions is how I can use this package in Rpy environment?
+>
+> # start rpy:
+> from rpy import r
+> # load package:
+> r.library("kernlab")
+> # create object:
+> rbd = r.rbfdot(sigma=0.05)
+> # use R's print method to print it, since its an R object:
+> r.print_(rbd)
+> Gaussian Radial Basis kernel function.
+>   Hyperparameter : sigma =  0.05
+>
+>  - basically a package can be loaded with r.library("foo"), and any
+> functions in a package can be run with r.bar(args) in the usual way.
+>
+> Barry
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From starged at gmail.com  Mon Jan  7 02:37:03 2008
+From: starged at gmail.com (Mario Beauchamp)
+Date: Sun, 06 Jan 2008 21:37:03 -0500
+Subject: Re: [Rpy] still cannot import rpy on XP
+In-Reply-To: <A3288513-3949-4D7F-99A6-C689541954D6@mac.com>
+References: <f5a8aca50712191904x33b388ev72e580e44f06f676@mail.gmail.com> <C4741E55-9BDE-4D65-83D1-CCA72EB627E6@mac.com> <f5a8aca50712201921s15b12d3fue3e0322250338a1a@mail.gmail.com> <A3288513-3949-4D7F-99A6-C689541954D6@mac.com>
+Message-ID: <f5a8aca50801061837v868fd74s963c095276f4b6a4@mail.gmail.com>
+
+Hi Gregory,
+
+On Jan 3, 2008 7:16 PM, Gregory Warnes <gregory.warnes at mac.com> wrote:
+> Hmm.  Other folks (including myself) don't seem to be having a
+> problem with the new version.   Can you add a print statement into
+> the rpy.py file to make sure you are getting the one you are looking at?
+
+Back to work... yes, rpy stuff is actually work for me :)
+
+I had stepped through rpy.py in pythonwin and everything was normal.
+It crashes pythonwin in the exec("import _rpy%s as _rpy" % RVER)
+statement, and RVER
+is the right one.
+
+I will investigate further tomorrow, when I'm on my XP box.
+
+cheers
+-- 
+Mario B.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From serpent.speak at gmail.com  Fri Jan  4 18:51:51 2008
+From: serpent.speak at gmail.com (The Parseltongue Project)
+Date: Fri, 04 Jan 2008 13:51:51 -0500
+Subject: Re: [Rpy] back-compatibility for python
+In-Reply-To: <63BC2114-45FD-4EFE-AF53-9254BCF02163@mac.com>
+References: <27d1e6020801031154n1623e4as4b0ba0324594b18f@mail.gmail.com> <013F2B09-A41C-471A-B081-976FC024E7C4@mac.com> <27d1e6020801040815p1438edcbm7c77335a6e4e278e@mail.gmail.com> <63BC2114-45FD-4EFE-AF53-9254BCF02163@mac.com>
+Message-ID: <d38f5330801041051k26309638ie3a37428f8729cd@mail.gmail.com>
+
+I am the developer who wrote that code.  It was a complete rewrite
+using a different paradigm.  I published the most recent version at
+http://serpent.speak.googlepages.com/.
+
+On Jan 4, 2008 1:37 PM, Gregory Warnes <gregory.warnes at mac.com> wrote:
+>
+> The stuff in sandbox was a donated code to implement the full object
+> protocol for Robj objects.  I've never really looked at the code, but
+> have hoped to finally get to it in the next couple of months.
+>
+> You are welcome to contact the developer.
+>
+> -G
+>
+>
+>
+> On Jan 4, 2008, at 11:15AM , Laurent Gautier wrote:
+>
+> > Thanks. I currently have a bit of time for one side project
+> > (and the path is going through R and Python).
+> >
+> > What is exactly in /sandbox ? (complete rewrites breaking
+> > too many things ? else ?)
+> > All the commits are from one developper, shouldn't I get
+> > in touch with him to know what is in there ?
+> >
+> > Laurent
+> >
+> >
+> > 2008/1/3, Gregory Warnes <gregory.warnes at mac.com>:
+> >>
+> >> Hi Laurent,
+> >>
+> >> I'm glad to see your contributions.  Robj, in particular, has needed
+> >> to be expanded to support all of the (appropriate) python operations
+> >> for some time.  Make sure and look at the stuff in /sandbox ...
+> >>
+> >> Since 2.2 was released Dec 2001, I expect that we can now drop
+> >> support for pre-2.2 without causing anyone too much trouble.
+> >>
+> >> -G
+> >>
+> >>
+> >> On Jan 3, 2008, at 2:54PM , Laurent Gautier wrote:
+> >>
+> >>> Hi,
+> >>>
+> >>> I am currently going into the details of rpy
+> >>> (and sending patches).
+> >>>
+> >>> I find that a number of things are a little oldish python-wise:
+> >>> a number of conditional definitions refer to a python version lower
+> >>> than 2.2.
+> >>> Is there interest in keeping back-compatibility that would go that
+> >>> far ?
+> >>>
+> >>>
+> >>>
+> >>> Laurent
+> >>>
+> >>> --------------------------------------------------------------------
+> >>> --
+> >>> ---
+> >>> This SF.net email is sponsored by: Microsoft
+> >>> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> >>> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> >>> _______________________________________________
+> >>> rpy-list mailing list
+> >>> rpy-list at lists.sourceforge.net
+> >>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>
+> >>
+> >> ---------------------------------------------------------------------
+> >> ----
+> >> This SF.net email is sponsored by: Microsoft
+> >> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> >> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> >> _______________________________________________
+> >> rpy-list mailing list
+> >> rpy-list at lists.sourceforge.net
+> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>
+> >
+> >
+> > --
+> > -----BEGIN PGP SIGNATURE-----
+> > Version: GnuPG v1.4.6 (GNU/Linux)
+> >
+> > iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+> > 2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+> > =JPph
+> > -----END PGP SIGNATURE-----
+> >
+> > ----------------------------------------------------------------------
+> > ---
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio 2005.
+> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> -------------------------------------------------------------------------
+>
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Mon Jan  7 15:16:56 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Mon, 07 Jan 2008 10:16:56 -0500
+Subject: Re: [Rpy] still cannot import rpy on XP
+In-Reply-To: <f5a8aca50801061837v868fd74s963c095276f4b6a4@mail.gmail.com>
+References: <f5a8aca50712191904x33b388ev72e580e44f06f676@mail.gmail.com><C4741E55-9BDE-4D65-83D1-CCA72EB627E6@mac.com><f5a8aca50712201921s15b12d3fue3e0322250338a1a@mail.gmail.com><A3288513-3949-4D7F-99A6-C689541954D6@mac.com> <f5a8aca50801061837v868fd74s963c095276f4b6a4@mail.gmail.com>
+Message-ID: <0CA4BA51-DDD2-4D09-9F4A-216D5CC3163C@mac.com>
+
+
+Hi Mario,
+
+> I had stepped through rpy.py in pythonwin and everything was normal.
+> It crashes pythonwin in the exec("import _rpy%s as _rpy" % RVER)
+> statement, and RVER
+> is the right one.
+>
+
+Oh dear.
+
+
+> I will investigate further tomorrow, when I'm on my XP box.
+>
+
+Ok, thanks.
+
+-G
+
+
+> cheers
+> --  
+> Mario B.
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2005.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From warnes at users.sourceforge.net  Mon Jan  7 16:01:23 2008
+From: warnes at users.sourceforge.net
+Date: Mon, 07 Jan 2008 08:01:23 -0800
+Subject: [Rpy] SF.net SVN: rpy: [395] trunk/rpy/tests/test_sigint.py
+Message-ID: <E1JBuPj-0004I2-10@sc8-pr-svn2.sourceforge.net>
+
+Revision: 395
+          http://rpy.svn.sourceforge.net/rpy/?rev=395&view=rev
+Author:   warnes
+Date:     2008-01-07 08:01:22 -0800 (Mon, 07 Jan 2008)
+
+Log Message:
+-----------
+Add 1 second sleep to interrupt test to allow time for interrupt delivery
+
+Modified Paths:
+--------------
+    trunk/rpy/tests/test_sigint.py
+
+Modified: trunk/rpy/tests/test_sigint.py
+===================================================================
+--- trunk/rpy/tests/test_sigint.py	2008-01-02 17:57:04 UTC (rev 394)
++++ trunk/rpy/tests/test_sigint.py	2008-01-07 16:01:22 UTC (rev 395)
+@@ -7,6 +7,7 @@
+ import sys
+ import os
+ import signal
++import time
+ 
+ 
+ def sendsig():
+@@ -15,6 +16,7 @@
+         raise KeyboardInterrupt
+     else:
+         os.kill(os.getpid(), signal.SIGINT)
++        time.sleep(1)
+ 
+ class SigintTestCase(unittest.TestCase):
+             
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From warnes at users.sourceforge.net  Mon Jan  7 16:03:17 2008
+From: warnes at users.sourceforge.net
+Date: Mon, 07 Jan 2008 08:03:17 -0800
+Subject: [Rpy] SF.net SVN: rpy: [396] trunk/rpy/src/rpymodule.c
+Message-ID: <E1JBuRZ-0004ke-71@sc8-pr-svn2.sourceforge.net>
+
+Revision: 396
+          http://rpy.svn.sourceforge.net/rpy/?rev=396&view=rev
+Author:   warnes
+Date:     2008-01-07 08:03:16 -0800 (Mon, 07 Jan 2008)
+
+Log Message:
+-----------
+Add ability to pass command-line argumnents to init_embedded_win32
+
+Modified Paths:
+--------------
+    trunk/rpy/src/rpymodule.c
+
+Modified: trunk/rpy/src/rpymodule.c
+===================================================================
+--- trunk/rpy/src/rpymodule.c	2008-01-07 16:01:22 UTC (rev 395)
++++ trunk/rpy/src/rpymodule.c	2008-01-07 16:03:16 UTC (rev 396)
+@@ -82,6 +82,8 @@
+ static char RVERSION[BUFSIZ];
+ static char RVER[BUFSIZ];
+ static char RUSER[BUFSIZ];
++char *defaultargv[] = {"rpy", "-q", "--vanilla"};
++int  defaultargc = sizeof(defaultargv) / sizeof(defaultargv[0]);
+ 
+ /* Global interpreter */
+ PyInterpreterState *my_interp;
+@@ -1803,7 +1805,9 @@
+ 
+ /* initialise embedded R; based on rproxy_impl.c from the R distribution */
+ static void
+-init_embedded_win32( void ) {
++init_embedded_win32(int argc, 
++		    char *argv[])
++{
+   structRstart rp;
+   Rstart Rp = &rp;
+   char Rversion[25];
+@@ -1856,7 +1860,7 @@
+   Rp->CommandLineArgs = NULL;
+   Rp->NumCommandLineArgs = 0;
+ #else
+-  R_set_command_line_arguments(0, NULL);
++  R_set_command_line_arguments(argc, argv);
+ #endif
+   R_SetParams(Rp); /* so R_ShowMessage is set */
+   R_SizeFromEnv(Rp);
+@@ -1875,7 +1879,6 @@
+   PyObject *m, *d;
+   PyOS_sighandler_t old_int;
+ #ifndef _WIN32
+-  char *defaultargv[] = {"rpy", "-q", "--vanilla"};
+   PyOS_sighandler_t old_usr1, old_usr2;
+ #endif
+   SEXP interact;
+@@ -1925,10 +1928,11 @@
+ #endif
+ 
+ #ifdef _WIN32
+-  init_embedded_win32();
++  init_embedded_win32(defaultargc,
++		      defaultargv);
+ #else
+-  Rf_initEmbeddedR( sizeof(defaultargv) / sizeof(defaultargv[0]),
+-                    defaultargv);
++  Rf_initEmbeddedR(defaultargc,
++                   defaultargv);
+ #endif
+ 
+ 
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From warnes at users.sourceforge.net  Mon Jan  7 17:16:11 2008
+From: warnes at users.sourceforge.net
+Date: Mon, 07 Jan 2008 09:16:11 -0800
+Subject: [Rpy] SF.net SVN: rpy: [397] trunk/rpy/src/rpymodule.c
+Message-ID: <E1JBva7-0003JI-J6@sc8-pr-svn2.sourceforge.net>
+
+Revision: 397
+          http://rpy.svn.sourceforge.net/rpy/?rev=397&view=rev
+Author:   warnes
+Date:     2008-01-07 09:16:11 -0800 (Mon, 07 Jan 2008)
+
+Log Message:
+-----------
+Correct mismatch between declaration and definition of init_embedded_win32
+
+Modified Paths:
+--------------
+    trunk/rpy/src/rpymodule.c
+
+Modified: trunk/rpy/src/rpymodule.c
+===================================================================
+--- trunk/rpy/src/rpymodule.c	2008-01-07 16:03:16 UTC (rev 396)
++++ trunk/rpy/src/rpymodule.c	2008-01-07 17:16:11 UTC (rev 397)
+@@ -62,7 +62,7 @@
+ static PyObject *r_cleanup(void);         /* Clean up R & release resources */
+ 
+ #ifdef _WIN32
+-static void init_embedded_win32( void );
++static void init_embedded_win32(int argc, char *argv[]);
+ #endif
+ 
+ /* Global objects */
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From gregory.warnes at mac.com  Mon Jan  7 17:32:34 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Mon, 07 Jan 2008 12:32:34 -0500
+Subject: Re: [Rpy] error reading Rconsole
+In-Reply-To: <4782540F.2020109@lancaster.ac.uk>
+References: <477C0E9A.7080504@lancaster.ac.uk> <FAAC93B9-B8A2-462B-9EFE-2AA3DB26947C@mac.com> <477DFA3F.4010108@lancaster.ac.uk> <8968A59A-B46C-439B-BC29-D040DBD83F0C@mac.com> <477E9BBD.1040407@lancaster.ac.uk> <7EC4E928-C6EF-46A2-92C8-8767B3EA7A51@mac.com> <477EBB6E.2030907@lancaster.ac.uk> <9150A0AF-6A52-4999-9C7F-5D33EBC059E9@mac.com> <4782540F.2020109@lancaster.ac.uk>
+Message-ID: <0303E1C3-43F2-4172-A025-559C43703771@mac.com>
+
+
+On Jan 7, 2008, at 11:32AM , Barry Rowlingson wrote:
+
+> Gregory Warnes wrote:
+>>>  Thanks for the help, not sure where to go now except maybe if  
+>>> rpy had an option to pass --no-Rconsole to R on startup...
+>> Rpy can pass anything we want to R, but as far as I can tell R  
+>> itself doesn't have an  --no-Rconsole option.
+>>
+>
+>  Not sure what version of R you are on, but help("Startup")  
+> disagrees with you (2.5.1 at least):
+>
+> #ifdef windows
+>   In Windows, it also implies \option{--no-Rconsole}, which
+>   prevents loading the \code{\link{Rconsole}} file.
+> #endif
+>
+>  Maybe you're reading the docs for the Unix version. I never  
+> realised .Rd files in the distribution were preprocessed for  
+> platform-specifics!
+>
+
+
+What fun.  It looks like
+
+	R --help
+
+on R is not up to date, since it doesn't mention this option.
+
+As it turns out, I just barely made a change to pass the same command  
+line arguments ( "-q", "--vanilla" ) to R on Win32 that are passed on  
+Unix systems.   According to help("Startup") "--vanilla" implies "-- 
+no-Rconsole" on Win32 so this may solve your problem.
+
+I'll forward you a test version of RPy with these changes applied in  
+a separate email.
+
+-G
+
+
+>  I've now got Duncan Murdoch and Brian Ripley in on the action...
+>
+> Barry
+
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From ross.lazarus at gmail.com  Mon Jan  7 19:26:40 2008
+From: ross.lazarus at gmail.com (Ross)
+Date: Mon, 07 Jan 2008 14:26:40 -0500
+Subject: [Rpy] unicode woes, or joys...
+Message-ID: <5f589c540801071126r68e336c2s589e55508cc39248@mail.gmail.com>
+
+Aha.
+I think I've just learned something interesting. It took me a while to
+figure out although everyone else may already know - pysqlite returns
+unicode strings from queries, which is not generally a problem - however,
+passing these directly as strings for titles and axes for plots in rpy is
+very bad for your sanity as it (at least in my hands) leads to (otherwise
+mysterious) segfaults - eg
+
+RHOME= /usr/local/lib64/R
+RVERSION= 2.4.1
+RVER= 2041
+RUSER= /home/rerla
+Loading Rpy version 2041 .. Done.
+Creating the R object 'r' ..  Done
+Error: segfault from C stack overflow
+Segmentation fault
+
+For my setup, a liberal dash of ascii re-encoding such as:
+rslist = [x.encode('ascii') for x in rslist]
+seems to make the nasty segfaults go away and pretty R graphs appear in
+their place.
+
+Anyone know how to handle this in a general way?
+
+Lots of people probably want unicode in their R plot headers. But, I wonder
+how many people have been burned by this? Could be useful in the docs
+somewhere?
+
+-- 
+python -c "foo = map(None,'moc.liamg at surazal.ssor'); foo.reverse(); print
+''.join(foo)"
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From starged at gmail.com  Mon Jan  7 20:01:28 2008
+From: starged at gmail.com (Mario Beauchamp)
+Date: Mon, 07 Jan 2008 15:01:28 -0500
+Subject: Re: [Rpy] still cannot import rpy on XP
+In-Reply-To: <0CA4BA51-DDD2-4D09-9F4A-216D5CC3163C@mac.com>
+References: <f5a8aca50712191904x33b388ev72e580e44f06f676@mail.gmail.com> <C4741E55-9BDE-4D65-83D1-CCA72EB627E6@mac.com> <f5a8aca50712201921s15b12d3fue3e0322250338a1a@mail.gmail.com> <A3288513-3949-4D7F-99A6-C689541954D6@mac.com> <f5a8aca50801061837v868fd74s963c095276f4b6a4@mail.gmail.com> <0CA4BA51-DDD2-4D09-9F4A-216D5CC3163C@mac.com>
+Message-ID: <f5a8aca50801071201m567e8001r771679ae41649ecd@mail.gmail.com>
+
+Hi Gregory,
+
+On Jan 7, 2008 10:16 AM, Gregory Warnes <gregory.warnes at mac.com> wrote:
+>
+> Hi Mario,
+>
+> > I had stepped through rpy.py in pythonwin and everything was normal.
+> > It crashes pythonwin in the exec("import _rpy%s as _rpy" % RVER)
+> > statement, and RVER is the right one.
+> >
+>
+> Oh dear.
+
+Hum, my fault... I had the old _rpy2051.pyd in the dir from where I
+was running my script.
+
+Everything is fine! Thanks for fixing it!
+
+And sorry for the noise...
+
+cheers
+-- 
+Mario B.
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From gregory.warnes at mac.com  Mon Jan  7 20:12:06 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Mon, 07 Jan 2008 15:12:06 -0500
+Subject: Re: [Rpy] still cannot import rpy on XP
+In-Reply-To: <f5a8aca50801071201m567e8001r771679ae41649ecd@mail.gmail.com>
+References: <f5a8aca50712191904x33b388ev72e580e44f06f676@mail.gmail.com><C4741E55-9BDE-4D65-83D1-CCA72EB627E6@mac.com><f5a8aca50712201921s15b12d3fue3e0322250338a1a@mail.gmail.com><A3288513-3949-4D7F-99A6-C689541954D6@mac.com><f5a8aca50801061837v868fd74s963c095276f4b6a4@mail.gmail.com><0CA4BA51-DDD2-4D09-9F4A-216D5CC3163C@mac.com> <f5a8aca50801071201m567e8001r771679ae41649ecd@mail.gmail.com>
+Message-ID: <FD7B44BD-C01E-4F66-AF3D-F3A90F198BF7@mac.com>
+
+Oh, thank goodness.  I'm glad it was an easy fix. :-D
+
+-G
+
+On Jan 7, 2008, at 3:01PM , Mario Beauchamp wrote:
+
+> Hi Gregory,
+>
+> On Jan 7, 2008 10:16 AM, Gregory Warnes <gregory.warnes at mac.com>  
+> wrote:
+>>
+>> Hi Mario,
+>>
+>>> I had stepped through rpy.py in pythonwin and everything was normal.
+>>> It crashes pythonwin in the exec("import _rpy%s as _rpy" % RVER)
+>>> statement, and RVER is the right one.
+>>>
+>>
+>> Oh dear.
+>
+> Hum, my fault... I had the old _rpy2051.pyd in the dir from where I
+> was running my script.
+>
+> Everything is fine! Thanks for fixing it!
+>
+> And sorry for the noise...
+>
+> cheers
+> -- 
+> Mario B.
+>
+> ---------------------------------------------------------------------- 
+> ---
+> Check out the new SourceForge.net Marketplace.
+> It's the best place to buy or sell services for
+> just about anything Open Source.
+> http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/ 
+> marketplace
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From zhangchipr at gmail.com  Tue Jan  8 02:07:44 2008
+From: zhangchipr at gmail.com (zhang chi)
+Date: Tue, 08 Jan 2008 10:07:44 +0800
+Subject: [Rpy] how to read a file in rpy environment?
+Message-ID: <90c482ab0801071807k863e8c7g38805215a6dd7602@mail.gmail.com>
+
+I have a file.
+The filename is test.txt
+
+Its contents is:
+Name Sex Age Height Weight
+Alice F 13 56.5 84.0
+Becka F 13 65.3 98.0
+Gail F 14 64.3 90.0
+Karen F 12 56.3 77.0
+Kathy F 12 59.8 84.5
+Mary F 15 66.5 112.0
+Sandy F 11 51.3 50.5
+Sharon F 15 62.5 112.5
+Tammy F 14 62.8 102.5
+Alfred M 14 69.0 112.5
+Duke M 14 63.5 102.5
+Guido M 15 67.0 133.0
+James M 12 57.3 83.0
+Jeffrey M 13 62.5 84.0
+John M 12 59.0 99.5
+Philip M 16 72.0 150.0
+Robert M 12 64.8 128.0
+Thomas M 11 57.5 85.0
+William M 15 66.5 112.0
+
+
+I use :
+from rpy import r
+rt = r.read.table("test.txt", head = TRUE)
+but I can't read this file.
+
+how to read this file?
+
+thank you very much
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From jv at climpact.com  Tue Jan  8 07:34:12 2008
+From: jv at climpact.com (jul)
+Date: Tue, 08 Jan 2008 08:34:12 +0100
+Subject: Re: [Rpy] how to read a file in rpy environment?
+In-Reply-To: <90c482ab0801071807k863e8c7g38805215a6dd7602@mail.gmail.com>
+References: <90c482ab0801071807k863e8c7g38805215a6dd7602@mail.gmail.com>
+Message-ID: <47832774.8090504@climpact.com>
+
+
+> I use :
+> from rpy import r
+> rt = r.read.table("test.txt", head = TRUE)
+> but I can't read this file.
+
+Hi,
+You should try "r.read_table" instead.
+As "." has a specific meaning  in Python, you have to replace R dots by underscores.
+
+Jul.
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From lgautier at gmail.com  Tue Jan  8 07:47:06 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Tue, 08 Jan 2008 08:47:06 +0100
+Subject: Re: [Rpy] unicode woes, or joys...
+In-Reply-To: <5f589c540801071126r68e336c2s589e55508cc39248@mail.gmail.com>
+References: <5f589c540801071126r68e336c2s589e55508cc39248@mail.gmail.com>
+Message-ID: <27d1e6020801072347v338e5cd5v451dd25e4d1a8978@mail.gmail.com>
+
+Crashes with unicode labels in plots was reported as a problem
+with R-2.3 to R-2.5.
+It appears fixed with the R-2.6.1 I have here.
+
+As I agree that it would make sense to have this written somewhere
+(like in a section about known problems), but the easiest fix seems to
+update R.
+
+
+Hoping this helps,
+
+
+L.
+
+
+2008/1/7, Ross <ross.lazarus at gmail.com>:
+> Aha.
+> I think I've just learned something interesting. It took me a while to
+> figure out although everyone else may already know - pysqlite returns
+> unicode strings from queries, which is not generally a problem - however,
+> passing these directly as strings for titles and axes for plots in rpy is
+> very bad for your sanity as it (at least in my hands) leads to (otherwise
+> mysterious) segfaults - eg
+>
+> RHOME= /usr/local/lib64/R
+> RVERSION= 2.4.1
+> RVER= 2041
+> RUSER= /home/rerla
+> Loading Rpy version 2041 .. Done.
+> Creating the R object 'r' ..  Done
+> Error: segfault from C stack overflow
+> Segmentation fault
+>
+> For my setup, a liberal dash of ascii re-encoding such as:
+> rslist = [x.encode('ascii') for x in rslist]
+> seems to make the nasty segfaults go away and pretty R graphs appear in
+> their place.
+>
+> Anyone know how to handle this in a general way?
+>
+> Lots of people probably want unicode in their R plot headers. But, I wonder
+> how many people have been burned by this? Could be useful in the docs
+> somewhere?
+>
+> --
+> python -c "foo = map(None,' moc.liamg at surazal.ssor'); foo.reverse(); print
+> ''.join(foo)"
+>
+> -------------------------------------------------------------------------
+> Check out the new SourceForge.net Marketplace.
+> It's the best place to buy or sell services for
+> just about anything Open Source.
+> http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+
+-- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+=JPph
+-----END PGP SIGNATURE-----
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From gregory.warnes at mac.com  Tue Jan  8 16:28:49 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Tue, 08 Jan 2008 11:28:49 -0500
+Subject: Re: [Rpy] unicode woes, or joys...
+In-Reply-To: <27d1e6020801072347v338e5cd5v451dd25e4d1a8978@mail.gmail.com>
+References: <5f589c540801071126r68e336c2s589e55508cc39248@mail.gmail.com> <27d1e6020801072347v338e5cd5v451dd25e4d1a8978@mail.gmail.com>
+Message-ID: <7FB92F0A-DC9E-4AF6-BEA2-E5316A225AAC@mac.com>
+
+
+There was also a bug in RPy's handling of unicode strings until 1.0,  
+so make sure you have a recent version of RPy as well.
+
+-G
+
+
+On Jan 8, 2008, at 2:47AM , Laurent Gautier wrote:
+
+> Crashes with unicode labels in plots was reported as a problem
+> with R-2.3 to R-2.5.
+> It appears fixed with the R-2.6.1 I have here.
+>
+> As I agree that it would make sense to have this written somewhere
+> (like in a section about known problems), but the easiest fix seems to
+> update R.
+>
+>
+> Hoping this helps,
+>
+>
+> L.
+>
+>
+> 2008/1/7, Ross <ross.lazarus at gmail.com>:
+>> Aha.
+>> I think I've just learned something interesting. It took me a  
+>> while to
+>> figure out although everyone else may already know - pysqlite returns
+>> unicode strings from queries, which is not generally a problem -  
+>> however,
+>> passing these directly as strings for titles and axes for plots in  
+>> rpy is
+>> very bad for your sanity as it (at least in my hands) leads to  
+>> (otherwise
+>> mysterious) segfaults - eg
+>>
+>> RHOME= /usr/local/lib64/R
+>> RVERSION= 2.4.1
+>> RVER= 2041
+>> RUSER= /home/rerla
+>> Loading Rpy version 2041 .. Done.
+>> Creating the R object 'r' ..  Done
+>> Error: segfault from C stack overflow
+>> Segmentation fault
+>>
+>> For my setup, a liberal dash of ascii re-encoding such as:
+>> rslist = [x.encode('ascii') for x in rslist]
+>> seems to make the nasty segfaults go away and pretty R graphs  
+>> appear in
+>> their place.
+>>
+>> Anyone know how to handle this in a general way?
+>>
+>> Lots of people probably want unicode in their R plot headers. But,  
+>> I wonder
+>> how many people have been burned by this? Could be useful in the docs
+>> somewhere?
+>>
+>> --
+>> python -c "foo = map(None,' moc.liamg at surazal.ssor'); foo.reverse 
+>> (); print
+>> ''.join(foo)"
+>>
+>> --------------------------------------------------------------------- 
+>> ----
+>> Check out the new SourceForge.net Marketplace.
+>> It's the best place to buy or sell services for
+>> just about anything Open Source.
+>> http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/ 
+>> marketplace
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>
+>
+>
+> -- 
+> -----BEGIN PGP SIGNATURE-----
+> Version: GnuPG v1.4.6 (GNU/Linux)
+>
+> iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+> 2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+> =JPph
+> -----END PGP SIGNATURE-----
+>
+> ---------------------------------------------------------------------- 
+> ---
+> Check out the new SourceForge.net Marketplace.
+> It's the best place to buy or sell services for
+> just about anything Open Source.
+> http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/ 
+> marketplace
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From gregory.warnes at mac.com  Tue Jan  8 20:02:37 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Tue, 08 Jan 2008 15:02:37 -0500
+Subject: Re: [Rpy] R/Rpy/Qgis RConsole problem
+In-Reply-To: <4783AED6.2000209@lancaster.ac.uk>
+References: <4783AED6.2000209@lancaster.ac.uk>
+Message-ID: <963488CF-5B56-4255-AF09-15E1C0397280@mac.com>
+
+
+Thats odd.  If you've got the setup to compile RPy, you might try  
+adding an explicit "--no-Rconsole" argument to the variable  
+"defaultargv" at the top of src/rpymodule.c and see if that makes a  
+difference for the 'out of the box' R.
+
+-G
+
+On Jan 8, 2008, at 12:11PM , Barry Rowlingson wrote:
+
+> Hi guys,
+>
+>  I just compiled R 2.6.1 from scratch with the plan of doing some  
+> debugging in preferences.c and opt.c.
+>
+>  Eventually got R compiled with all the tools and so on. Couldn't  
+> get the installer to build (because it insisted on trying to copy a  
+> pdf file to the installer dir even though I thought I'd specified  
+> MkRules to not bother with html and pdf - further details available  
+> if you care) so I copied the build dir to c:\program files\r 
+> \r-2.6.1 after renaming my old 2.6.1 into r-2.6.1-orig.
+>
+>  Fire up python, from rpy import r, works fine. Fire up qgis, fire  
+> up python shell, from rpy import r - *no error*. Stick a syntax  
+> error into Rconsole and try again, this time get an error on the  
+> bad line as expected.
+>
+>  So whatever I've done to build my R, it's not got the bug. It's  
+> reading Rconsole including the blank lines and items it barfed on  
+> before. I've just double-checked by renaming the -orig back to  
+> R-2.6.1 and it's back to its old failing ways.
+>
+>  I pretty much went by the book:
+>
+>  http://cran.r-project.org/doc/manuals/R-admin.html
+> and
+>  http://www.murdoch-sutherland.com/Rtools/Rtools.txt
+>
+>  except I didn't bother with LaTeX, or MS help.
+>
+>  Let me know if you want to see any config files or other info.  
+> Everything from R seems identical: capabilities(), .Platform,  
+> R.version, Sys.info(), options()...
+>
+>  Barry
+
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From ross.lazarus at gmail.com  Tue Jan  8 21:08:10 2008
+From: ross.lazarus at gmail.com (Ross)
+Date: Tue, 08 Jan 2008 16:08:10 -0500
+Subject: Re: [Rpy] rpy-list Digest, Vol 20, Issue 5
+In-Reply-To: <mailman.969664.1199778429.7786.rpy-list@lists.sourceforge.net>
+References: <mailman.969664.1199778429.7786.rpy-list@lists.sourceforge.net>
+Message-ID: <5f589c540801081308n39227470sfe216290c859936e@mail.gmail.com>
+
+Thanks for the response - yes, agreed - no point fixing it if it ain't broke
+on the current release of R - I'll upgrade R on the target machine.
+
+
+> Message: 8
+> Date: Tue, 8 Jan 2008 08:47:06 +0100
+> From: "Laurent Gautier" <lgautier at gmail.com>
+> Subject: Re: [Rpy] unicode woes, or joys...
+> To: "RPy help,  support and design discussion list"
+>        <rpy-list at lists.sourceforge.net>
+> Message-ID:
+>        <27d1e6020801072347v338e5cd5v451dd25e4d1a8978 at mail.gmail.com>
+> Content-Type: text/plain; charset=ISO-8859-1
+>
+> Crashes with unicode labels in plots was reported as a problem
+> with R-2.3 to R-2.5.
+> It appears fixed with the R-2.6.1 I have here.
+>
+> As I agree that it would make sense to have this written somewhere
+> (like in a section about known problems), but the easiest fix seems to
+> update R.
+>
+>
+> Hoping this helps,
+>
+>
+> L.
+>
+>
+> 2008/1/7, Ross <ross.lazarus at gmail.com>:
+> > Aha.
+> > I think I've just learned something interesting. It took me a while to
+> > figure out although everyone else may already know - pysqlite returns
+> > unicode strings from queries, which is not generally a problem -
+> however,
+> > passing these directly as strings for titles and axes for plots in rpy
+> is
+> > very bad for your sanity as it (at least in my hands) leads to
+> (otherwise
+> > mysterious) segfaults - eg
+> >
+> > RHOME= /usr/local/lib64/R
+> > RVERSION= 2.4.1
+> > RVER= 2041
+> > RUSER= /home/rerla
+> > Loading Rpy version 2041 .. Done.
+> > Creating the R object 'r' ..  Done
+> > Error: segfault from C stack overflow
+> > Segmentation fault
+> >
+> > For my setup, a liberal dash of ascii re-encoding such as:
+> > rslist = [x.encode('ascii') for x in rslist]
+> > seems to make the nasty segfaults go away and pretty R graphs appear in
+> > their place.
+> >
+> > Anyone know how to handle this in a general way?
+> >
+> > Lots of people probably want unicode in their R plot headers. But, I
+> wonder
+> > how many people have been burned by this? Could be useful in the docs
+> > somewhere?
+>
+
+-- 
+python -c "foo = map(None,'moc.liamg at surazal.ssor'); foo.reverse(); print
+''.join(foo)"
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From zhangchipr at gmail.com  Wed Jan  9 09:01:49 2008
+From: zhangchipr at gmail.com (zhang chi)
+Date: Wed, 09 Jan 2008 17:01:49 +0800
+Subject: [Rpy] How to use summary command in Rpy?
+Message-ID: <90c482ab0801090101s4ac9fb06u463ae29ed0832077@mail.gmail.com>
+
+I write three line porgram as following:
+rt = r.read_table("exam0203.txt", header=1)
+lm_sol = r.lm("Weight ~ Height", data = rt)
+r.summary(lm_sol)
+
+the first line is to read a file
+the second line is to make a linear regression
+the third line is to display the content of variate lm_sol
+
+but there is nothing to display.   why?????
+
+thank you very much
+
+the R command is the following
+rt <- read.table("exam0203.txt", head=TRUE)
+lm.sol <- lm(Weight~Height, data = rt)
+summary(lm.sol)
+
+the file content is:
+Name Sex Age Height Weight
+Alice F 13 56.5 84.0
+Becka F 13 65.3 98.0
+Gail F 14 64.3 90.0
+Karen F 12 56.3 77.0
+Kathy F 12 59.8 84.5
+Mary F 15 66.5 112.0
+Sandy F 11 51.3 50.5
+Sharon F 15 62.5 112.5
+Tammy F 14 62.8 102.5
+Alfred M 14 69.0 112.5
+Duke M 14 63.5 102.5
+Guido M 15 67.0 133.0
+James M 12 57.3 83.0
+Jeffrey M 13 62.5 84.0
+John M 12 59.0 99.5
+Philip M 16 72.0 150.0
+Robert M 12 64.8 128.0
+Thomas M 11 57.5 85.0
+William M 15 66.5 112.0
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From b.rowlingson at lancaster.ac.uk  Wed Jan  9 10:47:07 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Wed, 09 Jan 2008 10:47:07 +0000
+Subject: Re: [Rpy] How to use summary command in Rpy?
+In-Reply-To: <90c482ab0801090101s4ac9fb06u463ae29ed0832077@mail.gmail.com>
+References: <90c482ab0801090101s4ac9fb06u463ae29ed0832077@mail.gmail.com>
+Message-ID: <4784A62B.1000902@lancaster.ac.uk>
+
+zhang chi wrote:
+> I write three line porgram as following:
+> rt = r.read_table("exam0203.txt", header=1)
+> lm_sol = r.lm("Weight ~ Height", data = rt)
+> r.summary(lm_sol)
+> 
+> the first line is to read a file
+> the second line is to make a linear regression
+> the third line is to display the content of variate lm_sol
+> 
+> but there is nothing to display.   why?????
+
+  Try each line one at a time in the Python console and you might see 
+something. I see this:
+
+
+  >>> lm_sol = r.lm("Weight ~ Height", data = rt)
+Traceback (most recent call last):
+   File "<stdin>", line 1, in <module>
+rpy.RException: Error in terms.default(formula, data = data) :
+         no terms component
+
+
+  - so its the lm that is failing and not the summary.
+
+  You need to make your formula into a formula, because otherwise R 
+thinks it's a character string. Just wrap it in a r() call:
+
+  >>> lm_sol = r.lm(r("Weight ~ Height"), data = rt)
+
+  You're eventually going to have to play with the conversion mode too, 
+just read this handy guide to doing regressions in Rpy:
+
+http://www2.warwick.ac.uk/fac/sci/moac/currentstudents/peter_cock/python/lin_reg/
+
+Barry
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From lorenzo.isella at gmail.com  Fri Jan 11 10:06:29 2008
+From: lorenzo.isella at gmail.com (Lorenzo Isella)
+Date: Fri, 11 Jan 2008 11:06:29 +0100
+Subject: [Rpy] Strange Exception with Rpy
+Message-ID: <a2b3004b0801110206if5b774ai932532efeb001431@mail.gmail.com>
+
+Dear All,
+I am quite a beginner with Rpy, but I have started using it in
+conjunction with SciPy on the Python side.
+Now, I am a bit puzzled since the same code is running without any
+problem on my Debian testing laptop whereas it breaks down on my
+Fedora Core 5 box.
+True, FC5 has a the previous SciPy release, but the problem seems to
+be on the R/Rpy side (most likely I am doing something wrong).
+The Rpy script I am using relies on the igraph R library to study the
+connected components in a graph.
+It is not a long script and I include it directly in the following:
+
+#!/usr/bin/R
+library(igraph)
+
+ distance=function(x){
+#f=dist(x,method="euclidean")
+f=dist(x,method="euclidean", p=3)
+
+my_dist=as.matrix(f)
+return(my_dist)
+}
+
+mycluster = function(dist_mat,d){
+  #where x has to be the distance matrix! I will use it to generate a graph
+my_g=graph.adjacency(dist_mat<=d,mode="undirected")
+my_g=simplify(my_g)
+nc=no.clusters(my_g)
+nc=as.matrix(nc)
+cluster_comp=clusters(my_g)$csize
+cluster_comp=as.matrix(cluster_comp)
+cluster_comp=rbind(nc,cluster_comp)
+#print("the dimensions are")
+#print(dim(cluster_comp))
+#I have to turn everything into a matrix for SciPy!!!!!
+return(cluster_comp)
+}
+
+Then there is the bit in my Python code where the R functions are
+called (the R script is saved as cluster_functions.R and there is at
+the beginning of the Python code the statement
+import scipy as s):
+
+	#Now I try loading the R script
+	
+	r.source("cluster_functions.R")
+
+	#I now calculate the number of clusters in each configuration
+
+	n_clusters=s.zeros(n_config)
+#	min_dist=s.zeros(n_config)
+	dist_mat=s.zeros((n_part,n_part))
+	for i in xrange(0,n_config):
+		test_arr=tot_config[i,:]
+		test_arr=s.reshape(test_arr,(n_part,3))
+# 		if (i==14):
+# 			p.save("test_14.dat",test_arr)
+		#dist_mat=r.distance(test_arr)
+		x_pos=x_arr[i,:]
+		y_pos=y_arr[i,:]
+		z_pos=z_arr[i,:]
+		dist_mat=d_calc.distance_calc(x_pos,y_pos,z_pos, box_size)
+# 		if (i==71):
+# 			p.save("distance_matrix_71.dat",dist_mat)
+# 			p.save("x_pos_71.dat",x_pos)
+
+
+		
+                clust_struc= (r.mycluster(dist_mat,threshold))
+#                print'clust_struct is, ', clust_struc
+# 		n_clusters[i]=r.mycluster(dist_mat,threshold)
+
+
+                n_clusters[i]=clust_struc[0]
+#		print 'the shape of cluster_struct is, ',s.shape(clust_struc)
+                #dist_mat=s.where(dist_mat==0.,1000.,dist_mat)
+#		min_dist[i]=(s.ravel(dist_mat)).min()
+
+
+                #print 'The cluster distribution is, ', clust_struc[1:,0]
+                #save the cluster size
+		cluster_name="cluster_dist%05d"%i
+		p.save(cluster_name,clust_struc[1:,0])
+
+# 	print 'the evolution of the number of clusters is, ', n_clusters
+
+	p.save("number_cluster.dat",n_clusters)
+
+
+And finally, this is the output I get:
+
+Traceback (most recent call last):
+  File "./plot_statistics.py", line 749, in ?
+    clust_struc= (r.mycluster(dist_mat,threshold)) #a cumbersome
+rpy.RException: Error in as.matrix(adjmatrix) : (list) object cannot
+be coerced to 'double'
+
+Exception in thread Thread-1 (most likely raised during interpreter shutdown):
+Traceback (most recent call last):
+  File "/usr/lib/python2.4/threading.py", line 442, in __bootstrap
+  File "/usr/lib/python2.4/threading.py", line 422, in run
+  File "/usr/lib/python2.4/site-packages/rpy.py", line 112, in r_eventloop
+exceptions.AttributeError: 'NoneType' object has no attribute 'isSet'
+
+The problems seems to be the matrix I am creating to return the
+results of the igraph package.
+Basically, nc is a scalar (number of clusters) and
+cluster_comp=as.matrix(cluster_comp) is a sequence containing the
+number of particles in each cluster e.g.:
+nc=4 ---->4 clusters
+cluster_comp= 1 5 7 19   ----> number of particles in each cluster
+and then I want to stitch them together in a way that can be
+manipulated as a scipy array.
+Sorry for the long post, but this exception does not exist on my
+Debian testing box, so I had to describe it in detail.
+Any help is really appreciated.
+Many thanks
+
+Lorenzo
+
+-------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It's the best place to buy or sell services for
+just about anything Open Source.
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketplace
+
+From mendes.richard at gmail.com  Tue Jan 15 18:38:25 2008
+From: mendes.richard at gmail.com (richard mendes)
+Date: Tue, 15 Jan 2008 19:38:25 +0100
+Subject: [Rpy] Fwd: R while loop
+In-Reply-To: <5c5fa360801150832j39a50146m68606fb98aabbb96@mail.gmail.com>
+References: <5c5fa360801150832j39a50146m68606fb98aabbb96@mail.gmail.com>
+Message-ID: <5c5fa360801151038g2df03bcdh83076ce0f269b35e@mail.gmail.com>
+
+Hello Rpy users,
+
+Probably a very simple question but i couldn't find the answer in the
+documentation.
+i have a r script which uses a while loop, how should i execute this in rpy
+?
+
+the script looks like:
+
+i<-1
+
+while (i <= length(groups) ) {
+               png(file=sprintf('MAplot%03d.png', i), width=600, height=600)
+               MAplot(rawAffyData, pairs=TRUE, plot.method='smoothScatter'
+which=groups[[i]])
+               dev.off()
+               i<-i+1 }
+
+if i normally run this in a r terminal everything will go fine but
+running it from rpy line by line will give a error.
+
+any help would be greatly appreciated,
+
+Richard
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From sdavis2 at mail.nih.gov  Tue Jan 15 18:51:23 2008
+From: sdavis2 at mail.nih.gov (Sean Davis)
+Date: Tue, 15 Jan 2008 13:51:23 -0500
+Subject: Re: [Rpy] Fwd: R while loop
+In-Reply-To: <5c5fa360801151038g2df03bcdh83076ce0f269b35e@mail.gmail.com>
+References: <5c5fa360801150832j39a50146m68606fb98aabbb96@mail.gmail.com> <5c5fa360801151038g2df03bcdh83076ce0f269b35e@mail.gmail.com>
+Message-ID: <264855a00801151051r2a9bd015o38b03279b9caaa71@mail.gmail.com>
+
+On Jan 15, 2008 1:38 PM, richard mendes <mendes.richard at gmail.com> wrote:
+
+>
+> Hello Rpy users,
+>
+> Probably a very simple question but i couldn't find the answer in the
+> documentation.
+> i have a r script which uses a while loop, how should i execute this in
+> rpy ?
+>
+> the script looks like:
+>
+> i<-1
+>
+> while (i <= length(groups) ) {
+>                png(file=sprintf('MAplot%03d.png', i), width=600,
+> height=600)
+>                MAplot(rawAffyData, pairs=TRUE, plot.method='smoothScatter'
+> which=groups[[i]])
+>                dev.off()
+>                i<-i+1 }
+>
+> if i normally run this in a r terminal everything will go fine but
+> running it from rpy line by line will give a error.
+>
+
+Hi, Richard.
+
+What error are you getting?  And what is the python code that you are using?
+
+Sean
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From mendes.richard at gmail.com  Tue Jan 15 19:03:43 2008
+From: mendes.richard at gmail.com (richard mendes)
+Date: Tue, 15 Jan 2008 20:03:43 +0100
+Subject: Re: [Rpy] Fwd: R while loop
+In-Reply-To: <264855a00801151051r2a9bd015o38b03279b9caaa71@mail.gmail.com>
+References: <5c5fa360801150832j39a50146m68606fb98aabbb96@mail.gmail.com> <5c5fa360801151038g2df03bcdh83076ce0f269b35e@mail.gmail.com> <264855a00801151051r2a9bd015o38b03279b9caaa71@mail.gmail.com>
+Message-ID: <5c5fa360801151103q3960e88buac66e6535809b070@mail.gmail.com>
+
+Hello Sean,
+The code that i was using was simply pasting the same code in python.
+r("i<-1")  # i should use the attach statement i think
+r("while (i <= length(groups) ) {")
+r("png(file=sprintf('MAplot%03d.png', i), width=600, height=600)")
+r("MAplot(rawAffyData, pairs=TRUE, plot.method='smoothScatter'
+which=groups[[i]])")
+r("dev.off()")
+r("i<-i+1 }")
+
+But i expect that using rpy in such a way is completely wrong. I'm just
+testing what can be done by rpy
+Currently they have rserve running on a server that connects several app's
+to R. The only problem is that i couldn't
+find a interface between python and rserve.
+
+Besides the lack of the interface, rserve caused a lot of maintenance
+problems so i suggested to look further into rpy as
+interface between the apps and R.
+
+I can't give you the exact error because i'm not in the office now but i
+think it was something about ''unsubscribe error'' and it gave the first
+line till { between brackets.
+
+Hope this helps,
+
+Thanks
+
+Richard
+
+ps: if you need the exact error i will post it tomorrow ( for me :) )
+
+
+
+
+
+On Jan 15, 2008 7:51 PM, Sean Davis <sdavis2 at mail.nih.gov> wrote:
+
+>
+>
+> On Jan 15, 2008 1:38 PM, richard mendes <mendes.richard at gmail.com> wrote:
+>
+> >
+> > Hello Rpy users,
+> >
+> > Probably a very simple question but i couldn't find the answer in the
+> > documentation.
+> > i have a r script which uses a while loop, how should i execute this in
+> > rpy ?
+> >
+> > the script looks like:
+> >
+> > i<-1
+> >
+> > while (i <= length(groups) ) {
+> >                png(file=sprintf('MAplot%03d.png', i), width=600,
+> > height=600)
+> >                MAplot(rawAffyData, pairs=TRUE,
+> > plot.method='smoothScatter' which=groups[[i]])
+> >                dev.off()
+> >                i<-i+1 }
+> >
+> > if i normally run this in a r terminal everything will go fine but
+> > running it from rpy line by line will give a error.
+> >
+>
+> Hi, Richard.
+>
+> What error are you getting?  And what is the python code that you are
+> using?
+>
+> Sean
+>
+>
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From b.rowlingson at lancaster.ac.uk  Tue Jan 15 19:20:09 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Tue, 15 Jan 2008 19:20:09 +0000
+Subject: Re: [Rpy] Fwd: R while loop
+In-Reply-To: <5c5fa360801151103q3960e88buac66e6535809b070@mail.gmail.com>
+References: <5c5fa360801150832j39a50146m68606fb98aabbb96@mail.gmail.com> <5c5fa360801151038g2df03bcdh83076ce0f269b35e@mail.gmail.com> <264855a00801151051r2a9bd015o38b03279b9caaa71@mail.gmail.com> <5c5fa360801151103q3960e88buac66e6535809b070@mail.gmail.com>
+Message-ID: <478D0769.7050205@lancaster.ac.uk>
+
+richard mendes wrote:
+> Hello Sean,
+> The code that i was using was simply pasting the same code in python.
+> r("i<-1")  # i should use the attach statement i think
+> r("while (i <= length(groups) ) {")
+> r("png(file=sprintf('MAplot%03d.png', i), width=600, height=600)")
+> r("MAplot(rawAffyData, pairs=TRUE, plot.method='smoothScatter'
+> which=groups[[i]])")
+> r("dev.off()")
+> r("i<-i+1 }")
+> 
+> But i expect that using rpy in such a way is completely wrong. I'm just
+> testing what can be done by rpy
+
+Options:
+
+  * Try sticking all your string commands in one long string and running 
+it all at once.
+
+  >>> loop="i=0;while(i<10){i=i+1}"
+  >>> r(loop)
+  10.0
+
+  * Write your loop in Python, and only call png and MAplot using Rpy. 
+You'll learn how to pass variables between python and R too!
+
+  >>> for i in range(len(r.groups)):
+  ...   print i
+
+will loop from 0 to length(groups)-1 (python starts indexes at 0)
+
+  Then do:
+
+  >>> r.assign("i",i+1)
+   - this creates an R object with the value of the python 'i' + 1
+
+  Then do your calls inside the loop. No need to increment the 'i' in R, 
+your loop controller is now a python variable. You should end up with 
+this (untested):
+
+  for i in range(len(r.groups)):
+   r.assign("i",i+1)
+   r("png(file=sprintf('MAplot%03d.png', i), width=600, height=600)")
+   r("MAplot(rawAffyData, pairs=TRUE, plot.method='smoothScatter' 
+which=groups[[i]])")
+   r("dev.off()")
+
+
+> Currently they have rserve running on a server that connects several app's
+> to R. The only problem is that i couldn't
+> find a interface between python and rserve.
+
+  I half-wrote this and then discovered Rpy. I have an alpha version if 
+you want it, but trust me, you probably don't want it. It was at the 
+'now this is a real mess, it needs rewriting from scratch' stage.
+
+Barry
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From odonnems at yahoo.com  Tue Jan 15 19:28:51 2008
+From: odonnems at yahoo.com (Michael ODonnell)
+Date: Tue, 15 Jan 2008 11:28:51 -0800
+Subject: Re: [Rpy] Fwd: R while loop
+Message-ID: <397902.65706.qm@web58005.mail.re3.yahoo.com>
+
+Richard, I have not been using rpy all that long, but it seems powerful to me. I suggest first reading rpy documentation and especially the sections on notation of underscores. 
+
+Second, when I use scripts I generally create a file/script and then call the script from python/rpy. There are probably several ways to do this, but here is a general outline to get you started:
+from rpy import *
+regression_Rcode_File = "your_path_and_filename_here"
+
+#Source the script
+r.source(regression_Rcode_File)
+
+#Assign a name to the function in script and it can then be called as such
+#It is necessary to define the data in python and then pass via rpy as well
+fitted_model = r.lm(x, y, wgt)
+
+
+A good example that I referred to when I first started learning (This also includes an example for plotting): 
+http://www2.warwick.ac.uk/fac/sci/moac/currentstudents/peter_cock/python/lin_reg/
+
+
+I hope this is helpful,
+mike
+
+----- Original Message ----
+From: richard mendes <mendes.richard at gmail.com>
+To: "RPy help,  support and design discussion list" <rpy-list at lists.sourceforge.net>
+Sent: Tuesday, January 15, 2008 12:03:43 PM
+Subject: Re: [Rpy] Fwd: R while loop
+
+
+Hello Sean, 
+
+The code that i was using was simply pasting the same code in python. 
+r("
+i<-1")  # i should use the attach statement i think
+r("while (i <= length(groups) ) {")
+
+r("png(file=sprintf('MAplot%03d.png', i), width=600, height=600)")
+
+r("MAplot(rawAffyData, pairs=TRUE, plot.method='smoothScatter' which=groups[[i]])")
+r("dev.off
+()")
+r("i<-i+1 }")
+
+
+
+But i expect that using rpy in such a way is completely wrong. I'm just testing what can be done by rpy
+
+Currently they have rserve running on a server that connects several app's to R. The only problem is that i couldn't
+
+find a interface between python and rserve. 
+
+
+
+Besides the lack of the interface, rserve caused a lot of maintenance problems so i suggested to look further into rpy as 
+
+interface between the apps and R. 
+
+
+
+I can't give you the exact error because i'm not in the office now but i think it was something about ''unsubscribe error'' and it gave the first line till { between brackets.
+
+
+
+
+Hope this helps,
+
+
+
+Thanks 
+
+
+
+Richard
+
+
+
+ps: if you need the exact error i will post it tomorrow ( for me :) )
+               
+               
+               
+             
+
+
+On Jan 15, 2008 7:51 PM, Sean Davis <
+sdavis2 at mail.nih.gov> wrote:
+
+
+
+
+On Jan 15, 2008 1:38 PM, richard mendes <mendes.richard at gmail.com> wrote:
+
+
+
+Hello Rpy users,
+
+Probably a very simple question but i couldn't find the answer in the
+documentation.
+i have a r script which uses a while loop, how should i execute this in rpy ?
+
+
+the script looks like:
+
+i<-1
+
+while (i <= length(groups) ) {
+                png(file=sprintf('MAplot%03d.png', i), width=600, height=600)
+                MAplot(rawAffyData, pairs=TRUE, 
+plot.method='smoothScatter' which=groups[[i]])
+                dev.off()
+                i<-i+1 }
+
+if i normally run this in a r terminal everything will go fine but
+running it from rpy line by line will give a error.
+
+
+
+
+
+Hi, Richard.
+
+What error are you getting?  And what is the python code that you are using?
+
+Sean
+ 
+
+
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+
+
+
+
+
+
+
+
+
+      ____________________________________________________________________________________
+Be a better friend, newshound, and 
+know-it-all with Yahoo! Mobile.  Try it now.  http://mobile.yahoo.com/;_ylt=Ahu06i62sR8HDtDypao8Wcj9tAcJ
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From mendes.richard at gmail.com  Tue Jan 15 22:12:20 2008
+From: mendes.richard at gmail.com (richard mendes)
+Date: Tue, 15 Jan 2008 23:12:20 +0100
+Subject: Re: [Rpy] Fwd: R while loop
+In-Reply-To: <397902.65706.qm@web58005.mail.re3.yahoo.com>
+References: <397902.65706.qm@web58005.mail.re3.yahoo.com>
+Message-ID: <5c5fa360801151412l33deec51ic47e33d2ed197bb8@mail.gmail.com>
+
+Thanks for the advice,
+this will certainly help a lot.
+
+I think i will pass on the rserve interface :).
+In my opinion it's a layer that isn't specifically written for python and to
+be able to use it in a stable condition,
+the interface probably needs a lot of maintenance overtime. If i have to
+build the interface with existing code off-course the maintenance will also
+come back to me.
+behind rpy it seems like there are a lot of people that are smarter than me
+:) so i will try to use this and assist in maintenance / development when i
+have time and if it's needed.
+
+also thanks for the examples and i will give a little more time in reading
+the rpy documentation.
+
+Regards,
+
+Richard
+
+
+
+
+On Jan 15, 2008 8:28 PM, Michael ODonnell <odonnems at yahoo.com> wrote:
+
+> Richard, I have not been using rpy all that long, but it seems powerful to
+> me. I suggest first reading rpy documentation and especially the sections on
+> notation of underscores.
+>
+> Second, when I use scripts I generally create a file/script and then call
+> the script from python/rpy. There are probably several ways to do this, but
+> here is a general outline to get you started:
+> from rpy import *
+> regression_Rcode_File = "your_path_and_filename_here"
+>
+> #Source the script
+> r.source(regression_Rcode_File)
+>
+> #Assign a name to the function in script and it can then be called as such
+> #It is necessary to define the data in python and then pass via rpy as
+> well
+> fitted_model = r.lm(x, y, wgt)
+>
+>
+> A good example that I referred to when I first started learning (This also
+> includes an example for plotting):
+>
+> http://www2.warwick.ac.uk/fac/sci/moac/currentstudents/peter_cock/python/lin_reg/
+>
+>
+> I hope this is helpful,
+> mike
+>
+> ----- Original Message ----
+> From: richard mendes <mendes.richard at gmail.com>
+> To: "RPy help, support and design discussion list" <
+> rpy-list at lists.sourceforge.net>
+> Sent: Tuesday, January 15, 2008 12:03:43 PM
+> Subject: Re: [Rpy] Fwd: R while loop
+>
+> Hello Sean,
+> The code that i was using was simply pasting the same code in python.
+> r(" i<-1")  # i should use the attach statement i think
+> r("while (i <= length(groups) ) {")
+> r("png(file=sprintf('MAplot%03d.png', i), width=600, height=600)")
+> r("MAplot(rawAffyData, pairs=TRUE, plot.method='smoothScatter'
+> which=groups[[i]])")
+> r("dev.off ()")
+> r("i<-i+1 }")
+>
+> But i expect that using rpy in such a way is completely wrong. I'm just
+> testing what can be done by rpy
+> Currently they have rserve running on a server that connects several app's
+> to R. The only problem is that i couldn't
+> find a interface between python and rserve.
+>
+> Besides the lack of the interface, rserve caused a lot of maintenance
+> problems so i suggested to look further into rpy as
+> interface between the apps and R.
+>
+> I can't give you the exact error because i'm not in the office now but i
+> think it was something about ''unsubscribe error'' and it gave the first
+> line till { between brackets.
+>
+> Hope this helps,
+>
+> Thanks
+>
+> Richard
+>
+> ps: if you need the exact error i will post it tomorrow ( for me :) )
+>
+>
+>
+>
+>
+> On Jan 15, 2008 7:51 PM, Sean Davis < sdavis2 at mail.nih.gov> wrote:
+>
+> >
+> >
+> > On Jan 15, 2008 1:38 PM, richard mendes <mendes.richard at gmail.com>
+> > wrote:
+> >
+> > >
+> > > Hello Rpy users,
+> > >
+> > > Probably a very simple question but i couldn't find the answer in the
+> > > documentation.
+> > > i have a r script which uses a while loop, how should i execute this
+> > > in rpy ?
+> > >
+> > > the script looks like:
+> > >
+> > > i<-1
+> > >
+> > > while (i <= length(groups) ) {
+> > >                png(file=sprintf('MAplot%03d.png', i), width=600,
+> > > height=600)
+> > >                MAplot(rawAffyData, pairs=TRUE,
+> > > plot.method='smoothScatter' which=groups[[i]])
+> > >                dev.off()
+> > >                i<-i+1 }
+> > >
+> > > if i normally run this in a r terminal everything will go fine but
+> > > running it from rpy line by line will give a error.
+> > >
+> >
+> > Hi, Richard.
+> >
+> > What error are you getting?  And what is the python code that you are
+> > using?
+> >
+> > Sean
+> >
+> >
+> >
+> >
+> > -------------------------------------------------------------------------
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >
+> >
+>
+>
+> ------------------------------
+> Be a better friend, newshound, and know-it-all with Yahoo! Mobile. Try it
+> now.<http://us.rd.yahoo.com/evt=51733/*http://mobile.yahoo.com/;_ylt=Ahu06i62sR8HDtDypao8Wcj9tAcJ>
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From mendes.richard at gmail.com  Fri Jan 18 08:29:13 2008
+From: mendes.richard at gmail.com (richard mendes)
+Date: Fri, 18 Jan 2008 09:29:13 +0100
+Subject: [Rpy] multithreading with rpy
+Message-ID: <5c5fa360801180029s1375aa2dg2032d143ccd99512@mail.gmail.com>
+
+Hello Rpy Users,
+
+Last few days i've been looking into a interaction between python and
+.The company i work for currently uses rserve to connect to R. Based
+on the features of rpy we decided we implement a new interface that
+library.
+
+The question i have is how does rpy handle multithreads.
+
+What i've seen till now is that a r object is created when importing
+the rpy library. how does this react to multithreads.
+
+Is that r object connected to one R session ?
+Is there a way to create a new r object ?
+what happens to the r object if i just make a new object of the class
+that calls the rpy library. Would that create a new R session ?
+
+If someone knows the answers to these questions it would help me a
+lot, and save me some time writing tests to find this out.
+
+thanks in advance for your help.
+
+Richard
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From b.rowlingson at lancaster.ac.uk  Fri Jan 18 09:22:52 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Fri, 18 Jan 2008 09:22:52 +0000
+Subject: Re: [Rpy] multithreading with rpy
+In-Reply-To: <5c5fa360801180029s1375aa2dg2032d143ccd99512@mail.gmail.com>
+References: <5c5fa360801180029s1375aa2dg2032d143ccd99512@mail.gmail.com>
+Message-ID: <47906FEC.90807@lancaster.ac.uk>
+
+richard mendes wrote:
+
+> The question i have is how does rpy handle multithreads.
+> 
+> What i've seen till now is that a r object is created when importing
+> the rpy library. how does this react to multithreads.
+
+  Those are fairly vague questions, so I'll answer the specifics:
+
+> Is that r object connected to one R session ?
+
+  Yes.
+
+> Is there a way to create a new r object ?
+
+  You can try! Doing 'from rpy import r' just runs rpy.py, and that 
+defines a class 'R' and creates an object called 'r' of that class which 
+is then imported into the caller. So you can try and make another by 
+creating another instance:
+
+ >>> import rpy
+ >>> r2=rpy.R()
+Traceback (most recent call last):
+   File "<stdin>", line 1, in <module>
+   File "C:\Python25\Lib\site-packages\rpy.py", line 286, in __init__
+     _rpy.r_init(HAS_NUMERIC);
+RuntimeError: Only one R object may be instantiated per session
+
+  So I guess that's a no. That error is coming from the C code, so I 
+don't know how fundamental it is or how difficult it would be to make it 
+work...
+
+> what happens to the r object if i just make a new object of the class
+> that calls the rpy library. Would that create a new R session ?
+
+  Fraid not:
+
+ >>> from rpy import r
+ >>> r.assign('x',999)
+999
+ >>> r.ls()
+'x'
+ >>> r2=r
+ >>> r2.ls()
+'x'
+
+  it's the same session.
+
+> If someone knows the answers to these questions it would help me a
+> lot, and save me some time writing tests to find this out.
+
+  So I think that definitely within a single thread there can be only 
+one, and probably across multiple threads too. However if you use 
+os.fork() you can get a new R session...
+
+Barry
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From mendes.richard at gmail.com  Fri Jan 18 09:45:07 2008
+From: mendes.richard at gmail.com (richard mendes)
+Date: Fri, 18 Jan 2008 10:45:07 +0100
+Subject: Re: [Rpy] multithreading with rpy
+In-Reply-To: <47906FEC.90807@lancaster.ac.uk>
+References: <5c5fa360801180029s1375aa2dg2032d143ccd99512@mail.gmail.com> <47906FEC.90807@lancaster.ac.uk>
+Message-ID: <5c5fa360801180145g3f1bd2a1k6370e97413b899b0@mail.gmail.com>
+
+thanks a lot,
+
+this give's me some more info i can use in determining the architecture.
+I will certainly look into the option os.fork.
+
+Richard
+
+
+
+On 1/18/08, Barry Rowlingson <b.rowlingson at lancaster.ac.uk> wrote:
+> richard mendes wrote:
+>
+> > The question i have is how does rpy handle multithreads.
+> >
+> > What i've seen till now is that a r object is created when importing
+> > the rpy library. how does this react to multithreads.
+>
+>   Those are fairly vague questions, so I'll answer the specifics:
+>
+> > Is that r object connected to one R session ?
+>
+>   Yes.
+>
+> > Is there a way to create a new r object ?
+>
+>   You can try! Doing 'from rpy import r' just runs rpy.py, and that
+> defines a class 'R' and creates an object called 'r' of that class which
+> is then imported into the caller. So you can try and make another by
+> creating another instance:
+>
+>  >>> import rpy
+>  >>> r2=rpy.R()
+> Traceback (most recent call last):
+>    File "<stdin>", line 1, in <module>
+>    File "C:\Python25\Lib\site-packages\rpy.py", line 286, in __init__
+>      _rpy.r_init(HAS_NUMERIC);
+> RuntimeError: Only one R object may be instantiated per session
+>
+>   So I guess that's a no. That error is coming from the C code, so I
+> don't know how fundamental it is or how difficult it would be to make it
+> work...
+>
+> > what happens to the r object if i just make a new object of the class
+> > that calls the rpy library. Would that create a new R session ?
+>
+>   Fraid not:
+>
+>  >>> from rpy import r
+>  >>> r.assign('x',999)
+> 999
+>  >>> r.ls()
+> 'x'
+>  >>> r2=r
+>  >>> r2.ls()
+> 'x'
+>
+>   it's the same session.
+>
+> > If someone knows the answers to these questions it would help me a
+> > lot, and save me some time writing tests to find this out.
+>
+>   So I think that definitely within a single thread there can be only
+> one, and probably across multiple threads too. However if you use
+> os.fork() you can get a new R session...
+>
+> Barry
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Fri Jan 18 14:39:48 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Fri, 18 Jan 2008 09:39:48 -0500
+Subject: Re: [Rpy] multithreading with rpy
+In-Reply-To: <47906FEC.90807@lancaster.ac.uk>
+References: <5c5fa360801180029s1375aa2dg2032d143ccd99512@mail.gmail.com> <47906FEC.90807@lancaster.ac.uk>
+Message-ID: <E50EAB2D-3C49-4C9E-9BE0-BD48559F0B7E@mac.com>
+
+
+R itself is neither multithreaded, nor thread safe.  If you want to  
+interact with more than one R session, you'll have to have a separate  
+process for each R session.  I built the RSOAP tool, which includes  
+wrapper (called something like) LocalRSOAPConnection that wraps the  
+separate session so that it looks almost like a plain Rpy object.
+
+http://sourceforge.net/projects/rsoap/ and http://rsoap.sourceforge.net
+
+-G
+
+
+On Jan 18, 2008, at 4:22AM , Barry Rowlingson wrote:
+
+> richard mendes wrote:
+>
+>> The question i have is how does rpy handle multithreads.
+>>
+>> What i've seen till now is that a r object is created when importing
+>> the rpy library. how does this react to multithreads.
+>
+>   Those are fairly vague questions, so I'll answer the specifics:
+>
+>> Is that r object connected to one R session ?
+>
+>   Yes.
+>
+>> Is there a way to create a new r object ?
+>
+>   You can try! Doing 'from rpy import r' just runs rpy.py, and that
+> defines a class 'R' and creates an object called 'r' of that class  
+> which
+> is then imported into the caller. So you can try and make another by
+> creating another instance:
+>
+>>>> import rpy
+>>>> r2=rpy.R()
+> Traceback (most recent call last):
+>    File "<stdin>", line 1, in <module>
+>    File "C:\Python25\Lib\site-packages\rpy.py", line 286, in __init__
+>      _rpy.r_init(HAS_NUMERIC);
+> RuntimeError: Only one R object may be instantiated per session
+>
+>   So I guess that's a no. That error is coming from the C code, so I
+> don't know how fundamental it is or how difficult it would be to  
+> make it
+> work...
+>
+>> what happens to the r object if i just make a new object of the class
+>> that calls the rpy library. Would that create a new R session ?
+>
+>   Fraid not:
+>
+>>>> from rpy import r
+>>>> r.assign('x',999)
+> 999
+>>>> r.ls()
+> 'x'
+>>>> r2=r
+>>>> r2.ls()
+> 'x'
+>
+>   it's the same session.
+>
+>> If someone knows the answers to these questions it would help me a
+>> lot, and save me some time writing tests to find this out.
+>
+>   So I think that definitely within a single thread there can be only
+> one, and probably across multiple threads too. However if you use
+> os.fork() you can get a new R session...
+>
+> Barry
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at gmail.com  Fri Jan 18 15:44:07 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Fri, 18 Jan 2008 16:44:07 +0100
+Subject: Re: [Rpy] multithreading with rpy
+In-Reply-To: <47906FEC.90807@lancaster.ac.uk>
+References: <5c5fa360801180029s1375aa2dg2032d143ccd99512@mail.gmail.com> <47906FEC.90807@lancaster.ac.uk>
+Message-ID: <27d1e6020801180744p1cc37f70n88588ae2c0f524fc@mail.gmail.com>
+
+2008/1/18, Barry Rowlingson <b.rowlingson at lancaster.ac.uk>:
+> richard mendes wrote:
+>
+> > The question i have is how does rpy handle multithreads.
+> >
+> > What i've seen till now is that a r object is created when importing
+> > the rpy library. how does this react to multithreads.
+>
+>   Those are fairly vague questions, so I'll answer the specifics:
+>
+> > Is that r object connected to one R session ?
+>
+>   Yes.
+>
+> > Is there a way to create a new r object ?
+>
+>   You can try! Doing 'from rpy import r' just runs rpy.py, and that
+> defines a class 'R' and creates an object called 'r' of that class which
+> is then imported into the caller. So you can try and make another by
+> creating another instance:
+>
+>  >>> import rpy
+>  >>> r2=rpy.R()
+> Traceback (most recent call last):
+>    File "<stdin>", line 1, in <module>
+>    File "C:\Python25\Lib\site-packages\rpy.py", line 286, in __init__
+>      _rpy.r_init(HAS_NUMERIC);
+> RuntimeError: Only one R object may be instantiated per session
+>
+>   So I guess that's a no. That error is coming from the C code, so I
+> don't know how fundamental it is or how difficult it would be to make it
+> work...
+
+The instantiation of several R objects within one python process is
+made impossible on purpose: R is not capable of multithreading
+(and lot of the C code running R is probably not reentrant - unpredictable
+things would happen).
+I suspect that the choice of generating an error, rather than having a singleton
+for that class for example, is to prevent accidental attempts at multithreading.
+
+What could be tried is to spawn several python process, that would be
+each importing the module "rpy".
+
+
+
+
+> > what happens to the r object if i just make a new object of the class
+> > that calls the rpy library. Would that create a new R session ?
+>
+>   Fraid not:
+>
+>  >>> from rpy import r
+>  >>> r.assign('x',999)
+> 999
+>  >>> r.ls()
+> 'x'
+>  >>> r2=r
+>  >>> r2.ls()
+> 'x'
+>
+>   it's the same session.
+>
+> > If someone knows the answers to these questions it would help me a
+> > lot, and save me some time writing tests to find this out.
+>
+>   So I think that definitely within a single thread there can be only
+> one, and probably across multiple threads too. However if you use
+> os.fork() you can get a new R session...
+>
+> Barry
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From eddelbuettel at users.sourceforge.net  Mon Jan 21 16:08:51 2008
+From: eddelbuettel at users.sourceforge.net
+Date: Mon, 21 Jan 2008 08:08:51 -0800
+Subject: [Rpy] SF.net SVN: rpy: [400] trunk/rpy/debian
+Message-ID: <E1JGzCd-0001hS-9t@sc8-pr-svn2.sourceforge.net>
+
+Revision: 400
+          http://rpy.svn.sourceforge.net/rpy/?rev=400&view=rev
+Author:   eddelbuettel
+Date:     2008-01-21 08:08:51 -0800 (Mon, 21 Jan 2008)
+
+Log Message:
+-----------
+Updated debian/ to current upload 1.0.1-2
+
+Modified Paths:
+--------------
+    trunk/rpy/debian/changelog
+    trunk/rpy/debian/control
+
+Modified: trunk/rpy/debian/changelog
+===================================================================
+--- trunk/rpy/debian/changelog	2008-01-21 16:00:14 UTC (rev 399)
++++ trunk/rpy/debian/changelog	2008-01-21 16:08:51 UTC (rev 400)
+@@ -1,3 +1,12 @@
++rpy (1.0.1-2) unstable; urgency=low
++
++  * doc/rpy.texi: Corrected R plot() example, also committed to upstream 
++    SVN archive. 					(Closes: #461923)
++  
++  * debian/control: Updated Standards-Version: to current value.
++
++ -- Dirk Eddelbuettel <edd at debian.org>  Mon, 21 Jan 2008 10:01:56 -0600
++
+ rpy (1.0.1-1) unstable; urgency=low
+ 
+   * New upstream release announced today
+
+Modified: trunk/rpy/debian/control
+===================================================================
+--- trunk/rpy/debian/control	2008-01-21 16:00:14 UTC (rev 399)
++++ trunk/rpy/debian/control	2008-01-21 16:08:51 UTC (rev 400)
+@@ -2,7 +2,7 @@
+ Section: python
+ Priority: optional
+ Maintainer: Dirk Eddelbuettel <edd at debian.org>
+-Standards-Version: 3.7.2
++Standards-Version: 3.7.3
+ XS-Python-Version: all
+ Build-Depends: debhelper (>= 5.0.37.2), r-base-dev (>= 2.6.1), python-all-dev (>= 2.3.5-10), python-numpy, python-numpy-dev, texinfo, texi2html, texlive-base, texlive-latex-base, python-central (>= 0.5)
+ 
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From eddelbuettel at users.sourceforge.net  Mon Jan 21 16:00:14 2008
+From: eddelbuettel at users.sourceforge.net
+Date: Mon, 21 Jan 2008 08:00:14 -0800
+Subject: [Rpy] SF.net SVN: rpy: [399] trunk/rpy/doc/rpy.texi
+Message-ID: <E1JGz4I-0008QQ-Bk@sc8-pr-svn2.sourceforge.net>
+
+Revision: 399
+          http://rpy.svn.sourceforge.net/rpy/?rev=399&view=rev
+Author:   eddelbuettel
+Date:     2008-01-21 08:00:14 -0800 (Mon, 21 Jan 2008)
+
+Log Message:
+-----------
+corrected simple line plot example
+
+Modified Paths:
+--------------
+    trunk/rpy/doc/rpy.texi
+
+Modified: trunk/rpy/doc/rpy.texi
+===================================================================
+--- trunk/rpy/doc/rpy.texi	2008-01-21 15:59:39 UTC (rev 398)
++++ trunk/rpy/doc/rpy.texi	2008-01-21 16:00:14 UTC (rev 399)
+@@ -302,7 +302,7 @@
+ >>> grid = r.seq(0, 10, length=100)
+ >>> values = [r.dchisq(x, degrees) for x in grid]
+ >>> r.par(ann=0)
+->>> r.plot(grid, values, type='lines')
++>>> r.plot(grid, values, type='l')
+ @end example
+ 
+ 
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From eddelbuettel at users.sourceforge.net  Mon Jan 21 15:59:40 2008
+From: eddelbuettel at users.sourceforge.net
+Date: Mon, 21 Jan 2008 07:59:40 -0800
+Subject: [Rpy] SF.net SVN: rpy: [398] trunk/rpy/debian
+Message-ID: <E1JGz3k-0008Cv-Kz@sc8-pr-svn2.sourceforge.net>
+
+Revision: 398
+          http://rpy.svn.sourceforge.net/rpy/?rev=398&view=rev
+Author:   eddelbuettel
+Date:     2008-01-21 07:59:39 -0800 (Mon, 21 Jan 2008)
+
+Log Message:
+-----------
+updated to current version
+
+Modified Paths:
+--------------
+    trunk/rpy/debian/changelog
+    trunk/rpy/debian/control
+    trunk/rpy/debian/overrides
+    trunk/rpy/debian/rules
+
+Modified: trunk/rpy/debian/changelog
+===================================================================
+--- trunk/rpy/debian/changelog	2008-01-07 17:16:11 UTC (rev 397)
++++ trunk/rpy/debian/changelog	2008-01-21 15:59:39 UTC (rev 398)
+@@ -1,3 +1,25 @@
++rpy (1.0.1-1) unstable; urgency=low
++
++  * New upstream release announced today
++
++  * debian/control: Update Depends: on r-base-core to (>= 2.6.1)
++
++ -- Dirk Eddelbuettel <edd at debian.org>  Thu, 29 Nov 2007 20:59:55 -0600
++
++rpy (1.0.0-3) unstable; urgency=low
++
++  * Rebuilt for R 2.6.1
++
++  * debian/control: Updated (Build-)Depends accordingly
++
++ -- Dirk Eddelbuettel <edd at debian.org>  Mon, 26 Nov 2007 20:04:09 -0600
++
++rpy (1.0.0-2) unstable; urgency=low
++
++  * debian/control: Add texlive-latex-base to Build-Depends: (Closes: #452675)
++
++ -- Dirk Eddelbuettel <edd at debian.org>  Sat, 24 Nov 2007 08:29:14 -0600
++
+ rpy (1.0.0-1) unstable; urgency=low
+ 
+   * New upstream release announced today
+
+Modified: trunk/rpy/debian/control
+===================================================================
+--- trunk/rpy/debian/control	2008-01-07 17:16:11 UTC (rev 397)
++++ trunk/rpy/debian/control	2008-01-21 15:59:39 UTC (rev 398)
+@@ -4,11 +4,11 @@
+ Maintainer: Dirk Eddelbuettel <edd at debian.org>
+ Standards-Version: 3.7.2
+ XS-Python-Version: all
+-Build-Depends: debhelper (>= 5.0.37.2), r-base-dev (>= 2.6.0), python-all-dev (>= 2.3.5-10), python-numpy, python-numpy-dev, texinfo, texi2html, texlive-base, python-central (>= 0.5)
++Build-Depends: debhelper (>= 5.0.37.2), r-base-dev (>= 2.6.1), python-all-dev (>= 2.3.5-10), python-numpy, python-numpy-dev, texinfo, texi2html, texlive-base, texlive-latex-base, python-central (>= 0.5)
+ 
+ Package: python-rpy
+ Architecture: any
+-Depends: ${shlibs:Depends}, ${python:Depends}, python-numpy, r-base-core (>= 2.6.0)
++Depends: ${shlibs:Depends}, ${python:Depends}, python-numpy, r-base-core (>= 2.6.1)
+ Replaces: python2.2-rpy (<< 0.99.2-4), python2.3-rpy (<< 0.99.2-4), python2.4-rpy (<< 0.99.2-4) 
+ Conflicts: python2.2-rpy (<< 0.99.2-4), python2.3-rpy (<< 0.99.2-4), python2.4-rpy (<< 0.99.2-4) 
+ XB-Python-Version: ${python:Versions}
+
+Modified: trunk/rpy/debian/overrides
+===================================================================
+--- trunk/rpy/debian/overrides	2008-01-07 17:16:11 UTC (rev 397)
++++ trunk/rpy/debian/overrides	2008-01-21 15:59:39 UTC (rev 398)
+@@ -1,3 +1,3 @@
+ python-rpy: script-not-executable ./usr/share/pycentral/python-rpy/site-packages/rpy_options.py
+-python-rpy: binary-or-shlib-defines-rpath ./usr/lib/python2.4/site-packages/_rpy2060.so /usr/lib/R/bin:/usr/lib/R/lib
+-python-rpy: binary-or-shlib-defines-rpath ./usr/lib/python2.5/site-packages/_rpy2060.so /usr/lib/R/bin:/usr/lib/R/lib
+\ No newline at end of file
++python-rpy: binary-or-shlib-defines-rpath ./usr/lib/python2.4/site-packages/_rpy2061.so /usr/lib/R/bin:/usr/lib/R/lib
++python-rpy: binary-or-shlib-defines-rpath ./usr/lib/python2.5/site-packages/_rpy2061.so /usr/lib/R/bin:/usr/lib/R/lib
+\ No newline at end of file
+
+Modified: trunk/rpy/debian/rules
+===================================================================
+--- trunk/rpy/debian/rules	2008-01-07 17:16:11 UTC (rev 397)
++++ trunk/rpy/debian/rules	2008-01-21 15:59:39 UTC (rev 398)
+@@ -1,6 +1,6 @@
+ #!/usr/bin/make -f
+ # debian/rules file for the Debian GNU/Linux python-rpy package
+-# Copyright 2004 - 2006 by Dirk Eddelbuettel <edd at debian.org>
++# Copyright 2004 - 2007 by Dirk Eddelbuettel <edd at debian.org>
+ 
+ package		:= python-rpy
+ debbase		:= $(CURDIR)/debian
+@@ -10,9 +10,8 @@
+ 
+ #PYTHON2.1  	:= python2.1
+ #PYTHON2.2  	:= python2.2
+-PYTHON2.3  	:= python2.3
+-PYTHON2.4  	:= python2.4
+-
++#PYTHON2.3  	:= python2.3
++#PYTHON2.4  	:= python2.4
+ PYVERS		:= $(shell pyversions -r debian/control)
+ 
+ compilerflags	= -O2 -Wall
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From hnesse at yahoo.com  Fri Jan 25 05:39:14 2008
+From: hnesse at yahoo.com (H Nesse)
+Date: Thu, 24 Jan 2008 21:39:14 -0800
+Subject: [Rpy] rpy finding R version in the registry
+Message-ID: <888933.89738.qm@web34210.mail.mud.yahoo.com>
+
+Howdy, I ran into a rather odd problem installing rpy
+on one computer (I have used it to great success on
+another).  Every time I try and import rpy (in IDLE or
+command line) I get the message "Unable to determine R
+version from the registry. Trying another method." 
+This is then followed by a usual python error message:
+
+Traceback (most recent call last):
+  File "<pyshell#0>", line 1, in <module>
+    from rpy import *
+  File "C:\Python25\Lib\site-packages\rpy.py", line
+53, in <module>
+    RHOME = rpy_tools.get_R_HOME()
+  File "C:\Python25\lib\site-packages\rpy_tools.py",
+line 58, in get_R_HOME
+    raise RuntimeExecError("Couldn't execute the R
+interpreter.\n"
+NameError: global name 'RuntimeExecError' is not
+defined
+
+I've tried reintalling python (2.5.1), and R (first
+used 2.2.1(?), changed to 2.6.1 on reinstall), with no
+luck.  The computer is older DELL laptop running
+windows XP.  Any ideas on what might be going amiss,
+and what to do to fix it?  
+
+Many thanks,
+
+-Hans Nesse
+
+
+      ____________________________________________________________________________________
+Be a better friend, newshound, and 
+know-it-all with Yahoo! Mobile.  Try it now.  http://mobile.yahoo.com/;_ylt=Ahu06i62sR8HDtDypao8Wcj9tAcJ 
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From tech_dev at wildintellect.com  Fri Jan 25 05:56:50 2008
+From: tech_dev at wildintellect.com (Alex Mandel)
+Date: Thu, 24 Jan 2008 21:56:50 -0800
+Subject: Re: [Rpy] rpy finding R version in the registry
+In-Reply-To: <888933.89738.qm@web34210.mail.mud.yahoo.com>
+References: <888933.89738.qm@web34210.mail.mud.yahoo.com>
+Message-ID: <47997A22.3080109@wildintellect.com>
+
+H Nesse wrote:
+> Howdy, I ran into a rather odd problem installing rpy
+> on one computer (I have used it to great success on
+> another).  Every time I try and import rpy (in IDLE or
+> command line) I get the message "Unable to determine R
+> version from the registry. Trying another method." 
+> This is then followed by a usual python error message:
+> 
+> Traceback (most recent call last):
+>   File "<pyshell#0>", line 1, in <module>
+>     from rpy import *
+>   File "C:\Python25\Lib\site-packages\rpy.py", line
+> 53, in <module>
+>     RHOME = rpy_tools.get_R_HOME()
+>   File "C:\Python25\lib\site-packages\rpy_tools.py",
+> line 58, in get_R_HOME
+>     raise RuntimeExecError("Couldn't execute the R
+> interpreter.\n"
+> NameError: global name 'RuntimeExecError' is not
+> defined
+> 
+> I've tried reintalling python (2.5.1), and R (first
+> used 2.2.1(?), changed to 2.6.1 on reinstall), with no
+> luck.  The computer is older DELL laptop running
+> windows XP.  Any ideas on what might be going amiss,
+> and what to do to fix it?  
+> 
+> Many thanks,
+> 
+> -Hans Nesse
+> 
+> 
+
+Try setting a system or user variable for R_HOME that points to your 
+installed version of R. I can't remember if it needs the path where the 
+exe is or the path including the exe.
+
+Some computers just don't setup the paths or registry right on install.
+Alex
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Fri Jan 25 16:38:09 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Fri, 25 Jan 2008 11:38:09 -0500
+Subject: Re: [Rpy] rpy finding R version in the registry
+In-Reply-To: <47997A22.3080109@wildintellect.com>
+References: <888933.89738.qm@web34210.mail.mud.yahoo.com> <47997A22.3080109@wildintellect.com>
+Message-ID: <B84DCBBE-58A0-447C-BDC5-41A51DC25591@mac.com>
+
+During the installation of R, there is an option (on by default) to  
+set the R registry entries.  If, for some reason, this gets  
+unchecked, it doesn't happen.
+
+In any case, the problem can be solved by properly setting the RHOME  
+environment variable.  The RHOME environment variable should point to  
+the root of the R installation path, as reported by executing the  
+command
+
+	/path/to/the/executable/R.exe RHOME
+
+-Greg
+
+
+
+On Jan 25, 2008, at 12:56AM , Alex Mandel wrote:
+
+> H Nesse wrote:
+>> Howdy, I ran into a rather odd problem installing rpy
+>> on one computer (I have used it to great success on
+>> another).  Every time I try and import rpy (in IDLE or
+>> command line) I get the message "Unable to determine R
+>> version from the registry. Trying another method."
+>> This is then followed by a usual python error message:
+>>
+>> Traceback (most recent call last):
+>>   File "<pyshell#0>", line 1, in <module>
+>>     from rpy import *
+>>   File "C:\Python25\Lib\site-packages\rpy.py", line
+>> 53, in <module>
+>>     RHOME = rpy_tools.get_R_HOME()
+>>   File "C:\Python25\lib\site-packages\rpy_tools.py",
+>> line 58, in get_R_HOME
+>>     raise RuntimeExecError("Couldn't execute the R
+>> interpreter.\n"
+>> NameError: global name 'RuntimeExecError' is not
+>> defined
+>>
+>> I've tried reintalling python (2.5.1), and R (first
+>> used 2.2.1(?), changed to 2.6.1 on reinstall), with no
+>> luck.  The computer is older DELL laptop running
+>> windows XP.  Any ideas on what might be going amiss,
+>> and what to do to fix it?
+>>
+>> Many thanks,
+>>
+>> -Hans Nesse
+>>
+>>
+>
+> Try setting a system or user variable for R_HOME that points to your
+> installed version of R. I can't remember if it needs the path where  
+> the
+> exe is or the path including the exe.
+>
+> Some computers just don't setup the paths or registry right on  
+> install.
+> Alex
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From hnesse at yahoo.com  Fri Jan 25 20:05:37 2008
+From: hnesse at yahoo.com (H Nesse)
+Date: Fri, 25 Jan 2008 12:05:37 -0800
+Subject: Re: [Rpy] rpy finding R version in the registry
+In-Reply-To: <B84DCBBE-58A0-447C-BDC5-41A51DC25591@mac.com>
+References: <B84DCBBE-58A0-447C-BDC5-41A51DC25591@mac.com>
+Message-ID: <326181.74937.qm@web34214.mail.mud.yahoo.com>
+
+Fantastic, it seemed to work like a charm.  I also had
+to install the pywin32 module.  Many thanks to those
+who replied!
+
+-Hans
+
+--- Gregory Warnes <gregory.warnes at mac.com> wrote:
+
+> During the installation of R, there is an option (on
+> by default) to  
+> set the R registry entries.  If, for some reason,
+> this gets  
+> unchecked, it doesn't happen.
+> 
+> In any case, the problem can be solved by properly
+> setting the RHOME  
+> environment variable.  The RHOME environment
+> variable should point to  
+> the root of the R installation path, as reported by
+> executing the  
+> command
+> 
+> 	/path/to/the/executable/R.exe RHOME
+> 
+> -Greg
+> 
+> 
+> 
+> On Jan 25, 2008, at 12:56AM , Alex Mandel wrote:
+> 
+> > H Nesse wrote:
+> >> Howdy, I ran into a rather odd problem installing
+> rpy
+> >> on one computer (I have used it to great success
+> on
+> >> another).  Every time I try and import rpy (in
+> IDLE or
+> >> command line) I get the message "Unable to
+> determine R
+> >> version from the registry. Trying another
+> method."
+> >> This is then followed by a usual python error
+> message:
+> >>
+> >> Traceback (most recent call last):
+> >>   File "<pyshell#0>", line 1, in <module>
+> >>     from rpy import *
+> >>   File "C:\Python25\Lib\site-packages\rpy.py",
+> line
+> >> 53, in <module>
+> >>     RHOME = rpy_tools.get_R_HOME()
+> >>   File
+> "C:\Python25\lib\site-packages\rpy_tools.py",
+> >> line 58, in get_R_HOME
+> >>     raise RuntimeExecError("Couldn't execute the
+> R
+> >> interpreter.\n"
+> >> NameError: global name 'RuntimeExecError' is not
+> >> defined
+> >>
+> >> I've tried reintalling python (2.5.1), and R
+> (first
+> >> used 2.2.1(?), changed to 2.6.1 on reinstall),
+> with no
+> >> luck.  The computer is older DELL laptop running
+> >> windows XP.  Any ideas on what might be going
+> amiss,
+> >> and what to do to fix it?
+> >>
+> >> Many thanks,
+> >>
+> >> -Hans Nesse
+> >>
+> >>
+> >
+> > Try setting a system or user variable for R_HOME
+> that points to your
+> > installed version of R. I can't remember if it
+> needs the path where  
+> > the
+> > exe is or the path including the exe.
+> >
+> > Some computers just don't setup the paths or
+> registry right on  
+> > install.
+> > Alex
+> >
+> >
+>
+----------------------------------------------------------------------
+> 
+> > ---
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio
+> 2008.
+> >
+>
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> >
+>
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+> 
+> 
+>
+-------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio
+> 2008.
+>
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+>
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+> 
+
+
+
+      ____________________________________________________________________________________
+Looking for last minute shopping deals?  
+Find them fast with Yahoo! Search.  http://tools.search.yahoo.com/newsearch/category.php?category=shopping
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From warnes at users.sourceforge.net  Fri Jan 25 20:14:00 2008
+From: warnes at users.sourceforge.net
+Date: Fri, 25 Jan 2008 12:14:00 -0800
+Subject: [Rpy] SF.net SVN: rpy: [401] trunk/rpy/rpy_tools.py
+Message-ID: <E1JIUw4-0002TT-9w@sc8-pr-svn2.sourceforge.net>
+
+Revision: 401
+          http://rpy.svn.sourceforge.net/rpy/?rev=401&view=rev
+Author:   warnes
+Date:     2008-01-25 12:14:00 -0800 (Fri, 25 Jan 2008)
+
+Log Message:
+-----------
+Correct name of runtime exception
+
+Modified Paths:
+--------------
+    trunk/rpy/rpy_tools.py
+
+Modified: trunk/rpy/rpy_tools.py
+===================================================================
+--- trunk/rpy/rpy_tools.py	2008-01-21 16:08:51 UTC (rev 400)
++++ trunk/rpy/rpy_tools.py	2008-01-25 20:14:00 UTC (rev 401)
+@@ -55,7 +55,7 @@
+     else:
+       stat, rhome = getstatusoutput('R RHOME | tail -n 1')
+     if stat or len(rhome)<=0:
+-      raise RuntimeExecError("Couldn't execute the R interpreter.\n"
++      raise RuntimeError("Couldn't execute the R interpreter.\n"
+                              "Check whether R is in the execution path.")
+     
+   rhome = rhome.strip()
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Fri Jan 25 20:16:36 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Fri, 25 Jan 2008 15:16:36 -0500
+Subject: Re: [Rpy] rpy finding R version in the registry
+In-Reply-To: <326181.74937.qm@web34214.mail.mud.yahoo.com>
+References: <326181.74937.qm@web34214.mail.mud.yahoo.com>
+Message-ID: <B9C91E33-2B66-4C22-8E86-4191E12A772B@mac.com>
+
+Btw, I've committed a fix to SVN for the bug that resulted in this  
+error message:
+
+>>>> NameError: global name 'RuntimeExecError' is not
+>>>> defined
+
+rather than the more appropriate
+
+	RuntimeError: "Couldn't execute the R interpreter."
+
+-Greg
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Mon Jan 28 08:46:22 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 28 Jan 2008 00:46:22 -0800
+Subject: [Rpy] [ rpy-Patches-1863375 ] Add slicing to instances of type \'Robj\'
+Message-ID: <E1JJPdG-0006ts-Pm@sc8-sf-web21.sourceforge.net>
+
+Patches item #1863375, was opened at 2008-01-04 03:29
+Message generated for change (Settings changed) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+>Status: Closed
+Resolution: Fixed
+Priority: 5
+Private: No
+Submitted By: lgautier (lgautier)
+Assigned to: lgautier (lgautier)
+Summary: Add slicing to instances of type \'Robj\'
+
+Initial Comment:
+Add slicing capabilities to the type Robj
+(it implements the sequence protocol, and it was not
+implemented so far).
+
+The implementation is quite straightforward, and
+is a little nervous about 'non R-like' slices
+(negative index, etc): it fires Out-of-bound exception.
+I am planning to deal with them soon (since the slicing is in Python, not in R). 
+
+Unit tests are also missing (and will come with the complete implementation mentioned above).
+
+
+
+----------------------------------------------------------------------
+
+Comment By: lgautier (lgautier)
+Date: 2008-01-28 16:45
+
+Message:
+Logged In: YES 
+user_id=1623918
+Originator: YES
+
+In CVS with unit-tests
+
+----------------------------------------------------------------------
+
+Comment By: lgautier (lgautier)
+Date: 2008-01-04 03:30
+
+Message:
+Logged In: YES 
+user_id=1623918
+Originator: YES
+
+File Added: rpy_slice.patch
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Mon Jan 28 08:44:38 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 28 Jan 2008 00:44:38 -0800
+Subject: [Rpy] [ rpy-Patches-1863375 ] Add slicing to instances of type \'Robj\'
+Message-ID: <E1JJPba-0006fd-00@sc8-sf-web21.sourceforge.net>
+
+Patches item #1863375, was opened at 2008-01-04 03:29
+Message generated for change (Settings changed) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: lgautier (lgautier)
+>Assigned to: lgautier (lgautier)
+>Summary: Add slicing to instances of type \'Robj\'
+
+Initial Comment:
+Add slicing capabilities to the type Robj
+(it implements the sequence protocol, and it was not
+implemented so far).
+
+The implementation is quite straightforward, and
+is a little nervous about 'non R-like' slices
+(negative index, etc): it fires Out-of-bound exception.
+I am planning to deal with them soon (since the slicing is in Python, not in R). 
+
+Unit tests are also missing (and will come with the complete implementation mentioned above).
+
+
+
+----------------------------------------------------------------------
+
+Comment By: lgautier (lgautier)
+Date: 2008-01-04 03:30
+
+Message:
+Logged In: YES 
+user_id=1623918
+Originator: YES
+
+File Added: rpy_slice.patch
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Mon Jan 28 08:45:59 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 28 Jan 2008 00:45:59 -0800
+Subject: [Rpy] [ rpy-Patches-1863375 ] Add slicing to instances of type \'Robj\'
+Message-ID: <E1JJPct-0006nd-Me@sc8-sf-web21.sourceforge.net>
+
+Patches item #1863375, was opened at 2008-01-04 03:29
+Message generated for change (Comment added) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+>Resolution: Fixed
+Priority: 5
+Private: No
+Submitted By: lgautier (lgautier)
+Assigned to: lgautier (lgautier)
+Summary: Add slicing to instances of type \'Robj\'
+
+Initial Comment:
+Add slicing capabilities to the type Robj
+(it implements the sequence protocol, and it was not
+implemented so far).
+
+The implementation is quite straightforward, and
+is a little nervous about 'non R-like' slices
+(negative index, etc): it fires Out-of-bound exception.
+I am planning to deal with them soon (since the slicing is in Python, not in R). 
+
+Unit tests are also missing (and will come with the complete implementation mentioned above).
+
+
+
+----------------------------------------------------------------------
+
+>Comment By: lgautier (lgautier)
+Date: 2008-01-28 16:45
+
+Message:
+Logged In: YES 
+user_id=1623918
+Originator: YES
+
+In CVS with unit-tests
+
+----------------------------------------------------------------------
+
+Comment By: lgautier (lgautier)
+Date: 2008-01-04 03:30
+
+Message:
+Logged In: YES 
+user_id=1623918
+Originator: YES
+
+File Added: rpy_slice.patch
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453023&aid=1863375&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at users.sourceforge.net  Sun Jan 27 14:15:16 2008
+From: lgautier at users.sourceforge.net
+Date: Sun, 27 Jan 2008 06:15:16 -0800
+Subject: [Rpy] SF.net SVN: rpy: [402] trunk/rpy
+Message-ID: <E1JJ8I0-0003ry-BV@sc8-pr-svn2.sourceforge.net>
+
+Revision: 402
+          http://rpy.svn.sourceforge.net/rpy/?rev=402&view=rev
+Author:   lgautier
+Date:     2008-01-27 06:15:16 -0800 (Sun, 27 Jan 2008)
+
+Log Message:
+-----------
+- Added getslice methods for Robject
+- Added unit-tests for it
+- Added unit-tests for getItem
+
+Modified Paths:
+--------------
+    trunk/rpy/src/rpymodule.c
+    trunk/rpy/tests/test_robj.py
+
+Modified: trunk/rpy/src/rpymodule.c
+===================================================================
+--- trunk/rpy/src/rpymodule.c	2008-01-25 20:14:00 UTC (rev 401)
++++ trunk/rpy/src/rpymodule.c	2008-01-27 14:15:16 UTC (rev 402)
+@@ -1475,16 +1475,91 @@
+   return obj;
+ }
+ 
++/* Get a slice: a[x:y] */
++/*FIXME: starting with Python 2.5, ilow and ihigh should probably
++ * be of type Py_ssize_t.
++ */
++static PyObject * 
++Robj_slice(PyObject *a, int ilow, int ihigh)
++{
++  SEXP robj, e, index;
++  PyObject *obj;
++  int robjLen, sliceLen, c;
++  
++  robjLen = Robj_len(a);
++  
++  if (robjLen < 0)
++    return NULL;
++  
++  if (ilow < 0) {
++    PyErr_SetString(PyExc_IndexError, 
++		    "R object index out of range (lowest index is negative)");
++    return NULL;
++    //ilow = 0;
++  } else if (ilow > robjLen) {
++    PyErr_SetString(PyExc_IndexError, 
++		    "R object index out of range (lowest index > object length)");
++    return NULL;
++    //ilow = robjLen;
++  }
++  if (ihigh < ilow) {
++    PyErr_SetString(PyExc_IndexError, 
++		    "R object index out of range (highest index < lowest index)");
++    return NULL;
++    //ihigh = ilow;
++  } else if (ihigh > robjLen) {
++    PyErr_SetString(PyExc_IndexError, 
++		    "R object index out of range (highest index > object length)");
++    //return NULL;
++    ihigh = robjLen;
++  }
++  sliceLen = ihigh - ilow;
++  
++  /*   if (ilow >= robjLen || ilow < 0) { */
++  /*     PyErr_SetString(PyExc_IndexError, "R object index out of range"); */
++  /*     return NULL; */
++  /*   } */
++  
++  PROTECT(index = allocVector(INTSXP, sliceLen));
++  int ii;
++  for (ii = 0; ii < sliceLen; ii++) {
++    INTEGER_POINTER(index)[ii] = ii + ilow + 1;
++  }
++  
++  PROTECT(e = allocVector(LANGSXP, 3));
++  SETCAR(e, get_item);
++  SETCAR(CDR(e), ((RobjObject *)a)->R_obj);
++  SETCAR(CDR(CDR(e)), index);
++
++  if (!(robj = do_eval_expr(e))) {
++    UNPROTECT(2);
++    return NULL;
++  }
++
++  UNPROTECT(2);
++
++  /* If there is a default mode, use it; otherwise, use the top mode. */
++  if (default_mode < 0)
++    c = TOP_MODE;
++  else
++    c = default_mode;
++  obj = to_Pyobj_with_mode(robj, c);
++  return obj;  
++}
++
++
+ /* We should implement sq_slice, sq_contains ... */
+ static PySequenceMethods Robj_as_sequence = {
+   (inquiry)Robj_len,              /* sq_length */
+-  0,                            /* sq_concat */
+-  0,                            /* sq_repeat */
+-  (intargfunc)Robj_item,           /* sq_item */
+-  0,                            /* sq_slice */
+-  (intobjargproc)Robj_ass_item,     /* sq_ass_item */
+-  0,                            /* sq_ass_slice */
+-  0,                            /* sq_contains */
++  0,                              /* sq_concat */
++  0,                              /* sq_repeat */
++  (ssizeargfunc)Robj_item,        /* sq_item */
++  (ssizessizeargfunc)Robj_slice,  /* sq_slice */
++  (intobjargproc)Robj_ass_item,   /* sq_ass_item */
++  0,                              /* sq_ass_slice */
++  0,                              /* sq_contains */
++  0,                              /* sq_inplace_concat */
++  0                               /* sq_inplace_repeat */
+ };
+ 
+ 
+
+Modified: trunk/rpy/tests/test_robj.py
+===================================================================
+--- trunk/rpy/tests/test_robj.py	2008-01-25 20:14:00 UTC (rev 401)
++++ trunk/rpy/tests/test_robj.py	2008-01-27 14:15:16 UTC (rev 402)
+@@ -19,6 +19,33 @@
+     def testCall(self):
+         self.failUnless(callable(r.seq))
+ 
++    def testGetItem(self):
++        r.seq.autoconvert(NO_CONVERSION)
++        step = 10
++        pySeq = range(10, 50+step, step)
++        d = r.seq(10, 50, by = step)
++        for i in range(len(pySeq)):
++            self.assertTrue(pySeq[i] == d[i])
++        self.assertTrue(pySeq[-1] == d[-1])
++
++    def testGetItemSlice(self):
++        r.seq.autoconvert(NO_CONVERSION)
++        step = 10
++        pySeq = range(10, 50+step, step)
++        d = r.seq(10, 50, by=step)
++        self.assertTrue(pySeq[0:4] == d[0:4])
++        self.assertTrue(pySeq[:4] == d[:4])
++        self.assertTrue(pySeq[1:] == d[1:])
++        self.assertTrue(pySeq[2:5] == d[2:5])
++        # FIXME:
++        # The one below deserves attention: a one-element slice
++        # should return a one-element sequence.
++        # However, the conversion system in RPy is making it 
++        # somewhat problematic (or is it me ?)-- Laurent
++        # self.assertTrue(pySeq[0:1] == d[0:1])
++        self.assertRaises(IndexError, d.__getslice__, -1, 2)
++        self.assertRaises(IndexError, d.__getslice__, 5, 2)
++
+     def testKeywordParameters(self):
+         r.list.autoconvert(BASIC_CONVERSION)
+         d = r.list(foo='foo', bar_foo='bar.foo',
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From THocking at sangamo.com  Tue Jan 29 00:03:36 2008
+From: THocking at sangamo.com (Toby Hocking)
+Date: Mon, 28 Jan 2008 16:03:36 -0800
+Subject: Re: [Rpy] SPAM: SF.net SVN: rpy: [402] trunk/rpy
+In-Reply-To: <E1JJ8I0-0003ry-BV@sc8-pr-svn2.sourceforge.net>
+References: <E1JJ8I0-0003ry-BV@sc8-pr-svn2.sourceforge.net>
+Message-ID: <098CDE6C7E3AE94787146BC737F3528D65485C@sanger.SANGAMO.LOCAL>
+
+These new slice changes are breaking my rpy compilation:
+
+gcc -pthread -fno-strict-aliasing -g -Wall -fPIC -DWITH_NUMERIC=1 -DRPY_SHNAME=_rpy2021 -DINIT_RPY=init_rpy2021 -UPRE_2_2 -I/usr/lib/R/include -Isrc -I/usr/share/R/include -I/usr/include/python2.4 -c src/rpymodule2021.c -o build/temp.linux-i686-2.4/src/rpymodule2021.o -shared
+
+src/rpymodule2021.c:1556: error: ‘ssizeargfunc’ undeclared here (not in a function)
+
+src/rpymodule2021.c:1556: error: expected ‘}’ before ‘Robj_item’
+
+error: command 'gcc' failed with exit status 1 
+
+Maybe I need some additional development libraries??? Which ones?
+
+-----Original Message-----
+From: rpy-list-bounces at lists.sourceforge.net
+[mailto:rpy-list-bounces at lists.sourceforge.net]On Behalf Of
+lgautier at users.sourceforge.net
+Sent: dimanche 27 janvier 2008 06:15
+To: rpy-list at lists.sf.net
+Subject: SPAM:[Rpy] SF.net SVN: rpy: [402] trunk/rpy
+
+
+Revision: 402
+          http://rpy.svn.sourceforge.net/rpy/?rev=402&view=rev
+Author:   lgautier
+Date:     2008-01-27 06:15:16 -0800 (Sun, 27 Jan 2008)
+
+Log Message:
+-----------
+- Added getslice methods for Robject
+- Added unit-tests for it
+- Added unit-tests for getItem
+
+Modified Paths:
+--------------
+    trunk/rpy/src/rpymodule.c
+    trunk/rpy/tests/test_robj.py
+
+Modified: trunk/rpy/src/rpymodule.c
+===================================================================
+--- trunk/rpy/src/rpymodule.c	2008-01-25 20:14:00 UTC (rev 401)
++++ trunk/rpy/src/rpymodule.c	2008-01-27 14:15:16 UTC (rev 402)
+@@ -1475,16 +1475,91 @@
+   return obj;
+ }
+ 
++/* Get a slice: a[x:y] */
++/*FIXME: starting with Python 2.5, ilow and ihigh should probably
++ * be of type Py_ssize_t.
++ */
++static PyObject * 
++Robj_slice(PyObject *a, int ilow, int ihigh)
++{
++  SEXP robj, e, index;
++  PyObject *obj;
++  int robjLen, sliceLen, c;
++  
++  robjLen = Robj_len(a);
++  
++  if (robjLen < 0)
++    return NULL;
++  
++  if (ilow < 0) {
++    PyErr_SetString(PyExc_IndexError, 
++		    "R object index out of range (lowest index is negative)");
++    return NULL;
++    //ilow = 0;
++  } else if (ilow > robjLen) {
++    PyErr_SetString(PyExc_IndexError, 
++		    "R object index out of range (lowest index > object length)");
++    return NULL;
++    //ilow = robjLen;
++  }
++  if (ihigh < ilow) {
++    PyErr_SetString(PyExc_IndexError, 
++		    "R object index out of range (highest index < lowest index)");
++    return NULL;
++    //ihigh = ilow;
++  } else if (ihigh > robjLen) {
++    PyErr_SetString(PyExc_IndexError, 
++		    "R object index out of range (highest index > object length)");
++    //return NULL;
++    ihigh = robjLen;
++  }
++  sliceLen = ihigh - ilow;
++  
++  /*   if (ilow >= robjLen || ilow < 0) { */
++  /*     PyErr_SetString(PyExc_IndexError, "R object index out of range"); */
++  /*     return NULL; */
++  /*   } */
++  
++  PROTECT(index = allocVector(INTSXP, sliceLen));
++  int ii;
++  for (ii = 0; ii < sliceLen; ii++) {
++    INTEGER_POINTER(index)[ii] = ii + ilow + 1;
++  }
++  
++  PROTECT(e = allocVector(LANGSXP, 3));
++  SETCAR(e, get_item);
++  SETCAR(CDR(e), ((RobjObject *)a)->R_obj);
++  SETCAR(CDR(CDR(e)), index);
++
++  if (!(robj = do_eval_expr(e))) {
++    UNPROTECT(2);
++    return NULL;
++  }
++
++  UNPROTECT(2);
++
++  /* If there is a default mode, use it; otherwise, use the top mode. */
++  if (default_mode < 0)
++    c = TOP_MODE;
++  else
++    c = default_mode;
++  obj = to_Pyobj_with_mode(robj, c);
++  return obj;  
++}
++
++
+ /* We should implement sq_slice, sq_contains ... */
+ static PySequenceMethods Robj_as_sequence = {
+   (inquiry)Robj_len,              /* sq_length */
+-  0,                            /* sq_concat */
+-  0,                            /* sq_repeat */
+-  (intargfunc)Robj_item,           /* sq_item */
+-  0,                            /* sq_slice */
+-  (intobjargproc)Robj_ass_item,     /* sq_ass_item */
+-  0,                            /* sq_ass_slice */
+-  0,                            /* sq_contains */
++  0,                              /* sq_concat */
++  0,                              /* sq_repeat */
++  (ssizeargfunc)Robj_item,        /* sq_item */
++  (ssizessizeargfunc)Robj_slice,  /* sq_slice */
++  (intobjargproc)Robj_ass_item,   /* sq_ass_item */
++  0,                              /* sq_ass_slice */
++  0,                              /* sq_contains */
++  0,                              /* sq_inplace_concat */
++  0                               /* sq_inplace_repeat */
+ };
+ 
+ 
+
+Modified: trunk/rpy/tests/test_robj.py
+===================================================================
+--- trunk/rpy/tests/test_robj.py	2008-01-25 20:14:00 UTC (rev 401)
++++ trunk/rpy/tests/test_robj.py	2008-01-27 14:15:16 UTC (rev 402)
+@@ -19,6 +19,33 @@
+     def testCall(self):
+         self.failUnless(callable(r.seq))
+ 
++    def testGetItem(self):
++        r.seq.autoconvert(NO_CONVERSION)
++        step = 10
++        pySeq = range(10, 50+step, step)
++        d = r.seq(10, 50, by = step)
++        for i in range(len(pySeq)):
++            self.assertTrue(pySeq[i] == d[i])
++        self.assertTrue(pySeq[-1] == d[-1])
++
++    def testGetItemSlice(self):
++        r.seq.autoconvert(NO_CONVERSION)
++        step = 10
++        pySeq = range(10, 50+step, step)
++        d = r.seq(10, 50, by=step)
++        self.assertTrue(pySeq[0:4] == d[0:4])
++        self.assertTrue(pySeq[:4] == d[:4])
++        self.assertTrue(pySeq[1:] == d[1:])
++        self.assertTrue(pySeq[2:5] == d[2:5])
++        # FIXME:
++        # The one below deserves attention: a one-element slice
++        # should return a one-element sequence.
++        # However, the conversion system in RPy is making it 
++        # somewhat problematic (or is it me ?)-- Laurent
++        # self.assertTrue(pySeq[0:1] == d[0:1])
++        self.assertRaises(IndexError, d.__getslice__, -1, 2)
++        self.assertRaises(IndexError, d.__getslice__, 5, 2)
++
+     def testKeywordParameters(self):
+         r.list.autoconvert(BASIC_CONVERSION)
+         d = r.list(foo='foo', bar_foo='bar.foo',
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Tue Jan 29 08:16:24 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Tue, 29 Jan 2008 09:16:24 +0100
+Subject: Re: [Rpy] SPAM: SF.net SVN: rpy: [402] trunk/rpy
+In-Reply-To: <098CDE6C7E3AE94787146BC737F3528D65485C@sanger.SANGAMO.LOCAL>
+References: <E1JJ8I0-0003ry-BV@sc8-pr-svn2.sourceforge.net> <098CDE6C7E3AE94787146BC737F3528D65485C@sanger.SANGAMO.LOCAL>
+Message-ID: <27d1e6020801290016t11967ee5j23a3039e57e1c05d@mail.gmail.com>
+
+2008/1/29, Toby Hocking <THocking at sangamo.com>:
+> These new slice changes are breaking my rpy compilation:
+>
+> gcc -pthread -fno-strict-aliasing -g -Wall -fPIC -DWITH_NUMERIC=1 -DRPY_SHNAME=_rpy2021 -DINIT_RPY=init_rpy2021 -UPRE_2_2 -I/usr/lib/R/include -Isrc -I/usr/share/R/include -I/usr/include/python2.4 -c src/rpymodule2021.c -o build/temp.linux-i686-2.4/src/rpymodule2021.o -shared
+>
+> src/rpymodule2021.c:1556: error: 'ssizeargfunc' undeclared here (not in a function)
+>
+> src/rpymodule2021.c:1556: error: expected '}' before 'Robj_item'
+>
+> error: command 'gcc' failed with exit status 1
+>
+> Maybe I need some additional development libraries??? Which ones?
+
+Python 2.5.
+
+I did revert the use of type Py_ssize_t I had for my local copy,
+but forget ssizes elsewhere.
+
+I think that ssizeargfunc (and ssizessizeargfunc) were probably not yet around
+in Python 2.4. Replacing them with intargfunc (and intintargfunc respectively)
+should make it python 2.4-friendly (although generate deprecation warnings
+with 2.5).
+I'll fix it later on today.
+
+Thanks,
+
+
+Laurent
+
+
+
+> -----Original Message-----
+> From: rpy-list-bounces at lists.sourceforge.net
+> [mailto:rpy-list-bounces at lists.sourceforge.net]On Behalf Of
+> lgautier at users.sourceforge.net
+> Sent: dimanche 27 janvier 2008 06:15
+> To: rpy-list at lists.sf.net
+> Subject: SPAM:[Rpy] SF.net SVN: rpy: [402] trunk/rpy
+>
+>
+> Revision: 402
+>           http://rpy.svn.sourceforge.net/rpy/?rev=402&view=rev
+> Author:   lgautier
+> Date:     2008-01-27 06:15:16 -0800 (Sun, 27 Jan 2008)
+>
+> Log Message:
+> -----------
+> - Added getslice methods for Robject
+> - Added unit-tests for it
+> - Added unit-tests for getItem
+>
+> Modified Paths:
+> --------------
+>     trunk/rpy/src/rpymodule.c
+>     trunk/rpy/tests/test_robj.py
+>
+> Modified: trunk/rpy/src/rpymodule.c
+> ===================================================================
+> --- trunk/rpy/src/rpymodule.c   2008-01-25 20:14:00 UTC (rev 401)
+> +++ trunk/rpy/src/rpymodule.c   2008-01-27 14:15:16 UTC (rev 402)
+> @@ -1475,16 +1475,91 @@
+>    return obj;
+>  }
+>
+> +/* Get a slice: a[x:y] */
+> +/*FIXME: starting with Python 2.5, ilow and ihigh should probably
+> + * be of type Py_ssize_t.
+> + */
+> +static PyObject *
+> +Robj_slice(PyObject *a, int ilow, int ihigh)
+> +{
+> +  SEXP robj, e, index;
+> +  PyObject *obj;
+> +  int robjLen, sliceLen, c;
+> +
+> +  robjLen = Robj_len(a);
+> +
+> +  if (robjLen < 0)
+> +    return NULL;
+> +
+> +  if (ilow < 0) {
+> +    PyErr_SetString(PyExc_IndexError,
+> +                   "R object index out of range (lowest index is negative)");
+> +    return NULL;
+> +    //ilow = 0;
+> +  } else if (ilow > robjLen) {
+> +    PyErr_SetString(PyExc_IndexError,
+> +                   "R object index out of range (lowest index > object length)");
+> +    return NULL;
+> +    //ilow = robjLen;
+> +  }
+> +  if (ihigh < ilow) {
+> +    PyErr_SetString(PyExc_IndexError,
+> +                   "R object index out of range (highest index < lowest index)");
+> +    return NULL;
+> +    //ihigh = ilow;
+> +  } else if (ihigh > robjLen) {
+> +    PyErr_SetString(PyExc_IndexError,
+> +                   "R object index out of range (highest index > object length)");
+> +    //return NULL;
+> +    ihigh = robjLen;
+> +  }
+> +  sliceLen = ihigh - ilow;
+> +
+> +  /*   if (ilow >= robjLen || ilow < 0) { */
+> +  /*     PyErr_SetString(PyExc_IndexError, "R object index out of range"); */
+> +  /*     return NULL; */
+> +  /*   } */
+> +
+> +  PROTECT(index = allocVector(INTSXP, sliceLen));
+> +  int ii;
+> +  for (ii = 0; ii < sliceLen; ii++) {
+> +    INTEGER_POINTER(index)[ii] = ii + ilow + 1;
+> +  }
+> +
+> +  PROTECT(e = allocVector(LANGSXP, 3));
+> +  SETCAR(e, get_item);
+> +  SETCAR(CDR(e), ((RobjObject *)a)->R_obj);
+> +  SETCAR(CDR(CDR(e)), index);
+> +
+> +  if (!(robj = do_eval_expr(e))) {
+> +    UNPROTECT(2);
+> +    return NULL;
+> +  }
+> +
+> +  UNPROTECT(2);
+> +
+> +  /* If there is a default mode, use it; otherwise, use the top mode. */
+> +  if (default_mode < 0)
+> +    c = TOP_MODE;
+> +  else
+> +    c = default_mode;
+> +  obj = to_Pyobj_with_mode(robj, c);
+> +  return obj;
+> +}
+> +
+> +
+>  /* We should implement sq_slice, sq_contains ... */
+>  static PySequenceMethods Robj_as_sequence = {
+>    (inquiry)Robj_len,              /* sq_length */
+> -  0,                            /* sq_concat */
+> -  0,                            /* sq_repeat */
+> -  (intargfunc)Robj_item,           /* sq_item */
+> -  0,                            /* sq_slice */
+> -  (intobjargproc)Robj_ass_item,     /* sq_ass_item */
+> -  0,                            /* sq_ass_slice */
+> -  0,                            /* sq_contains */
+> +  0,                              /* sq_concat */
+> +  0,                              /* sq_repeat */
+> +  (ssizeargfunc)Robj_item,        /* sq_item */
+> +  (ssizessizeargfunc)Robj_slice,  /* sq_slice */
+> +  (intobjargproc)Robj_ass_item,   /* sq_ass_item */
+> +  0,                              /* sq_ass_slice */
+> +  0,                              /* sq_contains */
+> +  0,                              /* sq_inplace_concat */
+> +  0                               /* sq_inplace_repeat */
+>  };
+>
+>
+>
+> Modified: trunk/rpy/tests/test_robj.py
+> ===================================================================
+> --- trunk/rpy/tests/test_robj.py        2008-01-25 20:14:00 UTC (rev 401)
+> +++ trunk/rpy/tests/test_robj.py        2008-01-27 14:15:16 UTC (rev 402)
+> @@ -19,6 +19,33 @@
+>      def testCall(self):
+>          self.failUnless(callable(r.seq))
+>
+> +    def testGetItem(self):
+> +        r.seq.autoconvert(NO_CONVERSION)
+> +        step = 10
+> +        pySeq = range(10, 50+step, step)
+> +        d = r.seq(10, 50, by = step)
+> +        for i in range(len(pySeq)):
+> +            self.assertTrue(pySeq[i] == d[i])
+> +        self.assertTrue(pySeq[-1] == d[-1])
+> +
+> +    def testGetItemSlice(self):
+> +        r.seq.autoconvert(NO_CONVERSION)
+> +        step = 10
+> +        pySeq = range(10, 50+step, step)
+> +        d = r.seq(10, 50, by=step)
+> +        self.assertTrue(pySeq[0:4] == d[0:4])
+> +        self.assertTrue(pySeq[:4] == d[:4])
+> +        self.assertTrue(pySeq[1:] == d[1:])
+> +        self.assertTrue(pySeq[2:5] == d[2:5])
+> +        # FIXME:
+> +        # The one below deserves attention: a one-element slice
+> +        # should return a one-element sequence.
+> +        # However, the conversion system in RPy is making it
+> +        # somewhat problematic (or is it me ?)-- Laurent
+> +        # self.assertTrue(pySeq[0:1] == d[0:1])
+> +        self.assertRaises(IndexError, d.__getslice__, -1, 2)
+> +        self.assertRaises(IndexError, d.__getslice__, 5, 2)
+> +
+>      def testKeywordParameters(self):
+>          r.list.autoconvert(BASIC_CONVERSION)
+>          d = r.list(foo='foo', bar_foo='bar.foo',
+>
+>
+> This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+
+-- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+=JPph
+-----END PGP SIGNATURE-----
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at users.sourceforge.net  Tue Jan 29 19:41:13 2008
+From: lgautier at users.sourceforge.net
+Date: Tue, 29 Jan 2008 11:41:13 -0800
+Subject: [Rpy] SF.net SVN: rpy: [403] trunk/rpy/src/rpymodule.c
+Message-ID: <E1JJwKX-0006DR-9a@sc8-pr-svn2.sourceforge.net>
+
+Revision: 403
+          http://rpy.svn.sourceforge.net/rpy/?rev=403&view=rev
+Author:   lgautier
+Date:     2008-01-29 11:41:13 -0800 (Tue, 29 Jan 2008)
+
+Log Message:
+-----------
+changed function types form ssizeargfunc to intargfunc,
+and ssizessizeargfunc to intintargfunc (for
+compatibility with Python 2.4).
+It compiles with Python 2.5 with warnings. Conditional
+definitions will probably have to be made for Python 2.6 (or before
+to clear up the warnings).
+
+Modified Paths:
+--------------
+    trunk/rpy/src/rpymodule.c
+
+Modified: trunk/rpy/src/rpymodule.c
+===================================================================
+--- trunk/rpy/src/rpymodule.c	2008-01-27 14:15:16 UTC (rev 402)
++++ trunk/rpy/src/rpymodule.c	2008-01-29 19:41:13 UTC (rev 403)
+@@ -1548,13 +1548,16 @@
+ }
+ 
+ 
++/* FIXME:
++ * Python 2.5 will feel happier with ssizeargfunc and ssizessizeargfunc
++ */
+ /* We should implement sq_slice, sq_contains ... */
+ static PySequenceMethods Robj_as_sequence = {
+   (inquiry)Robj_len,              /* sq_length */
+   0,                              /* sq_concat */
+   0,                              /* sq_repeat */
+-  (ssizeargfunc)Robj_item,        /* sq_item */
+-  (ssizessizeargfunc)Robj_slice,  /* sq_slice */
++  (intargfunc)Robj_item,        /* sq_item */
++  (intintargfunc)Robj_slice,  /* sq_slice */
+   (intobjargproc)Robj_ass_item,   /* sq_ass_item */
+   0,                              /* sq_ass_slice */
+   0,                              /* sq_contains */
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+

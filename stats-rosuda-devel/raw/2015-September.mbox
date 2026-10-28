@@ -1,0 +1,360 @@
+From vvbiju2005 at gmail.com  Tue Sep  1 20:38:29 2015
+From: vvbiju2005 at gmail.com (Bijuv V)
+Date: Tue, 01 Sep 2015 22:38:29 +0200
+Subject: RServe - parallel execution
+Message-ID: <CALU-2jy4Q-J=EWiuUbiM1m7NJpdM7ywZs6rmMEx76YX=1RMp4Q@mail.gmail.com>
+
+Dears ,
+
+Can you please help me here ? Im doing something wrong
+
+My requirement is to execute an R Script through a Java Webservice. The
+webservice needs a concurrency of 50.
+
+We are using RServe to execute the R Script from the Java code. To achieve
+this, in the linux server , we created 50 instances of the RServe
+instances, started at different ports. Inside the java application, created
+a connection pool with 50 RConnection objects, each linked to one of the
+RServe instance created . For every execution, we fetch a RConnection from
+the pool, execute the R script, get the response value and then return the
+RConnection to the pool.
+
+When we execute the webservice with a single user accessing, the R
+execution gets completed in 1 second. However , if I try to run the same
+webservice with a concurrency of 50, it takes around 30 seconds to execute
+the R Script inside the RServe. Since the actual R execution takes only 1
+second if executed with single user, Im thinking that Im doing something
+wrong with the RServe. Any pointers would help.
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Wed Sep  2 00:50:01 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 01 Sep 2015 20:50:01 -0400
+Subject: Re: RServe - parallel execution
+In-Reply-To: <CALU-2jy4Q-J=EWiuUbiM1m7NJpdM7ywZs6rmMEx76YX=1RMp4Q@mail.gmail.com>
+References: <CALU-2jy4Q-J=EWiuUbiM1m7NJpdM7ywZs6rmMEx76YX=1RMp4Q@mail.gmail.com>
+Message-ID: <81B2A482-8433-4B95-9C14-826EAE9802AF@r-project.org>
+
+
+On Sep 1, 2015, at 4:38 PM, Bijuv V <vvbiju2005 at gmail.com> wrote:
+
+> Dears ,
+> 
+> Can you please help me here ? Im doing something wrong 
+> 
+> My requirement is to execute an R Script through a Java Webservice. The webservice needs a concurrency of 50.
+> 
+> We are using RServe to execute the R Script from the Java code. To achieve this, in the linux server , we created 50 instances of the RServe instances, started at different ports.
+
+
+Why would you do that? The whole point of Rserve is that you can serve parallel connections from a single port since each connection gets a separate process.
+
+
+> Inside the java application, created a connection pool with 50 RConnection objects, each linked to one of the RServe instance created . For every execution, we fetch a RConnection from the pool, execute the R script, get the response value and then return the RConnection to the pool.
+> 
+> When we execute the webservice with a single user accessing, the R execution gets completed in 1 second. However , if I try to run the same webservice with a concurrency of 50, it takes around 30 seconds to execute the R Script inside the RServe. Since the actual R execution takes only 1 second if executed with single user, Im thinking that Im doing something wrong with the RServe. Any pointers would help.
+
+
+First, run just one instance - it can handle many parallel connections (on our production server it's common to have over 1000 parallel connections).
+
+How much load you can get out of your server depends mostly on the number of cores you have available, since R jobs tend to be typically very CPU-bound. For example, if you have only 8 cores and an R call takes 1s it means you can only serve 8 connections before they start slowing down - simply due to CPU saturation. If you have 50 requests within 1s you need to process 50s worth of CPU time so the lowest bound on total time is 6.25s to process them.
+
+One additional factor under heavy loads is that there is a fixed cost of forking - on our servers typically in the order of 4ms, and that limits the maximum connect rate. In the 4ms case this means you can start at most 250 connections per second. This is typically not an issue unless the R code is really trivial (e.g. just a hash lookup) since it is eclipsed by the time spend in R, but it's something worth mentioning since we had people using Rserve is such fashion. Note that you can eliminate that aspect temporarily by keeping a pool of open connections (until you run out of them).
+
+Cheers,
+Simon
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From vvbiju2005 at gmail.com  Wed Sep  2 21:08:40 2015
+From: vvbiju2005 at gmail.com (Bijuv V)
+Date: Wed, 02 Sep 2015 23:08:40 +0200
+Subject: Re: RServe - parallel execution
+In-Reply-To: <81B2A482-8433-4B95-9C14-826EAE9802AF@r-project.org>
+References: <CALU-2jy4Q-J=EWiuUbiM1m7NJpdM7ywZs6rmMEx76YX=1RMp4Q@mail.gmail.com> <81B2A482-8433-4B95-9C14-826EAE9802AF@r-project.org>
+Message-ID: <CALU-2jxFYETO3eyF534vVoKEE32fipXxgAXuwgWZHT2ZaN=YGg@mail.gmail.com>
+
+Thanks Simon for responding. We tried with one single R serve instance and
+it worked.
+
+Despite this, the response time is pretty much the same but this is due to
+low number of processors!
+
+On a separate note, can you please help me with this -
+
+I execute the R script on the RConsole. It takes 0.1 sec to execute.
+However , when I execute the same script through the RServe, it takes
+900msecs. What is the difference in terms of the engine?
+
+On Wed, Sep 2, 2015 at 2:50 AM, Simon Urbanek <simon.urbanek at r-project.org>
+wrote:
+
+>
+> On Sep 1, 2015, at 4:38 PM, Bijuv V <vvbiju2005 at gmail.com> wrote:
+>
+> > Dears ,
+> >
+> > Can you please help me here ? Im doing something wrong
+> >
+> > My requirement is to execute an R Script through a Java Webservice. The
+> webservice needs a concurrency of 50.
+> >
+> > We are using RServe to execute the R Script from the Java code. To
+> achieve this, in the linux server , we created 50 instances of the RServe
+> instances, started at different ports.
+>
+>
+> Why would you do that? The whole point of Rserve is that you can serve
+> parallel connections from a single port since each connection gets a
+> separate process.
+>
+>
+> > Inside the java application, created a connection pool with 50
+> RConnection objects, each linked to one of the RServe instance created .
+> For every execution, we fetch a RConnection from the pool, execute the R
+> script, get the response value and then return the RConnection to the pool.
+> >
+> > When we execute the webservice with a single user accessing, the R
+> execution gets completed in 1 second. However , if I try to run the same
+> webservice with a concurrency of 50, it takes around 30 seconds to execute
+> the R Script inside the RServe. Since the actual R execution takes only 1
+> second if executed with single user, Im thinking that Im doing something
+> wrong with the RServe. Any pointers would help.
+>
+>
+> First, run just one instance - it can handle many parallel connections (on
+> our production server it's common to have over 1000 parallel connections).
+>
+> How much load you can get out of your server depends mostly on the number
+> of cores you have available, since R jobs tend to be typically very
+> CPU-bound. For example, if you have only 8 cores and an R call takes 1s it
+> means you can only serve 8 connections before they start slowing down -
+> simply due to CPU saturation. If you have 50 requests within 1s you need to
+> process 50s worth of CPU time so the lowest bound on total time is 6.25s to
+> process them.
+>
+> One additional factor under heavy loads is that there is a fixed cost of
+> forking - on our servers typically in the order of 4ms, and that limits the
+> maximum connect rate. In the 4ms case this means you can start at most 250
+> connections per second. This is typically not an issue unless the R code is
+> really trivial (e.g. just a hash lookup) since it is eclipsed by the time
+> spend in R, but it's something worth mentioning since we had people using
+> Rserve is such fashion. Note that you can eliminate that aspect temporarily
+> by keeping a pool of open connections (until you run out of them).
+>
+> Cheers,
+> Simon
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Thu Sep  3 20:03:23 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 03 Sep 2015 16:03:23 -0400
+Subject: Re: RServe - parallel execution
+In-Reply-To: <CALU-2jxFYETO3eyF534vVoKEE32fipXxgAXuwgWZHT2ZaN=YGg@mail.gmail.com>
+References: <CALU-2jy4Q-J=EWiuUbiM1m7NJpdM7ywZs6rmMEx76YX=1RMp4Q@mail.gmail.com> <81B2A482-8433-4B95-9C14-826EAE9802AF@r-project.org> <CALU-2jxFYETO3eyF534vVoKEE32fipXxgAXuwgWZHT2ZaN=YGg@mail.gmail.com>
+Message-ID: <EE922931-55CF-4777-B39E-9EE4772CF894@r-project.org>
+
+
+> On Sep 2, 2015, at 5:08 PM, Bijuv V <vvbiju2005 at gmail.com> wrote:
+> 
+> Thanks Simon for responding. We tried with one single R serve instance and it worked. 
+> 
+> Despite this, the response time is pretty much the same but this is due to low number of processors! 
+> 
+> On a separate note, can you please help me with this - 
+> 
+> I execute the R script on the RConsole. It takes 0.1 sec to execute. However , when I execute the same script through the RServe, it takes 900msecs. What is the difference in terms of the engine? 
+> 
+
+There is no difference - it's simply embedding R so it is identical. Do you have an example? Also make sure you're not unnecessarily serializing something you didn't intend to - remember that anything you return out of the eval() has to be passed out (unless you use voidEval).
+
+Cheers,
+Simon
+
+
+
+> On Wed, Sep 2, 2015 at 2:50 AM, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> 
+> On Sep 1, 2015, at 4:38 PM, Bijuv V <vvbiju2005 at gmail.com> wrote:
+> 
+> > Dears ,
+> >
+> > Can you please help me here ? Im doing something wrong
+> >
+> > My requirement is to execute an R Script through a Java Webservice. The webservice needs a concurrency of 50.
+> >
+> > We are using RServe to execute the R Script from the Java code. To achieve this, in the linux server , we created 50 instances of the RServe instances, started at different ports.
+> 
+> 
+> Why would you do that? The whole point of Rserve is that you can serve parallel connections from a single port since each connection gets a separate process.
+> 
+> 
+> > Inside the java application, created a connection pool with 50 RConnection objects, each linked to one of the RServe instance created . For every execution, we fetch a RConnection from the pool, execute the R script, get the response value and then return the RConnection to the pool.
+> >
+> > When we execute the webservice with a single user accessing, the R execution gets completed in 1 second. However , if I try to run the same webservice with a concurrency of 50, it takes around 30 seconds to execute the R Script inside the RServe. Since the actual R execution takes only 1 second if executed with single user, Im thinking that Im doing something wrong with the RServe. Any pointers would help.
+> 
+> 
+> First, run just one instance - it can handle many parallel connections (on our production server it's common to have over 1000 parallel connections).
+> 
+> How much load you can get out of your server depends mostly on the number of cores you have available, since R jobs tend to be typically very CPU-bound. For example, if you have only 8 cores and an R call takes 1s it means you can only serve 8 connections before they start slowing down - simply due to CPU saturation. If you have 50 requests within 1s you need to process 50s worth of CPU time so the lowest bound on total time is 6.25s to process them.
+> 
+> One additional factor under heavy loads is that there is a fixed cost of forking - on our servers typically in the order of 4ms, and that limits the maximum connect rate. In the 4ms case this means you can start at most 250 connections per second. This is typically not an issue unless the R code is really trivial (e.g. just a hash lookup) since it is eclipsed by the time spend in R, but it's something worth mentioning since we had people using Rserve is such fashion. Note that you can eliminate that aspect temporarily by keeping a pool of open connections (until you run out of them).
+> 
+> Cheers,
+> Simon
+> 
+> 
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From rekha.vpatil at gmail.com  Mon Sep 21 10:02:16 2015
+From: rekha.vpatil at gmail.com (Rekha)
+Date: Mon, 21 Sep 2015 10:02:16 +0000
+Subject: Re: RServe - parallel execution
+References: <CALU-2jy4Q-J=EWiuUbiM1m7NJpdM7ywZs6rmMEx76YX=1RMp4Q@mail.gmail.com> <81B2A482-8433-4B95-9C14-826EAE9802AF@r-project.org> <CALU-2jxFYETO3eyF534vVoKEE32fipXxgAXuwgWZHT2ZaN=YGg@mail.gmail.com> <EE922931-55CF-4777-B39E-9EE4772CF894@r-project.org>
+Message-ID: <loom.20150921T115546-714@post.gmane.org>
+
+
+> 
+> 
+> > On Sep 2, 2015, at 5:08 PM, Bijuv V <vvbiju2005 <at> gmail.com> wrote:
+> > 
+> > Thanks Simon for responding. We tried with one single R serve instance
+and it worked. 
+> > 
+> > Despite this, the response time is pretty much the same but this is due
+to low number of processors! 
+> > 
+> > On a separate note, can you please help me with this - 
+> > 
+> > I execute the R script on the RConsole. It takes 0.1 sec to execute.
+However , when I execute the same script
+> through the RServe, it takes 900msecs. What is the difference in terms of
+the engine? 
+> > 
+> 
+> There is no difference - it's simply embedding R so it is identical. Do
+you have an example? Also make sure
+> you're not unnecessarily serializing something you didn't intend to -
+remember that anything you return
+> out of the eval() has to be passed out (unless you use voidEval).
+> 
+> Cheers,
+> Simon
+> 
+> > On Wed, Sep 2, 2015 at 2:50 AM, Simon Urbanek <simon.urbanek <at>
+r-project.org> wrote:
+> > 
+> > On Sep 1, 2015, at 4:38 PM, Bijuv V <vvbiju2005 <at> gmail.com> wrote:
+> > 
+> > > Dears ,
+> > >
+> > > Can you please help me here ? Im doing something wrong
+> > >
+> > > My requirement is to execute an R Script through a Java Webservice.
+The webservice needs a concurrency of 50.
+> > >
+> > > We are using RServe to execute the R Script from the Java code. To
+achieve this, in the linux server , we
+> created 50 instances of the RServe instances, started at different ports.
+> > 
+> > 
+> > Why would you do that? The whole point of Rserve is that you can serve
+parallel connections from a single
+> port since each connection gets a separate process.
+> > 
+> > 
+> > > Inside the java application, created a connection pool with 50
+RConnection objects, each linked to one
+> of the RServe instance created . For every execution, we fetch a
+RConnection from the pool, execute the R
+> script, get the response value and then return the RConnection to the pool.
+> > >
+> > > When we execute the webservice with a single user accessing, the R
+execution gets completed in 1 second.
+> However , if I try to run the same webservice with a concurrency of 50, it
+takes around 30 seconds to execute
+> the R Script inside the RServe. Since the actual R execution takes only 1
+second if executed with single
+> user, Im thinking that Im doing something wrong with the RServe. Any
+pointers would help.
+> > 
+> > 
+> > First, run just one instance - it can handle many parallel connections
+(on our production server it's
+> common to have over 1000 parallel connections).
+> > 
+> > How much load you can get out of your server depends mostly on the
+number of cores you have available, since R
+> jobs tend to be typically very CPU-bound. For example, if you have only 8
+cores and an R call takes 1s it means
+> you can only serve 8 connections before they start slowing down - simply
+due to CPU saturation. If you have
+> 50 requests within 1s you need to process 50s worth of CPU time so the
+lowest bound on total time is 6.25s to
+> process them.
+> > 
+> > One additional factor under heavy loads is that there is a fixed cost of
+forking - on our servers typically
+> in the order of 4ms, and that limits the maximum connect rate. In the 4ms
+case this means you can start at most
+> 250 connections per second. This is typically not an issue unless the R
+code is really trivial (e.g. just a
+> hash lookup) since it is eclipsed by the time spend in R, but it's
+something worth mentioning since we had
+> people using Rserve is such fashion. Note that you can eliminate that
+aspect temporarily by keeping a pool
+> of open connections (until you run out of them).
+> > 
+> > Cheers,
+> > Simon
+> > 
+> > 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel <at> listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+Hi,
+
+I am also facing a serious issue with Rserve parallel execution. From java i
+am getting Rserve connection and trying to do source(abc.R) in the remote
+node. When i trigger parallel execution it goes through and gives me proper
+output, but after that next execution hangs, it never gets Rserve connection
+from java.
+
+note: for each execution i am opening and closing the connection.
+Rserve is started with single port.
+
+Simon Urbanek <simon.urbanek <at> r-project.org> writes:
+
+
+
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

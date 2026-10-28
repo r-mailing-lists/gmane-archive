@@ -1,0 +1,203 @@
+From artjom31415 at googlemail.com  Fri Feb  5 06:34:18 2016
+From: artjom31415 at googlemail.com (Constantin A.-E.)
+Date: Fri, 05 Feb 2016 14:34:18 +0800
+Subject: Float Truncation Problem when Parsing JSON
+Message-ID: <CAGB6oMZ1W4hY1=swMn6NSrB3zZZY9Eep3FCo42+MGPZcXb96BQ@mail.gmail.com>
+
+Hi,
+
+
+I am currently programming my own small R IDE running on a Java Server and
+am thus using JRI.
+The problem I have right now is, that if I try to parse JSON from my R
+session, the floats get truncated.
+
+For example this code:
+
+
+rjson::fromJSON('3.7')
+
+
+is evaluated to: [REAL* (3.0)]
+
+
+I checked the exact same code with my normal R installation, and I get
+the correct answer of 3.7.
+
+
+I also tried another R JSON library called jsonlite, but get exactly
+the same output.
+
+
+Do you have any idea, what is happening here?
+
+
+
+Best regards,
+
+Artjom
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Fri Feb  5 14:01:30 2016
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 05 Feb 2016 09:01:30 -0500
+Subject: Re: Float Truncation Problem when Parsing JSON
+In-Reply-To: <CAGB6oMZ1W4hY1=swMn6NSrB3zZZY9Eep3FCo42+MGPZcXb96BQ@mail.gmail.com>
+References: <CAGB6oMZ1W4hY1=swMn6NSrB3zZZY9Eep3FCo42+MGPZcXb96BQ@mail.gmail.com>
+Message-ID: <EB79276E-BC2F-47C6-B5E4-E33A5B81CB2E@r-project.org>
+
+Artjom,
+
+this is typically a locale issue - you are likely running in a LC_NUMERIC locale that doesn't use dot (.) as the decimals separator - compare Sys.getlocale() in your R session and in your Java session. Try setting LC_NUMERIC to something more sane, R typically enforces LC_NUMERIC=C, but since you run it from Java it is Java setting the locale.
+
+To illustrate in R:
+
+> Sys.setlocale("LC_NUMERIC","de_DE.UTF-8")
+[1] "de_DE.UTF-8"
+Warning message:
+In Sys.setlocale("LC_NUMERIC", "de_DE.UTF-8") :
+  setting 'LC_NUMERIC' may cause R to function strangely
+> rjson::fromJSON('3.7')
+[1] 3
+> Sys.setlocale("LC_NUMERIC","C")
+[1] "C"
+> rjson::fromJSON('3.7')
+[1] 3.7
+
+and as you can see R is explicitly warning about such locales since they break a lot of things.
+
+Cheers,
+Simon
+
+
+On Feb 5, 2016, at 1:34 AM, Constantin A.-E. <artjom31415 at googlemail.com> wrote:
+
+> 
+> Hi,
+> 
+> 
+> I am currently programming my own small R IDE running on a Java Server and am thus using JRI.
+> The problem I have right now is, that if I try to parse JSON from my R session, the floats get truncated.
+> 
+> For example this code:
+> 
+> rjson::fromJSON('3.7')
+> 
+> is evaluated to: [REAL* (3.0)]
+> 
+> I checked the exact same code with my normal R installation, and I get the correct answer of 3.7.
+> 
+> I also tried another R JSON library called jsonlite, but get exactly the same output.
+> 
+> Do you have any idea, what is happening here?
+> 
+> 
+> 
+> Best regards,
+> Artjom
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From artjom31415 at googlemail.com  Wed Feb 10 01:05:13 2016
+From: artjom31415 at googlemail.com (Constantin A.-E.)
+Date: Wed, 10 Feb 2016 09:05:13 +0800
+Subject: Re: Float Truncation Problem when Parsing JSON
+In-Reply-To: <EB79276E-BC2F-47C6-B5E4-E33A5B81CB2E@r-project.org>
+References: <CAGB6oMZ1W4hY1=swMn6NSrB3zZZY9Eep3FCo42+MGPZcXb96BQ@mail.gmail.com> <EB79276E-BC2F-47C6-B5E4-E33A5B81CB2E@r-project.org>
+Message-ID: <CAGB6oMYp5305ekW3o5xDUDXtXgSikKeMKkE2mvp1MJ6tOW04nQ@mail.gmail.com>
+
+Hi Simon,
+
+thanks a lot for your help, you are right, setting the locale solved the
+issue.
+
+Best regards,
+Artjom
+
+2016-02-05 22:01 GMT+08:00 Simon Urbanek <simon.urbanek at r-project.org>:
+
+> Artjom,
+>
+> this is typically a locale issue - you are likely running in a LC_NUMERIC
+> locale that doesn't use dot (.) as the decimals separator - compare
+> Sys.getlocale() in your R session and in your Java session. Try setting
+> LC_NUMERIC to something more sane, R typically enforces LC_NUMERIC=C, but
+> since you run it from Java it is Java setting the locale.
+>
+> To illustrate in R:
+>
+> > Sys.setlocale("LC_NUMERIC","de_DE.UTF-8")
+> [1] "de_DE.UTF-8"
+> Warning message:
+> In Sys.setlocale("LC_NUMERIC", "de_DE.UTF-8") :
+>   setting 'LC_NUMERIC' may cause R to function strangely
+> > rjson::fromJSON('3.7')
+> [1] 3
+> > Sys.setlocale("LC_NUMERIC","C")
+> [1] "C"
+> > rjson::fromJSON('3.7')
+> [1] 3.7
+>
+> and as you can see R is explicitly warning about such locales since they
+> break a lot of things.
+>
+> Cheers,
+> Simon
+>
+>
+> On Feb 5, 2016, at 1:34 AM, Constantin A.-E. <artjom31415 at googlemail.com>
+> wrote:
+>
+> >
+> > Hi,
+> >
+> >
+> > I am currently programming my own small R IDE running on a Java Server
+> and am thus using JRI.
+> > The problem I have right now is, that if I try to parse JSON from my R
+> session, the floats get truncated.
+> >
+> > For example this code:
+> >
+> > rjson::fromJSON('3.7')
+> >
+> > is evaluated to: [REAL* (3.0)]
+> >
+> > I checked the exact same code with my normal R installation, and I get
+> the correct answer of 3.7.
+> >
+> > I also tried another R JSON library called jsonlite, but get exactly the
+> same output.
+> >
+> > Do you have any idea, what is happening here?
+> >
+> >
+> >
+> > Best regards,
+> > Artjom
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

@@ -1,0 +1,2862 @@
+From urbanek at research.att.com  Fri Jun  1 01:16:18 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Thu, 31 May 2007 21:16:18 -0400
+Subject: Re: how JRI handle the consecutive R request?
+In-Reply-To: <20070531181303743.00000002396@phocid>
+References: <20070531181303743.00000002396@phocid>
+Message-ID: <349D8A46-0F01-4700-9F3C-515C0483BF28@research.att.com>
+
+Lei,
+
+On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+
+> I'm trying to use JRI to replace my old code that uses Rserve now.  
+> I wonder how JRI handle the consecutive request. For example, after  
+> I issue a very time consuming R command through JRI, I issue second  
+> command through JRI right after this. Is there any way that JRI or  
+> JGR can remember the second command and execute it after the first  
+> one finished? Or I should write my own queue to save all command?
+>
+
+I'm not quite sure what you mean - if you try to send a request while  
+another one is processed, it will block until it is processed as  
+well, so it is a kind of implicit queuing that you get. Clearly, only  
+one eval will be inside R at each given time as R is not threaded  
+(unless you use multiple JVMs ...).
+
+Cheers,
+Simon
+
+From lei.wu at jax.org  Fri Jun  1 15:08:59 2007
+From: lei.wu at jax.org (Lei Wu)
+Date: Fri, 01 Jun 2007 11:08:59 -0400
+Subject: RE: how JRI handle the consecutive R request?
+In-Reply-To: <349D8A46-0F01-4700-9F3C-515C0483BF28@research.att.com>
+References: <349D8A46-0F01-4700-9F3C-515C0483BF28@research.att.com>
+Message-ID: <20070601110859629.00000002396@phocid>
+
+Thanks, Simon. I'm not sure if I understand this correctly. Please correct me if it's not right. The implicit queuing means you block the subsequent requests send to R when R is processing another one. When the current request finished if there are two or more requests waiting, theoretically any one of them can be chosen to be executed next. Am I right?
+
+Thanks,
+Lei
+
+
+-----Original Message-----
+From: Simon Urbanek [mailto:urbanek at research.att.com] 
+Sent: Thursday, May 31, 2007 9:16 PM
+To: Lei Wu
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R request?
+
+Lei,
+
+On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+
+> I'm trying to use JRI to replace my old code that uses Rserve now.
+> I wonder how JRI handle the consecutive request. For example, after
+> I issue a very time consuming R command through JRI, I issue second
+> command through JRI right after this. Is there any way that JRI or
+> JGR can remember the second command and execute it after the first
+> one finished? Or I should write my own queue to save all command?
+>
+
+I'm not quite sure what you mean - if you try to send a request while
+another one is processed, it will block until it is processed as
+well, so it is a kind of implicit queuing that you get. Clearly, only
+one eval will be inside R at each given time as R is not threaded
+(unless you use multiple JVMs ...).
+
+Cheers,
+Simon
+
+From urbanek at research.att.com  Fri Jun  1 15:37:35 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Fri, 01 Jun 2007 11:37:35 -0400
+Subject: Re: how JRI handle the consecutive R request?
+In-Reply-To: <20070601110859629.00000002396@phocid>
+References: <20070601110859629.00000002396@phocid>
+Message-ID: <DE114BD6-1EE8-4230-9FCC-57C9F626B7FA@research.att.com>
+
+Lei,
+
+On Jun 1, 2007, at 11:08 AM, Lei Wu wrote:
+
+> Thanks, Simon. I'm not sure if I understand this correctly. Please  
+> correct me if it's not right. The implicit queuing means you block  
+> the subsequent requests send to R when R is processing another one.  
+> When the current request finished if there are two or more requests  
+> waiting, theoretically any one of them can be chosen to be executed  
+> next. Am I right?
+>
+
+I think that is what the Java specs say (assuming equal thread  
+priority). ["To a great extent, the manner in which a Java virtual  
+machine implementation selects the next thread from the wait or entry  
+sets is a decision of individual implementation designers." from  
+http://www.artima.com/insidejvm/ed2/threadsynch.html].
+
+Cheers,
+Simon
+
+
+>
+> -----Original Message-----
+> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> Sent: Thursday, May 31, 2007 9:16 PM
+> To: Lei Wu
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R  
+> request?
+>
+> Lei,
+>
+> On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+>
+>> I'm trying to use JRI to replace my old code that uses Rserve now.
+>> I wonder how JRI handle the consecutive request. For example, after
+>> I issue a very time consuming R command through JRI, I issue second
+>> command through JRI right after this. Is there any way that JRI or
+>> JGR can remember the second command and execute it after the first
+>> one finished? Or I should write my own queue to save all command?
+>>
+>
+> I'm not quite sure what you mean - if you try to send a request while
+> another one is processed, it will block until it is processed as
+> well, so it is a kind of implicit queuing that you get. Clearly, only
+> one eval will be inside R at each given time as R is not threaded
+> (unless you use multiple JVMs ...).
+>
+> Cheers,
+> Simon
+>
+>
+>
+>
+>
+
+From lei.wu at jax.org  Fri Jun  1 16:12:26 2007
+From: lei.wu at jax.org (Lei Wu)
+Date: Fri, 01 Jun 2007 12:12:26 -0400
+Subject: RE: how JRI handle the consecutive R request?
+In-Reply-To: <DE114BD6-1EE8-4230-9FCC-57C9F626B7FA@research.att.com>
+References: <DE114BD6-1EE8-4230-9FCC-57C9F626B7FA@research.att.com>
+Message-ID: <20070601121226720.00000002396@phocid>
+
+Simon, 
+
+Thanks! That's what I think too. I'll write my own R command queue to maintain the order of my R commands. Here is another question: both JRI.jar and jri.dll are R version specific? If I have a new R version, I need to update my JRI.jar and jri.dll correspondingly?
+
+Thanks again,
+Lei
+ 
+
+-----Original Message-----
+From: Simon Urbanek [mailto:urbanek at research.att.com] 
+Sent: Friday, June 01, 2007 11:38 AM
+To: Lei Wu
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R request?
+
+Lei,
+
+On Jun 1, 2007, at 11:08 AM, Lei Wu wrote:
+
+> Thanks, Simon. I'm not sure if I understand this correctly. Please
+> correct me if it's not right. The implicit queuing means you block
+> the subsequent requests send to R when R is processing another one.
+> When the current request finished if there are two or more requests
+> waiting, theoretically any one of them can be chosen to be executed
+> next. Am I right?
+>
+
+I think that is what the Java specs say (assuming equal thread
+priority). ["To a great extent, the manner in which a Java virtual
+machine implementation selects the next thread from the wait or entry
+sets is a decision of individual implementation designers." from
+http://www.artima.com/insidejvm/ed2/threadsynch.html].
+
+Cheers,
+Simon
+
+
+>
+> -----Original Message-----
+> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> Sent: Thursday, May 31, 2007 9:16 PM
+> To: Lei Wu
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+> request?
+>
+> Lei,
+>
+> On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+>
+>> I'm trying to use JRI to replace my old code that uses Rserve now.
+>> I wonder how JRI handle the consecutive request. For example, after
+>> I issue a very time consuming R command through JRI, I issue second
+>> command through JRI right after this. Is there any way that JRI or
+>> JGR can remember the second command and execute it after the first
+>> one finished? Or I should write my own queue to save all command?
+>>
+>
+> I'm not quite sure what you mean - if you try to send a request while
+> another one is processed, it will block until it is processed as
+> well, so it is a kind of implicit queuing that you get. Clearly, only
+> one eval will be inside R at each given time as R is not threaded
+> (unless you use multiple JVMs ...).
+>
+> Cheers,
+> Simon
+>
+>
+>
+>
+>
+
+From urbanek at research.att.com  Fri Jun  1 16:50:33 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Fri, 01 Jun 2007 12:50:33 -0400
+Subject: Re: how JRI handle the consecutive R request?
+In-Reply-To: <20070601121226720.00000002396@phocid>
+References: <20070601121226720.00000002396@phocid>
+Message-ID: <7BA7D875-BB75-447A-9725-9C3FFE68E6C1@research.att.com>
+
+
+On Jun 1, 2007, at 12:12 PM, Lei Wu wrote:
+
+> Thanks! That's what I think too. I'll write my own R command queue  
+> to maintain the order of my R commands.
+
+Sure. If you consider releasing it under GPL, let me know and it  
+could be added to JRI ...
+
+
+> Here is another question: both JRI.jar and jri.dll are R version  
+> specific? If I have a new R version, I need to update my JRI.jar  
+> and jri.dll correspondingly?
+>
+
+Only the native code (jri.dll) is version-specific. You could use  
+multiple .dlls and pick the correct one for a given R if you desire.
+
+Cheers,
+Simon
+
+
+>
+> -----Original Message-----
+> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> Sent: Friday, June 01, 2007 11:38 AM
+> To: Lei Wu
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R  
+> request?
+>
+> Lei,
+>
+> On Jun 1, 2007, at 11:08 AM, Lei Wu wrote:
+>
+>> Thanks, Simon. I'm not sure if I understand this correctly. Please
+>> correct me if it's not right. The implicit queuing means you block
+>> the subsequent requests send to R when R is processing another one.
+>> When the current request finished if there are two or more requests
+>> waiting, theoretically any one of them can be chosen to be executed
+>> next. Am I right?
+>>
+>
+> I think that is what the Java specs say (assuming equal thread
+> priority). ["To a great extent, the manner in which a Java virtual
+> machine implementation selects the next thread from the wait or entry
+> sets is a decision of individual implementation designers." from
+> http://www.artima.com/insidejvm/ed2/threadsynch.html].
+>
+> Cheers,
+> Simon
+>
+>
+>>
+>> -----Original Message-----
+>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+>> Sent: Thursday, May 31, 2007 9:16 PM
+>> To: Lei Wu
+>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+>> request?
+>>
+>> Lei,
+>>
+>> On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+>>
+>>> I'm trying to use JRI to replace my old code that uses Rserve now.
+>>> I wonder how JRI handle the consecutive request. For example, after
+>>> I issue a very time consuming R command through JRI, I issue second
+>>> command through JRI right after this. Is there any way that JRI or
+>>> JGR can remember the second command and execute it after the first
+>>> one finished? Or I should write my own queue to save all command?
+>>>
+>>
+>> I'm not quite sure what you mean - if you try to send a request while
+>> another one is processed, it will block until it is processed as
+>> well, so it is a kind of implicit queuing that you get. Clearly, only
+>> one eval will be inside R at each given time as R is not threaded
+>> (unless you use multiple JVMs ...).
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>
+>>
+>>
+>
+>
+>
+
+From lei.wu at jax.org  Fri Jun  1 21:50:17 2007
+From: lei.wu at jax.org (Lei Wu)
+Date: Fri, 01 Jun 2007 17:50:17 -0400
+Subject: RE: how JRI handle the consecutive R request?
+In-Reply-To: <7BA7D875-BB75-447A-9725-9C3FFE68E6C1@research.att.com>
+References: <7BA7D875-BB75-447A-9725-9C3FFE68E6C1@research.att.com>
+Message-ID: <20070601175017221.00000002396@phocid>
+
+Thanks again! I must miss some important thing in JRI. How can I get the R feed back if I initialize the Rengine as Rengine re = new Rengine(args, false, new TextConsole2())? I don't want user to type anything as the input to R. I will feed the R command from my program. But I do want to see the output from running my R command.
+
+Thanks,
+Lei
+ 
+
+-----Original Message-----
+From: Simon Urbanek [mailto:urbanek at research.att.com] 
+Sent: Friday, June 01, 2007 12:51 PM
+To: Lei Wu
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R request?
+
+
+On Jun 1, 2007, at 12:12 PM, Lei Wu wrote:
+
+> Thanks! That's what I think too. I'll write my own R command queue
+> to maintain the order of my R commands.
+
+Sure. If you consider releasing it under GPL, let me know and it
+could be added to JRI ...
+
+
+> Here is another question: both JRI.jar and jri.dll are R version
+> specific? If I have a new R version, I need to update my JRI.jar
+> and jri.dll correspondingly?
+>
+
+Only the native code (jri.dll) is version-specific. You could use
+multiple .dlls and pick the correct one for a given R if you desire.
+
+Cheers,
+Simon
+
+
+>
+> -----Original Message-----
+> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> Sent: Friday, June 01, 2007 11:38 AM
+> To: Lei Wu
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+> request?
+>
+> Lei,
+>
+> On Jun 1, 2007, at 11:08 AM, Lei Wu wrote:
+>
+>> Thanks, Simon. I'm not sure if I understand this correctly. Please
+>> correct me if it's not right. The implicit queuing means you block
+>> the subsequent requests send to R when R is processing another one.
+>> When the current request finished if there are two or more requests
+>> waiting, theoretically any one of them can be chosen to be executed
+>> next. Am I right?
+>>
+>
+> I think that is what the Java specs say (assuming equal thread
+> priority). ["To a great extent, the manner in which a Java virtual
+> machine implementation selects the next thread from the wait or entry
+> sets is a decision of individual implementation designers." from
+> http://www.artima.com/insidejvm/ed2/threadsynch.html].
+>
+> Cheers,
+> Simon
+>
+>
+>>
+>> -----Original Message-----
+>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+>> Sent: Thursday, May 31, 2007 9:16 PM
+>> To: Lei Wu
+>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+>> request?
+>>
+>> Lei,
+>>
+>> On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+>>
+>>> I'm trying to use JRI to replace my old code that uses Rserve now.
+>>> I wonder how JRI handle the consecutive request. For example, after
+>>> I issue a very time consuming R command through JRI, I issue second
+>>> command through JRI right after this. Is there any way that JRI or
+>>> JGR can remember the second command and execute it after the first
+>>> one finished? Or I should write my own queue to save all command?
+>>>
+>>
+>> I'm not quite sure what you mean - if you try to send a request while
+>> another one is processed, it will block until it is processed as
+>> well, so it is a kind of implicit queuing that you get. Clearly, only
+>> one eval will be inside R at each given time as R is not threaded
+>> (unless you use multiple JVMs ...).
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>
+>>
+>>
+>
+>
+>
+
+From urbanek at research.att.com  Mon Jun  4 13:44:22 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Mon, 04 Jun 2007 09:44:22 -0400
+Subject: Re: how JRI handle the consecutive R request?
+In-Reply-To: <20070601175017221.00000002396@phocid>
+References: <20070601175017221.00000002396@phocid>
+Message-ID: <572A0B43-42B5-4A56-88EE-6690271B5EF2@research.att.com>
+
+
+On Jun 1, 2007, at 5:50 PM, Lei Wu wrote:
+
+> Thanks again! I must miss some important thing in JRI. How can I  
+> get the R feed back if I initialize the Rengine as Rengine re = new  
+> Rengine(args, false, new TextConsole2())? I don't want user to type  
+> anything as the input to R. I will feed the R command from my  
+> program. But I do want to see the output from running my R command.
+>
+
+"R feed back"? What do you mean? If you want to run R without the  
+event loop, new Rengine(args, false, null) is quite sufficient (no  
+need for TextConsole). Everything then works exactly as in Rserve,  
+i.e. you get all your results directly from eval. The callbacks are  
+used when you want to run the full REPL like a console.
+
+Cheers,
+Simon
+
+
+>
+> -----Original Message-----
+> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> Sent: Friday, June 01, 2007 12:51 PM
+> To: Lei Wu
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R  
+> request?
+>
+>
+> On Jun 1, 2007, at 12:12 PM, Lei Wu wrote:
+>
+>> Thanks! That's what I think too. I'll write my own R command queue
+>> to maintain the order of my R commands.
+>
+> Sure. If you consider releasing it under GPL, let me know and it
+> could be added to JRI ...
+>
+>
+>> Here is another question: both JRI.jar and jri.dll are R version
+>> specific? If I have a new R version, I need to update my JRI.jar
+>> and jri.dll correspondingly?
+>>
+>
+> Only the native code (jri.dll) is version-specific. You could use
+> multiple .dlls and pick the correct one for a given R if you desire.
+>
+> Cheers,
+> Simon
+>
+>
+>>
+>> -----Original Message-----
+>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+>> Sent: Friday, June 01, 2007 11:38 AM
+>> To: Lei Wu
+>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+>> request?
+>>
+>> Lei,
+>>
+>> On Jun 1, 2007, at 11:08 AM, Lei Wu wrote:
+>>
+>>> Thanks, Simon. I'm not sure if I understand this correctly. Please
+>>> correct me if it's not right. The implicit queuing means you block
+>>> the subsequent requests send to R when R is processing another one.
+>>> When the current request finished if there are two or more requests
+>>> waiting, theoretically any one of them can be chosen to be executed
+>>> next. Am I right?
+>>>
+>>
+>> I think that is what the Java specs say (assuming equal thread
+>> priority). ["To a great extent, the manner in which a Java virtual
+>> machine implementation selects the next thread from the wait or entry
+>> sets is a decision of individual implementation designers." from
+>> http://www.artima.com/insidejvm/ed2/threadsynch.html].
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>>
+>>> -----Original Message-----
+>>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+>>> Sent: Thursday, May 31, 2007 9:16 PM
+>>> To: Lei Wu
+>>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+>>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+>>> request?
+>>>
+>>> Lei,
+>>>
+>>> On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+>>>
+>>>> I'm trying to use JRI to replace my old code that uses Rserve now.
+>>>> I wonder how JRI handle the consecutive request. For example, after
+>>>> I issue a very time consuming R command through JRI, I issue second
+>>>> command through JRI right after this. Is there any way that JRI or
+>>>> JGR can remember the second command and execute it after the first
+>>>> one finished? Or I should write my own queue to save all command?
+>>>>
+>>>
+>>> I'm not quite sure what you mean - if you try to send a request  
+>>> while
+>>> another one is processed, it will block until it is processed as
+>>> well, so it is a kind of implicit queuing that you get. Clearly,  
+>>> only
+>>> one eval will be inside R at each given time as R is not threaded
+>>> (unless you use multiple JVMs ...).
+>>>
+>>> Cheers,
+>>> Simon
+>>>
+>>>
+>>>
+>>>
+>>>
+>>
+>>
+>>
+>
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From lei.wu at jax.org  Mon Jun  4 15:05:56 2007
+From: lei.wu at jax.org
+Date: Mon, 04 Jun 2007 11:05:56 -0400
+Subject: Re: how JRI handle the consecutive R request?
+Message-ID: <21838441.1180969556798.JavaMail.ocsadmin@jcs-mid-prod.jax.org>
+
+Thanks, Simon. My boss would like to see the periodic prompt print out from running R codes. Our R code takes really long time to run (1 or 2 days). It basically run thousands iterations. After each iteration, R code prints out a message to let user know the progress. My old Java code with Rserve cannot print these messages out. Since I'm recoding to replace Rserve with JRI, he wants to let the users see these messages to let them know the progress. I played around with JRI's example codes, rtest and rtest2, but cannot get this done. Is it possible? So this is a kind of partial REPL that using Rengine as a computation engine and also want to show the prompt print out from running R program. 
+
+If I initialize Rengine re = new Rengine(args, true, new TextConsole2()), do I have to input R command from keyboard?
+
+Thank you very much for all of your helps!
+Lei
+
+--- Original Message ---
+> 
+> On Jun 1, 2007, at 5:50 PM, Lei Wu wrote:
+> 
+> > Thanks again! I must miss some important thing in JRI. How can I  
+> > get the R feed back if I initialize the Rengine as Rengine re = new  
+> > Rengine(args, false, new TextConsole2())? I don't want user to type  
+> > anything as the input to R. I will feed the R command from my  
+> > program. But I do want to see the output from running my R command.
+> >
+> 
+> "R feed back"? What do you mean? If you want to run R without
+> the  
+> event loop, new Rengine(args, false, null) is quite sufficient
+> (no  
+> need for TextConsole). Everything then works exactly as in
+> Rserve,  
+> i.e. you get all your results directly from eval. The callbacks
+> are  
+> used when you want to run the full REPL like a console.
+> 
+> Cheers,
+> Simon
+> 
+> 
+> >
+> > -----Original Message-----
+> > From: Simon Urbanek [mailto:urbanek at research.att.com]
+> > Sent: Friday, June 01, 2007 12:51 PM
+> > To: Lei Wu
+> > Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> > Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R  
+> > request?
+> >
+> >
+> > On Jun 1, 2007, at 12:12 PM, Lei Wu wrote:
+> >
+> >> Thanks! That's what I think too. I'll write my own R command queue
+> >> to maintain the order of my R commands.
+> >
+> > Sure. If you consider releasing it under GPL, let me know and it
+> > could be added to JRI ...
+> >
+> >
+> >> Here is another question: both JRI.jar and jri.dll are R version
+> >> specific? If I have a new R version, I need to update my JRI.jar
+> >> and jri.dll correspondingly?
+> >>
+> >
+> > Only the native code (jri.dll) is version-specific. You could use
+> > multiple .dlls and pick the correct one for a given R if you desire.
+> >
+> > Cheers,
+> > Simon
+> >
+> >
+> >>
+> >> -----Original Message-----
+> >> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> >> Sent: Friday, June 01, 2007 11:38 AM
+> >> To: Lei Wu
+> >> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> >> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+> >> request?
+> >>
+> >> Lei,
+> >>
+> >> On Jun 1, 2007, at 11:08 AM, Lei Wu wrote:
+> >>
+> >>> Thanks, Simon. I'm not sure if I understand this correctly. Please
+> >>> correct me if it's not right. The implicit queuing means you block
+> >>> the subsequent requests send to R when R is processing another one.
+> >>> When the current request finished if there are two or more requests
+> >>> waiting, theoretically any one of them can be chosen to be executed
+> >>> next. Am I right?
+> >>>
+> >>
+> >> I think that is what the Java specs say (assuming equal thread
+> >> priority). ["To a great extent, the manner in which a Java virtual
+> >> machine implementation selects the next thread from the wait or entry
+> >> sets is a decision of individual implementation designers." from
+> >> http://www.artima.com/insidejvm/ed2/threadsynch.html].
+> >>
+> >> Cheers,
+> >> Simon
+> >>
+> >>
+> >>>
+> >>> -----Original Message-----
+> >>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> >>> Sent: Thursday, May 31, 2007 9:16 PM
+> >>> To: Lei Wu
+> >>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> >>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+> >>> request?
+> >>>
+> >>> Lei,
+> >>>
+> >>> On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+> >>>
+> >>>> I'm trying to use JRI to replace my old code that uses Rserve now.
+> >>>> I wonder how JRI handle the consecutive request. For example, after
+> >>>> I issue a very time consuming R command through JRI, I issue second
+> >>>> command through JRI right after this. Is there any way that JRI or
+> >>>> JGR can remember the second command and execute it after the first
+> >>>> one finished? Or I should write my own queue to save all command?
+> >>>>
+> >>>
+> >>> I'm not quite sure what you mean - if you try to send a request  
+> >>> while
+> >>> another one is processed, it will block until it is processed as
+> >>> well, so it is a kind of implicit queuing that you get. Clearly,  
+> >>> only
+> >>> one eval will be inside R at each given time as R is not threaded
+> >>> (unless you use multiple JVMs ...).
+> >>>
+> >>> Cheers,
+> >>> Simon
+> >>>
+> >>>
+> >>>
+> >>>
+> >>>
+> >>
+> >>
+> >>
+> >
+> >
+> >
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From urbanek at research.att.com  Mon Jun  4 15:19:53 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Mon, 04 Jun 2007 11:19:53 -0400
+Subject: Re: how JRI handle the consecutive R request?
+In-Reply-To: <21838441.1180969556798.JavaMail.ocsadmin@jcs-mid-prod.jax.org>
+References: <21838441.1180969556798.JavaMail.ocsadmin@jcs-mid-prod.jax.org>
+Message-ID: <4031DB45-81E9-441B-A628-92D33BDB7714@research.att.com>
+
+On Jun 4, 2007, at 11:05 AM, lei.wu at jax.org wrote:
+
+> Thanks, Simon. My boss would like to see the periodic prompt print  
+> out from running R codes. Our R code takes really long time to run  
+> (1 or 2 days). It basically run thousands iterations. After each  
+> iteration, R code prints out a message to let user know the  
+> progress. My old Java code with Rserve cannot print these messages  
+> out. Since I'm recoding to replace Rserve with JRI, he wants to let  
+> the users see these messages to let them know the progress. I  
+> played around with JRI's example codes, rtest and rtest2, but  
+> cannot get this done. Is it possible? So this is a kind of partial  
+> REPL that using Rengine as a computation engine and also want to  
+> show the prompt print out from running R program.
+>
+
+Sure. Actually, rtest.java does exactly that as-is (it just prints it  
+to the console). All you really have to implement is rWriteConsole -  
+it will be called whenever R prints something. You can make it to e- 
+mail the intermediate result to your boss or whatever you like ;). If  
+you have problems with that, please be more specific as you what your  
+code does, because the rtest.java example actually does exactly what  
+you describe.
+
+
+> If I initialize Rengine re = new Rengine(args, true, new  
+> TextConsole2()), do I have to input R command from keyboard?
+>
+
+You don't have to, but you can. Clearly, you could change  
+rReadConsole such that it doesn't read from the stdin and add your  
+queue instead if you want a true console. But there is no real  
+difference in just using eval (because that's all the REPL does).
+
+Cheers,
+Simon
+
+
+
+>
+> --- Original Message ---
+>>
+>> On Jun 1, 2007, at 5:50 PM, Lei Wu wrote:
+>>
+>>> Thanks again! I must miss some important thing in JRI. How can I
+>>> get the R feed back if I initialize the Rengine as Rengine re = new
+>>> Rengine(args, false, new TextConsole2())? I don't want user to type
+>>> anything as the input to R. I will feed the R command from my
+>>> program. But I do want to see the output from running my R command.
+>>>
+>>
+>> "R feed back"? What do you mean? If you want to run R without
+>> the
+>> event loop, new Rengine(args, false, null) is quite sufficient
+>> (no
+>> need for TextConsole). Everything then works exactly as in
+>> Rserve,
+>> i.e. you get all your results directly from eval. The callbacks
+>> are
+>> used when you want to run the full REPL like a console.
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>>
+>>> -----Original Message-----
+>>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+>>> Sent: Friday, June 01, 2007 12:51 PM
+>>> To: Lei Wu
+>>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+>>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+>>> request?
+>>>
+>>>
+>>> On Jun 1, 2007, at 12:12 PM, Lei Wu wrote:
+>>>
+>>>> Thanks! That's what I think too. I'll write my own R command queue
+>>>> to maintain the order of my R commands.
+>>>
+>>> Sure. If you consider releasing it under GPL, let me know and it
+>>> could be added to JRI ...
+>>>
+>>>
+>>>> Here is another question: both JRI.jar and jri.dll are R version
+>>>> specific? If I have a new R version, I need to update my JRI.jar
+>>>> and jri.dll correspondingly?
+>>>>
+>>>
+>>> Only the native code (jri.dll) is version-specific. You could use
+>>> multiple .dlls and pick the correct one for a given R if you desire.
+>>>
+>>> Cheers,
+>>> Simon
+>>>
+>>>
+>>>>
+>>>> -----Original Message-----
+>>>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+>>>> Sent: Friday, June 01, 2007 11:38 AM
+>>>> To: Lei Wu
+>>>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+>>>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+>>>> request?
+>>>>
+>>>> Lei,
+>>>>
+>>>> On Jun 1, 2007, at 11:08 AM, Lei Wu wrote:
+>>>>
+>>>>> Thanks, Simon. I'm not sure if I understand this correctly. Please
+>>>>> correct me if it's not right. The implicit queuing means you block
+>>>>> the subsequent requests send to R when R is processing another  
+>>>>> one.
+>>>>> When the current request finished if there are two or more  
+>>>>> requests
+>>>>> waiting, theoretically any one of them can be chosen to be  
+>>>>> executed
+>>>>> next. Am I right?
+>>>>>
+>>>>
+>>>> I think that is what the Java specs say (assuming equal thread
+>>>> priority). ["To a great extent, the manner in which a Java virtual
+>>>> machine implementation selects the next thread from the wait or  
+>>>> entry
+>>>> sets is a decision of individual implementation designers." from
+>>>> http://www.artima.com/insidejvm/ed2/threadsynch.html].
+>>>>
+>>>> Cheers,
+>>>> Simon
+>>>>
+>>>>
+>>>>>
+>>>>> -----Original Message-----
+>>>>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+>>>>> Sent: Thursday, May 31, 2007 9:16 PM
+>>>>> To: Lei Wu
+>>>>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+>>>>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+>>>>> request?
+>>>>>
+>>>>> Lei,
+>>>>>
+>>>>> On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+>>>>>
+>>>>>> I'm trying to use JRI to replace my old code that uses Rserve  
+>>>>>> now.
+>>>>>> I wonder how JRI handle the consecutive request. For example,  
+>>>>>> after
+>>>>>> I issue a very time consuming R command through JRI, I issue  
+>>>>>> second
+>>>>>> command through JRI right after this. Is there any way that  
+>>>>>> JRI or
+>>>>>> JGR can remember the second command and execute it after the  
+>>>>>> first
+>>>>>> one finished? Or I should write my own queue to save all command?
+>>>>>>
+>>>>>
+>>>>> I'm not quite sure what you mean - if you try to send a request
+>>>>> while
+>>>>> another one is processed, it will block until it is processed as
+>>>>> well, so it is a kind of implicit queuing that you get. Clearly,
+>>>>> only
+>>>>> one eval will be inside R at each given time as R is not threaded
+>>>>> (unless you use multiple JVMs ...).
+>>>>>
+>>>>> Cheers,
+>>>>> Simon
+>>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>>
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda- 
+>>> devel
+>>
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From lei.wu at jax.org  Mon Jun  4 16:49:24 2007
+From: lei.wu at jax.org
+Date: Mon, 04 Jun 2007 12:49:24 -0400
+Subject: Re: how JRI handle the consecutive R request?
+Message-ID: <25239340.1180975764251.JavaMail.ocsadmin@jcs-mid-prod.jax.org>
+
+Thanks Simon! Now I know i mixed up with showing warning message and prompt from running R code. I thought they are the same. I can see all screen prompt during R code is running, but cannot see the warning message at the end. I test it very simple as below.
+
+    public void rWriteConsole(Rengine re, String text) {
+        System.out.println("-----------rWriteConsole--------------" + text);
+    }
+
+    public void rShowMessage(Rengine re, String message) {
+        System.out.println("----------rShowMessage-------------" + message);
+    }
+
+What I did wrong?
+
+Thanks!
+Lei
+
+--- Original Message ---
+> On Jun 4, 2007, at 11:05 AM, lei.wu at jax.org wrote:
+> 
+> > Thanks, Simon. My boss would like to see the periodic prompt print  
+> > out from running R codes. Our R code takes really long time to run  
+> > (1 or 2 days). It basically run thousands iterations. After each  
+> > iteration, R code prints out a message to let user know the  
+> > progress. My old Java code with Rserve cannot print these messages  
+> > out. Since I'm recoding to replace Rserve with JRI, he wants to let  
+> > the users see these messages to let them know the progress. I  
+> > played around with JRI's example codes, rtest and rtest2, but  
+> > cannot get this done. Is it possible? So this is a kind of partial  
+> > REPL that using Rengine as a computation engine and also want to  
+> > show the prompt print out from running R program.
+> >
+> 
+> Sure. Actually, rtest.java does exactly that as-is (it just
+> prints it  
+> to the console). All you really have to implement is rWriteConsole
+> -  
+> it will be called whenever R prints something. You can make
+> it to e- 
+> mail the intermediate result to your boss or whatever you like
+> ;). If  
+> you have problems with that, please be more specific as you
+> what your  
+> code does, because the rtest.java example actually does exactly
+> what  
+> you describe.
+> 
+> 
+> > If I initialize Rengine re = new Rengine(args, true, new  
+> > TextConsole2()), do I have to input R command from keyboard?
+> >
+> 
+> You don't have to, but you can. Clearly, you could change  
+> rReadConsole such that it doesn't read from the stdin and add
+> your  
+> queue instead if you want a true console. But there is no real
+>  
+> difference in just using eval (because that's all the REPL
+> does).
+> 
+> Cheers,
+> Simon
+> 
+> 
+> 
+> >
+> > --- Original Message ---
+> >>
+> >> On Jun 1, 2007, at 5:50 PM, Lei Wu wrote:
+> >>
+> >>> Thanks again! I must miss some important thing in JRI. How can I
+> >>> get the R feed back if I initialize the Rengine as Rengine re = new
+> >>> Rengine(args, false, new TextConsole2())? I don't want user to type
+> >>> anything as the input to R. I will feed the R command from my
+> >>> program. But I do want to see the output from running my R command.
+> >>>
+> >>
+> >> "R feed back"? What do you mean? If you want to run R without
+> >> the
+> >> event loop, new Rengine(args, false, null) is quite sufficient
+> >> (no
+> >> need for TextConsole). Everything then works exactly as in
+> >> Rserve,
+> >> i.e. you get all your results directly from eval. The callbacks
+> >> are
+> >> used when you want to run the full REPL like a console.
+> >>
+> >> Cheers,
+> >> Simon
+> >>
+> >>
+> >>>
+> >>> -----Original Message-----
+> >>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> >>> Sent: Friday, June 01, 2007 12:51 PM
+> >>> To: Lei Wu
+> >>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> >>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+> >>> request?
+> >>>
+> >>>
+> >>> On Jun 1, 2007, at 12:12 PM, Lei Wu wrote:
+> >>>
+> >>>> Thanks! That's what I think too. I'll write my own R command queue
+> >>>> to maintain the order of my R commands.
+> >>>
+> >>> Sure. If you consider releasing it under GPL, let me know and it
+> >>> could be added to JRI ...
+> >>>
+> >>>
+> >>>> Here is another question: both JRI.jar and jri.dll are R version
+> >>>> specific? If I have a new R version, I need to update my JRI.jar
+> >>>> and jri.dll correspondingly?
+> >>>>
+> >>>
+> >>> Only the native code (jri.dll) is version-specific. You could use
+> >>> multiple .dlls and pick the correct one for a given R if you desire.
+> >>>
+> >>> Cheers,
+> >>> Simon
+> >>>
+> >>>
+> >>>>
+> >>>> -----Original Message-----
+> >>>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> >>>> Sent: Friday, June 01, 2007 11:38 AM
+> >>>> To: Lei Wu
+> >>>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> >>>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+> >>>> request?
+> >>>>
+> >>>> Lei,
+> >>>>
+> >>>> On Jun 1, 2007, at 11:08 AM, Lei Wu wrote:
+> >>>>
+> >>>>> Thanks, Simon. I'm not sure if I understand this correctly. Please
+> >>>>> correct me if it's not right. The implicit queuing means you block
+> >>>>> the subsequent requests send to R when R is processing another  
+> >>>>> one.
+> >>>>> When the current request finished if there are two or more  
+> >>>>> requests
+> >>>>> waiting, theoretically any one of them can be chosen to be  
+> >>>>> executed
+> >>>>> next. Am I right?
+> >>>>>
+> >>>>
+> >>>> I think that is what the Java specs say (assuming equal thread
+> >>>> priority). ["To a great extent, the manner in which a Java virtual
+> >>>> machine implementation selects the next thread from the wait or  
+> >>>> entry
+> >>>> sets is a decision of individual implementation designers." from
+> >>>> http://www.artima.com/insidejvm/ed2/threadsynch.html].
+> >>>>
+> >>>> Cheers,
+> >>>> Simon
+> >>>>
+> >>>>
+> >>>>>
+> >>>>> -----Original Message-----
+> >>>>> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> >>>>> Sent: Thursday, May 31, 2007 9:16 PM
+> >>>>> To: Lei Wu
+> >>>>> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> >>>>> Subject: Re: [stats-rosuda-devel] how JRI handle the consecutive R
+> >>>>> request?
+> >>>>>
+> >>>>> Lei,
+> >>>>>
+> >>>>> On May 31, 2007, at 6:13 PM, Lei Wu wrote:
+> >>>>>
+> >>>>>> I'm trying to use JRI to replace my old code that uses Rserve  
+> >>>>>> now.
+> >>>>>> I wonder how JRI handle the consecutive request. For example,  
+> >>>>>> after
+> >>>>>> I issue a very time consuming R command through JRI, I issue  
+> >>>>>> second
+> >>>>>> command through JRI right after this. Is there any way that  
+> >>>>>> JRI or
+> >>>>>> JGR can remember the second command and execute it after the  
+> >>>>>> first
+> >>>>>> one finished? Or I should write my own queue to save all command?
+> >>>>>>
+> >>>>>
+> >>>>> I'm not quite sure what you mean - if you try to send a request
+> >>>>> while
+> >>>>> another one is processed, it will block until it is processed as
+> >>>>> well, so it is a kind of implicit queuing that you get. Clearly,
+> >>>>> only
+> >>>>> one eval will be inside R at each given time as R is not threaded
+> >>>>> (unless you use multiple JVMs ...).
+> >>>>>
+> >>>>> Cheers,
+> >>>>> Simon
+> >>>>>
+> >>>>>
+> >>>>>
+> >>>>>
+> >>>>>
+> >>>>
+> >>>>
+> >>>>
+> >>>
+> >>>
+> >>>
+> >>> _______________________________________________
+> >>> stats-rosuda-devel mailing list
+> >>> stats-rosuda-devel at listserv.uni-augsburg.de
+> >>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda- 
+> >>> devel
+> >>
+> >
+> >
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From simon.urbanek at r-project.org  Fri Jun  8 21:42:20 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 08 Jun 2007 17:42:20 -0400
+Subject: Re: [R-SIG-Mac] JGR stopped printing result and iplots will not install
+In-Reply-To: <86b533e90706081322q6c5391cav8b582136b50a18eb@mail.gmail.com>
+References: <86b533e90706081322q6c5391cav8b582136b50a18eb@mail.gmail.com>
+Message-ID: <D68C2BCC-4294-4798-9707-C44A85D5DD48@r-project.org>
+
+Ken,
+
+you should be using the JGR mailing list for such questions, because  
+this is not an R question (see posting guide).
+
+On Jun 8, 2007, at 4:22 PM, Ken Kelley wrote:
+
+> I recently found out about JGR and loved it! However, for some reason
+> JGRstopped working corrrectly on my Intel Mac
+> 10.4.9 running R 2.5 and I have no idea why. Furthermore, iplots  
+> will not
+> install (but for a while JGR still ran fine).
+>
+
+Please let us know which versions you are using [see sessionInfo()]  
+and how you start it.
+
+Cheers,
+Simon
+
+
+> In JGR when I type in a command the command is pasted from the  
+> bottom part
+> of the console to the top part, but nothing is returned. For example:
+>
+>> mean(1:5)
+>>
+>
+> Notice that the result is not returned. However, when I define mean 
+> (1:5) as
+> an object, say x, then in the object browser the object is listed  
+> with its
+> correct value ( i.e., 3 in this example). Why is JGR not printing  
+> the result
+> as expected and as it did previously -  It is performing the  
+> calculations?
+>
+> Separately, iplots will not install. After using the install  
+> binarys feature
+> from within R and from downloading from CRAN, everything appears to  
+> go fine
+> until I try to load the package. I also specified to install  
+> dependencies.
+> In the check on CRAN the results for Mac have a *, implying  
+> "Results with
+> [*] or [**] were obtained by checking with --install=fake and -- 
+> install=no,
+> respectively" but I'm not sure what that means. Here is what  
+> happens when I
+> install the package from source:
+>
+>>
+> WARNING: ignoring environment value of R_HOME
+> * Installing *source* package 'iplots' ...
+> ** R
+> ** inst
+> ** preparing package for lazy loading
+> ** help
+> Loading required package: rJava
+>>>> Building/Updating help pages for package 'iplots'
+>      Formats: text html latex example
+>   iabline                           text    html    latex
+>   ibar                              text    html    latex   example
+>   ibox                              text    html    latex   example
+>   ievent.wait                       text    html    latex   example
+>   ihammock                          text    html    latex   example
+>   ihist                             text    html    latex   example
+>   ilines                            text    html    latex   example
+>   imap                              text    html    latex   example
+>   imosaic                           text    html    latex   example
+>   iobj.list                         text    html    latex
+>   iobj.opt                          text    html    latex
+>   ipcp                              text    html    latex   example
+>   iplot                             text    html    latex   example
+>   iplot.data                        text    html    latex   example
+>   iplot.list                        text    html    latex   example
+>   iplot.manip                       text    html    latex
+>   iplot.opt                         text    html    latex   example
+>   iset.col                          text    html    latex   example
+>   iset.list                         text    html    latex
+>   iset.selected                     text    html    latex   example
+>   itext                             text    html    latex
+>   ivar                              text    html    latex
+> ** building package indices ...
+> * DONE (iplots)
+>>
+>
+> So, everything looks good. When I load the package here is what  
+> happens
+>
+>> library(iplots)
+> Error in .jnew("org/rosuda/iplots/Framework") :
+>     Failed to create object of class `org/rosuda/iplots/Framework'
+> In addition: Warning message:
+> NewObject("org/rosuda/iplots/Framework","()V",...) failed
+> Error in library(iplots) : .First.lib failed for 'iplots'
+> Exception in thread "main" java.lang.NoClassDefFoundError
+>     at com.apple.mrj.MRJPriv.registerAboutHandler(MRJPriv.java:281)
+>     at com.apple.mrj.MRJApplicationUtils.registerAboutHandler(
+> MRJApplicationUtils.java:64)
+>     at org.rosuda.util.PlatformMac.registerHandlers 
+> (PlatformMac.java:43)
+>     at org.rosuda.util.PlatformMac.<init>(PlatformMac.java:20)
+>     at org.rosuda.iplots.PlatformMac.<init>(PlatformMac.java:16)
+>     at sun.reflect.NativeConstructorAccessorImpl.newInstance0 
+> (Native Method)
+>     at sun.reflect.NativeConstructorAccessorImpl.newInstance(
+> NativeConstructorAccessorImpl.java:39)
+>     at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(
+> DelegatingConstructorAccessorImpl.java:27)
+>     at java.lang.reflect.Constructor.newInstance(Constructor.java:494)
+>     at java.lang.Class.newInstance0(Class.java:350)
+>     at java.lang.Class.newInstance(Class.java:303)
+>     at org.rosuda.util.Platform.initPlatform(Platform.java:44)
+>     at org.rosuda.iplots.Framework.<init>(Framework.java:48)
+>>
+>
+>
+> While JGR worked I like it. I also removed and reinstalled JGR.
+>
+> Have a good day,
+> Ken
+>
+> -- 
+> Ken Kelley, Ph.D.
+> Indiana University
+> Inquiry Methodology Program
+> 201 North Rose Avenue, Suite 4000
+> Bloomington, Indiana 47405
+>
+> Phone: 812-856-8330 / Fax: 812-856-8333
+> Email: KKIII at Indiana.Edu
+> Internet: http://www.indiana.edu/~kenkel
+>
+> 	[[alternative HTML version deleted]]
+>
+> _______________________________________________
+> R-SIG-Mac mailing list
+> R-SIG-Mac at stat.math.ethz.ch
+> https://stat.ethz.ch/mailman/listinfo/r-sig-mac
+>
+>
+
+From KKIII at Indiana.Edu  Fri Jun  8 23:57:16 2007
+From: KKIII at Indiana.Edu (Ken Kelley)
+Date: Fri, 08 Jun 2007 19:57:16 -0400
+Subject: Re: [R-SIG-Mac] JGR stopped printing result and iplots will not install
+In-Reply-To: <D68C2BCC-4294-4798-9707-C44A85D5DD48@r-project.org>
+References: <86b533e90706081322q6c5391cav8b582136b50a18eb@mail.gmail.com> <D68C2BCC-4294-4798-9707-C44A85D5DD48@r-project.org>
+Message-ID: <86b533e90706081657q25372239rcfb5984752fedfc4@mail.gmail.com>
+
+Hi.
+
+I should have provided more about the  system set-up (and not posted
+R-Sig-Mac):
+
+> sessionInfo()
+R version 2.5.0 (2007-04-23)
+i386-apple-darwin8.9.1
+
+locale:
+en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] "stats"     "graphics"  "grDevices" "utils"     "datasets"  "methods"
+"base"
+>
+
+I started JGR from the icon which is in my applications folder.
+
+Thanks,
+Ken
+
+6/8/07, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+>
+> Ken,
+>
+> you should be using the JGR mailing list for such questions, because
+> this is not an R question (see posting guide).
+>
+> On Jun 8, 2007, at 4:22 PM, Ken Kelley wrote:
+>
+> > I recently found out about JGR and loved it! However, for some reason
+> > JGRstopped working corrrectly on my Intel Mac
+> > 10.4.9 running R 2.5 and I have no idea why. Furthermore, iplots
+> > will not
+> > install (but for a while JGR still ran fine).
+> >
+>
+> Please let us know which versions you are using [see sessionInfo()]
+> and how you start it.
+>
+> Cheers,
+> Simon
+>
+>
+> > In JGR when I type in a command the command is pasted from the
+> > bottom part
+> > of the console to the top part, but nothing is returned. For example:
+> >
+> >> mean(1:5)
+> >>
+> >
+> > Notice that the result is not returned. However, when I define mean
+> > (1:5) as
+> > an object, say x, then in the object browser the object is listed
+> > with its
+> > correct value ( i.e., 3 in this example). Why is JGR not printing
+> > the result
+> > as expected and as it did previously -  It is performing the
+> > calculations?
+> >
+> > Separately, iplots will not install. After using the install
+> > binarys feature
+> > from within R and from downloading from CRAN, everything appears to
+> > go fine
+> > until I try to load the package. I also specified to install
+> > dependencies.
+> > In the check on CRAN the results for Mac have a *, implying
+> > "Results with
+> > [*] or [**] were obtained by checking with --install=fake and --
+> > install=no,
+> > respectively" but I'm not sure what that means. Here is what
+> > happens when I
+> > install the package from source:
+> >
+> >>
+> > WARNING: ignoring environment value of R_HOME
+> > * Installing *source* package 'iplots' ...
+> > ** R
+> > ** inst
+> > ** preparing package for lazy loading
+> > ** help
+> > Loading required package: rJava
+> >>>> Building/Updating help pages for package 'iplots'
+> >      Formats: text html latex example
+> >   iabline                           text    html    latex
+> >   ibar                              text    html    latex   example
+> >   ibox                              text    html    latex   example
+> >   ievent.wait                       text    html    latex   example
+> >   ihammock                          text    html    latex   example
+> >   ihist                             text    html    latex   example
+> >   ilines                            text    html    latex   example
+> >   imap                              text    html    latex   example
+> >   imosaic                           text    html    latex   example
+> >   iobj.list                         text    html    latex
+> >   iobj.opt                          text    html    latex
+> >   ipcp                              text    html    latex   example
+> >   iplot                             text    html    latex   example
+> >   iplot.data                        text    html    latex   example
+> >   iplot.list                        text    html    latex   example
+> >   iplot.manip                       text    html    latex
+> >   iplot.opt                         text    html    latex   example
+> >   iset.col                          text    html    latex   example
+> >   iset.list                         text    html    latex
+> >   iset.selected                     text    html    latex   example
+> >   itext                             text    html    latex
+> >   ivar                              text    html    latex
+> > ** building package indices ...
+> > * DONE (iplots)
+> >>
+> >
+> > So, everything looks good. When I load the package here is what
+> > happens
+> >
+> >> library(iplots)
+> > Error in .jnew("org/rosuda/iplots/Framework") :
+> >     Failed to create object of class `org/rosuda/iplots/Framework'
+> > In addition: Warning message:
+> > NewObject("org/rosuda/iplots/Framework","()V",...) failed
+> > Error in library(iplots) : .First.lib failed for 'iplots'
+> > Exception in thread "main" java.lang.NoClassDefFoundError
+> >     at com.apple.mrj.MRJPriv.registerAboutHandler(MRJPriv.java:281)
+> >     at com.apple.mrj.MRJApplicationUtils.registerAboutHandler(
+> > MRJApplicationUtils.java:64)
+> >     at org.rosuda.util.PlatformMac.registerHandlers
+> > (PlatformMac.java:43)
+> >     at org.rosuda.util.PlatformMac.<init>(PlatformMac.java:20)
+> >     at org.rosuda.iplots.PlatformMac.<init>(PlatformMac.java:16)
+> >     at sun.reflect.NativeConstructorAccessorImpl.newInstance0
+> > (Native Method)
+> >     at sun.reflect.NativeConstructorAccessorImpl.newInstance(
+> > NativeConstructorAccessorImpl.java:39)
+> >     at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(
+> > DelegatingConstructorAccessorImpl.java:27)
+> >     at java.lang.reflect.Constructor.newInstance(Constructor.java:494)
+> >     at java.lang.Class.newInstance0(Class.java:350)
+> >     at java.lang.Class.newInstance(Class.java:303)
+> >     at org.rosuda.util.Platform.initPlatform(Platform.java:44)
+> >     at org.rosuda.iplots.Framework.<init>(Framework.java:48)
+> >>
+> >
+> >
+> > While JGR worked I like it. I also removed and reinstalled JGR.
+> >
+> > Have a good day,
+> > Ken
+> >
+> > --
+> > Ken Kelley, Ph.D.
+> > Indiana University
+> > Inquiry Methodology Program
+> > 201 North Rose Avenue, Suite 4000
+> > Bloomington, Indiana 47405
+> >
+> > Phone: 812-856-8330 / Fax: 812-856-8333
+> > Email: KKIII at Indiana.Edu
+> > Internet: http://www.indiana.edu/~kenkel
+> >
+> >       [[alternative HTML version deleted]]
+> >
+> > _______________________________________________
+> > R-SIG-Mac mailing list
+> > R-SIG-Mac at stat.math.ethz.ch
+> > https://stat.ethz.ch/mailman/listinfo/r-sig-mac
+> >
+> >
+>
+>
+
+
+-- 
+Ken Kelley, Ph.D.
+Indiana University
+Inquiry Methodology Program
+201 North Rose Avenue, Suite 4000
+Bloomington, Indiana 47405
+
+Phone: 812-856-8330 / Fax: 812-856-8333
+Email: KKIII at Indiana.Edu
+Internet: http://www.indiana.edu/~kenkel
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Sat Jun  9 19:48:25 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sat, 09 Jun 2007 15:48:25 -0400
+Subject: Re: Re: [R-SIG-Mac] JGR stopped printing result and iplots will not install
+In-Reply-To: <86b533e90706081657q25372239rcfb5984752fedfc4@mail.gmail.com>
+References: <86b533e90706081322q6c5391cav8b582136b50a18eb@mail.gmail.com> <D68C2BCC-4294-4798-9707-C44A85D5DD48@r-project.org> <86b533e90706081657q25372239rcfb5984752fedfc4@mail.gmail.com>
+Message-ID: <DD7B0BCF-E6B5-432B-8006-9D05595A1820@r-project.org>
+
+Ken,
+
+that sessionInfo is not from JGR - everything is missing (rJava,  
+JavaGD, JGR, iplots, ...). If you have JGR properly installed you  
+should see this in sessionInfo:
+
+attached base packages:
+[1] "stats"    "graphics" "utils"    "methods"  "base"
+
+other attached packages:
+      JGR   iplots   JavaGD    rJava
+"1.4-15"  "1.0-7"  "0.3-6" "0.4-16"
+
+If in doubt, type
+library(JGR)
+JGR(TRUE)
+
+Cheers,
+Simon
+
+
+On Jun 8, 2007, at 7:57 PM, Ken Kelley wrote:
+
+> Hi.
+>
+> I should have provided more about the  system set-up (and not  
+> posted R-Sig-Mac):
+>
+> > sessionInfo()
+> R version 2.5.0 (2007-04-23)
+> i386-apple-darwin8.9.1
+>
+> locale:
+> en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+>
+> attached base packages:
+> [1] "stats"     "graphics"  "grDevices" "utils"     "datasets"   
+> "methods"   "base"
+> >
+>
+> I started JGR from the icon which is in my applications folder.
+>
+> Thanks,
+> Ken
+>
+> 6/8/07, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> Ken,
+>
+> you should be using the JGR mailing list for such questions, because
+> this is not an R question (see posting guide).
+>
+> On Jun 8, 2007, at 4:22 PM, Ken Kelley wrote:
+>
+> > I recently found out about JGR and loved it! However, for some  
+> reason
+> > JGRstopped working corrrectly on my Intel Mac
+> > 10.4.9 running R 2.5 and I have no idea why. Furthermore, iplots
+> > will not
+> > install (but for a while JGR still ran fine).
+> >
+>
+> Please let us know which versions you are using [see sessionInfo()]
+> and how you start it.
+>
+> Cheers,
+> Simon
+>
+>
+> > In JGR when I type in a command the command is pasted from the
+> > bottom part
+> > of the console to the top part, but nothing is returned. For  
+> example:
+> >
+> >> mean(1:5)
+> >>
+> >
+> > Notice that the result is not returned. However, when I define mean
+> > (1:5) as
+> > an object, say x, then in the object browser the object is listed
+> > with its
+> > correct value ( i.e., 3 in this example). Why is JGR not printing
+> > the result
+> > as expected and as it did previously -  It is performing the
+> > calculations?
+> >
+> > Separately, iplots will not install. After using the install
+> > binarys feature
+> > from within R and from downloading from CRAN, everything appears to
+> > go fine
+> > until I try to load the package. I also specified to install
+> > dependencies.
+> > In the check on CRAN the results for Mac have a *, implying
+> > "Results with
+> > [*] or [**] were obtained by checking with --install=fake and --
+> > install=no,
+> > respectively" but I'm not sure what that means. Here is what
+> > happens when I
+> > install the package from source:
+> >
+> >>
+> > WARNING: ignoring environment value of R_HOME
+> > * Installing *source* package 'iplots' ...
+> > ** R
+> > ** inst
+> > ** preparing package for lazy loading
+> > ** help
+> > Loading required package: rJava
+> >>>> Building/Updating help pages for package 'iplots'
+> >      Formats: text html latex example
+> >   iabline                           text    html    latex
+> >   ibar                              text    html    latex   example
+> >   ibox                              text    html    latex   example
+> >   ievent.wait                       text    html    latex   example
+> >   ihammock                          text    html    latex   example
+> >   ihist                             text    html    latex   example
+> >   ilines                            text    html    latex   example
+> >   imap                              text    html    latex   example
+> >   imosaic                           text    html    latex   example
+> >   iobj.list                         text    html    latex
+> >   iobj.opt                          text    html    latex
+> >   ipcp                              text    html    latex   example
+> >   iplot                             text    html    latex   example
+> >   iplot.data                        text    html    latex   example
+> >   iplot.list                        text    html    latex   example
+> >   iplot.manip                       text    html    latex
+> >   iplot.opt                          text    html    latex   example
+> >   iset.col                          text    html    latex   example
+> >   iset.list                         text    html    latex
+> >   iset.selected                      text    html    latex   example
+> >   itext                             text    html    latex
+> >   ivar                              text    html    latex
+> > ** building package indices ...
+> > * DONE (iplots)
+> >>
+> >
+> > So, everything looks good. When I load the package here is what
+> > happens
+> >
+> >> library(iplots)
+> > Error in .jnew("org/rosuda/iplots/Framework") :
+> >     Failed to create object of class `org/rosuda/iplots/Framework'
+> > In addition: Warning message:
+> > NewObject("org/rosuda/iplots/Framework","()V",...) failed
+> > Error in library(iplots) : .First.lib failed for 'iplots'
+> > Exception in thread "main" java.lang.NoClassDefFoundError
+> >     at com.apple.mrj.MRJPriv.registerAboutHandler(MRJPriv.java:281)
+> >     at com.apple.mrj.MRJApplicationUtils.registerAboutHandler (
+> > MRJApplicationUtils.java:64)
+> >     at org.rosuda.util.PlatformMac.registerHandlers
+> > (PlatformMac.java:43)
+> >     at org.rosuda.util.PlatformMac.<init>(PlatformMac.java:20)
+> >     at org.rosuda.iplots.PlatformMac.<init>(PlatformMac.java:16)
+> >     at sun.reflect.NativeConstructorAccessorImpl.newInstance0
+> > (Native Method)
+> >     at sun.reflect.NativeConstructorAccessorImpl.newInstance (
+> > NativeConstructorAccessorImpl.java:39)
+> >     at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(
+> > DelegatingConstructorAccessorImpl.java:27)
+> >     at java.lang.reflect.Constructor.newInstance  
+> (Constructor.java:494)
+> >     at java.lang.Class.newInstance0(Class.java:350)
+> >     at java.lang.Class.newInstance(Class.java:303)
+> >     at org.rosuda.util.Platform.initPlatform(Platform.java:44)
+> >     at org.rosuda.iplots.Framework.<init>(Framework.java:48)
+> >>
+> >
+> >
+> > While JGR worked I like it. I also removed and reinstalled JGR.
+> >
+> > Have a good day,
+> > Ken
+> >
+> > --
+> > Ken Kelley, Ph.D.
+> > Indiana University
+> > Inquiry Methodology Program
+> > 201 North Rose Avenue, Suite 4000
+> > Bloomington, Indiana 47405
+> >
+> > Phone: 812-856-8330 / Fax: 812-856-8333
+> > Email: KKIII at Indiana.Edu
+> > Internet: http://www.indiana.edu/~kenkel
+> >
+> >       [[alternative HTML version deleted]]
+> >
+> > _______________________________________________
+> > R-SIG-Mac mailing list
+> > R-SIG-Mac at stat.math.ethz.ch
+> > https://stat.ethz.ch/mailman/listinfo/r-sig-mac
+> >
+> >
+>
+>
+>
+>
+> -- 
+> Ken Kelley, Ph.D.
+> Indiana University
+> Inquiry Methodology Program
+> 201 North Rose Avenue, Suite 4000
+> Bloomington, Indiana 47405
+>
+> Phone: 812-856-8330 / Fax: 812-856-8333
+> Email: KKIII at Indiana.Edu
+> Internet: http://www.indiana.edu/~kenkel
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+-------------- next part --------------
+
+
+From KKIII at Indiana.Edu  Sun Jun 10 00:18:43 2007
+From: KKIII at Indiana.Edu (Ken Kelley)
+Date: Sat, 09 Jun 2007 20:18:43 -0400
+Subject: Re: Re: [R-SIG-Mac] JGR stopped printing result and iplots will not install
+In-Reply-To: <DD7B0BCF-E6B5-432B-8006-9D05595A1820@r-project.org>
+References: <86b533e90706081322q6c5391cav8b582136b50a18eb@mail.gmail.com> <D68C2BCC-4294-4798-9707-C44A85D5DD48@r-project.org> <86b533e90706081657q25372239rcfb5984752fedfc4@mail.gmail.com> <DD7B0BCF-E6B5-432B-8006-9D05595A1820@r-project.org>
+Message-ID: <86b533e90706091718m4000e9ebxdc749ca9f7e5a8e5@mail.gmail.com>
+
+I can load the rJava and JavaGD libraries fine. I installed iplots and it
+appears to install OK until I load the library, and this is what happens:
+
+> library(iplots)
+Error in .jnew("org/rosuda/iplots/Framework") :
+    Failed to create object of class `org/rosuda/iplots/Framework'
+In addition: Warning message:
+NewObject("org/rosuda/iplots/Framework","()V",...) failed
+Error in library(iplots) : .First.lib failed for 'iplots'
+Exception in thread "main" java.lang.NoClassDefFoundError
+    at com.apple.mrj.MRJPriv.registerAboutHandler(MRJPriv.java:281)
+    at com.apple.mrj.MRJApplicationUtils.registerAboutHandler(
+MRJApplicationUtils.java:64)
+    at org.rosuda.util.PlatformMac.registerHandlers(PlatformMac.java:43)
+    at org.rosuda.util.PlatformMac.<init>(PlatformMac.java:20)
+    at org.rosuda.iplots.PlatformMac.<init>(PlatformMac.java:16)
+    at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+    at sun.reflect.NativeConstructorAccessorImpl.newInstance(
+NativeConstructorAccessorImpl.java:39)
+    at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(
+DelegatingConstructorAccessorImpl.java:27)
+    at java.lang.reflect.Constructor.newInstance(Constructor.java:494)
+    at java.lang.Class.newInstance0(Class.java:350)
+    at java.lang.Class.newInstance(Class.java:303)
+    at org.rosuda.util.Platform.initPlatform(Platform.java:44)
+    at org.rosuda.iplots.Framework.<init>(Framework.java:48)
+
+
+Loading JGR I get:
+
+> library(JGR)
+Loading required package: iplots
+Error in .jnew("org/rosuda/iplots/Framework") :
+    Failed to create object of class `org/rosuda/iplots/Framework'
+In addition: Warning message:
+NewObject("org/rosuda/iplots/Framework","()V",...) failed
+Error: package 'iplots' could not be loaded
+Exception in thread "main" java.lang.NoClassDefFoundError
+    at com.apple.mrj.MRJPriv.registerAboutHandler(MRJPriv.java:281)
+    at com.apple.mrj.MRJApplicationUtils.registerAboutHandler(
+MRJApplicationUtils.java:64)
+    at org.rosuda.util.PlatformMac.registerHandlers(PlatformMac.java:43)
+    at org.rosuda.util.PlatformMac.<init>(PlatformMac.java:20)
+    at org.rosuda.iplots.PlatformMac.<init>(PlatformMac.java:16)
+    at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+    at sun.reflect.NativeConstructorAccessorImpl.newInstance(
+NativeConstructorAccessorImpl.java:39)
+    at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(
+DelegatingConstructorAccessorImpl.java:27)
+    at java.lang.reflect.Constructor.newInstance(Constructor.java:494)
+    at java.lang.Class.newInstance0(Class.java:350)
+    at java.lang.Class.newInstance(Class.java:303)
+    at org.rosuda.util.Platform.initPlatform(Platform.java:44)
+    at org.rosuda.iplots.Framework.<init>(Framework.java:48)
+
+However, when I opened the JGR application by clicking on its icon in the
+applications folder, it seems fine but the evaluated values do not show up
+(it does evaluate functions and save objects, but it doesn't print them
+out). When I first installed it everything seemed fine. I'm not sure what I
+would have done to mess everything up!
+
+Thanks for any thoughts,
+Ken
+
+
+
+
+On 6/9/07, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+>
+> Ken,
+> that sessionInfo is not from JGR - everything is missing (rJava, JavaGD,
+> JGR, iplots, ...). If you have JGR properly installed you should see this in
+> sessionInfo:
+>
+> attached base packages:
+> [1] "stats"    "graphics" "utils"    "methods"  "base"
+>
+> other attached packages:
+>      JGR   iplots   JavaGD    rJava
+> "1.4-15"  "1.0-7"  "0.3-6" "0.4-16"
+>
+> If in doubt, type
+> library(JGR)
+> JGR(TRUE)
+>
+> Cheers,
+> Simon
+>
+>
+> On Jun 8, 2007, at 7:57 PM, Ken Kelley wrote:
+>
+> Hi.
+>
+> I should have provided more about the  system set-up (and not posted
+> R-Sig-Mac):
+>
+> > sessionInfo()
+> R version 2.5.0 (2007-04-23)
+> i386-apple-darwin8.9.1
+>
+> locale:
+> en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+>
+> attached base packages:
+> [1] "stats"     "graphics"  "grDevices" "utils"     "datasets"
+> "methods"   "base"
+> >
+>
+> I started JGR from the icon which is in my applications folder.
+>
+> Thanks,
+> Ken
+>
+> 6/8/07, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> >
+> > Ken,
+> >
+> > you should be using the JGR mailing list for such questions, because
+> > this is not an R question (see posting guide).
+> >
+> > On Jun 8, 2007, at 4:22 PM, Ken Kelley wrote:
+> >
+> > > I recently found out about JGR and loved it! However, for some reason
+> > > JGRstopped working corrrectly on my Intel Mac
+> > > 10.4.9 running R 2.5 and I have no idea why. Furthermore, iplots
+> > > will not
+> > > install (but for a while JGR still ran fine).
+> > >
+> >
+> > Please let us know which versions you are using [see sessionInfo()]
+> > and how you start it.
+> >
+> > Cheers,
+> > Simon
+> >
+> >
+> > > In JGR when I type in a command the command is pasted from the
+> > > bottom part
+> > > of the console to the top part, but nothing is returned. For example:
+> > >
+> > >> mean(1:5)
+> > >>
+> > >
+> > > Notice that the result is not returned. However, when I define mean
+> > > (1:5) as
+> > > an object, say x, then in the object browser the object is listed
+> > > with its
+> > > correct value ( i.e., 3 in this example). Why is JGR not printing
+> > > the result
+> > > as expected and as it did previously -  It is performing the
+> > > calculations?
+> > >
+> > > Separately, iplots will not install. After using the install
+> > > binarys feature
+> > > from within R and from downloading from CRAN, everything appears to
+> > > go fine
+> > > until I try to load the package. I also specified to install
+> > > dependencies.
+> > > In the check on CRAN the results for Mac have a *, implying
+> > > "Results with
+> > > [*] or [**] were obtained by checking with --install=fake and --
+> > > install=no,
+> > > respectively" but I'm not sure what that means. Here is what
+> > > happens when I
+> > > install the package from source:
+> > >
+> > >>
+> > > WARNING: ignoring environment value of R_HOME
+> > > * Installing *source* package 'iplots' ...
+> > > ** R
+> > > ** inst
+> > > ** preparing package for lazy loading
+> > > ** help
+> > > Loading required package: rJava
+> > >>>> Building/Updating help pages for package 'iplots'
+> > >      Formats: text html latex example
+> > >   iabline                           text    html    latex
+> > >   ibar                              text    html    latex   example
+> > >   ibox                              text    html    latex   example
+> > >   ievent.wait                       text    html    latex   example
+> > >   ihammock                          text    html    latex   example
+> > >   ihist                             text    html    latex   example
+> > >   ilines                            text    html    latex   example
+> > >   imap                              text    html    latex   example
+> > >   imosaic                           text    html    latex   example
+> > >   iobj.list                         text    html    latex
+> > >   iobj.opt                          text    html    latex
+> > >   ipcp                              text    html    latex   example
+> > >   iplot                             text    html    latex   example
+> > >   iplot.data                        text    html    latex   example
+> > >   iplot.list                        text    html    latex   example
+> > >   iplot.manip                       text    html    latex
+> > >   iplot.opt                          text    html    latex   example
+> > >   iset.col                          text    html    latex   example
+> > >   iset.list                         text    html    latex
+> > >   iset.selected                      text    html    latex   example
+> > >   itext                             text    html    latex
+> > >   ivar                              text    html    latex
+> > > ** building package indices ...
+> > > * DONE (iplots)
+> > >>
+> > >
+> > > So, everything looks good. When I load the package here is what
+> > > happens
+> > >
+> > >> library(iplots)
+> > > Error in .jnew("org/rosuda/iplots/Framework") :
+> > >     Failed to create object of class `org/rosuda/iplots/Framework'
+> > > In addition: Warning message:
+> > > NewObject("org/rosuda/iplots/Framework","()V",...) failed
+> > > Error in library(iplots) : .First.lib failed for 'iplots'
+> > > Exception in thread "main" java.lang.NoClassDefFoundError
+> > >     at com.apple.mrj.MRJPriv.registerAboutHandler(MRJPriv.java:281)
+> > >     at com.apple.mrj.MRJApplicationUtils.registerAboutHandler (
+> > > MRJApplicationUtils.java:64)
+> > >     at org.rosuda.util.PlatformMac.registerHandlers
+> > > (PlatformMac.java:43)
+> > >     at org.rosuda.util.PlatformMac.<init>(PlatformMac.java:20)
+> > >     at org.rosuda.iplots.PlatformMac.<init>(PlatformMac.java:16)
+> > >     at sun.reflect.NativeConstructorAccessorImpl.newInstance0
+> > > (Native Method)
+> > >     at sun.reflect.NativeConstructorAccessorImpl.newInstance (
+> > > NativeConstructorAccessorImpl.java:39)
+> > >     at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(
+> > > DelegatingConstructorAccessorImpl.java:27)
+> > >     at java.lang.reflect.Constructor.newInstance (Constructor.java
+> > :494)
+> > >     at java.lang.Class.newInstance0(Class.java:350)
+> > >     at java.lang.Class.newInstance(Class.java:303)
+> > >     at org.rosuda.util.Platform.initPlatform(Platform.java:44)
+> > >     at org.rosuda.iplots.Framework.<init>(Framework.java:48)
+> > >>
+> > >
+> > >
+> > > While JGR worked I like it. I also removed and reinstalled JGR.
+> > >
+> > > Have a good day,
+> > > Ken
+> > >
+> > > --
+> > > Ken Kelley, Ph.D.
+> > > Indiana University
+> > > Inquiry Methodology Program
+> > > 201 North Rose Avenue, Suite 4000
+> > > Bloomington, Indiana 47405
+> > >
+> > > Phone: 812-856-8330 / Fax: 812-856-8333
+> > > Email: KKIII at Indiana.Edu
+> > > Internet: http://www.indiana.edu/~kenkel<http://www.indiana.edu/%7Ekenkel>
+> > >
+> > >       [[alternative HTML version deleted]]
+> > >
+> > > _______________________________________________
+> > > R-SIG-Mac mailing list
+> > > R-SIG-Mac at stat.math.ethz.ch
+> > > https://stat.ethz.ch/mailman/listinfo/r-sig-mac
+> > >
+> > >
+> >
+> >
+>
+>
+> --
+> Ken Kelley, Ph.D.
+> Indiana University
+> Inquiry Methodology Program
+> 201 North Rose Avenue, Suite 4000
+> Bloomington, Indiana 47405
+>
+> Phone: 812-856-8330 / Fax: 812-856-8333
+> Email: KKIII at Indiana.Edu
+> Internet: http://www.indiana.edu/~kenkel
+> <http://www.indiana.edu/%7Ekenkel>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+>
+
+
+-- 
+Ken Kelley, Ph.D.
+Indiana University
+Inquiry Methodology Program
+201 North Rose Avenue, Suite 4000
+Bloomington, Indiana 47405
+
+Phone: 812-856-8330 / Fax: 812-856-8333
+Email: KKIII at Indiana.Edu
+Internet: http://www.indiana.edu/~kenkel
+
+-------------- next part --------------
+
+
+From rcreecy at census.gov  Mon Jun 11 12:44:36 2007
+From: rcreecy at census.gov (Rob Creecy)
+Date: Mon, 11 Jun 2007 08:44:36 -0400
+Subject: Java source code for JGR
+Message-ID: <466D43B4.8080506@census.gov>
+
+(second attempt at posting - I am a new subscriber to the 
+stats-rosuda-devel listserv and the first
+post sent June 7 was returned as "greylisted" June 9 - apologies if this 
+appears twice)
+
+Hi,
+
+We are just getting started looking at rServe, JGR, JRI  as possible 
+starting
+points for developing Java servlets for remote data analysis of 
+confidential data.
+We have a working rServe and very crude servlet and will be starting on 
+the user interface.
+
+First, we would like to look at the Java source for the various projects 
+(JGR first as an example user interface).
+I can't find them anywhere. Is there a browseable svn repository for the 
+Java source?
+
+I presume they are somewhere on rforge,  but I can't seem to get svn to 
+work,
+I keep getting timeouts trying to connect.
+
+creec003@research1:~/rforge> svn co svn://svn.rforge.net/JGR/trunk JGR
+svn: Can't connect to host 'svn.rforge.net': Connection timed out
+creec003@research1:~/rforge> ping svn.rforge.net
+PING svn.rforge.net (65.98.14.155) 56(84) bytes of data.
+64 bytes from 65.98.14.155: icmp_seq=1 ttl=51 time=11.5 ms
+64 bytes from 65.98.14.155: icmp_seq=2 ttl=51 time=10.9 ms
+
+
+And does anyone have any suggestions for other examples to look at for 
+this kind of application?
+
+
+Rob
+
+From simon.urbanek at r-project.org  Mon Jun 11 13:26:27 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 11 Jun 2007 09:26:27 -0400
+Subject: Re: Java source code for JGR
+In-Reply-To: <466D43B4.8080506@census.gov>
+References: <466D43B4.8080506@census.gov>
+Message-ID: <02DBE008-587C-4951-997D-AB7581DEABA9@r-project.org>
+
+Rob,
+
+On Jun 11, 2007, at 8:44 AM, Rob Creecy wrote:
+
+> (second attempt at posting - I am a new subscriber to the stats- 
+> rosuda-devel listserv and the first
+> post sent June 7 was returned as "greylisted" June 9 - apologies if  
+> this appears twice)
+>
+> Hi,
+>
+> We are just getting started looking at rServe, JGR, JRI  as  
+> possible starting points for developing Java servlets for remote  
+> data analysis of confidential data.
+> We have a working rServe and very crude servlet and will be  
+> starting on the user interface.
+>
+> First, we would like to look at the Java source for the various  
+> projects (JGR first as an example user interface).
+> I can't find them anywhere. Is there a browseable svn repository  
+> for the Java source?
+>
+
+There is no web interface to the SVN (yet?) if that is what you mean.  
+There is, however, JavaDoc at
+http://www.rosuda.org/R/nightly/JavaDoc/
+
+
+> I presume they are somewhere on rforge,  but I can't seem to get  
+> svn to work,
+> I keep getting timeouts trying to connect.
+>
+> creec003@research1:~/rforge> svn co svn://svn.rforge.net/JGR/trunk JGR
+> svn: Can't connect to host 'svn.rforge.net': Connection timed out
+
+Hmm, it works for me ...
+ginaz:tmp$ svn co svn://svn.rforge.net/JGR/trunk JGR
+A    JGR/R
+A    JGR/R/JGR.R
+A    JGR/DESCRIPTION
+...
+
+This looks like a firewall issue at your end. Are you sure you don't  
+have a firewall enabled somewhere on the way? Make sure your port  
+3690 is open for outgoing+established connections.
+
+Cheers,
+Simon
+
+From lidaof at gmail.com  Tue Jun 12 03:29:56 2007
+From: lidaof at gmail.com (Daofeng Li)
+Date: Tue, 12 Jun 2007 11:29:56 +0800
+Subject: [JGR] installation problem
+Message-ID: <12d02c20706112029j61a171b1l6e0df3230fb1882f@mail.gmail.com>
+
+Hi JGR developers,
+
+i am trying to install JGR in a CentOS 4.4 server with R 2.5.0 installed
+i encountered an installation problem
+this is my java enviroment:
+whereis java
+java: /usr/bin/java /etc/java /usr/lib/java /usr/share/java
+/usr/share/man/man1/java.1.gz
+R CMD javareconf
+Java interpreter : /usr/bin/java
+Java version     : 1.4.2_06
+Java home path   : /usr/lib/jre
+Java compiler    : not present
+Java headers gen.:
+Java archive tool:
+Java library path:
+$(JAVA_HOME)/lib/i386/client:$(JAVA_HOME)/lib/i386:$(JAVA_HOME)/../lib/i386
+JNI linker flags : -L$(JAVA_HOME)/lib/i386/client
+-L$(JAVA_HOME)/lib/i386 -L$(JAVA_HOME)/../lib/i386 -ljvm
+JNI cpp flags    : ~autodetect~
+
+Updating Java configuration in /usr/local/lib/R
+Done.
+
+and when i try to install JGR with command "install.packages("JGR",dep=TRUE)"
+error occurs like:
+Warning messages:
+1: installation of package 'rJava' had non-zero exit status in:
+install.packages("JGR", dep = TRUE)
+2: installation of package 'JavaGD' had non-zero exit status in:
+install.packages("JGR", dep = TRUE)
+3: installation of package 'iplots' had non-zero exit status in:
+install.packages("JGR", dep = TRUE)
+
+Could you tell me some solution to fix that?
+thanks
+-- 
+Daofeng Li
+
+From simon.urbanek at r-project.org  Tue Jun 12 13:24:56 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 12 Jun 2007 09:24:56 -0400
+Subject: Re: [JGR] installation problem
+In-Reply-To: <12d02c20706112029j61a171b1l6e0df3230fb1882f@mail.gmail.com>
+References: <12d02c20706112029j61a171b1l6e0df3230fb1882f@mail.gmail.com>
+Message-ID: <23A1FBAD-8C1C-43F3-9592-F04894871C87@r-project.org>
+
+
+On Jun 11, 2007, at 11:29 PM, Daofeng Li wrote:
+
+> Hi JGR developers,
+>
+> i am trying to install JGR in a CentOS 4.4 server with R 2.5.0  
+> installed
+> i encountered an installation problem
+> this is my java enviroment:
+> whereis java
+> java: /usr/bin/java /etc/java /usr/lib/java /usr/share/java
+> /usr/share/man/man1/java.1.gz
+> R CMD javareconf
+> Java interpreter : /usr/bin/java
+> Java version     : 1.4.2_06
+> Java home path   : /usr/lib/jre
+> Java compiler    : not present
+> Java headers gen.:
+> Java archive tool:
+
+Apparently you don't have JDK installed, so the chances are rather  
+slim that you will be able to install any Java packages ... You  
+should install JDK in the first place ...
+
+
+> Java library path:
+> $(JAVA_HOME)/lib/i386/client:$(JAVA_HOME)/lib/i386:$(JAVA_HOME)/../ 
+> lib/i386
+> JNI linker flags : -L$(JAVA_HOME)/lib/i386/client
+> -L$(JAVA_HOME)/lib/i386 -L$(JAVA_HOME)/../lib/i386 -ljvm
+> JNI cpp flags    : ~autodetect~
+>
+> Updating Java configuration in /usr/local/lib/R
+> Done.
+>
+> and when i try to install JGR with command "install.packages 
+> ("JGR",dep=TRUE)"
+> error occurs like:
+> Warning messages:
+> 1: installation of package 'rJava' had non-zero exit status in:
+> install.packages("JGR", dep = TRUE)
+> 2: installation of package 'JavaGD' had non-zero exit status in:
+> install.packages("JGR", dep = TRUE)
+> 3: installation of package 'iplots' had non-zero exit status in:
+> install.packages("JGR", dep = TRUE)
+>
+> Could you tell me some solution to fix that?
+>
+
+No, because you didn't tell us anything about the package  
+installations. Please send us the full installation log of the failed  
+package(s).
+
+Cheers,
+Simon
+
+From rcreecy at census.gov  Tue Jun 12 14:00:54 2007
+From: rcreecy at census.gov (Rob Creecy)
+Date: Tue, 12 Jun 2007 10:00:54 -0400
+Subject: Re: Java source code for JGR
+In-Reply-To: <02DBE008-587C-4951-997D-AB7581DEABA9@r-project.org>
+References: <466D43B4.8080506@census.gov> <02DBE008-587C-4951-997D-AB7581DEABA9@r-project.org>
+Message-ID: <466EA716.6090505@census.gov>
+
+Simon,
+
+Thanks for the info, the JavaDocs link will be handy.
+
+And you are right that our svn timeout problem is due to a firewall issue.
+Unfortunately we can't get port 3690 unblocked, so for now we will get
+the Java source from home and bring it in to work.
+An http based browseable svn repository would be nice.
+
+Rob
+
+
+Simon Urbanek wrote:
+> Rob,
+>
+> On Jun 11, 2007, at 8:44 AM, Rob Creecy wrote:
+>
+>> (second attempt at posting - I am a new subscriber to the 
+>> stats-rosuda-devel listserv and the first
+>> post sent June 7 was returned as "greylisted" June 9 - apologies if 
+>> this appears twice)
+>>
+>> Hi,
+>>
+>> We are just getting started looking at rServe, JGR, JRI  as possible 
+>> starting points for developing Java servlets for remote data analysis 
+>> of confidential data.
+>> We have a working rServe and very crude servlet and will be starting 
+>> on the user interface.
+>>
+>> First, we would like to look at the Java source for the various 
+>> projects (JGR first as an example user interface).
+>> I can't find them anywhere. Is there a browseable svn repository for 
+>> the Java source?
+>>
+>
+> There is no web interface to the SVN (yet?) if that is what you mean. 
+> There is, however, JavaDoc at
+> http://www.rosuda.org/R/nightly/JavaDoc/
+>
+>
+>> I presume they are somewhere on rforge,  but I can't seem to get svn 
+>> to work,
+>> I keep getting timeouts trying to connect.
+>>
+>> creec003@research1:~/rforge> svn co svn://svn.rforge.net/JGR/trunk JGR
+>> svn: Can't connect to host 'svn.rforge.net': Connection timed out
+>
+> Hmm, it works for me ...
+> ginaz:tmp$ svn co svn://svn.rforge.net/JGR/trunk JGR
+> A    JGR/R
+> A    JGR/R/JGR.R
+> A    JGR/DESCRIPTION
+> ...
+>
+> This looks like a firewall issue at your end. Are you sure you don't 
+> have a firewall enabled somewhere on the way? Make sure your port 3690 
+> is open for outgoing+established connections.
+>
+> Cheers,
+> Simon
+>
+>
+
+From simon.urbanek at r-project.org  Wed Jun 13 02:08:29 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 12 Jun 2007 22:08:29 -0400
+Subject: Re: Java source code for JGR
+In-Reply-To: <466EA716.6090505@census.gov>
+References: <466D43B4.8080506@census.gov> <02DBE008-587C-4951-997D-AB7581DEABA9@r-project.org> <466EA716.6090505@census.gov>
+Message-ID: <6B7276EB-0893-495E-9511-69623B7BA06D@r-project.org>
+
+
+On Jun 12, 2007, at 10:00 AM, Rob Creecy wrote:
+
+> Thanks for the info, the JavaDocs link will be handy.
+>
+> And you are right that our svn timeout problem is due to a firewall  
+> issue.
+> Unfortunately we can't get port 3690 unblocked, so for now we will get
+> the Java source from home and bring it in to work.
+
+Why would anyone block outgoing 3690? That is unfortunate.
+
+
+> An http based browseable svn repository would be nice.
+>
+
+I see. I didn't want to deal with apache2 and DAV required by SVN for  
+this (and extra authentication etc.). For how I have added a read- 
+only http/https access to svn.rforge.net, but beware that all  
+externals use svn:// so you'll have to fetch externals manually for  
+packages that use them. If you have trouble finding the right  
+sources, let me know.
+
+Cheers,
+Simon
+
+
+>
+> Simon Urbanek wrote:
+>> Rob,
+>>
+>> On Jun 11, 2007, at 8:44 AM, Rob Creecy wrote:
+>>
+>>> (second attempt at posting - I am a new subscriber to the stats- 
+>>> rosuda-devel listserv and the first
+>>> post sent June 7 was returned as "greylisted" June 9 - apologies  
+>>> if this appears twice)
+>>>
+>>> Hi,
+>>>
+>>> We are just getting started looking at rServe, JGR, JRI  as  
+>>> possible starting points for developing Java servlets for remote  
+>>> data analysis of confidential data.
+>>> We have a working rServe and very crude servlet and will be  
+>>> starting on the user interface.
+>>>
+>>> First, we would like to look at the Java source for the various  
+>>> projects (JGR first as an example user interface).
+>>> I can't find them anywhere. Is there a browseable svn repository  
+>>> for the Java source?
+>>>
+>>
+>> There is no web interface to the SVN (yet?) if that is what you  
+>> mean. There is, however, JavaDoc at
+>> http://www.rosuda.org/R/nightly/JavaDoc/
+>>
+>>
+>>> I presume they are somewhere on rforge,  but I can't seem to get  
+>>> svn to work,
+>>> I keep getting timeouts trying to connect.
+>>>
+>>> creec003@research1:~/rforge> svn co svn://svn.rforge.net/JGR/ 
+>>> trunk JGR
+>>> svn: Can't connect to host 'svn.rforge.net': Connection timed out
+>>
+>> Hmm, it works for me ...
+>> ginaz:tmp$ svn co svn://svn.rforge.net/JGR/trunk JGR
+>> A    JGR/R
+>> A    JGR/R/JGR.R
+>> A    JGR/DESCRIPTION
+>> ...
+>>
+>> This looks like a firewall issue at your end. Are you sure you  
+>> don't have a firewall enabled somewhere on the way? Make sure your  
+>> port 3690 is open for outgoing+established connections.
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>
+>
+
+From lidaof at gmail.com  Wed Jun 13 06:40:12 2007
+From: lidaof at gmail.com (Daofeng Li)
+Date: Wed, 13 Jun 2007 14:40:12 +0800
+Subject: Re: [JGR] installation problem
+In-Reply-To: <23A1FBAD-8C1C-43F3-9592-F04894871C87@r-project.org>
+References: <12d02c20706112029j61a171b1l6e0df3230fb1882f@mail.gmail.com> <23A1FBAD-8C1C-43F3-9592-F04894871C87@r-project.org>
+Message-ID: <12d02c20706122340o2d45dcc1s5573e9ec62dd09c7@mail.gmail.com>
+
+Hi Simon,
+
+i remove the jre i installed
+and i download jdk-1_5_0_12-linux-i586-rpm.bin form java.com and install it
+whereis java
+java: /etc/java /usr/lib/java /usr/share/java
+rpm -qa | grep jdk
+jdk-1.5.0_12-fcs
+
+but when i type:
+R CMD javareconf
+
+*** Cannot find any Java interpreter
+*** Please make sure 'java' is on you PATH or set JAVA_HOME correspondingly
+
+and i need to install some other packages to make it work?
+could you please tell me which packages i need to install?
+Thank you very much:)
+
+Li
+On 6/12/07, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+>
+> On Jun 11, 2007, at 11:29 PM, Daofeng Li wrote:
+>
+> > Hi JGR developers,
+> >
+> > i am trying to install JGR in a CentOS 4.4 server with R 2.5.0
+> > installed
+> > i encountered an installation problem
+> > this is my java enviroment:
+> > whereis java
+> > java: /usr/bin/java /etc/java /usr/lib/java /usr/share/java
+> > /usr/share/man/man1/java.1.gz
+> > R CMD javareconf
+> > Java interpreter : /usr/bin/java
+> > Java version     : 1.4.2_06
+> > Java home path   : /usr/lib/jre
+> > Java compiler    : not present
+> > Java headers gen.:
+> > Java archive tool:
+>
+> Apparently you don't have JDK installed, so the chances are rather
+> slim that you will be able to install any Java packages ... You
+> should install JDK in the first place ...
+>
+>
+> > Java library path:
+> > $(JAVA_HOME)/lib/i386/client:$(JAVA_HOME)/lib/i386:$(JAVA_HOME)/../
+> > lib/i386
+> > JNI linker flags : -L$(JAVA_HOME)/lib/i386/client
+> > -L$(JAVA_HOME)/lib/i386 -L$(JAVA_HOME)/../lib/i386 -ljvm
+> > JNI cpp flags    : ~autodetect~
+> >
+> > Updating Java configuration in /usr/local/lib/R
+> > Done.
+> >
+> > and when i try to install JGR with command "install.packages
+> > ("JGR",dep=TRUE)"
+> > error occurs like:
+> > Warning messages:
+> > 1: installation of package 'rJava' had non-zero exit status in:
+> > install.packages("JGR", dep = TRUE)
+> > 2: installation of package 'JavaGD' had non-zero exit status in:
+> > install.packages("JGR", dep = TRUE)
+> > 3: installation of package 'iplots' had non-zero exit status in:
+> > install.packages("JGR", dep = TRUE)
+> >
+> > Could you tell me some solution to fix that?
+> >
+>
+> No, because you didn't tell us anything about the package
+> installations. Please send us the full installation log of the failed
+> package(s).
+>
+> Cheers,
+> Simon
+>
+>
+>
+>
+
+
+-- 
+Daofeng Li
+
+From rcreecy at census.gov  Wed Jun 13 14:38:33 2007
+From: rcreecy at census.gov (Rob Creecy)
+Date: Wed, 13 Jun 2007 10:38:33 -0400
+Subject: Re: Java source code for JGR
+In-Reply-To: <6B7276EB-0893-495E-9511-69623B7BA06D@r-project.org>
+References: <466D43B4.8080506@census.gov> <02DBE008-587C-4951-997D-AB7581DEABA9@r-project.org> <466EA716.6090505@census.gov> <6B7276EB-0893-495E-9511-69623B7BA06D@r-project.org>
+Message-ID: <46700169.2010602@census.gov>
+
+Simon,
+
+Thank you, http access now works nicely with wget and
+I was able to get the Java source under svn.rforge.net/org/
+
+Rob
+
+
+Simon Urbanek wrote:
+>
+> On Jun 12, 2007, at 10:00 AM, Rob Creecy wrote:
+>
+>> Thanks for the info, the JavaDocs link will be handy.
+>>
+>> And you are right that our svn timeout problem is due to a firewall 
+>> issue.
+>> Unfortunately we can't get port 3690 unblocked, so for now we will get
+>> the Java source from home and bring it in to work.
+>
+> Why would anyone block outgoing 3690? That is unfortunate.
+>
+>
+>> An http based browseable svn repository would be nice.
+>>
+>
+> I see. I didn't want to deal with apache2 and DAV required by SVN for 
+> this (and extra authentication etc.). For how I have added a read-only 
+> http/https access to svn.rforge.net, but beware that all externals use 
+> svn:// so you'll have to fetch externals manually for packages that 
+> use them. If you have trouble finding the right sources, let me know.
+>
+> Cheers,
+> Simon
+>
+>
+>>
+>> Simon Urbanek wrote:
+>>> Rob,
+>>>
+>>> On Jun 11, 2007, at 8:44 AM, Rob Creecy wrote:
+>>>
+>>>> (second attempt at posting - I am a new subscriber to the 
+>>>> stats-rosuda-devel listserv and the first
+>>>> post sent June 7 was returned as "greylisted" June 9 - apologies if 
+>>>> this appears twice)
+>>>>
+>>>> Hi,
+>>>>
+>>>> We are just getting started looking at rServe, JGR, JRI  as 
+>>>> possible starting points for developing Java servlets for remote 
+>>>> data analysis of confidential data.
+>>>> We have a working rServe and very crude servlet and will be 
+>>>> starting on the user interface.
+>>>>
+>>>> First, we would like to look at the Java source for the various 
+>>>> projects (JGR first as an example user interface).
+>>>> I can't find them anywhere. Is there a browseable svn repository 
+>>>> for the Java source?
+>>>>
+>>>
+>>> There is no web interface to the SVN (yet?) if that is what you 
+>>> mean. There is, however, JavaDoc at
+>>> http://www.rosuda.org/R/nightly/JavaDoc/
+>>>
+>>>
+>>>> I presume they are somewhere on rforge,  but I can't seem to get 
+>>>> svn to work,
+>>>> I keep getting timeouts trying to connect.
+>>>>
+>>>> creec003@research1:~/rforge> svn co svn://svn.rforge.net/JGR/trunk JGR
+>>>> svn: Can't connect to host 'svn.rforge.net': Connection timed out
+>>>
+>>> Hmm, it works for me ...
+>>> ginaz:tmp$ svn co svn://svn.rforge.net/JGR/trunk JGR
+>>> A    JGR/R
+>>> A    JGR/R/JGR.R
+>>> A    JGR/DESCRIPTION
+>>> ...
+>>>
+>>> This looks like a firewall issue at your end. Are you sure you don't 
+>>> have a firewall enabled somewhere on the way? Make sure your port 
+>>> 3690 is open for outgoing+established connections.
+>>>
+>>> Cheers,
+>>> Simon
+>>>
+>>>
+>>
+>>
+>
+>
+
+From chrysopa at gmail.com  Fri Jun 15 12:48:02 2007
+From: chrysopa at gmail.com (Ronaldo Reis Junior)
+Date: Fri, 15 Jun 2007 09:48:02 -0300
+Subject: JGR and problem with a big list of packages.
+Message-ID: <200706150948.02414.chrysopa@gmail.com>
+
+Hi,
+
+I have all CRAN packages installed on my Linux. Now I have problems with JGR.
+
+When I make a plot and close a device, the device dont work anymore, I nedd to 
+use before javaGD() and after plot(). When I try do close JGR and save a 
+session, It return a erro and dont close. Look:
+
+ Exception in thread "Thread-2" java.lang.IllegalArgumentException: Value too 
+long: aaMI,abind,accuracy,acepack,actuar,ada,adabag,adapt,AdaptFit,ade4,
+.....
+.....
+.....
+.....
+tools,utils
+        at 
+java.util.prefs.AbstractPreferences.put(AbstractPreferences.java:228)
+        at org.rosuda.JGR.toolkit.JGRPrefs.writePrefs(JGRPrefs.java:281)
+        at 
+org.rosuda.JGR.toolkit.JGRPrefs.writeCurrentPackagesWhenExit(JGRPrefs.java:314)
+        at org.rosuda.JGR.JGR.exit(JGR.java:241)
+        at org.rosuda.JGR.JGRConsole.rReadConsole(JGRConsole.java:480)
+        at org.rosuda.JRI.Rengine.jriReadConsole(Rengine.java:371)
+        at org.rosuda.JRI.Rengine.rniRunMainLoop(Native Method)
+        at org.rosuda.JRI.Rengine.run(Rengine.java:533)
+
+I think that is a problem with the JGR's package manager. It is possible to 
+disable package manager from JGR?
+
+Thanks
+Inte
+Ronaldo
+-- 
+Life being what it is, one dreams of revenge.
+		-- Paul Gauguin
+--
+> Prof. Ronaldo Reis Júnior
+|  .''`. UNIMONTES/Depto. Biologia Geral/Lab. de Ecologia
+| : :'  : Campus Universitário Prof. Darcy Ribeiro, Vila Mauricéia
+| `. `'` CP: 126, CEP: 39401-089, Montes Claros - MG - Brasil
+|   `- Fone: (38) 3229-8187 | ronaldo.reis at unimontes.br | chrysopa at gmail.com
+| http://www.ppgcb.unimontes.br/ | ICQ#: 5692561 | LinuxUser#: 205366
+
+From jaksonaquino at gmail.com  Sat Jun 16 20:53:50 2007
+From: jaksonaquino at gmail.com (Jakson A. Aquino)
+Date: Sat, 16 Jun 2007 17:53:50 -0300
+Subject: EPS graphics and OpenOffice
+Message-ID: <20070616205350.GA11806@xyz>
+
+Hi!
+
+EPS graphics made by JGR (JavaGD) can be included into LaTeX output, but when
+I try to insert them into an OpenOffice Writer document I get the error
+"Unknown graphic format". The result is the same if I do the following
+commands directly in R:
+
+  x <- 1:10
+  postscript(file = "foo.eps", paper="special", width=6, height=4, horizontal=F)
+  plot(x)
+  dev.off()
+
+I can add the eps picture to OpenOffice if I do the following:
+
+  eps2eps foo.eps bar.eps
+
+The script eps2eps is part gs-common package, but probably the definitive
+solution would be the addition of the option "onefile=F" to the postscript
+command:
+
+  postscript(file = "foo.eps", onefile=F, paper="special", width=6, height=4, horizontal=F)
+
+This option makes no difference for LaTeX, but now OpenOffice can read the eps
+file. So, I suggest that the option "onefile" was changed from TRUE to FALSE
+in toolkit/JavaGD.java file (at JGR source). In R postscript device,
+"onefile" means "many pages in one file", and that's why it's better
+that it is set to FALSE.
+
+I'm using OpenOffice 2.2.0-1ubuntu3 (Ubuntu 7.04), R 2.5.0, JGR 1.17, JavaGD 0.4-2.
+
+Best regards,
+
+--
+Jakson Aquino
+http://JAlvesAq.googlepages.com
+
+From bernd_bischl at gmx.net  Mon Jun 18 20:48:46 2007
+From: bernd_bischl at gmx.net (Bernd Bischl)
+Date: Mon, 18 Jun 2007 22:48:46 +0200
+Subject: RServe : How to setup authentification
+References: <20070601175017221.00000002396@phocid> <572A0B43-42B5-4A56-88EE-6690271B5EF2@research.att.com>
+Message-ID: <009e01c7b1ea$10bb9160$31cfd981@fb05.statistik.unidortmund.de>
+
+Dear Simon, 
+
+I could not find details in the docs about
+how to configure RServe for secure access.
+
+I tried:
+
+[RServe.cfg]
+remote enable
+auth required
+pwdfile c:\pwd.txt
+
+[pwd.txt]
+<user> <pwd>
+
+and called the login method on the Rconnection object.
+But the connection is not accepted.
+
+Regards,
+
+Bernd
+
+From tbstockton at gmail.com  Fri Jun 22 21:22:06 2007
+From: tbstockton at gmail.com (Tom Stockton)
+Date: Fri, 22 Jun 2007 15:22:06 -0600
+Subject: rJava .jpackage
+Message-ID: <467C3D7E.9060408@neptuneinc.org>
+
+
+I'm running rJava 2.5.0 on WinXP and trying to load a jar using 
+.jpackage().  rJava.pdf says:
+
+"Then .jpackage checks for the existence of a Java archive of the same 
+name as the package in
+the classes directory."
+
+But looking at the .jpackage code it looks as if it is looking in a 
+"java" directory.
+
+I'm I seeing this right?
+
+Love JGR and Rserve, thanks!
+
+Tom
+
+-- 
+Tom Stockton, Ph.D.
+Neptune and Company, Inc.	phone: (505) 662-0707 ext17
+1505 15th Street Suite B	mobile: (505) 6608591
+Los Alamos, NM 87544		email: stockton at neptuneinc.org
+
+From cesar.martinez at iver.es  Thu Jun 28 11:15:42 2007
+From: cesar.martinez at iver.es (Cesar Martinez Izquierdo)
+Date: Thu, 28 Jun 2007 13:15:42 +0200
+Subject: JRI documentation and JGR sources
+Message-ID: <4683985E.8060201@iver.es>
+
+Hi, I want to use JRI to interface with some R packages from Java. 
+However, I'm new in both R and JRI, and I'm a bit lost, so I would 
+appreciate some documentation or code examples about how to perform the 
+following tasks from JRI:
+
+- After performing an algorithm or method in R, how to know the type of 
+the returned object, and how to transform it to standard Java objects.
+
+- How to inject data into R from Java in an efficient way. I want to use 
+gstat R-package, and I want to inject in R the maps that my Java 
+application has in memory (so I don't want to load the maps from files 
+with R).
+
+
+I thought that probably JGR could be the best documentation for such 
+tasks, but I haven't been very successful compiling its code, I think 
+I'm not able to get the right versions:
+
+- I've downloaded sources of JavaGD 0.4-3 and rJava 0.5-0, and they 
+correctly compile in my Eclipse workpsace.
+- I've downloaded JGR 1.4 sources from 
+http://rosuda.org/JGR/1.4/JGRsrc-1.4.tar.gz, and added iplots.jar 
+(1.0-7). However, I get an error in JGR.java as RMainLoopCallbacks has 
+changed in JRI. Where could I get the proper version of JGR sources?
+I tryied with SVN (svn co svn://svn.rforge.net/JGR/trunk JGR) but I 
+could only download the R sources (not the Java sources).
+
+Any help is welcome.
+
+Regards,
+
+-- 
+César Martínez Izquierdo
+gvSIG development team
+http://www.gvsig.gva.es
+
+IVER T.I.
+C/ Salamanca 50
+46005 Valencia - Spain
+http://www.iver.es
+
+From ronald.l.menner at pfizer.com  Fri Jun 29 19:50:17 2007
+From: ronald.l.menner at pfizer.com (Menner, Ronald L)
+Date: Fri, 29 Jun 2007 15:50:17 -0400
+Subject: rjava method call
+Message-ID: <B3701EA8F6A67048B5B22233839B84B50A283B03@groamrexm01.amer.pfizer.com>
+
+Hi,
+
+Using rjava_4_4_17 on windows R-2.3.1 and having some issues replicating
+the example Java code in R see code snippets below.
+
+The issue is replicating this java method call  'IGridService service =
+GridServiceFactory.getService(configuration);' using the rjava .jcall 
+
+Seems to be a catch (I can't figure out) when passing an object
+(configuration) that is part of a class that implements an Interface -
+com.pfizer.common.grid.BasicSystemConfiguration implements
+com.pfizer.common.configuration.ISystemConfiguration
+
+
+
+Java code example:
+--------------------------------------------
+  BasicSystemConfiguration configuration = new
+BasicSystemConfiguration();
+
+	configuration.setEnvEntry( "LSF_SSH_HOST", "nllnx015c2" );
+	configuration.setEnvEntry( "LSF_SSH_PORT", "22" );
+	configuration.setEnvEntry( "LSF_GRID_PROFILE_FILE",
+/home/epharm/profile.prod" );
+
+	IJobDefinition definition = new JobDefinition();
+
+	definition.setCommandLine("sleep 12");
+	definition.setWorkingDirectory("/home/epharm");
+	definition.setStderr("mystderr");
+
+	IGridService service =
+GridServiceFactory.getService(configuration);
+
+	Credentials cred = getCredentials();//Need to supply username
+and password
+		
+	String id = service.createAndRunJob(definition, cred);
+---------------------------------------------
+
+
+R script replicate:
+------------------------------
+.jinit(classpath="c:/grid/lsf-grid-sdk.jar;c:/grid/Ganymed.jar;c:/grid/O
+swego-1.3.4.jar;c:/grid/commons-logging.jar") 
+
+###### Create new BasicSystemConfiguration object 
+
+baseconfig <- .jnew( "com/pfizer/common/grid/BasicSystemConfiguration")
+
+	.jcall(baseconfig,,"setEnvEntry","LSF_SSH_HOST", "nllnx015c2")
+	.jcall(baseconfig,,"setEnvEntry","LSF_SSH_PORT", "22" )
+	.jcall(baseconfig,,"setEnvEntry","LSF_GRID_PROFILE_FILE",
+"/home/epharm/profile.prod" )
+
+	
+##### Create new IJObDefinition object
+
+IJobDefinition <- .jnew("com/pfizer/common/grid/JobDefinition")
+
+	.jcall(IJobDefinition,,"setCommandLine","sleep 12")
+	.jcall(IJobDefinition,,"setWorkingDirectory","/home/epharm")
+	.jcall(IJobDefinition,,"setStderr","mystderr")
+
+
+##### Setup the service variable as type IGridService
+
+
+Ifactory <- .jnew("com/pfizer/common/grid/GridServiceFactory")
+
+	
+service <-
+.jcall(Ifactory,"Lcom.pfizer.common.grid.IGridService;","getService",bas
+econfig)
+-----------------------------
+
+
+Thanks
+
+Ron
+ 
+Ronald L Menner
+Keane, Inc
+Development Informatics - Medical Technologies
+Business Analyst- Global Statistics
+Phone: 860-732-0408  Cell:   860-501-1169
+email:  ronald.l.menner at pfizer.com 
+aim:   mennerrl
+Room: 1215, 194 Howard ST. New London, CT 06320
+ 
+
+----------------------------------------------------------------------
+LEGAL NOTICE
+Unless expressly stated otherwise, this message is confidential and may be privileged.  It is intended for the addressee(s) only.  Access to this E-mail by anyone else is unauthorized.  If you are not an addressee, any disclosure or copying of the contents of this E-mail or any action taken (or not taken) in reliance on it is unauthorized and may be unlawful.  If you are not an addressee, please inform the sender immediately.
+

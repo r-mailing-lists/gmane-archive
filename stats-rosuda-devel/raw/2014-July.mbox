@@ -1,0 +1,138 @@
+From kylepolich at gmail.com  Fri Jul 11 22:58:14 2014
+From: kylepolich at gmail.com (kyle polich)
+Date: Fri, 11 Jul 2014 15:58:14 -0700
+Subject: rJava .jnew issue related to packages
+Message-ID: <CAP=rpUpwFAs_rxsk9oATsxt_qDYCSQ7By--zmgfvtnzd9fP2=w@mail.gmail.com>
+
+I'm making progress getting up and running with rJava, but I'm having an
+issue that I haven't been able to resolve by googling.
+
+I created a simple POJO class called MyModel.java.  The first line of my
+java file is "package rtest;"
+
+I then start a clean version of R and do these commands:
+
+library("rJava")
+.jinit(".", force.init=TRUE)
+.jaddClassPath(dir("/path/to/where/mymodel/class/file/lives",
+full.names=TRUE))
+
+# So far so good?
+
+> mm = .jnew("rtest/MyModel")
+Error in .jnew("rtest/MyModel") : java.lang.ClassNotFoundException
+
+# If I do it incorrectly, I get this result (for reference)
+
+> mm = .jnew("MyModel")
+Error in .jnew("MyModel") :
+  java.lang.NoClassDefFoundError: MyModel (wrong name: rtest/MyModel)
+
+# This java error leads me to believe I've done my classpath correctly,
+since JVM "knows" I forgot the package
+
+# Based on some of my research, I tried (and failed) with this cludgy
+attempt:
+> attach(javaImport("rtest"), pos=2, name="rtest")
+> mm = .jnew("rtest/MyModel")
+Error in .jnew("rtest/MyModel") : java.lang.ClassNotFoundException
+
+
+If I *remove* the package, everything works perfect!  Yet, this is just a
+POC, my next step is to use classes found in a JAR, so I don't have the
+luxury of using classes without packages.  Would anyone be so kind as to
+help me find my error?
+
+
+
+Also, I have a second issue. I have my code working (without packages)
+thanks to some help from Simon Urbanek (before I found this mailing list).
+ I found that if I made a change and re-compile MyModel.class, I had to
+exit out of R and reload it in order to get the changes.  I tried to detach
+rJava, and to re .jinit, but no luck there.
+
+Thanks in advance,
+
+Kyle
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Sat Jul 12 14:11:04 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sat, 12 Jul 2014 16:11:04 +0200
+Subject: Re: rJava .jnew issue related to packages
+In-Reply-To: <CAP=rpUpwFAs_rxsk9oATsxt_qDYCSQ7By--zmgfvtnzd9fP2=w@mail.gmail.com>
+References: <CAP=rpUpwFAs_rxsk9oATsxt_qDYCSQ7By--zmgfvtnzd9fP2=w@mail.gmail.com>
+Message-ID: <38766AFF-B6C9-48FE-9473-8BCD96F85801@r-project.org>
+
+Kyle,
+
+On Jul 12, 2014, at 12:58 AM, kyle polich <kylepolich at gmail.com> wrote:
+
+> I'm making progress getting up and running with rJava, but I'm having an issue that I haven't been able to resolve by googling.
+> 
+> I created a simple POJO class called MyModel.java.  The first line of my java file is "package rtest;"
+> 
+> I then start a clean version of R and do these commands:
+> 
+> library("rJava")
+> .jinit(".", force.init=TRUE)
+> .jaddClassPath(dir("/path/to/where/mymodel/class/file/lives", full.names=TRUE))
+> 
+
+Note that the path to the actual class file is the wrong class path. The package name is part of the class name, so the class path has the be the directory than contains the tree of all your classes. In real world that is the directory you specify in javac -d
+
+Also the above is a bit complicated - the easiest is simply
+.jinit("path/to/classes-or-jar-file")
+
+
+
+> # So far so good?
+> 
+> > mm = .jnew("rtest/MyModel")
+> Error in .jnew("rtest/MyModel") : java.lang.ClassNotFoundException
+> 
+> # If I do it incorrectly, I get this result (for reference)
+> 
+> > mm = .jnew("MyModel")
+> Error in .jnew("MyModel") : 
+>   java.lang.NoClassDefFoundError: MyModel (wrong name: rtest/MyModel)
+> 
+> # This java error leads me to believe I've done my classpath correctly, since JVM "knows" I forgot the package
+> 
+> # Based on some of my research, I tried (and failed) with this cludgy attempt:
+> > attach(javaImport("rtest"), pos=2, name="rtest")
+> > mm = .jnew("rtest/MyModel")
+> Error in .jnew("rtest/MyModel") : java.lang.ClassNotFoundException
+> 
+> 
+> If I *remove* the package, everything works perfect!  Yet, this is just a POC, my next step is to use classes found in a JAR, so I don't have the luxury of using classes without packages.
+
+
+It's much easier with JAR files since there you simply specify the jar file and you're done.
+
+
+
+>  Would anyone be so kind as to help me find my error?
+> 
+> 
+> 
+> Also, I have a second issue. I have my code working (without packages) thanks to some help from Simon Urbanek (before I found this mailing list).  I found that if I made a change and re-compile MyModel.class, I had to exit out of R and reload it in order to get the changes.  I tried to detach rJava, and to re .jinit, but no luck there.
+> 
+
+Java doesn't support class unloading so you have to re-start R, there is no way around it.
+
+Cheers,
+Simon
+
+
+
+> Thanks in advance,
+> 
+> Kyle
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

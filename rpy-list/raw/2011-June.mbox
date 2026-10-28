@@ -1,0 +1,904 @@
+From eebanado at uc.cl  Thu Jun  2 22:56:11 2011
+From: eebanado at uc.cl (=?utf-8?q?Eduardo_Ba=C3=B1ados_Torres?=)
+Date: Thu, 02 Jun 2011 18:56:11 -0400
+Subject: [Rpy] Numpy vector as input for a R function
+Message-ID: <BANLkTimxVFw+bf9VLQmpdU0xb77YQqKcuQ@mail.gmail.com>
+
+Hi Everyone,
+
+I am currently struggling with rpy2, I hope someone could help me.
+
+I am trying to do a maximum likelihood using the mle() task in the stats4
+R library,
+as part of a python script. mle() receives a R function to calculate the
+negative log-likelihood,
+my problem is that so far I have could not figure out how to give a numpy
+vector to the function,
+or make the vector understandable for the R environment. Is there a way to
+do this?
+
+With the following example will be clearer.
+This is a short version, trying to use mle() in a normal distribution.
+"I need to make the XX vector understandable for rfunction":
+
+======================================================================
+import rpy2.robjects as robjects
+from rpy2.robjects.packages import importr
+import rpy2.robjects.numpy2ri
+import numpy as np
+r = robjects.r
+
+stats4 = importr("stats4")
+
+#Normal vector to test the script, which I need to give to the R function ll
+XX = np.random.normal(loc=10.0, scale=2.0, size=100)
+N = len(XX)
+
+#negative logarithmic likelihood function of a Gaussian distribution
+#This function should receive the XX numpy vector someway
+rfunction = '''ll <- function(mean,sigma){
+        n <- %i
+        x <- XX   ##This is the critical point##
+        -(-0.5*n*log(2*pi)-n*log(sigma)-0.5*sum(((x-mean)/sigma)^2))
+        }''' % (N)
+
+fx=r(rfunction)
+
+starterd = {'mean':10,'sigma':1}
+starter= robjects.DataFrame(starterd)
+
+fit = stats4.mle(minuslog=fx,start=starter)
+summary = R.summary(fit)
+print summary
+==========================================================================
+
+I hope someone can help me with this or point me out a better solution
+
+By the way, I am using:
+rpy2 v2.1.9
+R v2.11.0
+python v2.6
+
+Thank you!
+
+-- 
+Eduardo Bañados Torres
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Discover what all the cheering's about.
+Get your free trial download today. 
+http://p.sf.net/sfu/quest-dev2dev2
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From debruinjj at gmail.com  Fri Jun  3 06:08:30 2011
+From: debruinjj at gmail.com (Jurgens de Bruin)
+Date: Fri, 03 Jun 2011 08:08:30 +0200
+Subject: [Rpy] Point No-Fill
+Message-ID: <BANLkTim04g-W_ZG7OLiMoHXwD9yjpUKoow@mail.gmail.com>
+
+Currently I have the following :
+
+ grdevices.png(file=filename, width=900, height=512)
+ dataf =
+Robjects.DataFrame({'phytochemcial':Robjects.StrVector(phytochemicals),
+                                'xaxis'  :
+Robjects.StrVector(pharmacaphores),
+                                'fitvalue' : Robjects.FloatVector(fitvalues)
+                                })
+
+
+    bubble = ggplot2.ggplot(dataf) + \
+    ggplot2.aes_string(x='xaxis', y='phytochemcial',size='fitvalue') + \
+    ggplot2.geom_point(alpha = 0.2)+ \
+    ggplot2.scale_shape(solid = False)+ \
+    ggplot2.opts(**{'axis.text.x': ggplot2.theme_text(angle = 45)})
+    bubble.plot()
+    grdevices.dev_off()
+
+With produces each data-point as filled-circles, is their a possibility to
+have the each data-point be a circle that is not filled - thus only a
+border?
+
+-- 
+Regards/Groete/Mit freundlichen Grüßen/recuerdos/meilleures salutations/
+distinti saluti/siong/duì yú/привет
+
+Jurgens de Bruin
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Discover what all the cheering's about.
+Get your free trial download today. 
+http://p.sf.net/sfu/quest-dev2dev2
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Fri Jun  3 06:47:25 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Fri, 03 Jun 2011 08:47:25 +0200
+Subject: Re: [Rpy] Numpy vector as input for a R function
+In-Reply-To: <BANLkTimxVFw+bf9VLQmpdU0xb77YQqKcuQ@mail.gmail.com>
+References: <BANLkTimxVFw+bf9VLQmpdU0xb77YQqKcuQ@mail.gmail.com>
+Message-ID: <4DE8837D.5050001@gmail.com>
+
+On 2011-06-03 00:56, Eduardo Bañados Torres wrote:
+> Hi Everyone,
+>
+> I am currently struggling with rpy2, I hope someone could help me.
+>
+> I am trying to do a maximum likelihood using the mle() task in the 
+> stats4 R library,
+> as part of a python script. mle() receives a R function to calculate 
+> the negative log-likelihood,
+> my problem is that so far I have could not figure out how to give a 
+> numpy vector to the function,
+> or make the vector understandable for the R environment. Is there a 
+> way to do this?
+
+mle is evaluating the function minuslog in its parent environment (and 
+no XX can be found that there, as the error message you obtain in return 
+indicates it).
+One way to overcome this is to create a symbol 'XX' in the enclosing 
+environment of the function:
+
+fx.closureenv()['XX'] = rpy2.robjects.numpy2ri.numpy2ri(XX)
+
+>
+> With the following example will be clearer.
+> This is a short version, trying to use mle() in a normal distribution.
+> "I need to make the XX vector understandable for rfunction":
+>
+> ======================================================================
+> import rpy2.robjects as robjects
+> from rpy2.robjects.packages import importr
+> import rpy2.robjects.numpy2ri
+> import numpy as np
+> r = robjects.r
+>
+> stats4 = importr("stats4")
+>
+> #Normal vector to test the script, which I need to give to the R 
+> function ll
+> XX = np.random.normal(loc=10.0, scale=2.0, size=100)
+> N = len(XX)
+>
+> #negative logarithmic likelihood function of a Gaussian distribution
+> #This function should receive the XX numpy vector someway
+> rfunction = '''ll <- function(mean,sigma){
+>         n <- %i
+>         x <- XX   ##This is the critical point##
+>         -(-0.5*n*log(2*pi)-n*log(sigma)-0.5*sum(((x-mean)/sigma)^2))
+>         }''' % (N)
+>
+> fx=r(rfunction)
+>
+> starterd = {'mean':10,'sigma':1}
+> starter= robjects.DataFrame(starterd)
+> fit = stats4.mle(minuslog=fx,start=starter)
+> summary = R.summary(fit)
+> print summary
+> ==========================================================================
+>
+> I hope someone can help me with this or point me out a better solution
+>
+> By the way, I am using:
+> rpy2 v2.1.9
+> R v2.11.0
+> python v2.6
+>
+> Thank you!
+>
+> -- 
+> Eduardo Bañados Torres
+>
+>
+>
+>
+> ------------------------------------------------------------------------------
+> Simplify data backup and recovery for your virtual environment with vRanger.
+> Installation's a snap, and flexible recovery options mean your data is safe,
+> secure and there when you need it. Discover what all the cheering's about.
+> Get your free trial download today.
+> http://p.sf.net/sfu/quest-dev2dev2
+>
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Discover what all the cheering's about.
+Get your free trial download today. 
+http://p.sf.net/sfu/quest-dev2dev2
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From david.briant at ubs.com  Fri Jun  3 07:00:20 2011
+From: david.briant at ubs.com
+Date: Fri, 03 Jun 2011 08:00:20 +0100
+Subject: [Rpy] rpy or rpy under windows, python 2.7.1, R2.13
+Message-ID: <CC1C7BB0223B244FA9CC2CCCF099C091046FF1F1@NLDNC110PEX1.ubsw.net>
+
+Hi all,
+
+Could anyone point me in the direction of some instructions or pointers
+to compiling rpy or rpy2 under windows? I'm getting a number of errors
+that I can't figure, which are to do with public exports (extern c etc)
+and constants being overridden - so I assume I need some environment
+variables setting up but can't discover what exactly which ones are
+needed.
+
+Many thx,
+
+David
+
+-------------- next part --------------
+Visit our website at http://www.ubs.com 
+
+This message contains confidential information and is intended only 
+for the individual named. If you are not the named addressee you 
+should not disseminate, distribute or copy this e-mail. Please 
+notify the sender immediately by e-mail if you have received this 
+e-mail by mistake and delete this e-mail from your system. 
+
+E-mails are not encrypted and cannot be guaranteed to be secure or 
+error-free as information could be intercepted, corrupted, lost, 
+destroyed, arrive late or incomplete, or contain viruses. The sender 
+therefore does not accept liability for any errors or omissions in the 
+contents of this message which arise as a result of e-mail transmission. 
+If verification is required please request a hard-copy version. This 
+message is provided for informational purposes and should not be 
+construed as a solicitation or offer to buy or sell any securities 
+or related financial instruments. 
+
+UBS Limited is a company limited by shares incorporated in the United 
+Kingdom registered in England and Wales with number 2035362. 
+Registered office: 1 Finsbury Avenue, London EC2M 2PP.  UBS Limited 
+is authorised and regulated by the Financial Services Authority. 
+
+UBS AG is a public company incorporated with limited liability in 
+Switzerland domiciled in the Canton of Basel-City and the Canton of 
+Zurich respectively registered at the Commercial Registry offices in 
+those Cantons with Identification No: CH-270.3.004.646-4 and having 
+respective head offices at Aeschenvorstadt 1, 4051 Basel and 
+Bahnhofstrasse 45, 8001 Zurich, Switzerland.  Registered in the 
+United Kingdom as a foreign company with No: FC021146 and having a 
+UK Establishment registered at Companies House, Cardiff, with No:  
+BR 004507.  The principal office of UK Establishment: 1 Finsbury Avenue, 
+London EC2M 2PP.  In the United Kingdom, UBS AG is authorised and 
+regulated by the Financial Services Authority.
+
+UBS reserves the right to retain all messages. Messages are protected 
+and accessed only in legally justified cases.
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Discover what all the cheering's about.
+Get your free trial download today. 
+http://p.sf.net/sfu/quest-dev2dev2
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Fri Jun  3 11:08:16 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Fri, 03 Jun 2011 13:08:16 +0200
+Subject: Re: [Rpy] Point No-Fill
+In-Reply-To: <BANLkTim04g-W_ZG7OLiMoHXwD9yjpUKoow@mail.gmail.com>
+References: <BANLkTim04g-W_ZG7OLiMoHXwD9yjpUKoow@mail.gmail.com>
+Message-ID: <4DE8C0A0.8040600@gmail.com>
+
+On 2011-06-03 08:08, Jurgens de Bruin wrote:
+> Currently I have the following :
+>
+>  grdevices.png(file=filename, width=900, height=512)
+>  dataf = 
+> Robjects.DataFrame({'phytochemcial':Robjects.StrVector(phytochemicals),
+>                                 'xaxis'  : 
+> Robjects.StrVector(pharmacaphores),
+>                                 'fitvalue' : 
+> Robjects.FloatVector(fitvalues)
+>                                 })
+>     bubble = ggplot2.ggplot(dataf) + \
+>     ggplot2.aes_string(x='xaxis', y='phytochemcial',size='fitvalue') + \
+>     ggplot2.geom_point(alpha = 0.2)+ \
+
+ggplot2.geom_point(alpha = 0.2, shape = 1)
+
+
+>     ggplot2.scale_shape(solid = False)+ \
+>     ggplot2.opts(**{'axis.text.x': ggplot2.theme_text(angle = 45)})
+>     bubble.plot()
+>     grdevices.dev_off()
+>
+> With produces each data-point as filled-circles, is their 
+> a possibility to have the each data-point be a circle that is not 
+> filled - thus only a border?
+>
+> -- 
+> Regards/Groete/Mit freundlichen Grüßen/recuerdos/meilleures salutations/
+> distinti saluti/siong/duì yú/привет
+>
+> Jurgens de Bruin
+>
+>
+> ------------------------------------------------------------------------------
+> Simplify data backup and recovery for your virtual environment with vRanger.
+> Installation's a snap, and flexible recovery options mean your data is safe,
+> secure and there when you need it. Discover what all the cheering's about.
+> Get your free trial download today.
+> http://p.sf.net/sfu/quest-dev2dev2
+>
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Discover what all the cheering's about.
+Get your free trial download today. 
+http://p.sf.net/sfu/quest-dev2dev2
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From eebanado at uc.cl  Fri Jun  3 22:11:26 2011
+From: eebanado at uc.cl (=?utf-8?q?Eduardo_Ba=C3=B1ados_Torres?=)
+Date: Fri, 03 Jun 2011 18:11:26 -0400
+Subject: Re: [Rpy] Numpy vector as input for a R function
+In-Reply-To: <4DE8837D.5050001@gmail.com>
+References: <BANLkTimxVFw+bf9VLQmpdU0xb77YQqKcuQ@mail.gmail.com> <4DE8837D.5050001@gmail.com>
+Message-ID: <BANLkTi=i5ZAwX2miUNC6PZqqB8TBmiaOSw@mail.gmail.com>
+
+Thanks Laurent! That's exactly what I was looking for.
+
+2011/6/3 Laurent Gautier <lgautier at gmail.com>
+
+>  On 2011-06-03 00:56, Eduardo Bañados Torres wrote:
+>
+> Hi Everyone,
+>
+>  I am currently struggling with rpy2, I hope someone could help me.
+>
+>  I am trying to do a maximum likelihood using the mle() task in the stats4
+> R library,
+> as part of a python script. mle() receives a R function to calculate the
+> negative log-likelihood,
+> my problem is that so far I have could not figure out how to give a numpy
+> vector to the function,
+>  or make the vector understandable for the R environment. Is there a way to
+> do this?
+>
+>
+> mle is evaluating the function minuslog in its parent environment (and no
+> XX can be found that there, as the error message you obtain in return
+> indicates it).
+> One way to overcome this is to create a symbol 'XX' in the enclosing
+> environment of the function:
+>
+> fx.closureenv()['XX'] = rpy2.robjects.numpy2ri.numpy2ri(XX)
+>
+>
+>  With the following example will be clearer.
+> This is a short version, trying to use mle() in a normal distribution.
+> "I need to make the XX vector understandable for rfunction":
+>
+>  ======================================================================
+> import rpy2.robjects as robjects
+>  from rpy2.robjects.packages import importr
+> import rpy2.robjects.numpy2ri
+> import numpy as np
+> r = robjects.r
+>
+>  stats4 = importr("stats4")
+>
+>  #Normal vector to test the script, which I need to give to the R function
+> ll
+> XX = np.random.normal(loc=10.0, scale=2.0, size=100)
+> N = len(XX)
+>
+>  #negative logarithmic likelihood function of a Gaussian distribution
+> #This function should receive the XX numpy vector someway
+> rfunction = '''ll <- function(mean,sigma){
+>         n <- %i
+>         x <- XX   ##This is the critical point##
+>         -(-0.5*n*log(2*pi)-n*log(sigma)-0.5*sum(((x-mean)/sigma)^2))
+>         }''' % (N)
+>
+>  fx=r(rfunction)
+>
+>  starterd = {'mean':10,'sigma':1}
+> starter= robjects.DataFrame(starterd)
+>
+> fit = stats4.mle(minuslog=fx,start=starter)
+> summary = R.summary(fit)
+> print summary
+> ==========================================================================
+>
+>  I hope someone can help me with this or point me out a better solution
+>
+>  By the way, I am using:
+> rpy2 v2.1.9
+> R v2.11.0
+> python v2.6
+>
+>  Thank you!
+>
+> --
+> Eduardo Bañados Torres
+>
+>
+>
+>
+> ------------------------------------------------------------------------------
+> Simplify data backup and recovery for your virtual environment with vRanger.
+> Installation's a snap, and flexible recovery options mean your data is safe,
+> secure and there when you need it. Discover what all the cheering's about.
+> Get your free trial download today. http://p.sf.net/sfu/quest-dev2dev2
+>
+>
+> _______________________________________________
+> rpy-list mailing listrpy-list at lists.sourceforge.nethttps://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+
+
+-- 
+Eduardo Bañados Torres
+Licenciado en Astronomía
+Pontificia Universidad Católica de Chile
+Santiago, Chile
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Discover what all the cheering's about.
+Get your free trial download today. 
+http://p.sf.net/sfu/quest-dev2dev2
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Sun Jun  5 17:28:03 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Sun, 05 Jun 2011 19:28:03 +0200
+Subject: [Rpy] rpy2-2.2.0
+Message-ID: <4DEBBCA3.3020506@gmail.com>
+
+Hi,
+
+Rpy2-2.2.0 is out. Thanks to everyone for bugs reports, patches.
+
+While minor API-breaking changes were introduced, this is believed to be 
+an improvement over the 2.1.x series, itself an improvement... etc.
+That version was developed on Python 2.6 and 2.7, with compatibility 
+with Python 3.2 thanks to Google funding our GSoC last year.
+
+The documentation reflects the changes (or at least is hoped to do so) 
+and is available at:
+http://rpy.sourceforge.net/rpy2/doc-2.2/html/
+
+A list of visible changes is at:
+http://rpy.sourceforge.net/rpy2/doc-2.2/html/changes.html#release-2-2-0
+
+
+
+Laurent
+
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Discover what all the cheering's about.
+Get your free trial download today. 
+http://p.sf.net/sfu/quest-dev2dev2
+
+From edd at debian.org  Sun Jun  5 19:52:44 2011
+From: edd at debian.org (Dirk Eddelbuettel)
+Date: Sun, 05 Jun 2011 14:52:44 -0500
+Subject: Re: [Rpy] rpy2-2.2.0
+In-Reply-To: <4DEBBCA3.3020506@gmail.com>
+References: <4DEBBCA3.3020506@gmail.com>
+Message-ID: <19947.56972.261492.798465@max.nulle.part>
+
+
+On 5 June 2011 at 19:28, Laurent Gautier wrote:
+| Rpy2-2.2.0 is out. Thanks to everyone for bugs reports, patches.
+
+And in Debian unstable now too.
+
+http://packages.qa.debian.org/r/rpy2.html
+
+Dirk
+
+-- 
+Gauss once played himself in a zero-sum game and won $50.
+                      -- #11 at http://www.gaussfacts.com
+
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Discover what all the cheering's about.
+Get your free trial download today. 
+http://p.sf.net/sfu/quest-dev2dev2
+
+From lgautier at gmail.com  Fri Jun 10 06:29:11 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Fri, 10 Jun 2011 08:29:11 +0200
+Subject: [Rpy] rpy2-2.2.1
+Message-ID: <4DF1B9B7.6080001@gmail.com>
+
+The first bugfix release for rpy2-2.2.x is out.
+It fixes the installation from the pypi tarball with Python 3.
+
+2.2.1 is already no pypi, and soon on Sourceforge.
+
+L.
+
+------------------------------------------------------------------------------
+EditLive Enterprise is the world's most technically advanced content
+authoring tool. Experience the power of Track Changes, Inline Image
+Editing and ensure content is compliant with Accessibility Checking.
+http://p.sf.net/sfu/ephox-dev2dev
+
+From bacms2 at cam.ac.uk  Thu Jun 16 15:20:27 2011
+From: bacms2 at cam.ac.uk (B. Santos)
+Date: Thu, 16 Jun 2011 16:20:27 +0100
+Subject: [Rpy] Maximum likelihooh estimation in rpy2
+Message-ID: <Prayer.1.3.3.1106161620270.24134@hermes-2.csi.cam.ac.uk>
+
+Hello everyone,
+
+I am trying to use rpy2 to estimate the parameters of a specified function. 
+But I am failing miserable to understand how I can do this using rpy2. I 
+have the following R code: alphabeta<-function(alphabeta,x,dicerAcc) {
+  alpha <-alphabeta[1]
+  beta <-alphabeta[2]
+  if (any(alphabeta<0))
+    return(NA)
+  sum((alpha*log(beta) + lgamma(alpha + x) + x * log(dicerAcc) - 
+lgamma(alpha) - (alpha + x) * log(beta+dicerAcc) - lfactorial(x))[dicerAcc 
+> noiseT]) ab <- optim(c(1,100), alphabeta, control=list(fnscale=-1), x = 
+x, dicerAcc = dicerAcc)$par
+
+Is there anyway to do this. I would imagine the easy way would be to import 
+the function from R but I imagine that means I would have to create a 
+package just for the function which is less than ideal.
+
+Looking forward to your suggestion. Thank you very much in advance,
+Bruno Santos
+
+------------------------------------------------------------------------------
+EditLive Enterprise is the world's most technically advanced content
+authoring tool. Experience the power of Track Changes, Inline Image
+Editing and ensure content is compliant with Accessibility Checking.
+http://p.sf.net/sfu/ephox-dev2dev
+
+From lgautier at gmail.com  Thu Jun 16 17:10:08 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Thu, 16 Jun 2011 19:10:08 +0200
+Subject: Re: [Rpy] Maximum likelihooh estimation in rpy2
+In-Reply-To: <Prayer.1.3.3.1106161620270.24134@hermes-2.csi.cam.ac.uk>
+References: <Prayer.1.3.3.1106161620270.24134@hermes-2.csi.cam.ac.uk>
+Message-ID: <4DFA38F0.2060103@gmail.com>
+
+On 2011-06-16 17:20, B. Santos wrote:
+> Hello everyone,
+>
+> I am trying to use rpy2 to estimate the parameters of a specified function.
+> But I am failing miserable to understand how I can do this using rpy2. I
+> have the following R code: alphabeta<-function(alphabeta,x,dicerAcc) {
+>    alpha<-alphabeta[1]
+>    beta<-alphabeta[2]
+>    if (any(alphabeta<0))
+>      return(NA)
+>    sum((alpha*log(beta) + lgamma(alpha + x) + x * log(dicerAcc) -
+> lgamma(alpha) - (alpha + x) * log(beta+dicerAcc) - lfactorial(x))[dicerAcc
+>> noiseT]) ab<- optim(c(1,100), alphabeta, control=list(fnscale=-1), x =
+> x, dicerAcc = dicerAcc)$par
+>
+> Is there anyway to do this. I would imagine the easy way would be to 
+> import
+> the function from R but I imagine that means I would have to create a
+> package just for the function which is less than ideal.
+>
+
+You can just parse and evaluate a string as R code as an anonymous R 
+function.
+http://rpy.sourceforge.net/rpy2/doc-2.2/html/rinterface.html#parsing-and-evaluating-r-code
+and then use base.eval().
+
+You can also consider writing your cost function in Python:
+http://rpy.sourceforge.net/rpy2/doc-2.2/html/rinterface.html#calling-python-functions-from-r
+
+
+HTH,
+
+
+L.
+> Looking forward to your suggestion. Thank you very much in advance,
+> Bruno Santos
+>
+> ------------------------------------------------------------------------------
+> EditLive Enterprise is the world's most technically advanced content
+> authoring tool. Experience the power of Track Changes, Inline Image
+> Editing and ensure content is compliant with Accessibility Checking.
+> http://p.sf.net/sfu/ephox-dev2dev
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+EditLive Enterprise is the world's most technically advanced content
+authoring tool. Experience the power of Track Changes, Inline Image
+Editing and ensure content is compliant with Accessibility Checking.
+http://p.sf.net/sfu/ephox-dev2dev
+
+From ted.rosenbaum at yale.edu  Wed Jun 22 14:04:12 2011
+From: ted.rosenbaum at yale.edu (Ted Rosenbaum)
+Date: Wed, 22 Jun 2011 10:04:12 -0400
+Subject: [Rpy] pickling problems under rpy 2.2.1
+Message-ID: <BANLkTi=xLx-gja0CKeJ2=GaECKU2AVEFnw@mail.gmail.com>
+
+Hi,
+I recently upgraded from rpy 2.1.9 to rpy 2.2.1, on a linux x86 system.
+I had a number of r objects that were pickled under the old version, and
+after I upgraded, I am no longer able to unpickle them.  I get the error
+message "ImportError: No module named rinterface".
+I am able to pickle and unpickle fine under the new version without a
+problem.
+Is there a way to recover the files saved under the old version?
+Thanks for any help.
+
+----------------------------------
+Ted Rosenbaum
+Graduate Student
+Department of Economics
+Yale University
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Data protection magic?
+Nope - It's vRanger. Get your free trial download today.
+http://p.sf.net/sfu/quest-sfdev2dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Wed Jun 22 14:11:52 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Wed, 22 Jun 2011 16:11:52 +0200
+Subject: Re: [Rpy] pickling problems under rpy 2.2.1
+In-Reply-To: <BANLkTi=xLx-gja0CKeJ2=GaECKU2AVEFnw@mail.gmail.com>
+References: <BANLkTi=xLx-gja0CKeJ2=GaECKU2AVEFnw@mail.gmail.com>
+Message-ID: <4E01F828.2060501@gmail.com>
+
+Hi,
+
+Pickling/unpickling of R objects did not change between the 2.1.x and 
+2.2.x series, but the declaration of import path might have (I vaguely 
+remember having to work something our for Python 2.7 and/or Python 3).
+
+You best bet currently might be to:
+-re-install 2.1.9
+- save the R objects using R's own serialization mechanism ("save()") 
+into a file
+- re-re-install 2.2.1
+- load the R objects using R's unserialization ("load()")
+- pickle the objects loaded/
+
+
+Best,
+
+
+L.
+
+
+On 2011-06-22 16:04, Ted Rosenbaum wrote:
+> Hi,
+> I recently upgraded from rpy 2.1.9 to rpy 2.2.1, on a linux x86 system.
+> I had a number of r objects that were pickled under the old version, 
+> and after I upgraded, I am no longer able to unpickle them.  I get the 
+> error message "ImportError: No module named rinterface".
+> I am able to pickle and unpickle fine under the new version without a 
+> problem.
+> Is there a way to recover the files saved under the old version?
+> Thanks for any help.
+>
+> ----------------------------------
+> Ted Rosenbaum
+> Graduate Student
+> Department of Economics
+> Yale University
+>
+>
+> ------------------------------------------------------------------------------
+> Simplify data backup and recovery for your virtual environment with vRanger.
+> Installation's a snap, and flexible recovery options mean your data is safe,
+> secure and there when you need it. Data protection magic?
+> Nope - It's vRanger. Get your free trial download today.
+> http://p.sf.net/sfu/quest-sfdev2dev
+>
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Data protection magic?
+Nope - It's vRanger. Get your free trial download today.
+http://p.sf.net/sfu/quest-sfdev2dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From richard.dijkstra at planet.nl  Thu Jun 23 17:02:22 2011
+From: richard.dijkstra at planet.nl (Richard Dijkstra)
+Date: Thu, 23 Jun 2011 19:02:22 +0200
+Subject: [Rpy] Trouble loading robjects
+Message-ID: <BA03D5C3-7434-4D4C-925D-765A694D3D5B@planet.nl>
+
+Hello,
+
+I am trying to call R-2.12.2 from Python 2.6.5 thru RPy2.0.8 on Windows Vista.
+Can anybody help me with the error I get when calling:
+
+>>> import rpy2.robjects as robjects
+
+Traceback (most recent call last):
+File "<pyshell#2>", line 1, in <module>
+import rpy2.robjects as robjects
+File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line 154, in <module>
+class RObject(RObjectMixin, rinterface.Sexp):
+AttributeError: 'module' object has no attribute 'Sexp'
+
+Thanks in advance,
+Richard
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Data protection magic?
+Nope - It's vRanger. Get your free trial download today.
+http://p.sf.net/sfu/quest-sfdev2dev
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From ted.rosenbaum at yale.edu  Fri Jun 24 12:46:49 2011
+From: ted.rosenbaum at yale.edu (Ted Rosenbaum)
+Date: Fri, 24 Jun 2011 08:46:49 -0400
+Subject: Re: [Rpy] pickling problems under rpy 2.2.1
+In-Reply-To: <4E01F828.2060501@gmail.com>
+References: <BANLkTi=xLx-gja0CKeJ2=GaECKU2AVEFnw@mail.gmail.com> <4E01F828.2060501@gmail.com>
+Message-ID: <BANLkTi=2Y-FmKHviE82cf43oiyQCS0zVhg@mail.gmail.com>
+
+Thanks for the suggestion -- that worked well!
+
+On Wed, Jun 22, 2011 at 10:11 AM, Laurent Gautier <lgautier at gmail.com>wrote:
+
+> **
+> Hi,
+>
+> Pickling/unpickling of R objects did not change between the 2.1.x and 2.2.x
+> series, but the declaration of import path might have (I vaguely remember
+> having to work something our for Python 2.7 and/or Python 3).
+>
+> You best bet currently might be to:
+> -re-install 2.1.9
+> - save the R objects using R's own serialization mechanism ("save()") into
+> a file
+> - re-re-install 2.2.1
+> - load the R objects using R's unserialization ("load()")
+> - pickle the objects loaded/
+>
+>
+> Best,
+>
+>
+> L.
+>
+>
+>
+> On 2011-06-22 16:04, Ted Rosenbaum wrote:
+>
+> Hi,
+> I recently upgraded from rpy 2.1.9 to rpy 2.2.1, on a linux x86 system.
+> I had a number of r objects that were pickled under the old version, and
+> after I upgraded, I am no longer able to unpickle them.  I get the error
+> message "ImportError: No module named rinterface".
+> I am able to pickle and unpickle fine under the new version without a
+> problem.
+> Is there a way to recover the files saved under the old version?
+> Thanks for any help.
+>
+> ----------------------------------
+> Ted Rosenbaum
+> Graduate Student
+> Department of Economics
+> Yale University
+>
+>
+> ------------------------------------------------------------------------------
+> Simplify data backup and recovery for your virtual environment with vRanger.
+> Installation's a snap, and flexible recovery options mean your data is safe,
+> secure and there when you need it. Data protection magic?
+> Nope - It's vRanger. Get your free trial download today.http://p.sf.net/sfu/quest-sfdev2dev
+>
+>
+> _______________________________________________
+> rpy-list mailing listrpy-list at lists.sourceforge.nethttps://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+All the data continuously generated in your IT infrastructure contains a 
+definitive record of customers, application performance, security 
+threats, fraudulent activity and more. Splunk takes this data and makes 
+sense of it. Business sense. IT sense. Common sense.. 
+http://p.sf.net/sfu/splunk-d2d-c1
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+

@@ -1,0 +1,202 @@
+From ben.domingue-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Nov 15 15:54:30 2008
+From: ben.domingue-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ben Domingue)
+Date: Sat, 15 Nov 2008 08:54:30 -0700
+Subject: Namespace problem?
+Message-ID: <9c15a6240811150754m19ecf4eaxedc98d3e546a45@mail.gmail.com>
+
+Hello,
+I am using boot() to compute standard errors for a matching estimator.
+ I ran into a problem while writing the statistic function required by
+boot.  I kept getting the following error:
+
+> boot(p,statistic=est.sub,R=1)->boot.s
+Error in eval(expr, envir, enclos) : object "d1" not found
+
+After mucking around, it seems to have been a problem with the way
+matchit() creates and object (that I was then plugging into
+match.data()).  The function est.sub is below, note the line with
+comment.  When that line is commented out, I get the above error.  If
+not, things work fine.
+
+est.sub<-function(d,b) {
+  d[b,]->d1	
+f<-formula(coach~psatm+psatv+age+ses+female+asian+black+hispanic+native+priv+rur+urb+ap+rem_eng+rem_math+prep+byread+bymath+mcrd+hw+esl+after+info+prep_par+edu_par)
+	subclass.estimates<-matrix(nrow=5,ncol=2)
+	matchit(f,d1,method="subclass",distance="logit",subclass=5,sub.by="treat",discard="both")->foo
+	####d1->foo$call$data   ###wtf is going on with this line!!!!!
+	match.data(foo)->d2
+	est<-numeric(length=2)
+	for (j in 1:5) {
+		c<-d2[d2$subclass==j & d2$coach==1,]
+		n<-d2[d2$subclass==j & d2$coach==0,]
+		mean(c$satm)-mean(n$satm)->subclass.estimates[j,1]
+		mean(c$satv)-mean(n$satv)->subclass.estimates[j,2]
+	}
+	mean(subclass.estimates[,1])->est[1]
+	mean(subclass.estimates[,2])->est[2]
+	return(est)
+}
+
+Any thoughts?  I feel like I've gotten things working, at least for my
+purposes, but I'm not sure if this is pointing at a larger problem or
+if I've done something odd.
+
+Ben
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Sat Nov 15 22:03:20 2008
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Sat, 15 Nov 2008 17:03:20 -0500
+Subject: Re: Namespace problem?
+In-Reply-To: <9c15a6240811150754m19ecf4eaxedc98d3e546a45@mail.gmail.com>
+References: <9c15a6240811150754m19ecf4eaxedc98d3e546a45@mail.gmail.com>
+Message-ID: <alpine.OSX.2.00.0811151701160.20245@pol-g88381xtxyl.Princeton.EDU>
+
+Hi,
+
+   I would avoid using bootstrap.  Bootstrap was pretty common a few years 
+ago, but there are some theoretial results that suggest that bootstrap may 
+not be reliable (see Abadie and Imbens' recent article in Econometrica). 
+Also, from a practical perspective, you can condition your inference on 
+the matched-sample and make your inference. See Section 6.9 of our paper: 
+http://imai.princeton.edu/research/files/matchp.pdf
+
+Best,
+Kosuke
+
+-- 
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Sat, 15 Nov 2008, Ben Domingue wrote:
+
+> Hello,
+> I am using boot() to compute standard errors for a matching estimator.
+> I ran into a problem while writing the statistic function required by
+> boot.  I kept getting the following error:
+>
+>> boot(p,statistic=est.sub,R=1)->boot.s
+> Error in eval(expr, envir, enclos) : object "d1" not found
+>
+> After mucking around, it seems to have been a problem with the way
+> matchit() creates and object (that I was then plugging into
+> match.data()).  The function est.sub is below, note the line with
+> comment.  When that line is commented out, I get the above error.  If
+> not, things work fine.
+>
+> est.sub<-function(d,b) {
+>  d[b,]->d1
+> f<-formula(coach~psatm+psatv+age+ses+female+asian+black+hispanic+native+priv+rur+urb+ap+rem_eng+rem_math+prep+byread+bymath+mcrd+hw+esl+after+info+prep_par+edu_par)
+> 	subclass.estimates<-matrix(nrow=5,ncol=2)
+> 	matchit(f,d1,method="subclass",distance="logit",subclass=5,sub.by="treat",discard="both")->foo
+> 	####d1->foo$call$data   ###wtf is going on with this line!!!!!
+> 	match.data(foo)->d2
+> 	est<-numeric(length=2)
+> 	for (j in 1:5) {
+> 		c<-d2[d2$subclass==j & d2$coach==1,]
+> 		n<-d2[d2$subclass==j & d2$coach==0,]
+> 		mean(c$satm)-mean(n$satm)->subclass.estimates[j,1]
+> 		mean(c$satv)-mean(n$satv)->subclass.estimates[j,2]
+> 	}
+> 	mean(subclass.estimates[,1])->est[1]
+> 	mean(subclass.estimates[,2])->est[2]
+> 	return(est)
+> }
+>
+> Any thoughts?  I feel like I've gotten things working, at least for my
+> purposes, but I'm not sure if this is pointing at a larger problem or
+> if I've done something odd.
+>
+> Ben
+>
+> --
+> MatchIt mailing list served by Harvard-MIT Data Center
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/?info=matchit
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+>
+
+From ben.domingue-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Nov 16 20:42:32 2008
+From: ben.domingue-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ben Domingue)
+Date: Sun, 16 Nov 2008 13:42:32 -0700
+Subject: Re: Namespace problem?
+In-Reply-To: <alpine.OSX.2.00.0811151701160.20245@pol-g88381xtxyl.Princeton.EDU>
+References: <9c15a6240811150754m19ecf4eaxedc98d3e546a45@mail.gmail.com> <alpine.OSX.2.00.0811151701160.20245@pol-g88381xtxyl.Princeton.EDU>
+Message-ID: <9c15a6240811161242v633624cbg219dfb4d3ce65233@mail.gmail.com>
+
+Thanks Kosuke.
+I was aware of the Abadie and Imbens NBER working paper on the failure
+of the strap, but that Econometrica reference is quite useful.
+
+Ben
+
+On Sat, Nov 15, 2008 at 3:03 PM, Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org> wrote:
+> Hi,
+>
+>  I would avoid using bootstrap.  Bootstrap was pretty common a few years
+> ago, but there are some theoretial results that suggest that bootstrap may
+> not be reliable (see Abadie and Imbens' recent article in Econometrica).
+> Also, from a practical perspective, you can condition your inference on the
+> matched-sample and make your inference. See Section 6.9 of our paper:
+> http://imai.princeton.edu/research/files/matchp.pdf
+>
+> Best,
+> Kosuke
+>
+> --
+> Department of Politics
+> Princeton University
+> http://imai.princeton.edu
+>
+> On Sat, 15 Nov 2008, Ben Domingue wrote:
+>
+>> Hello,
+>> I am using boot() to compute standard errors for a matching estimator.
+>> I ran into a problem while writing the statistic function required by
+>> boot.  I kept getting the following error:
+>>
+>>> boot(p,statistic=est.sub,R=1)->boot.s
+>>
+>> Error in eval(expr, envir, enclos) : object "d1" not found
+>>
+>> After mucking around, it seems to have been a problem with the way
+>> matchit() creates and object (that I was then plugging into
+>> match.data()).  The function est.sub is below, note the line with
+>> comment.  When that line is commented out, I get the above error.  If
+>> not, things work fine.
+>>
+>> est.sub<-function(d,b) {
+>>  d[b,]->d1
+>>
+>> f<-formula(coach~psatm+psatv+age+ses+female+asian+black+hispanic+native+priv+rur+urb+ap+rem_eng+rem_math+prep+byread+bymath+mcrd+hw+esl+after+info+prep_par+edu_par)
+>>        subclass.estimates<-matrix(nrow=5,ncol=2)
+>>
+>>  matchit(f,d1,method="subclass",distance="logit",subclass=5,sub.by="treat",discard="both")->foo
+>>        ####d1->foo$call$data   ###wtf is going on with this line!!!!!
+>>        match.data(foo)->d2
+>>        est<-numeric(length=2)
+>>        for (j in 1:5) {
+>>                c<-d2[d2$subclass==j & d2$coach==1,]
+>>                n<-d2[d2$subclass==j & d2$coach==0,]
+>>                mean(c$satm)-mean(n$satm)->subclass.estimates[j,1]
+>>                mean(c$satv)-mean(n$satv)->subclass.estimates[j,2]
+>>        }
+>>        mean(subclass.estimates[,1])->est[1]
+>>        mean(subclass.estimates[,2])->est[2]
+>>        return(est)
+>> }
+>>
+>> Any thoughts?  I feel like I've gotten things working, at least for my
+>> purposes, but I'm not sure if this is pointing at a larger problem or
+>> if I've done something odd.
+>>
+>> Ben
+>>
+>> --
+>> MatchIt mailing list served by Harvard-MIT Data Center
+>> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/?info=matchit
+>> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+>>
+>
+

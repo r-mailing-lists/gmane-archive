@@ -1,0 +1,399 @@
+From adrian at trapletti.org  Mon Jan  6 14:19:47 2014
+From: adrian at trapletti.org (Adrian Trapletti)
+Date: Mon, 06 Jan 2014 15:19:47 +0100
+Subject: Old Thread "How to get REngine from running rJava" and Rserve
+Message-ID: <52CABB83.5070706@trapletti.org>
+
+Hi Simon,
+
+I am currently working on an R package that calls Java through rJava and 
+I would like to use intermediate callbacks from the Java side to R 
+(again rJava, Rengine) before the Java side finished (backtesting 
+framework that is written in Java, but uses R functionalities to compute 
+asset allocations, main function that starts backtest in R).
+
+My plan was also to use this package on an Rserve. Now, I saw this old 
+thread 
+http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/2011q3/001689.html 
+<http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/2011q3/001689.html> 
+where you strongly recommend to start the Java side first due to 
+potential problems with system libraries (threaded vs non-threaded 
+versions). Hence, Rserve which is pure non-Java would be non-reliable? 
+Is there any OS where this approach is safe?
+
+Thank you very much in advance.
+Adrian
+<http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/2011q3/001689.html> 
+
+
+-- 
+Dr. Adrian Trapletti
+Steinstrasse 9b
+CH-8610 Uster
+Switzerlandnc
+
+Phone : +41 (0) 44 9945630
+Mobile : +41 (0) 79 1037131
+
+Email :adrian at trapletti.org
+WWW :www.trapletti.org
+
+From simon.urbanek at r-project.org  Mon Jan  6 16:09:52 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 06 Jan 2014 11:09:52 -0500
+Subject: Re: Old Thread "How to get REngine from running rJava" and Rserve
+In-Reply-To: <52CABB83.5070706@trapletti.org>
+References: <52CABB83.5070706@trapletti.org>
+Message-ID: <DC171B30-1B2D-4B58-8045-82EFB7486765@r-project.org>
+
+Adrian,
+
+On Jan 6, 2014, at 9:19 AM, Adrian Trapletti <adrian at trapletti.org> wrote:
+
+> I am currently working on an R package that calls Java through rJava and I would like to use intermediate callbacks from the Java side to R (again rJava, Rengine) before the Java side finished (backtesting framework that is written in Java, but uses R functionalities to compute asset allocations, main function that starts backtest in R).
+> 
+> My plan was also to use this package on an Rserve. Now, I saw this old thread http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/2011q3/001689.html <http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/2011q3/001689.html> where you strongly recommend to start the Java side first due to potential problems with system libraries (threaded vs non-threaded versions). Hence, Rserve which is pure non-Java would be non-reliable? Is there any OS where this approach is safe?
+> 
+
+With Rserve you may be in a better shape. Main issues involve GUIs and their interaction with the main event loop, but with Rserve you don't have to worry about GUIs since there are none and Rserve fully controls the evaluation sequence, so you know whether you're re-entring or not. So the only thing to worry abut are a) no GUIs on the Java side (no AWT etc.) and b) synchronize re-entrance to R. Since Rserve doesn't use an event loop, I forget if REngine will synchronize for you or can only re-enter from an existing eval.
+
+One more warning though - Rserve forks, so you have to make sure that you don't start Java before forking - most JVMs don't work when forked, so you have to connect first and then call .jinit(). 
+
+Cheers,
+Simon
+
+
+
+> Thank you very much in advance.
+> Adrian
+> <http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/2011q3/001689.html> 
+> 
+> -- 
+> Dr. Adrian Trapletti
+> Steinstrasse 9b
+> CH-8610 Uster
+> Switzerlandnc
+> 
+> Phone : +41 (0) 44 9945630
+> Mobile : +41 (0) 79 1037131
+> 
+> Email :adrian at trapletti.org
+> WWW :www.trapletti.org
+>
+
+From dougherty.gregory at mayo.edu  Fri Jan 31 02:07:03 2014
+From: dougherty.gregory at mayo.edu (Gregory Dougherty)
+Date: Fri, 31 Jan 2014 02:07:03 +0000
+Subject: How to use REngine with rJava
+Message-ID: <loom.20140131T015133-56@post.gmane.org>
+
+I have a simple and hopefully not too stupid question: What are the basic
+steps for launching and using REngine when you have rJava installed in R?
+
+I've searched the web, and nowhere found a step by step guide on how to do
+this.  Is there one somewhere that I've just missed?
+
+A set of instructions would be greatly appreciated.
+
+Thank you,
+Greg
+
+So far, I have
+(From the R side)
+install.packages("rJava")
+install.packages("Rserve")
+library(Rserve)
+
+>From the Java side, this works:
+REngine eng = REngine.engineForClass("org.rosuda.REngine.JRI.JRIEngine");
+
+But then calling this still fails:
+RConnection c = new RConnection();
+
+Am I no longer supposed to use an RConnection?  Do we now just do everything
+with REngine?
+
+From nikhilbchilwant at gmail.com  Fri Jan 31 05:12:47 2014
+From: nikhilbchilwant at gmail.com (Nikhil Chilwant)
+Date: Fri, 31 Jan 2014 10:42:47 +0530
+Subject: Re: How to use REngine with rJava
+In-Reply-To: <loom.20140131T015133-56@post.gmane.org>
+References: <loom.20140131T015133-56@post.gmane.org>
+Message-ID: <CAOENaqG1dxD5BZAsonoZYn-z6qS0jd5tdhduLg_j3DGuRWRSzA@mail.gmail.com>
+
+Here is one simple example. I assume you have no problem in installation
+and you know little bit about R and Java.
+
+
+import org.rosuda.JRI.REXP;  //Import whatever is required
+import org.rosuda.JRI.Rengine; //without this we won't be able to make
+'connection' with R consol
+
+
+public class exampleR {
+public static void main(String[] args){
+String[] Rargs={"--vanilla"};   //check out
+http://www.rosuda.org/r/nightly/javadoc/org/rosuda/JRI/Rengine.html#Rengine(java.lang.String[],
+boolean, org.rosuda.JRI.RMainLoopCallbacks)
+final Rengine re = new Rengine(Rargs, false, null); //the instance of
+Rengine which will be used to apply R commands
+if (!re.waitForR()) //precaution if we are not able to make connection
+{
+System.out.println("Cannot load R");
+}
+ REXP anREXParray= re.eval("runif(1)");   //creating an anREXParray of type
+REXP and put a random no. in it. You can think of re.eval as a command
+which pastes the "runif(1)" into R
+//consol , calculates result and brings back result to java. Then it is
+assigned to anREXParray.
+double[] doubleARRAY=anREXParray.asDoubleArray(); //remember java doesn't
+knoww REXP!! So, convert to know type for java
+System.out.println(doubleARRAY[0]);
+ }
+}
+
+
+suggestion: stackoverflow.com can be useful for future purpose.
+
+
+On Fri, Jan 31, 2014 at 7:37 AM, Gregory Dougherty <
+dougherty.gregory at mayo.edu> wrote:
+
+> I have a simple and hopefully not too stupid question: What are the basic
+> steps for launching and using REngine when you have rJava installed in R?
+>
+> I've searched the web, and nowhere found a step by step guide on how to do
+> this.  Is there one somewhere that I've just missed?
+>
+> A set of instructions would be greatly appreciated.
+>
+> Thank you,
+> Greg
+>
+> So far, I have
+> (From the R side)
+> install.packages("rJava")
+> install.packages("Rserve")
+> library(Rserve)
+>
+> From the Java side, this works:
+> REngine eng = REngine.engineForClass("org.rosuda.REngine.JRI.JRIEngine");
+>
+> But then calling this still fails:
+> RConnection c = new RConnection();
+>
+> Am I no longer supposed to use an RConnection?  Do we now just do
+> everything
+> with REngine?
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+
+
+-- 
+Nikhil Chilwant
+3rd year UG student
+Production and Industrial Engineering,
+IIT Delhi, New Delhi 110016
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Fri Jan 31 06:45:38 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 31 Jan 2014 01:45:38 -0500
+Subject: Re: How to use REngine with rJava
+In-Reply-To: <loom.20140131T015133-56@post.gmane.org>
+References: <loom.20140131T015133-56@post.gmane.org>
+Message-ID: <83C29D8E-86D5-4E6B-8AAE-247D6E927737@r-project.org>
+
+Greg,
+
+On Jan 30, 2014, at 9:07 PM, Gregory Dougherty <dougherty.gregory at mayo.edu> wrote:
+
+> I have a simple and hopefully not too stupid question: What are the basic
+> steps for launching and using REngine when you have rJava installed in R?
+> 
+> I've searched the web, and nowhere found a step by step guide on how to do
+> this.  Is there one somewhere that I've just missed?
+> 
+> A set of instructions would be greatly appreciated.
+> 
+> Thank you,
+> Greg
+> 
+> So far, I have
+> (From the R side)
+> install.packages("rJava")
+> install.packages("Rserve")
+> library(Rserve)
+> 
+>> From the Java side, this works:
+> REngine eng = REngine.engineForClass("org.rosuda.REngine.JRI.JRIEngine");
+> 
+> But then calling this still fails:
+> RConnection c = new RConnection();
+> 
+> Am I no longer supposed to use an RConnection?  Do we now just do everything
+> with REngine?
+> 
+
+You're mixing two unrelated back-ends:
+
+Rserve: client/server infrastructure for using R via TCP/IP or sockets from other systems
+JRI: Java/R interface which allows you to load R into a JVM
+
+org.rosuda.REngine is a backend-agnostic API that can interface either of the two above
+
+org.rosuda.REngine.Rserve.RConnection is a subclass of REngine that use Rserve.
+org.rosuda.REngine.JRI.JRIEngine is a subclass of REngine that use JRI
+
+So my first question is - which of the two are you intending to use?
+
+Cheers,
+Simon
+
+From dougherty.gregory at mayo.edu  Fri Jan 31 18:10:32 2014
+From: dougherty.gregory at mayo.edu (Gregory Dougherty)
+Date: Fri, 31 Jan 2014 18:10:32 +0000
+Subject: Re: How to use REngine with rJava
+References: <loom.20140131T015133-56@post.gmane.org> <83C29D8E-86D5-4E6B-8AAE-247D6E927737@r-project.org>
+Message-ID: <loom.20140131T184551-838@post.gmane.org>
+
+Simon Urbanek <simon.urbanek <at> r-project.org> writes:
+Simon,
+
+> 
+> Greg,
+> 
+> On Jan 30, 2014, at 9:07 PM, Gregory Dougherty <dougherty.gregory <at>
+mayo.edu> wrote:
+> 
+>> I have a simple and hopefully not too stupid question: What are the 
+>> basic steps for launching and using REngine when you have rJava 
+>> installed in R?
+>> I've searched the web, and nowhere found a step by step guide on how to 
+>> do this.  Is there one somewhere that I've just missed?
+>> 
+>> A set of instructions would be greatly appreciated.
+>> 
+>> Thank you,
+>> Greg
+>> 
+>> So far, I have
+>> (From the R side)
+>> install.packages("rJava")
+>> install.packages("Rserve")
+>> library(Rserve)
+>> 
+>>> From the Java side, this works:
+>> REngine eng = REngine.engineForClass("org.rosuda.REngine.JRI.JRIEngine");
+>> 
+>> But then calling this still fails:
+>> RConnection c = new RConnection();
+>> 
+>> Am I no longer supposed to use an RConnection?  Do we now just do everything
+>> with REngine?
+>> 
+> 
+> You're mixing two unrelated back-ends:
+> 
+> Rserve: client/server infrastructure for using R via TCP/IP or sockets
+from other systems
+> JRI: Java/R interface which allows you to load R into a JVM
+> 
+> org.rosuda.REngine is a backend-agnostic API that can interface either of
+the two above
+> 
+> org.rosuda.REngine.Rserve.RConnection is a subclass of REngine that use
+Rserve.
+> org.rosuda.REngine.JRI.JRIEngine is a subclass of REngine that use JRI
+> 
+> So my first question is - which of the two are you intending to use?
+> 
+> Cheers,
+> Simon
+> 
+Thank you for clearing that up for me.  I have a servlet that needs to read
+a .r file and then execute the contents in R (it will create an image file)
+
+I have enough control over the server environment that I can set up both
+Tomcat and R as I wish on the server, so I guess I want to use JRI.
+
+After further work last night, I came up with this:
+/**
+ * Get the REngine
+ * 
+ * @return	An REngine, or null if couldn't get one
+ */
+private static REngine getREngine ()
+{
+    String[]    dummyArgs = new String[1];
+    dummyArgs[0] = "--vanilla";
+    REngine eng = null;
+    // The one below allows us to see all output from R via 
+    // REngineStdOutput()  However, it won't succeed if the 
+    // engine doesn't support callbacks, so be prepared to fall back
+    try
+    {
+        eng = REngine.engineForClass ("org.rosuda.REngine.JRI.JRIEngine", 
+                                      dummyArgs, new REngineStdOutput (), 
+                                      false);
+    }
+    catch (Exception oops)
+    {
+        oops.printStackTrace ();
+        try
+        {
+            eng = REngine.engineForClass (
+                                "org.rosuda.REngine.JRI.JRIEngine");
+        }
+        catch (Exception oops2)
+        {
+            oops.printStackTrace ();
+            return null;
+        }
+    }
+    
+    return eng;
+}
+
+And this, which correctly created the image file:
+
+try
+{
+    BufferedReader  dataReader = new ...;
+    REXP            result;
+    String          line;
+    
+    while ((line = dataReader.readLine ()) != null)
+    {
+        result = eng.parseAndEval (line);
+        if (result != null)
+            System.out.println (result.toString ());
+    }
+}
+catch (IOException oops)
+{
+    oops.printStackTrace ();
+}
+catch (REngineException oops)
+{
+    oops.printStackTrace ();
+}
+catch (REXPMismatchException oops)
+{
+    oops.printStackTrace ();
+}
+
+Will result be null if there's a failure processing the command?  Should
+this work?  (It does work, but I'd like to know that's not just random luck.)
+
+Thank you,
+Greg
+

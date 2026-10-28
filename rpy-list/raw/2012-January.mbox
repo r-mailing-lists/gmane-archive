@@ -1,0 +1,254 @@
+From 2huggie at gmail.com  Tue Jan 24 14:30:51 2012
+From: 2huggie at gmail.com (Timothy Wu)
+Date: Tue, 24 Jan 2012 22:30:51 +0800
+Subject: [Rpy] Rpy2's rpy_classic and chisq.test
+Message-ID: <CAAPyjm9OWbaLpri7-VonLY2gZUe=fPv0Fz+Nx6oVKxtsKf5ttA@mail.gmail.com>
+
+Hi,
+
+I'm using Rpy2's rpy_classic like this (too lazy to learn rpy2 at the
+moment, and also for backward compatiblity):
+
+import rpy2.rpy_classic as rpy
+rpy.set_default_mode(rpy.NO_CONVERSION)
+rpy.set_default_mode(rpy.BASIC_CONVERSION)
+from rpy2.rpy_classic import r
+
+
+
+I ran a simple chisq.test and get the p-value:
+
+>>> r.chisq_test(r.array(r.c(30,30,30,40), r.c(2,2)))['p.value']
+[0.5110488670165058]
+
+The thing is, it's different from running R directly.
+
+> chisq.test(array(c(30,30,30,40), c(2,2)))
+
+        Pearson's Chi-squared test with Yates' continuity correction
+
+data:  array(c(30, 30, 30, 40), c(2, 2))
+X-squared = 0.407, df = 1, p-value = 0.5235
+
+I double checked the p-value with an online chi square calculator and
+R's result should be right instead of rpy's.
+
+I ran both test on the same machine. What am I doing wrong?
+
+Timothy
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Keep Your Developer Skills Current with LearnDevNow!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-d2d
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From wtm2 at cornell.edu  Thu Jan 26 17:08:16 2012
+From: wtm2 at cornell.edu (William T. Martin)
+Date: Thu, 26 Jan 2012 12:08:16 -0500
+Subject: [Rpy] Using plot with panels under rpy2
+Message-ID: <4F218880.4020902@cornell.edu>
+
+
+Has anyone used the R plot function with the panel=  option under rpy2? 
+  I am stuck and need some assistance.
+
+The R code would have this format (zz is a zoo series):
+
+plot(zz, panel = my.panel, xaxt = "n", main="testing", xlab="Date")
+
+my.panel <- function(...) {
+    fmt <- "%b-%d" # format for axis labels
+    lines(...)
+    panel.number <- parent.frame()$panel.number
+}
+
+
+This is what I have so far for ryp2 code:
+import rpy2.robjects as ro
+r=ro.r
+ri=ro.rinterface
+from rpy2.robjects.packages import importr
+
+zoo = importr("zoo")
+plot = r['plot']
+lines = r['lines']
+origin=r['strptime']("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S", tz='UTC')
+
+def plot_panel(farg, *args):
+
+    print "formal arg:", farg
+    for arg in args:
+       print "another arg:", arg
+
+    fmt="%b-%d" # format for axis labels
+    lines(farg)
+    #panel.number <- parent.frame()$panel.number
+    tt = r['time'](farg)
+    print tt
+    m = r['unique'](r['as.Date'](r['as.yearmon'](tt)))
+
+# wrap the function f so it can be exposed to R
+plot_panelr = ri.rternalize(plot_panel)
+
+start_time=0
+trend_data_vector=ro.FloatVector([10,20,30] * 20)
+zz=zoo.zooreg(trend_data_vector, origin, deltat=900)
+plot(zz, panel=plot_panelr, xaxt = "n", main="This is a test", xlab="Date")
+raw_input("Press any Key")
+
+
+Output:
+formal arg: <rpy2.rinterface.SexpVector - Python:0xb73c0c90 / R:0x8f215b0>
+another arg: <rpy2.rinterface.SexpVector - Python:0xb73c0ca0 / R:0x9a5c480>
+another arg: <rpy2.rinterface.SexpVector - Python:0xb73c0cb0 / R:0x97f5190>
+another arg: <rpy2.rinterface.SexpVector - Python:0xb73c0cc0 / R:0x97f2120>
+another arg: <rpy2.rinterface.SexpVector - Python:0xb73c0cd0 / R:0x9406d18>
+another arg: <rpy2.rinterface.SexpVector - Python:0xb73c0ce0 / R:0x9406d38>
+another arg: <rpy2.rinterface.SexpVector - Python:0xb73c0cf0 / R:0x97b80d0>
+another arg: <rpy2.rinterface.SexpVector - Python:0xb73c0d00 / R:0x984d6a8>
+  [1]  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 
+23 24 25
+[26] 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 
+48 49 50
+[51] 51 52 53 54 55 56 57 58 59 60
+attr(,"tsp")
+[1]  1 60  1
+
+I am not sure where to go from here.
+
+Thank you,
+
+Bill
+
+------------------------------------------------------------------------------
+Keep Your Developer Skills Current with LearnDevNow!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-d2d
+
+From lgautier at gmail.com  Thu Jan 26 22:28:24 2012
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Thu, 26 Jan 2012 23:28:24 +0100
+Subject: Re: [Rpy] Using plot with panels under rpy2
+In-Reply-To: <4F218880.4020902@cornell.edu>
+References: <4F218880.4020902@cornell.edu>
+Message-ID: <4F21D388.1070107@gmail.com>
+
+On 2012-01-26 18:08, William T. Martin wrote:
+> Has anyone used the R plot function with the panel=  option under rpy2?
+>    I am stuck and need some assistance.
+>
+> The R code would have this format (zz is a zoo series):
+>
+> plot(zz, panel = my.panel, xaxt = "n", main="testing", xlab="Date")
+>
+> my.panel<- function(...) {
+>      fmt<- "%b-%d" # format for axis labels
+>      lines(...)
+>      panel.number<- parent.frame()$panel.number
+> }
+>
+>
+> This is what I have so far for ryp2 code:
+> import rpy2.robjects as ro
+> r=ro.r
+> ri=ro.rinterface
+> from rpy2.robjects.packages import importr
+>
+> zoo = importr("zoo")
+> plot = r['plot']
+> lines = r['lines']
+> origin=r['strptime']("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S", tz='UTC')
+>
+> def plot_panel(farg, *args):
+>
+>      print "formal arg:", farg
+>      for arg in args:
+>         print "another arg:", arg
+>
+>      fmt="%b-%d" # format for axis labels
+>      lines(farg)
+>      #panel.number<- parent.frame()$panel.number
+>      tt = r['time'](farg)
+>      print tt
+>      m = r['unique'](r['as.Date'](r['as.yearmon'](tt)))
+>
+> # wrap the function f so it can be exposed to R
+> plot_panelr = ri.rternalize(plot_panel)
+>
+> start_time=0
+> trend_data_vector=ro.FloatVector([10,20,30] * 20)
+> zz=zoo.zooreg(trend_data_vector, origin, deltat=900)
+> plot(zz, panel=plot_panelr, xaxt = "n", main="This is a test", xlab="Date")
+> raw_input("Press any Key")
+>
+
+
+Here your code snippet stops with:
+RRuntimeError: Error in panel(x.index, y[, i], col = col[[i]], pch = 
+pch[[i]], lty = lty[i],  :
+   plot_panel() got an unexpected keyword argument 'lty'
+
+I think that the signature for your panel should be:
+def plot_panel(farg, *args, **kwargs):
+
+For printing lattice type of graphics (I have not checked the presence 
+of panels suggests very much that
+this is the case), you will hopefully finding enough to get by at:
+http://rpy.sourceforge.net/rpy2/doc-2.3/html/graphics.html#package-lattice
+
+
+L.
+
+> Output:
+> formal arg:<rpy2.rinterface.SexpVector - Python:0xb73c0c90 / R:0x8f215b0>
+> another arg:<rpy2.rinterface.SexpVector - Python:0xb73c0ca0 / R:0x9a5c480>
+> another arg:<rpy2.rinterface.SexpVector - Python:0xb73c0cb0 / R:0x97f5190>
+> another arg:<rpy2.rinterface.SexpVector - Python:0xb73c0cc0 / R:0x97f2120>
+> another arg:<rpy2.rinterface.SexpVector - Python:0xb73c0cd0 / R:0x9406d18>
+> another arg:<rpy2.rinterface.SexpVector - Python:0xb73c0ce0 / R:0x9406d38>
+> another arg:<rpy2.rinterface.SexpVector - Python:0xb73c0cf0 / R:0x97b80d0>
+> another arg:<rpy2.rinterface.SexpVector - Python:0xb73c0d00 / R:0x984d6a8>
+>    [1]  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22
+> 23 24 25
+> [26] 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47
+> 48 49 50
+> [51] 51 52 53 54 55 56 57 58 59 60
+> attr(,"tsp")
+> [1]  1 60  1
+>
+> I am not sure where to go from here.
+>
+> Thank you,
+>
+> Bill
+>
+> ------------------------------------------------------------------------------
+> Keep Your Developer Skills Current with LearnDevNow!
+> The most comprehensive online learning library for Microsoft developers
+> is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+> Metro Style Apps, more. Free future releases when you subscribe now!
+> http://p.sf.net/sfu/learndevnow-d2d
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Keep Your Developer Skills Current with LearnDevNow!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-d2d
+

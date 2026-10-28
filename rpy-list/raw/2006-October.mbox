@@ -1,0 +1,2684 @@
+From strang at nmr.mgh.harvard.edu  Wed Oct 11 00:47:31 2006
+From: strang at nmr.mgh.harvard.edu (Gary Strangman)
+Date: Tue, 10 Oct 2006 20:47:31 -0400
+Subject: [Rpy] r.data_frame segfault
+Message-ID: <Pine.LNX.4.62.0610102035060.21990@gate.nmr.mgh.harvard.edu>
+
+
+Does anyone have a guess why creating a data frame created from a python 
+dictionary of lists would "occasionally" segfault? That is, given ...
+
+a = a list
+b = another list
+c = another list
+
+df = r.data_frame(a=a, b=b, c=c) has never failed me. However, if I create 
+a dictionary first ...
+
+>>> dct = {'a':a, 'b':b, 'c':c}
+>>> df = r.data_frame(dct)
+
+... will occasionally segfault. (I typically have to do 100,000 analyses 
+where list c gets replaced each iteration, while a and b remain static. I 
+might get ~30,000 to work, and then crash.) I'm trying to generalize some 
+code and the first syntax doesn't generalize to arbitrary numbers of 
+columns in my frames.
+
+This is with python-2.4.3, R-2.3.1, rpy1.0rc1.
+
+Gary
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys -- and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+
+From mylesenglish at gmail.com  Thu Oct 12 10:46:15 2006
+From: mylesenglish at gmail.com (Myles English)
+Date: Thu, 12 Oct 2006 23:46:15 +1300
+Subject: [Rpy] cluster.stats results differ
+Message-ID: <1160649975.5979.7.camel@localhost.localdomain>
+
+Hello,
+
+rpy 1.25
+ubuntu 6.10
+python 2.4
+
+The code below can be copied and pasted in the R interpreter or an empty
+file, as appropriate, to be run easily.  The python code imports
+dataframe.py that is included as an example in the rpy distribution.
+
+My question is:
+   
+Running the R code in the interpreter prints the list of hubertgamma
+values as:
+    0.6982304 0.6501113 0.5739095 0.5301628 0.4861548 0.4826513   
+    0.4579655 0.4465557 0.4329692 0.4092727
+    
+Running the RPy code in a shell prints the list of hubertgamma values
+as:
+ [0.052761567599982385, -0.0045159859941235163, -0.047153537691912426,
+-0.018242422413064344, -0.022733831895949543, -0.0033926040834361161,
+-0.020580660750514498, -0.018014109040888696, -0.012575979384130119]
+ 
+Why aren't these two lists the same?  I think I am missing something in
+the conversion.
+
+Myles
+
+# R code
+#================================================================
+# from http://addictedtor.free.fr/packages
+require(fpc)
+require(A2R)
+d.usa <- dist(USArrests, "euc")
+h.usa <- hclust(d.usa, method="ward")
+set.seed(1)
+some.factor <- letters[1:4][rbinom(50, prob=0.5, size=3)+1]
+hubertgamma <- rep(0,10)
+for(i in 1:10){
+  hubertgamma[i] <- cluster.stats(d.usa, 
+                                  cutree(h.usa, k=i+1),
+                                  G2 = FALSE,
+                                  G3 = FALSE,
+                                  silhouette = FALSE)$hubertgamma
+}
+A2Rplot(h.usa, 
+        k=3, 
+        fact.sup=some.factor, 
+        criteria=hubertgamma,
+        boxes = FALSE,
+        col.up = "gray",
+        col.down = c("orange","royalblue","green3"))
+hubertgamma
+#prints 0.6982304 0.6501113 0.5739095 0.5301628
+# 0.4861548 0.4826513 0.4579655
+# 0.4465557 0.4329692 0.4092727
+
+# python code using RPy to put in a module
+#=========================================
+from rpy import *
+from dataframe import *         # dataframe.py comes with the rpy
+distribution
+class_table['data.frame'] = DataFrame
+
+class A(object):
+    def build(self):
+        set_default_mode(NO_CONVERSION) # so that, hclust finds more
+than one item in rdist
+        d = r('USArrests')
+        self.rdist = r.dist(d, method = "euclidean")
+        self.dend = r.hclust(self.rdist, method="ward")
+        r.require('fpc')
+        r.require('A2R')
+        hubertgamma = []
+        set_default_mode(CLASS_CONVERSION)
+        f=['a','b','c','d']
+        self.somefactor = [f[int(i)] for i in r.rbinom(50, prob=0.5,
+size=3)]
+        self.hubertgamma = []
+        for i in range(1,10):   # not zero-based, could cause a problem
+            self.hubertgamma.append(r.cluster_stats(self.rdist, 
+                                  r.cutree(self.dend, k=i+1),
+                                  G2 = False,
+                                  G3 = False,
+                                  silhouette = False)['hubertgamma'])
+        r.x11()
+        r.A2Rplot(self.dend,
+                      k = 3,
+                      fact_sup=self.somefactor,
+                      criteria=self.hubertgamma,
+                      boxes = True,
+                      col_up = "gray",    
+                      col_down = ["orange","royalblue", "green3"])
+        #r.dev_off()
+        return self.hubertgamma
+            
+if __name__ == '__main__':
+    obj = A()
+    print obj.build()
+    #prints [0.052761567599982385, -0.0045159859941235163,
+    # -0.047153537691912426, -0.018242422413064344,
+    # -0.022733831895949543, -0.0033926040834361161,
+    # -0.020580660750514498, -0.018014109040888696,
+    # -0.012575979384130119]
+
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From tchur at optushome.com.au  Thu Oct 12 11:11:01 2006
+From: tchur at optushome.com.au (Tim Churches)
+Date: Thu, 12 Oct 2006 21:11:01 +1000
+Subject: Re: [Rpy] cluster.stats results differ
+In-Reply-To: <1160649975.5979.7.camel@localhost.localdomain>
+References: <1160649975.5979.7.camel@localhost.localdomain>
+Message-ID: <452E22C5.6090305@optushome.com.au>
+
+Myles English wrote:
+> Hello,
+> 
+> rpy 1.25
+> ubuntu 6.10
+> python 2.4
+> 
+> The code below can be copied and pasted in the R interpreter or an empty
+> file, as appropriate, to be run easily.  The python code imports
+> dataframe.py that is included as an example in the rpy distribution.
+> 
+> My question is:
+>    
+> Running the R code in the interpreter prints the list of hubertgamma
+> values as:
+>     0.6982304 0.6501113 0.5739095 0.5301628 0.4861548 0.4826513   
+>     0.4579655 0.4465557 0.4329692 0.4092727
+>     
+> Running the RPy code in a shell prints the list of hubertgamma values
+> as:
+>  [0.052761567599982385, -0.0045159859941235163, -0.047153537691912426,
+> -0.018242422413064344, -0.022733831895949543, -0.0033926040834361161,
+> -0.020580660750514498, -0.018014109040888696, -0.012575979384130119]
+>  
+> Why aren't these two lists the same?  I think I am missing something in
+> the conversion.
+
+It doesn't look like you are setting the seed to the R random number
+generator to 1 in the Python code - are you? If not, you will be using
+two different sets of input values -> two different sets of answers.
+
+Tim C
+
+> # R code
+> #================================================================
+> # from http://addictedtor.free.fr/packages
+> require(fpc)
+> require(A2R)
+> d.usa <- dist(USArrests, "euc")
+> h.usa <- hclust(d.usa, method="ward")
+> set.seed(1)
+> some.factor <- letters[1:4][rbinom(50, prob=0.5, size=3)+1]
+> hubertgamma <- rep(0,10)
+> for(i in 1:10){
+>   hubertgamma[i] <- cluster.stats(d.usa, 
+>                                   cutree(h.usa, k=i+1),
+>                                   G2 = FALSE,
+>                                   G3 = FALSE,
+>                                   silhouette = FALSE)$hubertgamma
+> }
+> A2Rplot(h.usa, 
+>         k=3, 
+>         fact.sup=some.factor, 
+>         criteria=hubertgamma,
+>         boxes = FALSE,
+>         col.up = "gray",
+>         col.down = c("orange","royalblue","green3"))
+> hubertgamma
+> #prints 0.6982304 0.6501113 0.5739095 0.5301628
+> # 0.4861548 0.4826513 0.4579655
+> # 0.4465557 0.4329692 0.4092727
+> 
+> # python code using RPy to put in a module
+> #=========================================
+> from rpy import *
+> from dataframe import *         # dataframe.py comes with the rpy
+> distribution
+> class_table['data.frame'] = DataFrame
+> 
+> class A(object):
+>     def build(self):
+>         set_default_mode(NO_CONVERSION) # so that, hclust finds more
+> than one item in rdist
+>         d = r('USArrests')
+>         self.rdist = r.dist(d, method = "euclidean")
+>         self.dend = r.hclust(self.rdist, method="ward")
+>         r.require('fpc')
+>         r.require('A2R')
+>         hubertgamma = []
+>         set_default_mode(CLASS_CONVERSION)
+>         f=['a','b','c','d']
+>         self.somefactor = [f[int(i)] for i in r.rbinom(50, prob=0.5,
+> size=3)]
+>         self.hubertgamma = []
+>         for i in range(1,10):   # not zero-based, could cause a problem
+>             self.hubertgamma.append(r.cluster_stats(self.rdist, 
+>                                   r.cutree(self.dend, k=i+1),
+>                                   G2 = False,
+>                                   G3 = False,
+>                                   silhouette = False)['hubertgamma'])
+>         r.x11()
+>         r.A2Rplot(self.dend,
+>                       k = 3,
+>                       fact_sup=self.somefactor,
+>                       criteria=self.hubertgamma,
+>                       boxes = True,
+>                       col_up = "gray",    
+>                       col_down = ["orange","royalblue", "green3"])
+>         #r.dev_off()
+>         return self.hubertgamma
+>             
+> if __name__ == '__main__':
+>     obj = A()
+>     print obj.build()
+>     #prints [0.052761567599982385, -0.0045159859941235163,
+>     # -0.047153537691912426, -0.018242422413064344,
+>     # -0.022733831895949543, -0.0033926040834361161,
+>     # -0.020580660750514498, -0.018014109040888696,
+>     # -0.012575979384130119]
+> 
+> 
+> -------------------------------------------------------------------------
+> Using Tomcat but need to do more? Need to support web services, security?
+> Get stuff done quickly with pre-integrated technology to make your job easier
+> Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+> http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> 
+
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Thu Oct 12 15:49:10 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Thu, 12 Oct 2006 08:49:10 -0700
+Subject: [Rpy] [ rpy-Support Requests-1576013 ] threading
+Message-ID: <E1GY2o2-0005gP-D9@sc8-sf-web5.sourceforge.net>
+
+Support Requests item #1576013, was opened at 2006-10-12 17:49
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=1576013&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: v1.0 (example)
+Status: Open
+Priority: 5
+Submitted By: R.J.V. Bertin (rjvbertin)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: threading
+
+Initial Comment:
+This is mostly a question. I'm trying to do some multithreaded analysis, calculating the correlation coefficient of 1 independent dataset (array) with 4 dependent arrays. It'd be nice if that could be done in 4 parallel threads.
+
+As long as I stick to pure Python code (using equivalents to R routines that can be found in Numpy and SciPy), this works fine. However, when I call R functions through rpy, a crash will occur at some point, with the error 
+
+ *** caught segfault ***
+address 0x5164000, cause 'memory not mapped'
+
+(this is on Mac OS X 10.4.8), somewhere in Rf_Eval.
+
+Is this because R itself isn't thread-safe? The R/Python wrapper functions I'm using:
+
+def vvar(a):
+     v=rpy.r.var(a, na_rm=True)
+     if isnan(v):
+          return 0
+     return v
+
+R_spearmanr=rpy.r('function(a,b){ kk<-cor.test(a,b,method="spearman"); c( kk$estimate[[1]], kk$p.value) ; }')
+
+I'm taking care to make copies of the arrays I'm correlating when initialising the threads.
+
+thanks in advance,
+René
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=1576013&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From mylesenglish at gmail.com  Fri Oct 13 01:20:47 2006
+From: mylesenglish at gmail.com (Myles English)
+Date: Fri, 13 Oct 2006 14:20:47 +1300
+Subject: Re: [Rpy] cluster.stats results differ
+In-Reply-To: <mailman.669.1160680293.18470.rpy-list@lists.sourceforge.net>
+References: <mailman.669.1160680293.18470.rpy-list@lists.sourceforge.net>
+Message-ID: <1160702447.4882.4.camel@localhost.localdomain>
+
+Tim Churches wrote:
+
+> Myles English wrote:
+> > Hello,
+> > 
+> > rpy 1.25
+> > ubuntu 6.10
+> > python 2.4
+> > 
+> > The code below can be copied and pasted in the R interpreter or an
+> empty
+> > file, as appropriate, to be run easily.  The python code imports
+> > dataframe.py that is included as an example in the rpy distribution.
+> > 
+> > My question is:
+> >    
+> > Running the R code in the interpreter prints the list of hubertgamma
+> > values as:
+> >     0.6982304 0.6501113 0.5739095 0.5301628 0.4861548 0.4826513   
+> >     0.4579655 0.4465557 0.4329692 0.4092727
+> >     
+> > Running the RPy code in a shell prints the list of hubertgamma
+> values
+> > as:
+> >  [0.052761567599982385, -0.0045159859941235163,
+> -0.047153537691912426,
+> > -0.018242422413064344, -0.022733831895949543,
+> -0.0033926040834361161,
+> > -0.020580660750514498, -0.018014109040888696, -0.012575979384130119]
+> >  
+> > Why aren't these two lists the same?  I think I am missing something
+> in
+> > the conversion.
+[code snipped]
+> 
+> It doesn't look like you are setting the seed to the R random number
+> generator to 1 in the Python code - are you? If not, you will be using
+> two different sets of input values -> two different sets of answers.
+> 
+> Tim C
+> 
+
+Thanks for noticing that Tim, however it doesn't make any difference to
+the results described above.
+
+Any other ideas?
+
+Myles
+
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Thu Oct 19 18:22:24 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Thu, 19 Oct 2006 11:22:24 -0700
+Subject: [Rpy] [ rpy-Bugs-1494929 ] Fail to import on Windows
+Message-ID: <E1GacXA-0003HB-Pv@sc8-sf-web5.sourceforge.net>
+
+Bugs item #1494929, was opened at 2006-05-25 06:18
+Message generated for change (Comment added) made by nobody
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1494929&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Win32
+Group: None
+Status: Closed
+Resolution: None
+Priority: 5
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Gregory Warnes (warnes)
+Summary: Fail to import on Windows
+
+Initial Comment:
+I got the following error message when importing:
+
+>>> from rpy import *
+RHOME= d:\Program Files\R\R-2.2.1
+RVERSION= 2.2.1
+RVER= 2021
+RUSER= C:\Documents and Settings\abc123
+Loading the R DLL d:\Program Files\R\R-2.2.1
+\bin\R.dll ..
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+  File "C:\Python24\Lib\site-packages\rpy.py", line 
+98, in ?
+    win32api.LoadLibrary( Rlib )
+pywintypes.error: (126, 'LoadLibrary', 'The specified 
+module could not be found.')
+
+A pop-up window complains about not being able to 
+find 'Rblas.dll'. I checked and found out the file 
+does exist under d:\Program Files\R\R-2.2.1\bin\
+
+
+Thanks a lot.
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2006-10-19 11:22
+
+Message:
+Logged In: NO 
+
+I believe that this bug is outstanding.  Even with full path
+identified, win32api.LoadLibrary('C:\Program
+Files\R\R-2.3.1\bin\R.dll')
+
+Result is:
+
+Traceback (most recent call last):
+  File "<pyshell#5>", line 1, in -toplevel-
+    win32api.LoadLibrary('C:\Program Files\R\R-2.3.1\bin\R.dll')
+error: (126, 'LoadLibrary', 'The specified module could not
+be found.')
+
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2006-07-06 06:31
+
+Message:
+Logged In: YES 
+user_id=259020
+
+P.S. As a work arround, include the R bin directory in your
+path, or edit the relevant python file as described on the
+mailing list.
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2006-07-06 06:29
+
+Message:
+Logged In: YES 
+user_id=259020
+
+When I said its been fixed, I meant its been fixed in the
+latest code (CVS) AFTER the release of 0.99.2
+
+I would expect there to be a version 0.99.3 soon, but right
+now if you have a suitable compiler you could built this
+yourself.
+
+See also discussion on the mailing list about getting
+another release soon - because I agree with you that Windows
+users wanting to use R 2.3.0 or 2.3.1 are a bit stuck right now.
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2006-07-06 05:46
+
+Message:
+Logged In: NO 
+
+No, it has not been fixed.
+
+I tried the latest download rpy-0.99.2.win32-py2.4.exe, 
+still the same problem. 
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2006-07-05 19:16
+
+Message:
+Logged In: NO 
+
+No, it has not been fixed.
+
+I tried the latest download rpy-0.99.2.win32-py2.4.exe, 
+still the same problem. 
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2006-06-29 10:19
+
+Message:
+Logged In: YES 
+user_id=259020
+
+This has been fixed now, hasn't it?
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2006-06-09 10:29
+
+Message:
+Logged In: YES 
+user_id=259020
+
+Duplicate of bug 1489360 ?
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1494929&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From dbandler at bandlerconsulting.com  Thu Oct 19 18:18:30 2006
+From: dbandler at bandlerconsulting.com
+Date: Thu, 19 Oct 2006 14:18:30 -0400
+Subject: [Rpy] R-2.3.1 invocation error on Windows2000
+Message-ID: <50412.10.238.10.71.1161281910.webmail@10.238.10.71>
+
+
+Unfortunately,  I'm having the same issue as Mathieu.  I'm using: R 2.3.1,
+python 2.4.4c1, numpy-1.0rc3.win32-py2.4, Numeric-24.2.win32-py2.4 and
+pywin32-210.win32-py2.4.
+
+In IDLE,
+
+Python 2.4.4c1 (#70, Oct 11 2006, 10:59:14) [MSC v.1310 32 bit (Intel)] on
+win32
+Type "copyright", "credits" or "license()" for more information.
+
+...
+
+IDLE 1.1.4c1
+>>> import rpy
+RHOME= C:\Program Files\R\R-2.3.1
+RVERSION= 2.3.1
+RVER= 2031
+RUSER= C:\Documents and Settings\dbandler
+Loading the R DLL C:\Program Files\R\R-2.3.1\bin\R.dll ..
+
+Traceback (most recent call last):
+  File "<pyshell#0>", line 1, in -toplevel-
+    import rpy
+  File "C:\Python24\lib\site-packages\rpy.py", line 99, in -toplevel-
+    win32api.LoadLibrary( Rlib )
+error: (126, 'LoadLibrary', 'The specified module could not be found.')
+
+And if I import win32api,
+
+>>> win32api.LoadLibrary('C:\\Program Files\\R\\R-2.3.1\\bin\\R.dll')
+
+Traceback (most recent call last):
+  File "<pyshell#4>", line 1, in -toplevel-
+    win32api.LoadLibrary('C:\\Program Files\\R\\R-2.3.1\\bin\\R.dll')
+error: (126, 'LoadLibrary', 'The specified module could not be found.')
+
+The R.dll is in the location referenced above.  I tried it with single
+slashes and the result was the same.
+
+Any assistance would be greatly appreciated.  I've used Rpy in the past
+and have come to depend on it heavily, so this is pretty important to me.
+
+Thanks.
+
+Derek
+
+
+
+Date: Mon, 25 Sep 2006 12:19:12 +0200
+From: mathieu.chevalier at envi-care.com
+Subject: [Rpy] R-2.2.1 invocation error on WindowsXP
+To: rpy-list at lists.sourceforge.net
+Message-ID: <1159179552.4517ad20e2715 at imp.online.net>
+Content-Type: text/plain; charset=ISO-8859-1
+
+
+
+Hi,
+
+Python 2.4 is unable to load the R.dll (with both rpi0.99 and rpy1.0)!
+So, if I try to invoke R from pythonwin, LoadLibrary(Rlib) return an error :
+
+>>> from rpy import *
+RHOME= C:\Program Files\R\R-2.2.1
+RVERSION= 2.2.1
+RVER= 2021
+RUSER= C:\Documents and Settings\Mathieu
+Loading the R DLL C:\Program Files\R\R-2.2.1\bin\R.dll ..Traceback (most
+recent
+call last):
+  File "<interactive input>", line 1, in ?
+  File "C:\Python24\Lib\site-packages\rpy.py", line 98, in ?
+    win32api.LoadLibrary( Rlib )
+error: (126, 'LoadLibrary', 'Le module sp\xe9cifi\xe9 est introuvable.')
+>>>
+
+Actually, LoadLibrary() return the same error with other randomly find
+''xxxx.dl' , but is successfull with 'pythoncom24.dll'.
+Does it make sense?
+
+Is anybody knows an explanation, or better, a solution, at least for R.dll ?
+Thanks a lot
+Mathieu
+
+
+
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From reidar.hagen at gmail.com  Fri Oct 20 09:02:52 2006
+From: reidar.hagen at gmail.com (Reidar Strand Hagen)
+Date: Fri, 20 Oct 2006 11:02:52 +0200
+Subject: [Rpy] Confusing Bug; 'import gtk' causing rpy to misbehave?!
+Message-ID: <f06c64390610200202p404bb9edtbac57c398b55d83@mail.gmail.com>
+
+import rpy
+rpy.r.library("rpart")
+rpy.r.library("MASS")
+
+stat   = "rpart(syct~.,cpus,xval=10,minsplit=2,cp=1e-3)"
+stat2  = "rpart(syct~.,cpus,xval=10,minsplit=2,cp=0.01)"
+
+# working as expected now
+fits = map(rpy.r,[stat,stat2])
+print map(lambda a : len(a['cptable']),fits) # 12, 7
+
+# still working as exptected
+fits = map(rpy.r,[stat,stat2])
+print map(lambda a : len(a['cptable']),fits) # 12, 7
+
+# here comes the funny part
+import gtk
+
+fits = map(rpy.r,[stat,stat2])
+print map(lambda a : len(a['cptable']),fits) # 12, 58
+
+
+
+---------
+It seems in the last case, that the cp parameter is set to cp=0.
+Parameters of type 1e-9 is still working correctly though.
+
+Bug has been replicated on two different (k)Ubuntu Dapper machines and
+one windows machine. All machines have been running Numeric, without
+Numpy installed. R 2.2.1 was used, aswell as python2.3 and python2.4.
+rpy.
+
+
+anybody smarter than me got any clue what's going on?
+
+regards
+Reidar Strand Hagen
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From glimmer_phoenix at yahoo.es  Fri Oct 20 10:46:11 2006
+From: glimmer_phoenix at yahoo.es (Felipe Ortega)
+Date: Fri, 20 Oct 2006 12:46:11 +0200
+Subject: [Rpy] Problems with rpy import in Debian
+Message-ID: <20061020104611.83138.qmail@web27503.mail.ukl.yahoo.com>
+
+Hello.
+
+I've got an error trying to import rpy in Debian (not
+in Windows, like some previous messages pointed out).
+
+The error message is:
+
+Python 2.3.5 (#2, Nov 20 2005, 16:40:39)
+>>> import rpy
+RHOME= /usr/lib/R
+RVERSION= 2.3.1
+RVER= 2031
+RUSER= /root
+Loading Rpy version 2031 ..
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+  File "/usr/lib/python2.3/site-packages/rpy.py", line
+112, in ?
+    exec("import _rpy%s as _rpy" % RVER)
+  File "<string>", line 1, in ?
+ImportError: No module named _rpy2031
+
+>>> from rpy_version import rpy_version
+>>> print rpy_version
+1.0-RC1
+>>>
+
+This is the version package obtained under Debian
+testing.
+
+Does anyone know something about this bug?
+Thanks for your help.
+
+Felipe.
+
+
+
+		
+______________________________________________ 
+LLama Gratis a cualquier PC del Mundo. 
+Llamadas a fijos y móviles desde 1 céntimo por minuto. 
+http://es.voice.yahoo.com
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From edd at debian.org  Fri Oct 20 19:49:05 2006
+From: edd at debian.org (Dirk Eddelbuettel)
+Date: Fri, 20 Oct 2006 14:49:05 -0500
+Subject: Re: [Rpy] Problems with rpy import in Debian
+In-Reply-To: <20061020104611.83138.qmail@web27503.mail.ukl.yahoo.com>
+References: <20061020104611.83138.qmail@web27503.mail.ukl.yahoo.com>
+Message-ID: <17721.10289.454556.232335@basebud.nulle.part>
+
+
+ On 20 October 2006 at 12:46, Felipe Ortega wrote:
+| I've got an error trying to import rpy in Debian (not
+| in Windows, like some previous messages pointed out).
+| 
+| The error message is:
+| 
+| Python 2.3.5 (#2, Nov 20 2005, 16:40:39)
+| >>> import rpy
+| RHOME= /usr/lib/R
+| RVERSION= 2.3.1
+  ^^^^^^^^^^^^^^^
+| >>> from rpy_version import rpy_version
+| >>> print rpy_version
+| 1.0-RC1
+  ^^^^^^^
+| This is the version package obtained under Debian
+| testing.
+
+As of this week, current versions of R (2.4.0) and rpy (1.0-rc2) are in
+testing. You appear to be behind.  Simply update, and these current version
+should work for you [ but note that 'python' is now python2.4.]
+
+I just (re-)tested, and my box runs 'import rpy' just fine using either
+python (2.4) or python2.3.
+
+Good luck, Dirk
+
+-- 
+Hell, there are no rules here - we're trying to accomplish something. 
+                                                  -- Thomas A. Edison
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From starged at gmail.com  Sat Oct 21 01:46:34 2006
+From: starged at gmail.com (Mario Beauchamp)
+Date: Fri, 20 Oct 2006 21:46:34 -0400
+Subject: Re: [Rpy] Confusing Bug; 'import gtk' causing rpy to misbehave?!
+In-Reply-To: <f06c64390610200202p404bb9edtbac57c398b55d83@mail.gmail.com>
+References: <f06c64390610200202p404bb9edtbac57c398b55d83@mail.gmail.com>
+Message-ID: <f5a8aca50610201846x25a96abdj84e5f57333827085@mail.gmail.com>
+
+Hi Reidar,
+
+On 10/20/06, Reidar Strand Hagen <reidar.hagen at gmail.com> wrote:
+>
+> anybody smarter than me got any clue what's going on?
+
+I have experienced similar strange behaviors when mixing gtk and rpy.
+It may be that the gtk initialisation is interfering with rpy's. When
+those are preloaded (ie within an application), the problems go away.
+
+So if you have only a script, try putting a delay between imports
+and/or invert their order.
+
+Good luck.
+
+cheers
+-- 
+Mario B.
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From reidar.hagen at gmail.com  Sat Oct 21 16:14:42 2006
+From: reidar.hagen at gmail.com (Reidar Strand Hagen)
+Date: Sat, 21 Oct 2006 18:14:42 +0200
+Subject: Re: [Rpy] Confusing Bug; 'import gtk' causing rpy to misbehave?!
+In-Reply-To: <f5a8aca50610201846x25a96abdj84e5f57333827085@mail.gmail.com>
+References: <f06c64390610200202p404bb9edtbac57c398b55d83@mail.gmail.com> <f5a8aca50610201846x25a96abdj84e5f57333827085@mail.gmail.com>
+Message-ID: <f06c64390610210914o473da0cbo6fe6ed32d0af1508@mail.gmail.com>
+
+On 21/10/06, Mario Beauchamp <starged at gmail.com> wrote:
+> Hi Reidar,
+>
+> On 10/20/06, Reidar Strand Hagen <reidar.hagen at gmail.com> wrote:
+> >
+> > anybody smarter than me got any clue what's going on?
+>
+> I have experienced similar strange behaviors when mixing gtk and rpy.
+> It may be that the gtk initialisation is interfering with rpy's. When
+> those are preloaded (ie within an application), the problems go away.
+
+Preloaded? Are you referring to py2exe?
+
+> So if you have only a script, try putting a delay between imports
+> and/or invert their order.
+
+Hmm.
+
+starting with neither
+
+import gtk, time
+time.sleep(1)
+import rpy
+
+nor the opposite makes any difference for the script :/
+
+>
+> Good luck.
+>
+
+Thanks!
+
+After running the failing script, it does actually crash when trying
+to quit though. Should have posted it in the first mail, but could
+this be a clue for somebody what's going on?
+
+Exception in thread Thread-1 (most likely raised during interpreter shutdown):
+Traceback (most recent call last):
+  File "/usr/lib/python2.4/threading.py", line 442, in __bootstrap
+  File "/usr/lib/python2.4/threading.py", line 422, in run
+  File "/usr/lib/python2.4/site-packages/rpy.py", line 115, in r_eventloop
+exceptions.AttributeError: 'NoneType' object has no attribute 'release'
+Unhandled exception in thread started by
+Error in sys.excepthook:
+
+
+regards
+Reidar Strand Hagen
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From stuart at zapata.org  Sun Oct 22 00:44:05 2006
+From: stuart at zapata.org (Stuart Robinson)
+Date: Sat, 21 Oct 2006 17:44:05 -0700
+Subject: [Rpy] broken demo link on rpy homepage
+Message-ID: <Pine.LNX.4.44.0610211742150.9643-100000@othello.dreamingamerica.com>
+
+FYI, I just went to 
+
+http://rpy.sourceforge.net/
+
+and found that the link to the demo by Tim Churches is broken (404 error):
+
+http://gestalt-system.sourceforge.net/rpy_demo.html
+
+-- 
++----------------------------------------+
+| Stuart Robinson                        |
+| Email: stuart at zapata dot org        |
+| Homepage: http://www.zapata.org/stuart |
++----------------------------------------+
+
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From stuart at zapata.org  Sun Oct 22 00:53:05 2006
+From: stuart at zapata.org (Stuart Robinson)
+Date: Sat, 21 Oct 2006 17:53:05 -0700
+Subject: [Rpy] missing images
+Message-ID: <Pine.LNX.4.44.0610211751080.9643-100000@othello.dreamingamerica.com>
+
+Also, it seems that the image files for the graphs outputted by the sample
+RPy code are missing on this page:
+
+http://rpy.sourceforge.net/plotting-with-RPy.html
+
+-- 
++----------------------------------------+
+| Stuart Robinson                        |
+| Email: stuart at zapata dot org        |
+| Homepage: http://www.zapata.org/stuart |
++----------------------------------------+
+
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From darrenleeweber at gmail.com  Sun Oct 22 04:43:50 2006
+From: darrenleeweber at gmail.com (Darren Weber)
+Date: Sat, 21 Oct 2006 21:43:50 -0700
+Subject: Re: [Rpy] Fwd: currency or stock trading strategy
+In-Reply-To: <op.tf4iuya5qq74ka@paolo-tenconi.mshome.net>
+References: <d2095b8c0609171437o496256aam53bbbcc25d1acf43@mail.gmail.com> <d2095b8c0609171442pb23e0cbj63f99b41e1c4c4f6@mail.gmail.com> <op.tf4iuya5qq74ka@paolo-tenconi.mshome.net>
+Message-ID: <d2095b8c0610212143h546d6129hdd521956a8bd186a@mail.gmail.com>
+
+Hi Paolo,
+
+this is a nice start, I would like to be involved somehow.  I run a
+sourceforge site (http://eeg.sf.net), so I am familiar with that
+development system (I use the cvs).  If you have a project tree that
+we can integrate into a cvs system, I would like to work with it.
+
+For a start, I want to have something to download data, run screens
+and display charts using the BMW method, see
+
+http://invest.kleinnet.com/bmw1/intro.html
+
+Best, Darren
+
+
+On 9/19/06, Paolo Tenconi <tencpa at yahoo.it> wrote:
+> Hi Dan,
+> I worked on a R emulation of Tradestation a couple of months ago.
+> The main idea is to bring statistical modeling near to technical analysis
+> as much as possible, not just an open source version of a stock trading
+> software.
+> The discovery of Python (wxPython and RPy-Project specifically) let me
+> redefine my plans for the GUI to put on it.
+> The R functions I built regard:
+>   - technical indicators
+>   - trading strategies (testing,...)
+>   - portfolio management (download quotes,...)
+>   - Charting (bars,candles,... but not interactive)
+> All (data,strategies,...) are stored in a MySql database.
+>
+> I think I will restart working on it in the next months, depending on
+> spare-time left to me by other projects I'm working on.
+> I will put it on sourceforge or something similar, if you wish I'll send
+> you a message.
+> I attach a sample-chart.
+> Cheers, Paolo
+>
+>
+>
+>
+>
+>
+>
+>
+> On Sun, 17 Sep 2006 23:42:55 +0200, Darren Weber
+> <darrenleeweber at gmail.com> wrote:
+>
+> > ---------- Forwarded message ----------
+> > From: Darren Weber <darrenleeweber at gmail.com>
+> > Date: Sep 17, 2006 2:37 PM
+> > Subject: currency or stock trading strategy
+> > To: R-help at stat.math.ethz.ch
+> >
+> >
+> > Hi,
+> >
+> > are there any good charting and analysis tools for use with
+> > currencies, stocks, etc. in R?  I have some tools to download currency
+> > data from the NYFRB using python and XML.  Can we get and parse an XML
+> > download using R?  Can we have interaction in R plots?  Does anyone
+> > use R for back-testing trading strategies?  Are there any forums for
+> > discussion of using R for this specific purpose (apart from this
+> > general list)?  Is anyone aware of any general open-source
+> > developments for these purposes (I don't see any from GNU or google
+> > searches)?
+> >
+> > Take care, Darren
+> >
+> > -------------------------------------------------------------------------
+> > Using Tomcat but need to do more? Need to support web services, security?
+> > Get stuff done quickly with pre-integrated technology to make your job
+> > easier
+> > Download IBM WebSphere Application Server v.1.0.1 based on Apache
+> > Geronimo
+> > http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+> -------------------------------------------------------------------------
+> Take Surveys. Earn Cash. Influence the Future of IT
+> Join SourceForge.net's Techsay panel and you'll get the chance to share your
+> opinions on IT & business topics through brief surveys -- and earn cash
+> http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+>
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From darrenleeweber at gmail.com  Mon Oct 23 00:24:53 2006
+From: darrenleeweber at gmail.com (Darren Weber)
+Date: Sun, 22 Oct 2006 17:24:53 -0700
+Subject: Re: [Rpy] Fwd: currency or stock trading strategy
+In-Reply-To: <op.tf4iuya5qq74ka@paolo-tenconi.mshome.net>
+References: <d2095b8c0609171437o496256aam53bbbcc25d1acf43@mail.gmail.com> <d2095b8c0609171442pb23e0cbj63f99b41e1c4c4f6@mail.gmail.com> <op.tf4iuya5qq74ka@paolo-tenconi.mshome.net>
+Message-ID: <d2095b8c0610221724i1ffbaeebh4653b03b2a3cc335@mail.gmail.com>
+
+Also look into matplotlib for python, as it has some interactive tools
+for xy plots.  I don't know if R has interactive abilities, I've not
+seen any yet.
+
+
+On 9/19/06, Paolo Tenconi <tencpa at yahoo.it> wrote:
+> Hi Dan,
+> I worked on a R emulation of Tradestation a couple of months ago.
+> The main idea is to bring statistical modeling near to technical analysis
+> as much as possible, not just an open source version of a stock trading
+> software.
+> The discovery of Python (wxPython and RPy-Project specifically) let me
+> redefine my plans for the GUI to put on it.
+> The R functions I built regard:
+>   - technical indicators
+>   - trading strategies (testing,...)
+>   - portfolio management (download quotes,...)
+>   - Charting (bars,candles,... but not interactive)
+> All (data,strategies,...) are stored in a MySql database.
+>
+> I think I will restart working on it in the next months, depending on
+> spare-time left to me by other projects I'm working on.
+> I will put it on sourceforge or something similar, if you wish I'll send
+> you a message.
+> I attach a sample-chart.
+> Cheers, Paolo
+>
+>
+>
+>
+>
+>
+>
+>
+> On Sun, 17 Sep 2006 23:42:55 +0200, Darren Weber
+> <darrenleeweber at gmail.com> wrote:
+>
+> > ---------- Forwarded message ----------
+> > From: Darren Weber <darrenleeweber at gmail.com>
+> > Date: Sep 17, 2006 2:37 PM
+> > Subject: currency or stock trading strategy
+> > To: R-help at stat.math.ethz.ch
+> >
+> >
+> > Hi,
+> >
+> > are there any good charting and analysis tools for use with
+> > currencies, stocks, etc. in R?  I have some tools to download currency
+> > data from the NYFRB using python and XML.  Can we get and parse an XML
+> > download using R?  Can we have interaction in R plots?  Does anyone
+> > use R for back-testing trading strategies?  Are there any forums for
+> > discussion of using R for this specific purpose (apart from this
+> > general list)?  Is anyone aware of any general open-source
+> > developments for these purposes (I don't see any from GNU or google
+> > searches)?
+> >
+> > Take care, Darren
+> >
+> > -------------------------------------------------------------------------
+> > Using Tomcat but need to do more? Need to support web services, security?
+> > Get stuff done quickly with pre-integrated technology to make your job
+> > easier
+> > Download IBM WebSphere Application Server v.1.0.1 based on Apache
+> > Geronimo
+> > http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+> -------------------------------------------------------------------------
+> Take Surveys. Earn Cash. Influence the Future of IT
+> Join SourceForge.net's Techsay panel and you'll get the chance to share your
+> opinions on IT & business topics through brief surveys -- and earn cash
+> http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+>
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From starged at gmail.com  Tue Oct 24 01:33:15 2006
+From: starged at gmail.com (Mario Beauchamp)
+Date: Mon, 23 Oct 2006 21:33:15 -0400
+Subject: Re: [Rpy] Confusing Bug; 'import gtk' causing rpy to misbehave?!
+In-Reply-To: <f06c64390610210914o473da0cbo6fe6ed32d0af1508@mail.gmail.com>
+References: <f06c64390610200202p404bb9edtbac57c398b55d83@mail.gmail.com> <f5a8aca50610201846x25a96abdj84e5f57333827085@mail.gmail.com> <f06c64390610210914o473da0cbo6fe6ed32d0af1508@mail.gmail.com>
+Message-ID: <f5a8aca50610231833s326a9522hd6f4a2721eacb2a1@mail.gmail.com>
+
+Hi Reidar,
+
+On 10/21/06, Reidar Strand Hagen <reidar.hagen at gmail.com> wrote:
+
+> > It may be that the gtk initialisation is interfering with rpy's. When
+> > those are preloaded (ie within an application), the problems go away.
+>
+> Preloaded? Are you referring to py2exe?
+
+I do use py2exe for my app but what I really mean is that rpy has long
+finished loading before it is used in the app.
+
+> > So if you have only a script, try putting a delay between imports
+> > and/or invert their order.
+>
+> import gtk, time
+> time.sleep(1)
+> import rpy
+
+Maybe try a longer delay... and I think that time won't be imported
+until gtk is finished if you put them on the same line so it kinda
+defeats the purpose.
+
+> After running the failing script, it does actually crash when trying
+> to quit though.
+>
+> exceptions.AttributeError: 'NoneType' object has no attribute 'release'
+
+I have no idea what is going on here...
+
+cheers
+-- 
+Mario B.
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Sat Oct 28 02:35:06 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 27 Oct 2006 19:35:06 -0700
+Subject: [Rpy] [ rpy-Bugs-1585977 ] some floating point values are being altered
+Message-ID: <E1Gde2L-0002BY-HU@sc8-sf-web1.sourceforge.net>
+
+Bugs item #1585977, was opened at 2006-10-27 13:06
+Message generated for change (Comment added) made by nobody
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: some floating point values are being altered
+
+Initial Comment:
+I am using
+	Python 2.3.5 (#2, Mar  6 2006, 10:12:24) [GCC 4.0.3 20060304 
+(prerelease) (Debian 4.0.2-10)] on linux2
+	I do not know which version of RPy I am using;  how can I find 
+that information?
+	I also do not know which version of R I am controlling with RPy;  
+how can I find that?
+	The manually-controlled R I'm using is R version 1.0 (v2004-10
+-14) on Mac OSX 10.3.9.
+
+In a nutshell, it appears that some floating point values are being 
+altered, either on the way from Py to R or back.
+
+I am calling the R function ks.test from RPy, and occasionally I get 
+negative p-values, which is not possible.  When I perform the identical 
+command in R manually, I do not get the same result.  Further 
+investigation showed other cases where the answers were different, but 
+I will stick with this example.
+
+----
+
+In R:
+
+data844 = 
+c(0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.
+98448770184,0.98459213417,0.98838426859,0.98853557083,0.988
+76263763,0.98905877724,0.98989187920)
+ks.test(data844,"punif")
+
+output:
+
+		One-sample Kolmogorov-Smirnov test
+
+	data:  data844
+	D = 0.9833, p-value = 1.158e-09
+	alternative hypothesis: two.sided
+
+----
+
+In python:
+
+from rpy import *
+data844 = 
+[0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.9
+8448770184,0.98459213417,0.98838426859,0.98853557083,0.9887
+6263763,0.98905877724,0.98989187920]
+r.ks_test(data844,"punif")
+
+output:
+
+	{'data.name': ['c(0.98326834745, 0.9837183202, 
+0.98390990837, 0.98410972477, ', '0.98448770184,
+			      0.98459213417, 0.98838426859, 
+0.98853557083, 0.98876263763, ', '0.98905877724, 		
+	      0.9898918792)'],
+	'alternative': 'two.sided',
+	'method': 'One-sample Kolmogorov-Smirnov test',
+	'p.value': -2.2204460492503131e-16,                          <----- 
+note difference from 1.158e-09
+	'statistic': {'D': 0.98326834745000002}}
+
+----
+
+Note that my input vector contains highly precise values.  One guess is 
+that the data going into R is truncated to less precision.  The problem 
+with that theory is that, mathematically, we should never expect ks.test 
+to produce a negative p-value.  But I can't vouch for the fact that R will 
+never do that.
+
+My second guess is that the result somehow gets mis-converted on the 
+way back to python.  This would be acceptable if the sign didn't 
+change.
+
+Are there any simple tests you can suggest I do that would help me 
+figure out where the error is introduced?  I read the manual section 
+(manual version 0.3.3, not necessarily in sync with the installed version 
+here) on type conversion and I didn't see any mention of floats other 
+than with respect to NaN and list-vs-tuple.
+
+I can live with some conversion error.  The problem I have right now is 
+that it's difficult to trust the results I'm getting, so I'm trying to figure 
+out where the problem is, if it's something I can correct for, or detect, 
+or what have you.
+
+Thanks for any help,
+Bob H
+
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2006-10-27 19:35
+
+Message:
+Logged In: NO 
+
+I have some more info.
+
+First, the R version controlled by RPy is 2.2.1.  The manual version I was using was R 2.0.1.
+
+Second, part of the problem is that the result from ks.test is not always a number.  Some times it is what I 
+would call a relation.   I now have my hands on a command-line version of R 2.2.1, and doing the 
+command ks.test(data844,"punif") gives me
+     ...
+    D = 0.9833, p-value < 2.2e-16
+     ...
+
+RPy seems to be converting the "< 2.2e-16" result into -2.2e-16.
+
+Bob H
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Fri Oct 27 20:06:38 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 27 Oct 2006 13:06:38 -0700
+Subject: [Rpy] [ rpy-Bugs-1585977 ] some floating point values are being altered
+Message-ID: <E1GdXyQ-0002Ly-KU@sc8-sf-web2.sourceforge.net>
+
+Bugs item #1585977, was opened at 2006-10-27 13:06
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: some floating point values are being altered
+
+Initial Comment:
+I am using
+	Python 2.3.5 (#2, Mar  6 2006, 10:12:24) [GCC 4.0.3 20060304 
+(prerelease) (Debian 4.0.2-10)] on linux2
+	I do not know which version of RPy I am using;  how can I find 
+that information?
+	I also do not know which version of R I am controlling with RPy;  
+how can I find that?
+	The manually-controlled R I'm using is R version 1.0 (v2004-10
+-14) on Mac OSX 10.3.9.
+
+In a nutshell, it appears that some floating point values are being 
+altered, either on the way from Py to R or back.
+
+I am calling the R function ks.test from RPy, and occasionally I get 
+negative p-values, which is not possible.  When I perform the identical 
+command in R manually, I do not get the same result.  Further 
+investigation showed other cases where the answers were different, but 
+I will stick with this example.
+
+----
+
+In R:
+
+data844 = 
+c(0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.
+98448770184,0.98459213417,0.98838426859,0.98853557083,0.988
+76263763,0.98905877724,0.98989187920)
+ks.test(data844,"punif")
+
+output:
+
+		One-sample Kolmogorov-Smirnov test
+
+	data:  data844
+	D = 0.9833, p-value = 1.158e-09
+	alternative hypothesis: two.sided
+
+----
+
+In python:
+
+from rpy import *
+data844 = 
+[0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.9
+8448770184,0.98459213417,0.98838426859,0.98853557083,0.9887
+6263763,0.98905877724,0.98989187920]
+r.ks_test(data844,"punif")
+
+output:
+
+	{'data.name': ['c(0.98326834745, 0.9837183202, 
+0.98390990837, 0.98410972477, ', '0.98448770184,
+			      0.98459213417, 0.98838426859, 
+0.98853557083, 0.98876263763, ', '0.98905877724, 		
+	      0.9898918792)'],
+	'alternative': 'two.sided',
+	'method': 'One-sample Kolmogorov-Smirnov test',
+	'p.value': -2.2204460492503131e-16,                          <----- 
+note difference from 1.158e-09
+	'statistic': {'D': 0.98326834745000002}}
+
+----
+
+Note that my input vector contains highly precise values.  One guess is 
+that the data going into R is truncated to less precision.  The problem 
+with that theory is that, mathematically, we should never expect ks.test 
+to produce a negative p-value.  But I can't vouch for the fact that R will 
+never do that.
+
+My second guess is that the result somehow gets mis-converted on the 
+way back to python.  This would be acceptable if the sign didn't 
+change.
+
+Are there any simple tests you can suggest I do that would help me 
+figure out where the error is introduced?  I read the manual section 
+(manual version 0.3.3, not necessarily in sync with the installed version 
+here) on type conversion and I didn't see any mention of floats other 
+than with respect to NaN and list-vs-tuple.
+
+I can live with some conversion error.  The problem I have right now is 
+that it's difficult to trust the results I'm getting, so I'm trying to figure 
+out where the problem is, if it's something I can correct for, or detect, 
+or what have you.
+
+Thanks for any help,
+Bob H
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Mon Oct 30 19:31:10 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 30 Oct 2006 11:31:10 -0800
+Subject: [Rpy] [ rpy-Bugs-1585977 ] some floating point values are being altered
+Message-ID: <E1Gecqk-0000dH-Kc@sc8-sf-web5.sourceforge.net>
+
+Bugs item #1585977, was opened at 2006-10-27 20:06
+Message generated for change (Comment added) made by maubp
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: some floating point values are being altered
+
+Initial Comment:
+I am using
+	Python 2.3.5 (#2, Mar  6 2006, 10:12:24) [GCC 4.0.3 20060304 
+(prerelease) (Debian 4.0.2-10)] on linux2
+	I do not know which version of RPy I am using;  how can I find 
+that information?
+	I also do not know which version of R I am controlling with RPy;  
+how can I find that?
+	The manually-controlled R I'm using is R version 1.0 (v2004-10
+-14) on Mac OSX 10.3.9.
+
+In a nutshell, it appears that some floating point values are being 
+altered, either on the way from Py to R or back.
+
+I am calling the R function ks.test from RPy, and occasionally I get 
+negative p-values, which is not possible.  When I perform the identical 
+command in R manually, I do not get the same result.  Further 
+investigation showed other cases where the answers were different, but 
+I will stick with this example.
+
+----
+
+In R:
+
+data844 = 
+c(0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.
+98448770184,0.98459213417,0.98838426859,0.98853557083,0.988
+76263763,0.98905877724,0.98989187920)
+ks.test(data844,"punif")
+
+output:
+
+		One-sample Kolmogorov-Smirnov test
+
+	data:  data844
+	D = 0.9833, p-value = 1.158e-09
+	alternative hypothesis: two.sided
+
+----
+
+In python:
+
+from rpy import *
+data844 = 
+[0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.9
+8448770184,0.98459213417,0.98838426859,0.98853557083,0.9887
+6263763,0.98905877724,0.98989187920]
+r.ks_test(data844,"punif")
+
+output:
+
+	{'data.name': ['c(0.98326834745, 0.9837183202, 
+0.98390990837, 0.98410972477, ', '0.98448770184,
+			      0.98459213417, 0.98838426859, 
+0.98853557083, 0.98876263763, ', '0.98905877724, 		
+	      0.9898918792)'],
+	'alternative': 'two.sided',
+	'method': 'One-sample Kolmogorov-Smirnov test',
+	'p.value': -2.2204460492503131e-16,                          <----- 
+note difference from 1.158e-09
+	'statistic': {'D': 0.98326834745000002}}
+
+----
+
+Note that my input vector contains highly precise values.  One guess is 
+that the data going into R is truncated to less precision.  The problem 
+with that theory is that, mathematically, we should never expect ks.test 
+to produce a negative p-value.  But I can't vouch for the fact that R will 
+never do that.
+
+My second guess is that the result somehow gets mis-converted on the 
+way back to python.  This would be acceptable if the sign didn't 
+change.
+
+Are there any simple tests you can suggest I do that would help me 
+figure out where the error is introduced?  I read the manual section 
+(manual version 0.3.3, not necessarily in sync with the installed version 
+here) on type conversion and I didn't see any mention of floats other 
+than with respect to NaN and list-vs-tuple.
+
+I can live with some conversion error.  The problem I have right now is 
+that it's difficult to trust the results I'm getting, so I'm trying to figure 
+out where the problem is, if it's something I can correct for, or detect, 
+or what have you.
+
+Thanks for any help,
+Bob H
+
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2006-10-30 19:31
+
+Message:
+Logged In: YES 
+user_id=259020
+
+Confirmed behaviour - but its not a bug in rpy!
+
+I am using rpy 0.99.2 (if I recall correctly) with windows
+XP, R 2.3.1, python 2.3
+
+I tried several things including:
+
+from rpy import *
+data844 = [0.98326834745, 0.98371832020, 0.98390990837,
+           0.98410972477, 0.98448770184, 0.98459213417,
+           0.98838426859, 0.98853557083, 0.98876263763,
+           0.98905877724, 0.98989187920]
+print result["p.value"]
+
+Giving:
+
+-2.22044604925e-016
+
+In R, as you say:
+
+> ks.test(data844,"punif")
+
+        One-sample Kolmogorov-Smirnov test
+
+data:  data844 
+D = 0.9833, p-value < 2.2e-16
+alternative hypothesis: two.sided 
+
+However, try this at the R command line:
+
+> ks.test(data844,"punif")$p.value
+[1] -2.220446e-16
+
+Clearly ks.test seems to have stored the p-value internally
+as a negative number (I have no idea why), and rpy is
+converting this faithfully.
+
+i.e. You do have not found a bug in rpy.  You might have
+found a bug in R or perhaps an undocumented feature..
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2006-10-28 02:35
+
+Message:
+Logged In: NO 
+
+I have some more info.
+
+First, the R version controlled by RPy is 2.2.1.  The manual version I was using was R 2.0.1.
+
+Second, part of the problem is that the result from ks.test is not always a number.  Some times it is what I 
+would call a relation.   I now have my hands on a command-line version of R 2.2.1, and doing the 
+command ks.test(data844,"punif") gives me
+     ...
+    D = 0.9833, p-value < 2.2e-16
+     ...
+
+RPy seems to be converting the "< 2.2e-16" result into -2.2e-16.
+
+Bob H
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Mon Oct 30 20:38:44 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 30 Oct 2006 12:38:44 -0800
+Subject: [Rpy] [ rpy-Bugs-1585977 ] some floating point values are being altered
+Message-ID: <E1Gedu8-0007mG-0o@sc8-sf-web1.sourceforge.net>
+
+Bugs item #1585977, was opened at 2006-10-27 16:06
+Message generated for change (Settings changed) made by warnes
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+>Category: User Education
+Group: None
+>Status: Closed
+>Resolution: Invalid
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+>Assigned to: Gregory Warnes (warnes)
+Summary: some floating point values are being altered
+
+Initial Comment:
+I am using
+	Python 2.3.5 (#2, Mar  6 2006, 10:12:24) [GCC 4.0.3 20060304 
+(prerelease) (Debian 4.0.2-10)] on linux2
+	I do not know which version of RPy I am using;  how can I find 
+that information?
+	I also do not know which version of R I am controlling with RPy;  
+how can I find that?
+	The manually-controlled R I'm using is R version 1.0 (v2004-10
+-14) on Mac OSX 10.3.9.
+
+In a nutshell, it appears that some floating point values are being 
+altered, either on the way from Py to R or back.
+
+I am calling the R function ks.test from RPy, and occasionally I get 
+negative p-values, which is not possible.  When I perform the identical 
+command in R manually, I do not get the same result.  Further 
+investigation showed other cases where the answers were different, but 
+I will stick with this example.
+
+----
+
+In R:
+
+data844 = 
+c(0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.
+98448770184,0.98459213417,0.98838426859,0.98853557083,0.988
+76263763,0.98905877724,0.98989187920)
+ks.test(data844,"punif")
+
+output:
+
+		One-sample Kolmogorov-Smirnov test
+
+	data:  data844
+	D = 0.9833, p-value = 1.158e-09
+	alternative hypothesis: two.sided
+
+----
+
+In python:
+
+from rpy import *
+data844 = 
+[0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.9
+8448770184,0.98459213417,0.98838426859,0.98853557083,0.9887
+6263763,0.98905877724,0.98989187920]
+r.ks_test(data844,"punif")
+
+output:
+
+	{'data.name': ['c(0.98326834745, 0.9837183202, 
+0.98390990837, 0.98410972477, ', '0.98448770184,
+			      0.98459213417, 0.98838426859, 
+0.98853557083, 0.98876263763, ', '0.98905877724, 		
+	      0.9898918792)'],
+	'alternative': 'two.sided',
+	'method': 'One-sample Kolmogorov-Smirnov test',
+	'p.value': -2.2204460492503131e-16,                          <----- 
+note difference from 1.158e-09
+	'statistic': {'D': 0.98326834745000002}}
+
+----
+
+Note that my input vector contains highly precise values.  One guess is 
+that the data going into R is truncated to less precision.  The problem 
+with that theory is that, mathematically, we should never expect ks.test 
+to produce a negative p-value.  But I can't vouch for the fact that R will 
+never do that.
+
+My second guess is that the result somehow gets mis-converted on the 
+way back to python.  This would be acceptable if the sign didn't 
+change.
+
+Are there any simple tests you can suggest I do that would help me 
+figure out where the error is introduced?  I read the manual section 
+(manual version 0.3.3, not necessarily in sync with the installed version 
+here) on type conversion and I didn't see any mention of floats other 
+than with respect to NaN and list-vs-tuple.
+
+I can live with some conversion error.  The problem I have right now is 
+that it's difficult to trust the results I'm getting, so I'm trying to figure 
+out where the problem is, if it's something I can correct for, or detect, 
+or what have you.
+
+Thanks for any help,
+Bob H
+
+
+----------------------------------------------------------------------
+
+Comment By: Gregory Warnes (warnes)
+Date: 2006-10-30 15:38
+
+Message:
+Logged In: YES 
+user_id=9316
+
+Hi,
+
+ks.test returns an *object* of class 'htest'.  When you ask
+R to print this object, it checks the value of the p.value
+field before printing it.  If it is negative it prints the
+"<" symbol.  For example 
+
+> tmp = ks.test(data844,"punif")
+> tmp
+
+	One-sample Kolmogorov-Smirnov test
+
+data:  data844 
+D = 0.9833, p-value < 2.2e-16
+alternative hypothesis: two.sided 
+
+But looking at the actual object itself you see:
+
+> str(tmp)
+List of 5
+ $ statistic  : Named num 0.983
+  ..- attr(*, "names")= chr "D"
+ $ p.value    : num -2.22e-16
+ $ alternative: chr "two.sided"
+ $ method     : chr "One-sample Kolmogorov-Smirnov test"
+ $ data.name  : chr "data844"
+ - attr(*, "class")= chr "htest"
+
+and asking for just the p-value component gives
+
+> tmp$p.value
+[1] -2.220446e-16
+
+So, you need to check for negative values in your program
+code and handle them appropriately.
+
+-Greg
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2006-10-30 14:31
+
+Message:
+Logged In: YES 
+user_id=259020
+
+Confirmed behaviour - but its not a bug in rpy!
+
+I am using rpy 0.99.2 (if I recall correctly) with windows
+XP, R 2.3.1, python 2.3
+
+I tried several things including:
+
+from rpy import *
+data844 = [0.98326834745, 0.98371832020, 0.98390990837,
+           0.98410972477, 0.98448770184, 0.98459213417,
+           0.98838426859, 0.98853557083, 0.98876263763,
+           0.98905877724, 0.98989187920]
+print result["p.value"]
+
+Giving:
+
+-2.22044604925e-016
+
+In R, as you say:
+
+> ks.test(data844,"punif")
+
+        One-sample Kolmogorov-Smirnov test
+
+data:  data844 
+D = 0.9833, p-value < 2.2e-16
+alternative hypothesis: two.sided 
+
+However, try this at the R command line:
+
+> ks.test(data844,"punif")$p.value
+[1] -2.220446e-16
+
+Clearly ks.test seems to have stored the p-value internally
+as a negative number (I have no idea why), and rpy is
+converting this faithfully.
+
+i.e. You do have not found a bug in rpy.  You might have
+found a bug in R or perhaps an undocumented feature..
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2006-10-27 22:35
+
+Message:
+Logged In: NO 
+
+I have some more info.
+
+First, the R version controlled by RPy is 2.2.1.  The manual version I was using was R 2.0.1.
+
+Second, part of the problem is that the result from ks.test is not always a number.  Some times it is what I 
+would call a relation.   I now have my hands on a command-line version of R 2.2.1, and doing the 
+command ks.test(data844,"punif") gives me
+     ...
+    D = 0.9833, p-value < 2.2e-16
+     ...
+
+RPy seems to be converting the "< 2.2e-16" result into -2.2e-16.
+
+Bob H
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Mon Oct 30 20:38:06 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 30 Oct 2006 12:38:06 -0800
+Subject: [Rpy] [ rpy-Bugs-1585977 ] some floating point values are being altered
+Message-ID: <E1GedtW-0007hs-IQ@sc8-sf-web1.sourceforge.net>
+
+Bugs item #1585977, was opened at 2006-10-27 16:06
+Message generated for change (Comment added) made by warnes
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: some floating point values are being altered
+
+Initial Comment:
+I am using
+	Python 2.3.5 (#2, Mar  6 2006, 10:12:24) [GCC 4.0.3 20060304 
+(prerelease) (Debian 4.0.2-10)] on linux2
+	I do not know which version of RPy I am using;  how can I find 
+that information?
+	I also do not know which version of R I am controlling with RPy;  
+how can I find that?
+	The manually-controlled R I'm using is R version 1.0 (v2004-10
+-14) on Mac OSX 10.3.9.
+
+In a nutshell, it appears that some floating point values are being 
+altered, either on the way from Py to R or back.
+
+I am calling the R function ks.test from RPy, and occasionally I get 
+negative p-values, which is not possible.  When I perform the identical 
+command in R manually, I do not get the same result.  Further 
+investigation showed other cases where the answers were different, but 
+I will stick with this example.
+
+----
+
+In R:
+
+data844 = 
+c(0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.
+98448770184,0.98459213417,0.98838426859,0.98853557083,0.988
+76263763,0.98905877724,0.98989187920)
+ks.test(data844,"punif")
+
+output:
+
+		One-sample Kolmogorov-Smirnov test
+
+	data:  data844
+	D = 0.9833, p-value = 1.158e-09
+	alternative hypothesis: two.sided
+
+----
+
+In python:
+
+from rpy import *
+data844 = 
+[0.98326834745,0.98371832020,0.98390990837,0.98410972477,0.9
+8448770184,0.98459213417,0.98838426859,0.98853557083,0.9887
+6263763,0.98905877724,0.98989187920]
+r.ks_test(data844,"punif")
+
+output:
+
+	{'data.name': ['c(0.98326834745, 0.9837183202, 
+0.98390990837, 0.98410972477, ', '0.98448770184,
+			      0.98459213417, 0.98838426859, 
+0.98853557083, 0.98876263763, ', '0.98905877724, 		
+	      0.9898918792)'],
+	'alternative': 'two.sided',
+	'method': 'One-sample Kolmogorov-Smirnov test',
+	'p.value': -2.2204460492503131e-16,                          <----- 
+note difference from 1.158e-09
+	'statistic': {'D': 0.98326834745000002}}
+
+----
+
+Note that my input vector contains highly precise values.  One guess is 
+that the data going into R is truncated to less precision.  The problem 
+with that theory is that, mathematically, we should never expect ks.test 
+to produce a negative p-value.  But I can't vouch for the fact that R will 
+never do that.
+
+My second guess is that the result somehow gets mis-converted on the 
+way back to python.  This would be acceptable if the sign didn't 
+change.
+
+Are there any simple tests you can suggest I do that would help me 
+figure out where the error is introduced?  I read the manual section 
+(manual version 0.3.3, not necessarily in sync with the installed version 
+here) on type conversion and I didn't see any mention of floats other 
+than with respect to NaN and list-vs-tuple.
+
+I can live with some conversion error.  The problem I have right now is 
+that it's difficult to trust the results I'm getting, so I'm trying to figure 
+out where the problem is, if it's something I can correct for, or detect, 
+or what have you.
+
+Thanks for any help,
+Bob H
+
+
+----------------------------------------------------------------------
+
+>Comment By: Gregory Warnes (warnes)
+Date: 2006-10-30 15:38
+
+Message:
+Logged In: YES 
+user_id=9316
+
+Hi,
+
+ks.test returns an *object* of class 'htest'.  When you ask
+R to print this object, it checks the value of the p.value
+field before printing it.  If it is negative it prints the
+"<" symbol.  For example 
+
+> tmp = ks.test(data844,"punif")
+> tmp
+
+	One-sample Kolmogorov-Smirnov test
+
+data:  data844 
+D = 0.9833, p-value < 2.2e-16
+alternative hypothesis: two.sided 
+
+But looking at the actual object itself you see:
+
+> str(tmp)
+List of 5
+ $ statistic  : Named num 0.983
+  ..- attr(*, "names")= chr "D"
+ $ p.value    : num -2.22e-16
+ $ alternative: chr "two.sided"
+ $ method     : chr "One-sample Kolmogorov-Smirnov test"
+ $ data.name  : chr "data844"
+ - attr(*, "class")= chr "htest"
+
+and asking for just the p-value component gives
+
+> tmp$p.value
+[1] -2.220446e-16
+
+So, you need to check for negative values in your program
+code and handle them appropriately.
+
+-Greg
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2006-10-30 14:31
+
+Message:
+Logged In: YES 
+user_id=259020
+
+Confirmed behaviour - but its not a bug in rpy!
+
+I am using rpy 0.99.2 (if I recall correctly) with windows
+XP, R 2.3.1, python 2.3
+
+I tried several things including:
+
+from rpy import *
+data844 = [0.98326834745, 0.98371832020, 0.98390990837,
+           0.98410972477, 0.98448770184, 0.98459213417,
+           0.98838426859, 0.98853557083, 0.98876263763,
+           0.98905877724, 0.98989187920]
+print result["p.value"]
+
+Giving:
+
+-2.22044604925e-016
+
+In R, as you say:
+
+> ks.test(data844,"punif")
+
+        One-sample Kolmogorov-Smirnov test
+
+data:  data844 
+D = 0.9833, p-value < 2.2e-16
+alternative hypothesis: two.sided 
+
+However, try this at the R command line:
+
+> ks.test(data844,"punif")$p.value
+[1] -2.220446e-16
+
+Clearly ks.test seems to have stored the p-value internally
+as a negative number (I have no idea why), and rpy is
+converting this faithfully.
+
+i.e. You do have not found a bug in rpy.  You might have
+found a bug in R or perhaps an undocumented feature..
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2006-10-27 22:35
+
+Message:
+Logged In: NO 
+
+I have some more info.
+
+First, the R version controlled by RPy is 2.2.1.  The manual version I was using was R 2.0.1.
+
+Second, part of the problem is that the result from ks.test is not always a number.  Some times it is what I 
+would call a relation.   I now have my hands on a command-line version of R 2.2.1, and doing the 
+command ks.test(data844,"punif") gives me
+     ...
+    D = 0.9833, p-value < 2.2e-16
+     ...
+
+RPy seems to be converting the "< 2.2e-16" result into -2.2e-16.
+
+Bob H
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1585977&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Tue Oct 31 14:39:12 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Tue, 31 Oct 2006 06:39:12 -0800
+Subject: [Rpy] [ rpy-Bugs-1587944 ] rpy library fails to initialise on linux
+Message-ID: <E1Geulk-0006F8-9y@sc8-sf-web2.sourceforge.net>
+
+Bugs item #1587944, was opened at 2006-10-31 15:39
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1587944&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: POSIX
+Group: rpy
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Dion (redl0tus)
+Assigned to: Walter Moreira (wall_m)
+Summary: rpy library fails to initialise on linux
+
+Initial Comment:
+I'm running:
+
+Linux kernel 2.6.16
+Python 2.3 and 2.4.4c0
+R version 2.4.0 (2006-10-03)
+
+I get the following error for both versions of python:
+
+>>> import rpy
+RHOME= /usr/lib/R
+RVERSION= 2.4.0
+RVER= 2040
+RUSER= /global/home/dion
+Loading Rpy version 2040 ..Error in
+checkConflicts(value) : unimplemented type 'character'
+in 'asLogical'
+ Done.
+Creating the R object 'r' ..Error in get(x, envir,
+mode, inherits) : variable "help" was not found
+
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+  File "/usr/lib/python2.3/site-packages/rpy.py", line
+318, in ?
+    r = R()
+  File "/usr/lib/python2.3/site-packages/rpy.py", line
+269, in __init__
+    self.helpfun = with_mode(NO_CONVERSION,
+self.__getitem__('help'))
+  File "/usr/lib/python2.3/site-packages/rpy.py", line
+290, in __getitem__
+    obj = self.__dict__[name] = self.__dict__.get(name,
+self.get(name))
+rpy.RException: Error in get(x, envir, mode, inherits)
+: variable "help" was not found
+
+
+Cheers,
+d
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1587944&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Mon Oct 30 23:29:55 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 30 Oct 2006 15:29:55 -0800
+Subject: [Rpy] [ rpy-Bugs-1587588 ] RPy misinterprets "< 2.2e-16" as "-2.2e-16"
+Message-ID: <E1GegZn-0008Az-NX@sc8-sf-web6.sourceforge.net>
+
+Bugs item #1587588, was opened at 2006-10-30 15:29
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1587588&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: RPy misinterprets "< 2.2e-16" as "-2.2e-16"
+
+Initial Comment:
+Interestingly, I reported this a few days ago and it has disappeared.
+
+The basic problem is that ks.test() returns the p-value "< 2.2e-16" and 
+RPy converts this in -2.2e-16 sometimes, and sometimes to 0.0.  It's 
+hrd to say what it should return, but returning a negative value is 
+certainly incorrect.  Probably +2.2e-16 would be the best choice.
+
+This was using RPy version 0.4.6 and R version 2.2.1.
+
+My earlier post was cluttered with other information which upon 
+further investigation I found was not relevant.
+
+I apologize if this is not the correct way to post bugs.  If not, please 
+contact me at the 31031em at gmail.com, after reversing the order of 
+the letters to the left of the @.
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1587588&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Tue Oct 31 02:33:22 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 30 Oct 2006 18:33:22 -0800
+Subject: [Rpy] [ rpy-Bugs-1587588 ] RPy misinterprets "< 2.2e-16" as "-2.2e-16"
+Message-ID: <E1GejRK-0005SC-S8@sc8-sf-web4.sourceforge.net>
+
+Bugs item #1587588, was opened at 2006-10-30 15:29
+Message generated for change (Comment added) made by nobody
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1587588&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: User Education
+Group: None
+Status: Open
+Resolution: Invalid
+Priority: 1
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Gregory Warnes (warnes)
+Summary: RPy misinterprets "< 2.2e-16" as "-2.2e-16"
+
+Initial Comment:
+Interestingly, I reported this a few days ago and it has disappeared.
+
+The basic problem is that ks.test() returns the p-value "< 2.2e-16" and 
+RPy converts this in -2.2e-16 sometimes, and sometimes to 0.0.  It's 
+hrd to say what it should return, but returning a negative value is 
+certainly incorrect.  Probably +2.2e-16 would be the best choice.
+
+This was using RPy version 0.4.6 and R version 2.2.1.
+
+My earlier post was cluttered with other information which upon 
+further investigation I found was not relevant.
+
+I apologize if this is not the correct way to post bugs.  If not, please 
+contact me at the 31031em at gmail.com, after reversing the order of 
+the letters to the left of the @.
+
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2006-10-30 18:33
+
+Message:
+Logged In: NO 
+
+I was not able to figure out how to look at the closed error report so I reposted.  Thanks.  I have now read your info at the initial error 
+report, and I understand it.  Thank you.
+
+----------------------------------------------------------------------
+
+Comment By: Gregory Warnes (warnes)
+Date: 2006-10-30 18:10
+
+Message:
+Logged In: YES 
+user_id=9316
+
+This is a duplicate of bug report #1585977 which I closed
+today.  See 
+
+https://sourceforge.net/tracker/index.php?func=detail&aid=1585977&group_id=48422&atid=453021
+
+to read why it isn't a problem with RPy.  Short summary: the
+actual value in the R object *is* negative.  The R object
+printing code converts it for *printing* to 'less than ...'.
+        Since you are writing code that accesses the
+contents of the object directly, you will need to write
+wrapper code to handle negative values appropriately.
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1587588&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From noreply at sourceforge.net  Tue Oct 31 02:10:26 2006
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 30 Oct 2006 18:10:26 -0800
+Subject: [Rpy] [ rpy-Bugs-1587588 ] RPy misinterprets "< 2.2e-16" as "-2.2e-16"
+Message-ID: <E1Gej58-0007MH-1K@sc8-sf-web3.sourceforge.net>
+
+Bugs item #1587588, was opened at 2006-10-30 18:29
+Message generated for change (Comment added) made by warnes
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1587588&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+>Category: User Education
+Group: None
+Status: Open
+>Resolution: Invalid
+>Priority: 1
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+>Assigned to: Gregory Warnes (warnes)
+Summary: RPy misinterprets "< 2.2e-16" as "-2.2e-16"
+
+Initial Comment:
+Interestingly, I reported this a few days ago and it has disappeared.
+
+The basic problem is that ks.test() returns the p-value "< 2.2e-16" and 
+RPy converts this in -2.2e-16 sometimes, and sometimes to 0.0.  It's 
+hrd to say what it should return, but returning a negative value is 
+certainly incorrect.  Probably +2.2e-16 would be the best choice.
+
+This was using RPy version 0.4.6 and R version 2.2.1.
+
+My earlier post was cluttered with other information which upon 
+further investigation I found was not relevant.
+
+I apologize if this is not the correct way to post bugs.  If not, please 
+contact me at the 31031em at gmail.com, after reversing the order of 
+the letters to the left of the @.
+
+
+----------------------------------------------------------------------
+
+>Comment By: Gregory Warnes (warnes)
+Date: 2006-10-30 21:10
+
+Message:
+Logged In: YES 
+user_id=9316
+
+This is a duplicate of bug report #1585977 which I closed
+today.  See 
+
+https://sourceforge.net/tracker/index.php?func=detail&aid=1585977&group_id=48422&atid=453021
+
+to read why it isn't a problem with RPy.  Short summary: the
+actual value in the R object *is* negative.  The R object
+printing code converts it for *printing* to 'less than ...'.
+        Since you are writing code that accesses the
+contents of the object directly, you will need to write
+wrapper code to handle negative values appropriately.
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1587588&group_id=48422
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From yonkeltron at gmail.com  Tue Oct 31 23:44:29 2006
+From: yonkeltron at gmail.com (Jonathan E. Magen)
+Date: Tue, 31 Oct 2006 15:44:29 -0800
+Subject: [Rpy] breakage of rpy in kubuntu edgy-eft
+Message-ID: <558578480610311544w63566a78u740655d4a7be353b@mail.gmail.com>
+
+Hello,
+I was really enjoying the fantastic functionality of rpy and then it
+broke. It worked yesterday. For whatever reason, when I try to use
+rpy, the following happens:
+
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import rpy
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+ImportError: No module named rpy
+>>>
+
+I have tried this with both 2.4 and 2.5 to no avail. I even removed
+the package and re-installed it. As I have never encountered a
+breakage of this type before in Python, I am apealling for help.
+
+-- 
+Jonathan E. Magen
+PHN: 267-242-6288
+WEB: http://www.yonkeltron.com
+AIM: SuspectAshkenaz
+GOOGLE TALK: yonkeltron
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From THocking at sangamo.com  Tue Oct 31 23:47:11 2006
+From: THocking at sangamo.com (Toby Hocking)
+Date: Tue, 31 Oct 2006 15:47:11 -0800
+Subject: Re: [Rpy] breakage of rpy in kubuntu edgy-eft
+Message-ID: <098CDE6C7E3AE94787146BC737F3528D043146@sanger.SANGAMO.LOCAL>
+
+search your sys.path and see if the rpy package is on it.
+
+>>> import sys
+>>> print sys.path
+
+if not, add the path where you have rpy installed.
+
+TDH
+
+-----Original Message-----
+From: rpy-list-bounces at lists.sourceforge.net
+[mailto:rpy-list-bounces at lists.sourceforge.net]On Behalf Of Jonathan E.
+Magen
+Sent: Tuesday, October 31, 2006 3:44 PM
+To: rpy-list at lists.sourceforge.net
+Subject: [Rpy] breakage of rpy in kubuntu edgy-eft
+
+
+Hello,
+I was really enjoying the fantastic functionality of rpy and then it
+broke. It worked yesterday. For whatever reason, when I try to use
+rpy, the following happens:
+
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import rpy
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+ImportError: No module named rpy
+>>>
+
+I have tried this with both 2.4 and 2.5 to no avail. I even removed
+the package and re-installed it. As I have never encountered a
+breakage of this type before in Python, I am apealling for help.
+
+-- 
+Jonathan E. Magen
+PHN: 267-242-6288
+WEB: http://www.yonkeltron.com
+AIM: SuspectAshkenaz
+GOOGLE TALK: yonkeltron
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+
+From yonkeltron at gmail.com  Tue Oct 31 23:57:43 2006
+From: yonkeltron at gmail.com (Jonathan E. Magen)
+Date: Tue, 31 Oct 2006 15:57:43 -0800
+Subject: Re: [Rpy] breakage of rpy in kubuntu edgy-eft
+In-Reply-To: <098CDE6C7E3AE94787146BC737F3528D043146@sanger.SANGAMO.LOCAL>
+References: <098CDE6C7E3AE94787146BC737F3528D043146@sanger.SANGAMO.LOCAL>
+Message-ID: <558578480610311557x24f52d76y23199ba059a906c4@mail.gmail.com>
+
+I checked it out and my sys.path does have
+/usr/lib/python2.N/site-packages in there which is where the rpy SO
+is. The full path of the SO looks wierd to me:
+
+/usr/lib/python2.4/site-packages/_rpy2031.so
+
+I tried importing it and got the following:
+
+>>> import rpy2031
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+ImportError: No module named rpy2031
+>>> import _rpy2031
+Segmentation fault
+
+
+On 10/31/06, Toby Hocking <THocking at sangamo.com> wrote:
+> search your sys.path and see if the rpy package is on it.
+>
+> >>> import sys
+> >>> print sys.path
+>
+> if not, add the path where you have rpy installed.
+>
+> TDH
+>
+> -----Original Message-----
+> From: rpy-list-bounces at lists.sourceforge.net
+> [mailto:rpy-list-bounces at lists.sourceforge.net]On Behalf Of Jonathan E.
+> Magen
+> Sent: Tuesday, October 31, 2006 3:44 PM
+> To: rpy-list at lists.sourceforge.net
+> Subject: [Rpy] breakage of rpy in kubuntu edgy-eft
+>
+>
+> Hello,
+> I was really enjoying the fantastic functionality of rpy and then it
+> broke. It worked yesterday. For whatever reason, when I try to use
+> rpy, the following happens:
+>
+> Type "help", "copyright", "credits" or "license" for more information.
+> >>> import rpy
+> Traceback (most recent call last):
+>   File "<stdin>", line 1, in ?
+> ImportError: No module named rpy
+> >>>
+>
+> I have tried this with both 2.4 and 2.5 to no avail. I even removed
+> the package and re-installed it. As I have never encountered a
+> breakage of this type before in Python, I am apealling for help.
+>
+> --
+> Jonathan E. Magen
+> PHN: 267-242-6288
+> WEB: http://www.yonkeltron.com
+> AIM: SuspectAshkenaz
+> GOOGLE TALK: yonkeltron
+>
+> -------------------------------------------------------------------------
+> Using Tomcat but need to do more? Need to support web services, security?
+> Get stuff done quickly with pre-integrated technology to make your job easier
+> Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+> http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+> -------------------------------------------------------------------------
+> Using Tomcat but need to do more? Need to support web services, security?
+> Get stuff done quickly with pre-integrated technology to make your job easier
+> Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+> http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+
+-- 
+Jonathan E. Magen
+PHN: 267-242-6288
+WEB: http://www.yonkeltron.com
+AIM: SuspectAshkenaz
+GOOGLE TALK: yonkeltron
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+

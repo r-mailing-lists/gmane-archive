@@ -1,0 +1,712 @@
+From russell-lenth at uiowa.edu  Sun Feb  1 17:49:14 2009
+From: russell-lenth at uiowa.edu (Russ Lenth)
+Date: Sun, 01 Feb 2009 11:49:14 -0600
+Subject: rJava AWT issue on Mac OS X 10.5
+Message-ID: <4985E09A.60704@uiowa.edu>
+
+I wonder who can tell me what's going wrong here (see session appended 
+below my signature).  These examples are straight from the man page for 
+.jcall().  The first one at least ensures me that I can talk to Java, 
+sometimes.  But the next one requires AWT, nd that's the problem.  I 
+looked all over my system (with no success) for Init.plist files that 
+might have "StartOnFirstThread" in them.  Is there some argument I need 
+to supply in, say, the .jinit() call?
+
+I have a Mac Book with Mac OS X 10.5 (Leopard), and R version 2.8.1. 
+Here is more detailed info on my system, if it helps:
+
+ > % uname -a
+ > Darwin russ-lenths-macbook.local 9.6.0 Darwin Kernel Version 9.6.0: 
+Mon Nov 24 17:37:00 PST 2008; root:xnu-1228.9.59~1/RELEASE_I386 i386
+
+Thanks
+
+Russ
+-- 
+Russell V. Lenth, Professor
+Department of Statistics
+   & Actuarial Science            (319)335-0814    FAX (319)335-3017
+The University of Iowa           russell-lenth at uiowa.edu
+Iowa City, IA 52242  USA         http://www.stat.uiowa.edu/~rlenth/
+
+
+
+R version 2.8.1 (2008-12-22)
+...
+
+ > library(rJava)
+ > .jinit()
+ > .jclassPath()
+[1] "/Library/Frameworks/R.framework/Resources/library/rJava/java"
+
+ > .jcall("java/lang/System","S","getProperty","os.name")
+[1] "Mac OS X"
+
+ > f <- .jnew("java/awt/Frame","Hello")
+2009-02-01 11:28:13.324 R[1122:60b] Apple AWT Java VM was loaded on 
+first thread -- can't start AWT.
+Exception in thread "main" java.lang.InternalError: Can't start the AWT 
+because Java was started on the first thread.  Make sure 
+StartOnFirstThread is not specified in your application's Info.plist or 
+on the command line
+	at java.lang.ClassLoader$NativeLibrary.load(Native Method)
+	at java.lang.ClassLoader.loadLibrary0(ClassLoader.java:1822)
+	at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1723)
+	at java.lang.Runtime.loadLibrary0(Runtime.java:822)
+	at java.lang.System.loadLibrary(System.java:993)
+	at sun.security.action.LoadLibraryAction.run(LoadLibraryAction.java:50)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at sun.awt.NativeLibLoader.loadLibraries(NativeLibLoader.java:38)
+	at sun.awt.DebugHelper.<clinit>(DebugHelper.java:29)
+	at java.awt.Component.<clinit>(Component.java:547)
+	at java.lang.Class.forName0(Native Method)
+	at java.lang.Class.forName(Class.java:242)
+Error in .jnew("java/awt/Frame", "Hello") :
+   Failed to create object of class `java/awt/Frame'
+In addition: Warning message:
+In .jnew("java/awt/Frame", "Hello") :
+   createObject.FindClass java/awt/Frame failed
+
+From seefrank at yahoo.com  Tue Feb  3 15:14:44 2009
+From: seefrank at yahoo.com (casey frankenberger)
+Date: Tue, 03 Feb 2009 07:14:44 -0800
+Subject: Rserve timing issue?
+Message-ID: <520730.53880.qm@web36901.mail.mud.yahoo.com>
+
+
+
+Hi, 
+I was having a problem with using Rserve involving a command that takes a few moments to run and that also connects to the web to download some data. 
+below is my code: 
+it runs when I run it in R (as the commands not through Rserve) 
+It runs when I run it locally on my windows laptop (local R and Rserve as well) 
+but it dies when I run it on my remote installation of R and Rserve (from the server on my laptop) 
+-it gives error 127 but this has not meaning to me 
+the line that chokes it is: 
+c.voidEval("opt <- yahoo.getOption(\"ELN\",\"2009-02\")"); 
+
+if I comment out his line and change : 
+c.voidEval("opt.mtx <- as.matrix(opt)"); 
+to 
+c.voidEval("opt.mtx <- as.matrix(mat)"); 
+this work too! 
+
+the line that chokes it causes (in R) the program to take about 5-10 seconds to download and process financial options information 
+the line prior to it also does this but its just less data downloaded and is practically instant. 
+Is there something I'm over looking? 
+Any insight would be appreciated. And Id be happy to provide any clarifications. 
+thanks 
+-Casey 
+
+
+
+Rconnection c = new Rconnection(host); 
+REXP x = c.eval("R.version.string"); 
+out.println("<br/>Rserve: <br/>" + x.asString() + "<br/>"); 
+
+c.voidEval("source(\"http://www.fam.tuwien.ac.at/~mkeller/R-progs/yahoo_opt.R\")"); 
+c.voidEval("mat <- yahoo.getMaturities(\"ELN\")"); 
+c.voidEval("opt <- yahoo.getOption(\"ELN\",\"2009-02\")"); 
+c.voidEval("opt.mtx <- as.matrix(opt)"); 
+c.voidEval("opt1.mtx <- opt.mtx[1,1]"); 
+String d = c.eval("opt1.mtx").asString(); 
+out.println("<br/>Option Maturity: <br/>" +d); 
+
+c.close();
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Feb  3 16:12:33 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 03 Feb 2009 11:12:33 -0500
+Subject: Re: rJava AWT issue on Mac OS X 10.5
+In-Reply-To: <4985E09A.60704@uiowa.edu>
+References: <4985E09A.60704@uiowa.edu>
+Message-ID: <9F845360-1D22-43D6-80AD-DF2786540270@r-project.org>
+
+
+On Feb 1, 2009, at 12:49 , Russ Lenth wrote:
+
+> I wonder who can tell me what's going wrong here (see session appended
+> below my signature).  These examples are straight from the man page  
+> for
+> .jcall().  The first one at least ensures me that I can talk to Java,
+> sometimes.  But the next one requires AWT, nd that's the problem.  I
+> looked all over my system (with no success) for Init.plist files that
+> might have "StartOnFirstThread" in them.  Is there some argument I  
+> need
+> to supply in, say, the .jinit() call?
+>
+
+No, Leopard simply does not support AWT in R (more precisely Apple has  
+removed support for Java in single-threaded applications from 10.5).  
+You have to use JGR in order to use AWT in R.
+
+Cheers,
+Simon
+
+
+> I have a Mac Book with Mac OS X 10.5 (Leopard), and R version 2.8.1.
+> Here is more detailed info on my system, if it helps:
+>
+>> % uname -a
+>> Darwin russ-lenths-macbook.local 9.6.0 Darwin Kernel Version 9.6.0:
+> Mon Nov 24 17:37:00 PST 2008; root:xnu-1228.9.59~1/RELEASE_I386 i386
+>
+> Thanks
+>
+> Russ
+> -- 
+> Russell V. Lenth, Professor
+> Department of Statistics
+>   & Actuarial Science            (319)335-0814    FAX (319)335-3017
+> The University of Iowa           russell-lenth at uiowa.edu
+> Iowa City, IA 52242  USA         http://www.stat.uiowa.edu/~rlenth/
+>
+>
+>
+> R version 2.8.1 (2008-12-22)
+> ...
+>
+>> library(rJava)
+>> .jinit()
+>> .jclassPath()
+> [1] "/Library/Frameworks/R.framework/Resources/library/rJava/java"
+>
+>> .jcall("java/lang/System","S","getProperty","os.name")
+> [1] "Mac OS X"
+>
+>> f <- .jnew("java/awt/Frame","Hello")
+> 2009-02-01 11:28:13.324 R[1122:60b] Apple AWT Java VM was loaded on
+> first thread -- can't start AWT.
+> Exception in thread "main" java.lang.InternalError: Can't start the  
+> AWT
+> because Java was started on the first thread.  Make sure
+> StartOnFirstThread is not specified in your application's Info.plist  
+> or
+> on the command line
+> 	at java.lang.ClassLoader$NativeLibrary.load(Native Method)
+> 	at java.lang.ClassLoader.loadLibrary0(ClassLoader.java:1822)
+> 	at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1723)
+> 	at java.lang.Runtime.loadLibrary0(Runtime.java:822)
+> 	at java.lang.System.loadLibrary(System.java:993)
+> 	at sun.security.action.LoadLibraryAction.run(LoadLibraryAction.java: 
+> 50)
+> 	at java.security.AccessController.doPrivileged(Native Method)
+> 	at sun.awt.NativeLibLoader.loadLibraries(NativeLibLoader.java:38)
+> 	at sun.awt.DebugHelper.<clinit>(DebugHelper.java:29)
+> 	at java.awt.Component.<clinit>(Component.java:547)
+> 	at java.lang.Class.forName0(Native Method)
+> 	at java.lang.Class.forName(Class.java:242)
+> Error in .jnew("java/awt/Frame", "Hello") :
+>   Failed to create object of class `java/awt/Frame'
+> In addition: Warning message:
+> In .jnew("java/awt/Frame", "Hello") :
+>   createObject.FindClass java/awt/Frame failed
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+From simon.urbanek at r-project.org  Tue Feb  3 16:15:15 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 03 Feb 2009 11:15:15 -0500
+Subject: Re: Rserve timing issue?
+In-Reply-To: <520730.53880.qm@web36901.mail.mud.yahoo.com>
+References: <520730.53880.qm@web36901.mail.mud.yahoo.com>
+Message-ID: <EA590A6D-A1A5-4C78-8BE8-9F9468619D30@r-project.org>
+
+
+On Feb 3, 2009, at 10:14 , casey frankenberger wrote:
+
+>
+> Hi,
+> I was having a problem with using Rserve involving a command that  
+> takes a few moments to run and that also connects to the web to  
+> download some data.
+> below is my code:
+> it runs when I run it in R (as the commands not through Rserve)
+> It runs when I run it locally on my windows laptop (local R and  
+> Rserve as well)
+> but it dies when I run it on my remote installation of R and Rserve  
+> (from the server on my laptop)
+> -it gives error 127 but this has not meaning to me
+> the line that chokes it is:
+> c.voidEval("opt <- yahoo.getOption(\"ELN\",\"2009-02\")");
+>
+> if I comment out his line and change :
+> c.voidEval("opt.mtx <- as.matrix(opt)");
+> to
+> c.voidEval("opt.mtx <- as.matrix(mat)");
+> this work too!
+>
+> the line that chokes it causes (in R) the program to take about 5-10  
+> seconds to download and process financial options information
+> the line prior to it also does this but its just less data  
+> downloaded and is practically instant.
+> Is there something I'm over looking?
+
+
+Highly likely - I would suspect you forgot to load the package  
+supplying the yahoo.getOption function. However, you would see for  
+yourself if you simply run it against Rserve in debug mode ...
+
+Cheers,
+S
+
+
+>
+> Any insight would be appreciated. And Id be happy to provide any  
+> clarifications.
+> thanks
+> -Casey
+>
+>
+>
+> Rconnection c = new Rconnection(host);
+> REXP x = c.eval("R.version.string");
+> out.println("<br/>Rserve: <br/>" + x.asString() + "<br/>");
+>
+> c.voidEval("source(\"http://www.fam.tuwien.ac.at/~mkeller/R-progs/yahoo_opt.R 
+> \")");
+> c.voidEval("mat <- yahoo.getMaturities(\"ELN\")");
+> c.voidEval("opt <- yahoo.getOption(\"ELN\",\"2009-02\")");
+> c.voidEval("opt.mtx <- as.matrix(opt)");
+> c.voidEval("opt1.mtx <- opt.mtx[1,1]");
+> String d = c.eval("opt1.mtx").asString();
+> out.println("<br/>Option Maturity: <br/>" +d);
+>
+> c.close();
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From rodri at ebi.ac.uk  Fri Feb 13 13:02:24 2009
+From: rodri at ebi.ac.uk (EBI)
+Date: Fri, 13 Feb 2009 14:02:24 +0100
+Subject: Running rtest on MacOsX
+Message-ID: <49956F60.5030404@ebi.ac.uk>
+
+Hi there!
+I have installed rJava on R2.8.1 on Mac OS X 10.5.6
+My java is
+$ java -version
+java version "1.6.0_07"
+Java(TM) SE Runtime Environment (build 1.6.0_07-b06-153)
+Java HotSpot(TM) 64-Bit Server VM (build 1.6.0_07-b06-57, mixed mode)
+
+When I try to run "rtest" with the available script I got:
+$ ./run rtest
+Cannot find JRI native library!
+Please make sure that the JRI native library is in a directory listed in 
+java.library.path.
+
+java.lang.UnsatisfiedLinkError: 
+/Library/Frameworks/R.framework/Versions/2.8/Resources/library/rJava/jri/libjri.jnilib: 
+
+    at java.lang.ClassLoader$NativeLibrary.load(Native Method)
+    at java.lang.ClassLoader.loadLibrary0(ClassLoader.java:1822)
+    at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1739)
+    at java.lang.Runtime.loadLibrary0(Runtime.java:823)
+    at java.lang.System.loadLibrary(System.java:1030)
+    at org.rosuda.JRI.Rengine.<clinit>(Rengine.java:9)
+    at rtest.main(rtest.java:61)
+
+
+Do I need J2SE DK? Or must I set some env. variables? Os is something else?
+I tried setting R_HOME, JAVA_HOME and PATH, but I guess it's not 
+necessary because the run script sets R_HOME and uses its own JAVA var. 
+By default, I have:
+$ echo $R_HOME
+
+$ echo $JAVA_HOME
+
+$ echo $PATH
+/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin
+
+Hope somebody can help. Thanks!
+Rodrigo
+
+From simon.urbanek at r-project.org  Sun Feb 15 04:06:01 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sat, 14 Feb 2009 23:06:01 -0500
+Subject: Re: Running rtest on MacOsX
+In-Reply-To: <49956F60.5030404@ebi.ac.uk>
+References: <49956F60.5030404@ebi.ac.uk>
+Message-ID: <A9E62097-ACFA-420B-962A-38895060365A@r-project.org>
+
+
+On Feb 13, 2009, at 8:02 AM, EBI wrote:
+
+> Hi there!
+> I have installed rJava on R2.8.1 on Mac OS X 10.5.6
+> My java is
+> $ java -version
+> java version "1.6.0_07"
+> Java(TM) SE Runtime Environment (build 1.6.0_07-b06-153)
+> Java HotSpot(TM) 64-Bit Server VM (build 1.6.0_07-b06-57, mixed mode)
+>
+
+Note that Apple's J2SE 1.6 is 64-bit Intel *only*, so you cannot use  
+it with regular 32-bit R. Switch back to J2SE 1.5 if in doubt or use  
+64-bit R (from http://r.research.att.com/ ) *and* either set  
+FORCE_NATIVE=yes or use the latest 0.6-2 branch snapshot (see  
+configure message about the architectures supported and the  
+FORCE_NATIVE flag).
+
+Cheers,
+Simon
+
+
+
+> When I try to run "rtest" with the available script I got:
+> $ ./run rtest
+> Cannot find JRI native library!
+> Please make sure that the JRI native library is in a directory  
+> listed in
+> java.library.path.
+>
+> java.lang.UnsatisfiedLinkError:
+> /Library/Frameworks/R.framework/Versions/2.8/Resources/library/rJava/ 
+> jri/libjri.jnilib:
+>
+>    at java.lang.ClassLoader$NativeLibrary.load(Native Method)
+>    at java.lang.ClassLoader.loadLibrary0(ClassLoader.java:1822)
+>    at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1739)
+>    at java.lang.Runtime.loadLibrary0(Runtime.java:823)
+>    at java.lang.System.loadLibrary(System.java:1030)
+>    at org.rosuda.JRI.Rengine.<clinit>(Rengine.java:9)
+>    at rtest.main(rtest.java:61)
+>
+>
+> Do I need J2SE DK? Or must I set some env. variables? Os is  
+> something else?
+> I tried setting R_HOME, JAVA_HOME and PATH, but I guess it's not
+> necessary because the run script sets R_HOME and uses its own JAVA  
+> var.
+> By default, I have:
+> $ echo $R_HOME
+>
+> $ echo $JAVA_HOME
+>
+> $ echo $PATH
+> /usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin
+>
+> Hope somebody can help. Thanks!
+> Rodrigo
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+From Julien.Senn at tt-novatech.ch  Mon Feb 16 09:54:26 2009
+From: Julien.Senn at tt-novatech.ch (Senn Julien)
+Date: Mon, 16 Feb 2009 10:54:26 +0100
+Subject: Tab in rJava ?
+Message-ID: <F7620004260C5D4DB836EDBF8CC6872D03F8303E@neptune.intra.eiaj.ch>
+
+Hi,
+
+ 
+
+Ive a question about passing 2D tab from java to R.
+
+ 
+
+Until now my way to pass a tab was :
+
+ 
+
+If javaRef is a pointer on a 2d java tab(double[][])
+
+ 
+
+R Code:
+
+ 
+
+  myList=.jevalArray(javaRef)
+ 
+  numberList=lapply(myList,.jevalArray) 
+  n=length(numberList)
+  m=length(numberList [[1]])
+ 
+  myMatrix=matrix(unlist(listeNum),nrow=n,ncol=m,byrow=TRUE)
+
+ 
+
+But is there another way to do that ?
+
+ 
+
+Many thanks for your answer
+
+ 
+
+Senn Julien
+
+ 
+
+_____________________________________
+
+TT-NOVATECH
+
+Julien Senn
+
+Ingénieur dipl. HES en informatique
+
+Rue Baptiste-Savoye 26
+
+CH-2610 Saint-Imier
+
+Tél : +41 (0)32 930 22 58
+
+ <mailto:julien.senn at tt-novatech.ch> julien.senn at tt-novatech.ch
+
+_____________________________________
+
+P Please consider the environment before printing this mail note.
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 3096 bytes
+
+-------------- next part --------------
+
+
+From sloiseau at ens-lsh.fr  Wed Feb 25 10:01:17 2009
+From: sloiseau at ens-lsh.fr (Sylvain Loiseau)
+Date: Wed, 25 Feb 2009 11:01:17 +0100
+Subject: R environment and variable
+Message-ID: <op.upwjgfb567e68g@l017892.intranet.ens-lsh.fr>
+
+Hi,
+
+Is there a way to add a variable to the R workspace, using the high level  
+API of the Rengine class, but to add this variable into a specific  
+environment?
+
+Please tell me if it is a wrong place for asking this question.
+
+Best,
+Sylvain
+
+-- 
+Sylvain Loiseau
+sloiseau at ens-lsh.fr
+
+From enrique.bengoechea at credit-suisse.com  Fri Feb 27 09:23:11 2009
+From: enrique.bengoechea at credit-suisse.com (=?utf-8?q?Bengoechea_Bartolom=C3=A9_Enrique_=28SIES_73=29?=)
+Date: Fri, 27 Feb 2009 10:23:11 +0100
+Subject: rJava failing to load after installing JGR
+Message-ID: <19811401A1D8174CB3EAD7F6072E9B5001FB5177@chsa1025.share.beluni.net>
+
+Hi all,
+ 
+Yesterday I installed the latest JGR from CRAN for R 2.8.1, and the launcher from http://jgr.markushelbig.org/Download.html
+ 
+I had package rJava 0.6-0 already installed and working correctly. It was used by several applications like StatET and Biocep. I'm using Windows XP Pro, R 2.8.1, and Java 1.6. Session info below.
+ 
+Nevertheless, after installing JGR, rJava no longer loads from normal R sessions:
+ 
+> library(rJava)
+Error in inDL(x, as.logical(local), as.logical(now), ...) : 
+  unable to load shared library 'C:/PROGRA~1/R/R-28~1.1/library/rJava/libs/rJava.dll':
+  LoadLibrary failure:  The specified module could not be found.
+
+Error : .onLoad failed in 'loadNamespace' for 'rJava'
+Error: package/namespace load failed for 'rJava'
+
+This is strange, as the "rJava.dll" is available where it is searched.
+ 
+All other applications using rJava no longer work, but JGR loads rJava and works correctly when invoked from "jgr.exe".
+ 
+What change may have produced this effect? I've removed and reinstalled the rJava package, without any success. Any help really appreciated. 
+ 
+Best,
+ 
+Enrique 
+ 
+> sessionInfo()
+
+R version 2.8.1 (2008-12-22) 
+i386-pc-mingw32 
+ 
+locale:
+LC_COLLATE=Spanish_Spain.1252;LC_CTYPE=Spanish_Spain.1252;LC_MONETARY=Spanish_Spain.1252;LC_NUMERIC=C;LC_TIME=Spanish_Spain.1252
+ 
+attached base packages:
+[1] stats     graphics  grDevices datasets  utils     methods   base     
+ 
+other attached packages:
+[1] rcom_2.0-4      rscproxy_1.0-12
+ 
+loaded via a namespace (and not attached):
+[1] tools_2.8.1
+
+-------------- next part --------------
+
+
+From chrysopa at gmail.com  Fri Feb 27 10:29:04 2009
+From: chrysopa at gmail.com (Ronaldo Reis Junior)
+Date: Fri, 27 Feb 2009 07:29:04 -0300
+Subject: More run options on script editor
+Message-ID: <200902270729.04368.chrysopa@gmail.com>
+
+Hi,
+
+I like JGR, but in script editing, more options and keyboard shortcut to run 
+the code is a great functionality to be implemented.
+
+Now JGR have:
+
+Run Selection (Ctrl-R)
+Run All (without shortcut)
+
+More great shortcut are:
+Run line and go to the next line
+Run function
+
+and put a shortcut in all run functions, not only in Run Selection function.
+
+Thanks
+Ronaldo
+--
+> Prof. Ronaldo Reis Júnior
+|  .''`. UNIMONTES/DBG/Lab. Ecologia Comportamental e Computacional
+| : :'  : Campus Universitário Prof. Darcy Ribeiro, Vila Mauricéia
+| `. `'` CP: 126, CEP: 39401-089, Montes Claros - MG - Brasil
+|   `- Fone: (38) 3229-8192 | ronaldo.reis at unimontes.br | chrysopa at gmail.com
+| http://www.ppgcb.unimontes.br/lecc | ICQ#: 5692561 | LinuxUser#: 205366
+--
+Favor NÃO ENVIAR arquivos do Word ou Powerpoint
+Prefira enviar em PDF, Texto, OpenOffice (ODF), HTML, or RTF.
+-- 
+I love mankind ... It's people I hate.
+		-- Schulz
+--
+> Prof. Ronaldo Reis Júnior
+|  .''`. UNIMONTES/DBG/Lab. Ecologia Comportamental e Computacional
+| : :'  : Campus Universitário Prof. Darcy Ribeiro, Vila Mauricéia
+| `. `'` CP: 126, CEP: 39401-089, Montes Claros - MG - Brasil
+|   `- Fone: (38) 3229-8192 | ronaldo.reis at unimontes.br | chrysopa at gmail.com
+| http://www.ppgcb.unimontes.br/lecc | ICQ#: 5692561 | LinuxUser#: 205366
+--
+Favor NÃO ENVIAR arquivos do Word ou Powerpoint
+Prefira enviar em PDF, Texto, OpenOffice (ODF), HTML, or RTF.
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From petrsvarc at email.cz  Thu Feb 19 21:57:26 2009
+From: petrsvarc at email.cz
+Date: Thu, 19 Feb 2009 22:57:26 +0100
+Subject: jstatcom-jrstat and jgr
+Message-ID: <3488.9496-11395-415549580-1235080646@email.cz>
+
+Hello,
+when experimetning with the jstatcom-jrstat I got the error message 
+that is displayed below. When I run examplex without graphics 
+everything is ok, but the examples with plots give me that error. 
+Because there are no problems with examples without plots I think 
+there is problem with using jgr and its tools. I am using Windows 
+Vista. Please help. Thanks Petr
+
+
+
+
+
+java.lang.NoClassDefFoundError: org/rosuda/JGR/toolkit/JavaGD
+   at org.rosuda.JRI.Rengine.rniEval(Native Method)
+   at org.rosuda.JRI.Rengine.eval(Rengine.java:409)
+   at org.rosuda.JRI.Rengine.eval(Rengine.java:387)
+   at com.jstatcom.engine.rstat.RStatEngine.call(Unknown Source)
+   at rjava.Model.main(Model.java:29)
+Caused by: java.lang.ClassNotFoundException: org.rosuda.JGR.toolkit.
+JavaGD
+   at java.net.URLClassLoader$1.run(Unknown Source)
+   at java.security.AccessController.doPrivileged(Native Method)
+   at java.net.URLClassLoader.findClass(Unknown Source)
+   at java.lang.ClassLoader.loadClass(Unknown Source)
+   at sun.misc.Launcher$AppClassLoader.loadClass(Unknown Source)
+   at java.lang.ClassLoader.loadClass(Unknown Source)
+   at java.lang.ClassLoader.loadClassInternal(Unknown Source)
+   ... 5 more
+java.lang.NoClassDefFoundError: org/rosuda/javaGD/JavaGD
+   at org.rosuda.JRI.Rengine.rniEval(Native Method)
+   at org.rosuda.JRI.Rengine.eval(Rengine.java:409)
+   at org.rosuda.JRI.Rengine.eval(Rengine.java:387)
+   at com.jstatcom.engine.rstat.RStatEngine.call(Unknown Source)
+   at rjava.Model.main(Model.java:29)
+Caused by: java.lang.ClassNotFoundException: org.rosuda.javaGD.
+JavaGD
+   at java.net.URLClassLoader$1.run(Unknown Source)
+   at java.security.AccessController.doPrivileged(Native Method)
+   at java.net.URLClassLoader.findClass(Unknown Source)
+   at java.lang.ClassLoader.loadClass(Unknown Source)
+   at sun.misc.Launcher$AppClassLoader.loadClass(Unknown Source)
+   at java.lang.ClassLoader.loadClass(Unknown Source)
+   at java.lang.ClassLoader.loadClassInternal(Unknown Source)
+   ... 5 more
+java.lang.NoClassDefFoundError: JavaGD
+   at org.rosuda.JRI.Rengine.rniEval(Native Method)
+   at org.rosuda.JRI.Rengine.eval(Rengine.java:409)
+   at org.rosuda.JRI.Rengine.eval(Rengine.java:387)
+   at com.jstatcom.engine.rstat.RStatEngine.call(Unknown Source)
+   at rjava.Model.main(Model.java:29)
+Caused by: java.lang.ClassNotFoundException: JavaGD
+   at java.net.URLClassLoader$1.run(Unknown Source)
+   at java.security.AccessController.doPrivileged(Native Method)
+   at java.net.URLClassLoader.findClass(Unknown Source)
+   at java.lang.ClassLoader.loadClass(Unknown Source)
+   at sun.misc.Launcher$AppClassLoader.loadClass(Unknown Source)
+   at java.lang.ClassLoader.loadClass(Unknown Source)
+   at java.lang.ClassLoader.loadClassInternal(Unknown Source)
+   ... 5 more
+
+-------------- next part --------------
+
+
+From graham.etherington at bbsrc.ac.uk  Wed Feb 25 15:27:52 2009
+From: graham.etherington at bbsrc.ac.uk (Graham Etherington)
+Date: Wed, 25 Feb 2009 15:27:52 +0000
+Subject: Passing R objects between JRI/Java classes
+Message-ID: <1235575672.4360.42.camel@n61036.nbi.bbsrc.ac.uk>
+
+Hi,
+Is there a way to pass R objects, such as hclust objects between
+JRI/Java classes. 
+So, say for example I have a class called getUPGMA() which produces a
+hclust object like so:
+
+REXP rexp = re.eval ("dist <- hclust (upgma_matrix, method =
+"average")");
+
+...and I want to pass 'dist', as an hclust object to a class called
+plotDendrogram(). What's the best way?
+
+Currently, the only way I can see is by assigning dist to a REXP object
+in getUPGMA, passing it to the class plotDendrogram() and then getting
+the raw content with rexp.getContent(). The problem here is that if I
+want to create something like a dendrogram using plot(dist), then dist
+has to be an hclust object. What, if any, is the best way to pass R
+objects between Java classes?
+For example, is there anyway of 're-forming' an hclust object from the
+rexp.getContent() method, or am I barking up the wrong tree here? 
+
+Many thanks,
+Graham Etherington
+

@@ -1,0 +1,1397 @@
+From lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org  Sat Apr 20 03:56:45 2013
+From: lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org (Lngmyers)
+Date: Sat, 20 Apr 2013 11:56:45 +0800
+Subject: floor/ceiling effects & spurious interactions in logistic regression
+In-Reply-To: <95F417D1-9EE4-402C-B86B-7174EA68EE9A-XkckGZ689+c@public.gmane.org>
+References: <CAE3_nMSpYvRXmH-4PNTeH=bQihJN6dJr8=wcw1xE9A3znMCzew@mail.gmail.com> <57225A54-2218-4F88-805B-04BE2873F004@gmail.com> <1364582002.23674.107.camel@mazurka> <95F417D1-9EE4-402C-B86B-7174EA68EE9A@ucsd.edu>
+Message-ID: <517211FD.2080604@ccu.edu.tw>
+
+
+In the following thread from a couple months ago...
+
+http://pidgin.ucsd.edu/pipermail/r-lang/mailman.ucsd.edu/pipermail/ling-r-lang-l/2013-February/000461.html
+
+... it was suggested that an interaction in a mixed-effects logistic regression 
+may have been an artifact due to a floor effect. This makes sense. Even if two 
+variables X1 and X2 have only an additive effect on the probability of a binary 
+variable Y, it could look like there's an interaction if Y has a lot more 0s 
+than 1s, which implies a threshold beyond which X1 + X2 must go before Y tends 
+to become 1, which in turn implies that X1 and X2 as individual variables aren't 
+enough to predict Y, which implies an interaction between X1 & X2, even though 
+this is really just due to the threshold.
+
+The challenge of floor and ceiling effects apparently led to the invention of 
+the amusingly-named Tobit model, which apparently is implemented (apparently 
+more than one way, in different packages) in R.
+
+However, it's not obvious to me why floor/ceiling effects, or the spurious 
+interactions caused by them, should be much of an issue in logistic regression 
+(the Tobit model is intended for linear regression). After all, the whole point 
+of the log odds transformation in logistic regression is to remove the floor and 
+ceiling, so the S-shaped logistic curve becomes an infinitely long straight 
+line. If the dataset consists of nothing but 0s or nothing but 1s, or if the 
+probability of 0 vs. 1 is (nearly) 100% correlated with the independents (e.g. 
+X1 < 3 always implies Y = 0 and X1 >= 3 always implies Y = 1), then logistic 
+regression won't work. But otherwise logistic regression shouldn't be affected 
+by floors or ceilings... should it?
+
+To get a feeling for this, I googled around for how to generate fake logistic 
+regression data and threw together the following code, to see if by increasing 
+the proportion of 0s I could get a logistic regression analysis to hallucinate 
+an interaction in an additive model:
+
+### Test how easy it is to get a spurious interaction in logistic regression, 
+due to floor effects
+
+# Create fake independents
+
+X1 = runif(1000)
+X2 = runif(1000)
+
+n = length(X1) # Sample size
+
+# Create fake binary dependent: no interaction
+
+L1 = (X1-mean(X1)) + (X2-mean(X2))
+Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+mean(Y1)
+
+# Create fake binary dependent: interaction
+
+L2 = (X1-mean(X1)) + (X2-mean(X2)) + (X1-mean(X1))*(X2-mean(X2))
+Y2 = ifelse(runif(n) < plogis(L2)-0.49, 1, 0)
+mean(Y2)
+
+# Analyze fake datasets
+
+fakdat = data.frame(Y1,Y2,X1,X2)
+
+glm.noint = glm(Y1 ~ X1 * X2, family = "binomial", data = fakdat)
+round(summary(glm.noint)$coefficients,4)
+
+glm.int = glm(Y2 ~ X1 * X2, family = "binomial", data = fakdat)
+round(summary(glm.int)$coefficients,4)
+
+After running this a few times, it seemed that spurious interactions weren't 
+appearing all that often, so then I tried to test this more systematically:
+
+### Generalize the above
+
+test.floor = function(n=100,asym=0,b0=0,b1=1,b2=1,tries=1000) {
+  # Generates data from additive Y ~ X1 + X2 logistic regression model
+  # n = sample size
+  # asym = number from -0.5 (floor) to 0.5 (ceiling)
+  # b0 = intercept
+  # b1 = coefficient for X1
+  # b2 = coefficient for X2
+  # note: coefficient for X1:X2 assumed to be 0 (no interaction)
+  # tries = number of simulations
+
+  # Prepare to count how often models shows significance (p < .05)
+   Int.sig = 0
+   X1.sig = 0
+   X2.sig = 0
+   X1X2.sig = 0
+   for (i in 1:tries) {
+    # Create fake independents
+      X1 = runif(n)
+      X2 = runif(n)
+    # Create fake dependent
+      L = b0 + b1*(X1-mean(X1)) + b2*(X2-mean(X1))
+      plogisL.asym = plogis(L) + asym
+      plogisL.fix = ifelse(plogisL.asym > 1, 0.9,
+       ifelse(plogisL.asym < 0, 0.1, plogisL.asym))
+      Y = ifelse(runif(n) < plogis(L) + asym, 1, 0)
+    # Run logistic regression
+      fake.glm = glm(Y ~ X1 * X2, family = "binomial")
+      fake.glm.res = round(summary(fake.glm)$coefficients,4)
+    # Evaluate results
+      if(fake.glm.res[1,4] < .05) {Int.sig = Int.sig + 1}
+      if(fake.glm.res[2,4] < .05) {X1.sig = X1.sig + 1}
+      if(fake.glm.res[3,4] < .05) {X2.sig = X2.sig + 1}
+      if(fake.glm.res[4,4] < .05) {X1X2.sig = X1X2.sig + 1}
+   }
+   # Compute proportion of significant results
+    p.res = numeric(4)
+    p.res[1] = Int.sig/tries
+    p.res[2] = X1.sig/tries
+    p.res[3] = X2.sig/tries
+    p.res[4] = X1X2.sig/tries
+    names(p.res) = c("Int.sig","X1.sig","X2.sig","X1X2.sig")
+    return(p.res)
+}
+
+Running the function with default values, which tests the model Y ~ X1*X2 
+assuming no asymmetry in Y values (i.e., roughly equal numbers of 0s and 1s)...
+
+ > test.floor()
+
+... gives results like the following...
+
+  Int.sig   X1.sig   X2.sig X1X2.sig
+    0.192    0.091    0.083    0.041
+
+... which indicates that the intercept, X1, and X2 all tend to be significant (p 
+< .05) more than 5% of the time, which is what we want for real effects (I 
+assume the intercept is significant, despite the symmetry of Y, because the 
+tested model includes an interaction factor that doesn't accurately reflect the 
+data), while the X1:X2 interaction is only significant around 5% of the time, 
+which is also what we want (since it's only significant by accident).
+
+When we run it with data pushed towards the floor...
+
+ > test.floor(asym=-0.49,tries=10000)
+
+... we just make everything less likely to be significant, e.g.:
+
+  Int.sig   X1.sig   X2.sig X1X2.sig
+   0.0792   0.0171   0.0184   0.0114
+There were 50 or more warnings (use warnings() to see the first 50)
+
+ > warnings()
+Warning messages:
+1: glm.fit: fitted probabilities numerically 0 or 1 occurred
+2: glm.fit: fitted probabilities numerically 0 or 1 occurred
+3: glm.fit: fitted probabilities numerically 0 or 1 occurred
+4: glm.fit: fitted probabilities numerically 0 or 1 occurred
+5: glm.fit: fitted probabilities numerically 0 or 1 occurred
+6: glm.fit: fitted probabilities numerically 0 or 1 occurred
+7: glm.fit: algorithm did not converge
+...
+
+Apparently with such an asymmetric Y, many times the model just crashes. But 
+there's still no hint that the interaction is significant as often as X1 and X2 
+are (0.0114 < 0.0171 & 0.0184). So again, no tendency for spurious interactions.
+
+So... what am I doing wrong? Is there some sweet spot of Y asymmetry, sample 
+size, and coefficients such that X1 and X2 and a spurious X1:X2 interaction all 
+tend to come out significant? Or am I faking the data incorrectly? Should I 
+explicitly include the assumed floor threshold as a factor in the model? But 
+wouldn't that be begging the question?
+
+Or is it in fact the case that if a logistic regression model doesn't crash, it 
+CANNOT give a spurious interaction (beyond the alpha level) due to floor/ceiling 
+effects - since logistic regression doesn't have any floor or ceiling...?
+
+-- 
+James Myers
+Graduate Institute of Linguistics
+National Chung Cheng University
+168 University Road, Min-Hsiung
+Chia-Yi 62102
+TAIWAN
+Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+
+From danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Apr 20 11:26:06 2013
+From: danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Daniel Ezra Johnson)
+Date: Sat, 20 Apr 2013 12:26:06 +0100
+Subject: Re: floor/ceiling effects & spurious interactions in logistic regression
+In-Reply-To: <517211FD.2080604@ccu.edu.tw>
+References: <CAE3_nMSpYvRXmH-4PNTeH=bQihJN6dJr8=wcw1xE9A3znMCzew@mail.gmail.com> <57225A54-2218-4F88-805B-04BE2873F004@gmail.com> <1364582002.23674.107.camel@mazurka> <95F417D1-9EE4-402C-B86B-7174EA68EE9A@ucsd.edu> <517211FD.2080604@ccu.edu.tw>
+Message-ID: <CAABSvoWs5keDXwoeep-94kccrP1aropefp1tj5eEeXGmng14Qg@mail.gmail.com>
+
+My guess is that the original presupposition is (at least technically)
+incorrect and that spurious interactions don't arise when mean(Y) is close
+to 0 or 1.
+
+That is, I don't think I  follow the logic of "a threshold beyond which X1
++ X2 must go before Y tends to become 1, which in turn implies that X1 and
+X2 as individual variables aren't enough to predict Y, which implies an
+interaction between X1 & X2, even though this is really just due to the
+threshold."
+
+I mean modeling the response while it's in the "zero zone" is not going to
+be very practical or easy, and even if it's an "almost zero zone" then
+enormous sample sizes would be necessary, but I'm not quite seeing where a
+spurious interaction arises.
+
+You also are modeling continuous X1 and X2, and yet those variables are
+constrained between 0 and 1. In a more general case, regardless of the mean
+value of Y or the intercept or whatever you want to call it, values of |X1|
+(or |X2|) of much greater magnitude would be enough to break the
+floor/ceiling effect anyway.
+
+Just rambling above, my real question wasn't to the point of your question,
+but about your simulation, where L1 is an additive combined effect (implied
+to be in log-odds) of X1 and X2.
+
+You have:
+
+L1 = (X1-mean(X1)) + (X2-mean(X2))
+Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+
+So given that X1 and X2 range from 0 to 1, L1 is going to range between -1
+and 1, so plogis(L1) ranges between approximately .27 and .73, which are
+probabilities. Then you're basically subtracting 0.49 from the
+probabilities in order to ensure "a lot more 0s than 1s" (even though that
+means your effective probability can dip into negative territory).
+
+If I'm reading that right, I was just wondering if you thought that was the
+best method to model a process that produces "a lot more 0s than 1s". I
+guess I would have done that with a very low intercept, which is equivalent
+to a constant low X0 in the mix. So plogis(L1') is pushed down - but not
+past zero...
+
+I think it still is very valuable to simulate and test rather casual
+comments made sometimes on the list. I think your demonstration about the
+spurious interaction is completely on point.
+
+Dan
+
+
+On Sat, Apr 20, 2013 at 4:56 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+
+>
+> In the following thread from a couple months ago...
+>
+> http://pidgin.ucsd.edu/**pipermail/r-lang/mailman.ucsd.**
+> edu/pipermail/ling-r-lang-l/**2013-February/000461.html<http://pidgin.ucsd.edu/pipermail/r-lang/mailman.ucsd.edu/pipermail/ling-r-lang-l/2013-February/000461.html>
+>
+> ... it was suggested that an interaction in a mixed-effects logistic
+> regression may have been an artifact due to a floor effect. This makes
+> sense. Even if two variables X1 and X2 have only an additive effect on the
+> probability of a binary variable Y, it could look like there's an
+> interaction if Y has a lot more 0s than 1s, which implies a threshold
+> beyond which X1 + X2 must go before Y tends to become 1, which in turn
+> implies that X1 and X2 as individual variables aren't enough to predict Y,
+> which implies an interaction between X1 & X2, even though this is really
+> just due to the threshold.
+>
+> The challenge of floor and ceiling effects apparently led to the invention
+> of the amusingly-named Tobit model, which apparently is implemented
+> (apparently more than one way, in different packages) in R.
+>
+> However, it's not obvious to me why floor/ceiling effects, or the spurious
+> interactions caused by them, should be much of an issue in logistic
+> regression (the Tobit model is intended for linear regression). After all,
+> the whole point of the log odds transformation in logistic regression is to
+> remove the floor and ceiling, so the S-shaped logistic curve becomes an
+> infinitely long straight line. If the dataset consists of nothing but 0s or
+> nothing but 1s, or if the probability of 0 vs. 1 is (nearly) 100%
+> correlated with the independents (e.g. X1 < 3 always implies Y = 0 and X1
+> >= 3 always implies Y = 1), then logistic regression won't work. But
+> otherwise logistic regression shouldn't be affected by floors or
+> ceilings... should it?
+>
+> To get a feeling for this, I googled around for how to generate fake
+> logistic regression data and threw together the following code, to see if
+> by increasing the proportion of 0s I could get a logistic regression
+> analysis to hallucinate an interaction in an additive model:
+>
+> ### Test how easy it is to get a spurious interaction in logistic
+> regression, due to floor effects
+>
+> # Create fake independents
+>
+> X1 = runif(1000)
+> X2 = runif(1000)
+>
+> n = length(X1) # Sample size
+>
+> # Create fake binary dependent: no interaction
+>
+> L1 = (X1-mean(X1)) + (X2-mean(X2))
+> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+> mean(Y1)
+>
+> # Create fake binary dependent: interaction
+>
+> L2 = (X1-mean(X1)) + (X2-mean(X2)) + (X1-mean(X1))*(X2-mean(X2))
+> Y2 = ifelse(runif(n) < plogis(L2)-0.49, 1, 0)
+> mean(Y2)
+>
+> # Analyze fake datasets
+>
+> fakdat = data.frame(Y1,Y2,X1,X2)
+>
+> glm.noint = glm(Y1 ~ X1 * X2, family = "binomial", data = fakdat)
+> round(summary(glm.noint)$**coefficients,4)
+>
+> glm.int = glm(Y2 ~ X1 * X2, family = "binomial", data = fakdat)
+> round(summary(glm.int)$**coefficients,4)
+>
+> After running this a few times, it seemed that spurious interactions
+> weren't appearing all that often, so then I tried to test this more
+> systematically:
+>
+> ### Generalize the above
+>
+> test.floor = function(n=100,asym=0,b0=0,b1=**1,b2=1,tries=1000) {
+>  # Generates data from additive Y ~ X1 + X2 logistic regression model
+>  # n = sample size
+>  # asym = number from -0.5 (floor) to 0.5 (ceiling)
+>  # b0 = intercept
+>  # b1 = coefficient for X1
+>  # b2 = coefficient for X2
+>  # note: coefficient for X1:X2 assumed to be 0 (no interaction)
+>  # tries = number of simulations
+>
+>  # Prepare to count how often models shows significance (p < .05)
+>   Int.sig = 0
+>   X1.sig = 0
+>   X2.sig = 0
+>   X1X2.sig = 0
+>   for (i in 1:tries) {
+>    # Create fake independents
+>      X1 = runif(n)
+>      X2 = runif(n)
+>    # Create fake dependent
+>      L = b0 + b1*(X1-mean(X1)) + b2*(X2-mean(X1))
+>      plogisL.asym = plogis(L) + asym
+>      plogisL.fix = ifelse(plogisL.asym > 1, 0.9,
+>       ifelse(plogisL.asym < 0, 0.1, plogisL.asym))
+>      Y = ifelse(runif(n) < plogis(L) + asym, 1, 0)
+>    # Run logistic regression
+>      fake.glm = glm(Y ~ X1 * X2, family = "binomial")
+>      fake.glm.res = round(summary(fake.glm)$**coefficients,4)
+>    # Evaluate results
+>      if(fake.glm.res[1,4] < .05) {Int.sig = Int.sig + 1}
+>      if(fake.glm.res[2,4] < .05) {X1.sig = X1.sig + 1}
+>      if(fake.glm.res[3,4] < .05) {X2.sig = X2.sig + 1}
+>      if(fake.glm.res[4,4] < .05) {X1X2.sig = X1X2.sig + 1}
+>   }
+>   # Compute proportion of significant results
+>    p.res = numeric(4)
+>    p.res[1] = Int.sig/tries
+>    p.res[2] = X1.sig/tries
+>    p.res[3] = X2.sig/tries
+>    p.res[4] = X1X2.sig/tries
+>    names(p.res) = c("Int.sig","X1.sig","X2.sig",**"X1X2.sig")
+>    return(p.res)
+> }
+>
+> Running the function with default values, which tests the model Y ~ X1*X2
+> assuming no asymmetry in Y values (i.e., roughly equal numbers of 0s and
+> 1s)...
+>
+> > test.floor()
+>
+> ... gives results like the following...
+>
+>  Int.sig   X1.sig   X2.sig X1X2.sig
+>    0.192    0.091    0.083    0.041
+>
+> ... which indicates that the intercept, X1, and X2 all tend to be
+> significant (p < .05) more than 5% of the time, which is what we want for
+> real effects (I assume the intercept is significant, despite the symmetry
+> of Y, because the tested model includes an interaction factor that doesn't
+> accurately reflect the data), while the X1:X2 interaction is only
+> significant around 5% of the time, which is also what we want (since it's
+> only significant by accident).
+>
+> When we run it with data pushed towards the floor...
+>
+> > test.floor(asym=-0.49,tries=**10000)
+>
+> ... we just make everything less likely to be significant, e.g.:
+>
+>  Int.sig   X1.sig   X2.sig X1X2.sig
+>   0.0792   0.0171   0.0184   0.0114
+> There were 50 or more warnings (use warnings() to see the first 50)
+>
+> > warnings()
+> Warning messages:
+> 1: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 2: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 3: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 4: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 5: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 6: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 7: glm.fit: algorithm did not converge
+> ...
+>
+> Apparently with such an asymmetric Y, many times the model just crashes.
+> But there's still no hint that the interaction is significant as often as
+> X1 and X2 are (0.0114 < 0.0171 & 0.0184). So again, no tendency for
+> spurious interactions.
+>
+> So... what am I doing wrong? Is there some sweet spot of Y asymmetry,
+> sample size, and coefficients such that X1 and X2 and a spurious X1:X2
+> interaction all tend to come out significant? Or am I faking the data
+> incorrectly? Should I explicitly include the assumed floor threshold as a
+> factor in the model? But wouldn't that be begging the question?
+>
+> Or is it in fact the case that if a logistic regression model doesn't
+> crash, it CANNOT give a spurious interaction (beyond the alpha level) due
+> to floor/ceiling effects - since logistic regression doesn't have any floor
+> or ceiling...?
+>
+> --
+> James Myers
+> Graduate Institute of Linguistics
+> National Chung Cheng University
+> 168 University Road, Min-Hsiung
+> Chia-Yi 62102
+> TAIWAN
+> Web:    http://www.ccunix.ccu.edu.tw/~**lngmyers/<http://www.ccunix.ccu.edu.tw/~lngmyers/>
+>
+>
+
+From rlevy-XkckGZ689+c at public.gmane.org  Sat Apr 20 22:44:12 2013
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Sat, 20 Apr 2013 22:44:12 +0000
+Subject: Re: floor/ceiling effects & spurious interactions in logistic regression
+In-Reply-To: <CAABSvoWs5keDXwoeep-94kccrP1aropefp1tj5eEeXGmng14Qg@mail.gmail.com>
+References: <CAE3_nMSpYvRXmH-4PNTeH=bQihJN6dJr8=wcw1xE9A3znMCzew@mail.gmail.com> <57225A54-2218-4F88-805B-04BE2873F004@gmail.com> <1364582002.23674.107.camel@mazurka> <95F417D1-9EE4-402C-B86B-7174EA68EE9A@ucsd.edu> <517211FD.2080604@ccu.edu.tw> <CAABSvoWs5keDXwoeep-94kccrP1aropefp1tj5eEeXGmng14Qg@mail.gmail.com>
+Message-ID: <3962BEDF-F888-4D0C-8C13-4385A65006DE@ucsd.edu>
+
+Hi guys,
+
+As one way that you can get ceiling or floor effects and thus spurious interactions using a logit model: suppose that the true generative process for the data is that an additive logit model is the "truth" but a noise process is overlaid at the end whereby probability p the speaker ignores the outcome of the additive logit process [example real-world translation: the speaker didn't pay attention to the linguistic input for some trial] and randomly generates an output which is 1 with probability q.  This creates ceilings and floors, and can definitely lead to spurious interactions.
+
+An example in R code, with p=0.3 and q=0.5:
+
+f <- function(seed=NULL) {
+	if(! is.null(seed))
+		set.seed(seed)
+	dat <- expand.grid(x=c("x1","x2"),y=c("y1","y2"),ignore=1:100)
+	a <- -6 # logit is -6 for x=x1,y=y1
+	bx <- c(0,3) # additive effect of x = 3
+	by <- c(0,3) # additive effect of y = 3
+	p <- 0.3
+	dat$z  <- ifelse(rbinom(nrow(dat),1,p)==1,rbinom(nrow(dat),1,0.5),with(dat,rbinom(nrow(dat),1,invlogit(a+bx[as.numeric(x)] + by[as.numeric(y)]))))
+	##with(dat,tapply(z,list(x,y),mean))  ## run this line to see the actual proportions
+	contrasts(dat$x) <- contr.sum(2)
+	contrasts(dat$y) <- contr.sum(2)
+	m <- summary(glm(z ~ x * y, dat, family=binomial))
+	return(m$coefficients[4,4])
+}
+res <- sapply(1:1000,f)
+mean(res<0.05)
+se(res<0.05)
+
+
+Best,
+
+Roger
+
+
+On Apr 20, 2013, at 4:26 AM, Daniel Ezra Johnson <danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> My guess is that the original presupposition is (at least technically) incorrect and that spurious interactions don't arise when mean(Y) is close to 0 or 1.
+> 
+> That is, I don't think I  follow the logic of "a threshold beyond which X1 + X2 must go before Y tends to become 1, which in turn implies that X1 and X2 as individual variables aren't enough to predict Y, which implies an interaction between X1 & X2, even though this is really just due to the threshold."
+> 
+> I mean modeling the response while it's in the "zero zone" is not going to be very practical or easy, and even if it's an "almost zero zone" then enormous sample sizes would be necessary, but I'm not quite seeing where a spurious interaction arises.
+> 
+> You also are modeling continuous X1 and X2, and yet those variables are constrained between 0 and 1. In a more general case, regardless of the mean value of Y or the intercept or whatever you want to call it, values of |X1| (or |X2|) of much greater magnitude would be enough to break the floor/ceiling effect anyway.
+> 
+> Just rambling above, my real question wasn't to the point of your question, but about your simulation, where L1 is an additive combined effect (implied to be in log-odds) of X1 and X2.
+> 
+> You have: 
+> 
+> L1 = (X1-mean(X1)) + (X2-mean(X2))
+> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+> 
+> So given that X1 and X2 range from 0 to 1, L1 is going to range between -1 and 1, so plogis(L1) ranges between approximately .27 and .73, which are probabilities. Then you're basically subtracting 0.49 from the probabilities in order to ensure "a lot more 0s than 1s" (even though that means your effective probability can dip into negative territory).
+> 
+> If I'm reading that right, I was just wondering if you thought that was the best method to model a process that produces "a lot more 0s than 1s". I guess I would have done that with a very low intercept, which is equivalent to a constant low X0 in the mix. So plogis(L1') is pushed down - but not past zero...
+> 
+> I think it still is very valuable to simulate and test rather casual comments made sometimes on the list. I think your demonstration about the spurious interaction is completely on point.
+> 
+> Dan
+> 
+> 
+> On Sat, Apr 20, 2013 at 4:56 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+> 
+> In the following thread from a couple months ago...
+> 
+> http://pidgin.ucsd.edu/pipermail/r-lang/mailman.ucsd.edu/pipermail/ling-r-lang-l/2013-February/000461.html
+> 
+> ... it was suggested that an interaction in a mixed-effects logistic regression may have been an artifact due to a floor effect. This makes sense. Even if two variables X1 and X2 have only an additive effect on the probability of a binary variable Y, it could look like there's an interaction if Y has a lot more 0s than 1s, which implies a threshold beyond which X1 + X2 must go before Y tends to become 1, which in turn implies that X1 and X2 as individual variables aren't enough to predict Y, which implies an interaction between X1 & X2, even though this is really just due to the threshold.
+> 
+> The challenge of floor and ceiling effects apparently led to the invention of the amusingly-named Tobit model, which apparently is implemented (apparently more than one way, in different packages) in R.
+> 
+> However, it's not obvious to me why floor/ceiling effects, or the spurious interactions caused by them, should be much of an issue in logistic regression (the Tobit model is intended for linear regression). After all, the whole point of the log odds transformation in logistic regression is to remove the floor and ceiling, so the S-shaped logistic curve becomes an infinitely long straight line. If the dataset consists of nothing but 0s or nothing but 1s, or if the probability of 0 vs. 1 is (nearly) 100% correlated with the independents (e.g. X1 < 3 always implies Y = 0 and X1 >= 3 always implies Y = 1), then logistic regression won't work. But otherwise logistic regression shouldn't be affected by floors or ceilings... should it?
+> 
+> To get a feeling for this, I googled around for how to generate fake logistic regression data and threw together the following code, to see if by increasing the proportion of 0s I could get a logistic regression analysis to hallucinate an interaction in an additive model:
+> 
+> ### Test how easy it is to get a spurious interaction in logistic regression, due to floor effects
+> 
+> # Create fake independents
+> 
+> X1 = runif(1000)
+> X2 = runif(1000)
+> 
+> n = length(X1) # Sample size
+> 
+> # Create fake binary dependent: no interaction
+> 
+> L1 = (X1-mean(X1)) + (X2-mean(X2))
+> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+> mean(Y1)
+> 
+> # Create fake binary dependent: interaction
+> 
+> L2 = (X1-mean(X1)) + (X2-mean(X2)) + (X1-mean(X1))*(X2-mean(X2))
+> Y2 = ifelse(runif(n) < plogis(L2)-0.49, 1, 0)
+> mean(Y2)
+> 
+> # Analyze fake datasets
+> 
+> fakdat = data.frame(Y1,Y2,X1,X2)
+> 
+> glm.noint = glm(Y1 ~ X1 * X2, family = "binomial", data = fakdat)
+> round(summary(glm.noint)$coefficients,4)
+> 
+> glm.int = glm(Y2 ~ X1 * X2, family = "binomial", data = fakdat)
+> round(summary(glm.int)$coefficients,4)
+> 
+> After running this a few times, it seemed that spurious interactions weren't appearing all that often, so then I tried to test this more systematically:
+> 
+> ### Generalize the above
+> 
+> test.floor = function(n=100,asym=0,b0=0,b1=1,b2=1,tries=1000) {
+>  # Generates data from additive Y ~ X1 + X2 logistic regression model
+>  # n = sample size
+>  # asym = number from -0.5 (floor) to 0.5 (ceiling)
+>  # b0 = intercept
+>  # b1 = coefficient for X1
+>  # b2 = coefficient for X2
+>  # note: coefficient for X1:X2 assumed to be 0 (no interaction)
+>  # tries = number of simulations
+> 
+>  # Prepare to count how often models shows significance (p < .05)
+>   Int.sig = 0
+>   X1.sig = 0
+>   X2.sig = 0
+>   X1X2.sig = 0
+>   for (i in 1:tries) {
+>    # Create fake independents
+>      X1 = runif(n)
+>      X2 = runif(n)
+>    # Create fake dependent
+>      L = b0 + b1*(X1-mean(X1)) + b2*(X2-mean(X1))
+>      plogisL.asym = plogis(L) + asym
+>      plogisL.fix = ifelse(plogisL.asym > 1, 0.9,
+>       ifelse(plogisL.asym < 0, 0.1, plogisL.asym))
+>      Y = ifelse(runif(n) < plogis(L) + asym, 1, 0)
+>    # Run logistic regression
+>      fake.glm = glm(Y ~ X1 * X2, family = "binomial")
+>      fake.glm.res = round(summary(fake.glm)$coefficients,4)
+>    # Evaluate results
+>      if(fake.glm.res[1,4] < .05) {Int.sig = Int.sig + 1}
+>      if(fake.glm.res[2,4] < .05) {X1.sig = X1.sig + 1}
+>      if(fake.glm.res[3,4] < .05) {X2.sig = X2.sig + 1}
+>      if(fake.glm.res[4,4] < .05) {X1X2.sig = X1X2.sig + 1}
+>   }
+>   # Compute proportion of significant results
+>    p.res = numeric(4)
+>    p.res[1] = Int.sig/tries
+>    p.res[2] = X1.sig/tries
+>    p.res[3] = X2.sig/tries
+>    p.res[4] = X1X2.sig/tries
+>    names(p.res) = c("Int.sig","X1.sig","X2.sig","X1X2.sig")
+>    return(p.res)
+> }
+> 
+> Running the function with default values, which tests the model Y ~ X1*X2 assuming no asymmetry in Y values (i.e., roughly equal numbers of 0s and 1s)...
+> 
+> > test.floor()
+> 
+> ... gives results like the following...
+> 
+>  Int.sig   X1.sig   X2.sig X1X2.sig
+>    0.192    0.091    0.083    0.041
+> 
+> ... which indicates that the intercept, X1, and X2 all tend to be significant (p < .05) more than 5% of the time, which is what we want for real effects (I assume the intercept is significant, despite the symmetry of Y, because the tested model includes an interaction factor that doesn't accurately reflect the data), while the X1:X2 interaction is only significant around 5% of the time, which is also what we want (since it's only significant by accident).
+> 
+> When we run it with data pushed towards the floor...
+> 
+> > test.floor(asym=-0.49,tries=10000)
+> 
+> ... we just make everything less likely to be significant, e.g.:
+> 
+>  Int.sig   X1.sig   X2.sig X1X2.sig
+>   0.0792   0.0171   0.0184   0.0114
+> There were 50 or more warnings (use warnings() to see the first 50)
+> 
+> > warnings()
+> Warning messages:
+> 1: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 2: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 3: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 4: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 5: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 6: glm.fit: fitted probabilities numerically 0 or 1 occurred
+> 7: glm.fit: algorithm did not converge
+> ...
+> 
+> Apparently with such an asymmetric Y, many times the model just crashes. But there's still no hint that the interaction is significant as often as X1 and X2 are (0.0114 < 0.0171 & 0.0184). So again, no tendency for spurious interactions.
+> 
+> So... what am I doing wrong? Is there some sweet spot of Y asymmetry, sample size, and coefficients such that X1 and X2 and a spurious X1:X2 interaction all tend to come out significant? Or am I faking the data incorrectly? Should I explicitly include the assumed floor threshold as a factor in the model? But wouldn't that be begging the question?
+> 
+> Or is it in fact the case that if a logistic regression model doesn't crash, it CANNOT give a spurious interaction (beyond the alpha level) due to floor/ceiling effects - since logistic regression doesn't have any floor or ceiling...?
+> 
+> -- 
+> James Myers
+> Graduate Institute of Linguistics
+> National Chung Cheng University
+> 168 University Road, Min-Hsiung
+> Chia-Yi 62102
+> TAIWAN
+> Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+> 
+>
+
+From rlevy-XkckGZ689+c at public.gmane.org  Sun Apr 21 00:20:52 2013
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Sun, 21 Apr 2013 00:20:52 +0000
+Subject: Re: floor/ceiling effects & spurious interactions in logistic regression
+In-Reply-To: <3962BEDF-F888-4D0C-8C13-4385A65006DE-XkckGZ689+c@public.gmane.org>
+References: <CAE3_nMSpYvRXmH-4PNTeH=bQihJN6dJr8=wcw1xE9A3znMCzew@mail.gmail.com> <57225A54-2218-4F88-805B-04BE2873F004@gmail.com> <1364582002.23674.107.camel@mazurka> <95F417D1-9EE4-402C-B86B-7174EA68EE9A@ucsd.edu> <517211FD.2080604@ccu.edu.tw> <CAABSvoWs5keDXwoeep-94kccrP1aropefp1tj5eEeXGmng14Qg@mail.gmail.com> <3962BEDF-F888-4D0C-8C13-4385A65006DE@ucsd.edu>
+Message-ID: <78DCBEB1-C9A2-4378-B90B-36A6835C63B5@ucsd.edu>
+
+James points out that I forgot two convenience functions to run the code I included…
+
+se <- function(x) sd(x)/sqrt(length(subset(x, ! is.na(x))))
+invlogit <- function(x) {
+  ex <- exp(x)
+  ex / (1+ex)
+}
+
+
+On Apr 20, 2013, at 3:44 PM, "Levy, Roger" <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+
+> Hi guys,
+> 
+> As one way that you can get ceiling or floor effects and thus spurious interactions using a logit model: suppose that the true generative process for the data is that an additive logit model is the "truth" but a noise process is overlaid at the end whereby probability p the speaker ignores the outcome of the additive logit process [example real-world translation: the speaker didn't pay attention to the linguistic input for some trial] and randomly generates an output which is 1 with probability q.  This creates ceilings and floors, and can definitely lead to spurious interactions.
+> 
+> An example in R code, with p=0.3 and q=0.5:
+> 
+> f <- function(seed=NULL) {
+> 	if(! is.null(seed))
+> 		set.seed(seed)
+> 	dat <- expand.grid(x=c("x1","x2"),y=c("y1","y2"),ignore=1:100)
+> 	a <- -6 # logit is -6 for x=x1,y=y1
+> 	bx <- c(0,3) # additive effect of x = 3
+> 	by <- c(0,3) # additive effect of y = 3
+> 	p <- 0.3
+> 	dat$z  <- ifelse(rbinom(nrow(dat),1,p)==1,rbinom(nrow(dat),1,0.5),with(dat,rbinom(nrow(dat),1,invlogit(a+bx[as.numeric(x)] + by[as.numeric(y)]))))
+> 	##with(dat,tapply(z,list(x,y),mean))  ## run this line to see the actual proportions
+> 	contrasts(dat$x) <- contr.sum(2)
+> 	contrasts(dat$y) <- contr.sum(2)
+> 	m <- summary(glm(z ~ x * y, dat, family=binomial))
+> 	return(m$coefficients[4,4])
+> }
+> res <- sapply(1:1000,f)
+> mean(res<0.05)
+> se(res<0.05)
+> 
+> 
+> Best,
+> 
+> Roger
+> 
+> 
+> On Apr 20, 2013, at 4:26 AM, Daniel Ezra Johnson <danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> 
+>> My guess is that the original presupposition is (at least technically) incorrect and that spurious interactions don't arise when mean(Y) is close to 0 or 1.
+>> 
+>> That is, I don't think I  follow the logic of "a threshold beyond which X1 + X2 must go before Y tends to become 1, which in turn implies that X1 and X2 as individual variables aren't enough to predict Y, which implies an interaction between X1 & X2, even though this is really just due to the threshold."
+>> 
+>> I mean modeling the response while it's in the "zero zone" is not going to be very practical or easy, and even if it's an "almost zero zone" then enormous sample sizes would be necessary, but I'm not quite seeing where a spurious interaction arises.
+>> 
+>> You also are modeling continuous X1 and X2, and yet those variables are constrained between 0 and 1. In a more general case, regardless of the mean value of Y or the intercept or whatever you want to call it, values of |X1| (or |X2|) of much greater magnitude would be enough to break the floor/ceiling effect anyway.
+>> 
+>> Just rambling above, my real question wasn't to the point of your question, but about your simulation, where L1 is an additive combined effect (implied to be in log-odds) of X1 and X2.
+>> 
+>> You have: 
+>> 
+>> L1 = (X1-mean(X1)) + (X2-mean(X2))
+>> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+>> 
+>> So given that X1 and X2 range from 0 to 1, L1 is going to range between -1 and 1, so plogis(L1) ranges between approximately .27 and .73, which are probabilities. Then you're basically subtracting 0.49 from the probabilities in order to ensure "a lot more 0s than 1s" (even though that means your effective probability can dip into negative territory).
+>> 
+>> If I'm reading that right, I was just wondering if you thought that was the best method to model a process that produces "a lot more 0s than 1s". I guess I would have done that with a very low intercept, which is equivalent to a constant low X0 in the mix. So plogis(L1') is pushed down - but not past zero...
+>> 
+>> I think it still is very valuable to simulate and test rather casual comments made sometimes on the list. I think your demonstration about the spurious interaction is completely on point.
+>> 
+>> Dan
+>> 
+>> 
+>> On Sat, Apr 20, 2013 at 4:56 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+>> 
+>> In the following thread from a couple months ago...
+>> 
+>> http://pidgin.ucsd.edu/pipermail/r-lang/mailman.ucsd.edu/pipermail/ling-r-lang-l/2013-February/000461.html
+>> 
+>> ... it was suggested that an interaction in a mixed-effects logistic regression may have been an artifact due to a floor effect. This makes sense. Even if two variables X1 and X2 have only an additive effect on the probability of a binary variable Y, it could look like there's an interaction if Y has a lot more 0s than 1s, which implies a threshold beyond which X1 + X2 must go before Y tends to become 1, which in turn implies that X1 and X2 as individual variables aren't enough to predict Y, which implies an interaction between X1 & X2, even though this is really just due to the threshold.
+>> 
+>> The challenge of floor and ceiling effects apparently led to the invention of the amusingly-named Tobit model, which apparently is implemented (apparently more than one way, in different packages) in R.
+>> 
+>> However, it's not obvious to me why floor/ceiling effects, or the spurious interactions caused by them, should be much of an issue in logistic regression (the Tobit model is intended for linear regression). After all, the whole point of the log odds transformation in logistic regression is to remove the floor and ceiling, so the S-shaped logistic curve becomes an infinitely long straight line. If the dataset consists of nothing but 0s or nothing but 1s, or if the probability of 0 vs. 1 is (nearly) 100% correlated with the independents (e.g. X1 < 3 always implies Y = 0 and X1 >= 3 always implies Y = 1), then logistic regression won't work. But otherwise logistic regression shouldn't be affected by floors or ceilings... should it?
+>> 
+>> To get a feeling for this, I googled around for how to generate fake logistic regression data and threw together the following code, to see if by increasing the proportion of 0s I could get a logistic regression analysis to hallucinate an interaction in an additive model:
+>> 
+>> ### Test how easy it is to get a spurious interaction in logistic regression, due to floor effects
+>> 
+>> # Create fake independents
+>> 
+>> X1 = runif(1000)
+>> X2 = runif(1000)
+>> 
+>> n = length(X1) # Sample size
+>> 
+>> # Create fake binary dependent: no interaction
+>> 
+>> L1 = (X1-mean(X1)) + (X2-mean(X2))
+>> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+>> mean(Y1)
+>> 
+>> # Create fake binary dependent: interaction
+>> 
+>> L2 = (X1-mean(X1)) + (X2-mean(X2)) + (X1-mean(X1))*(X2-mean(X2))
+>> Y2 = ifelse(runif(n) < plogis(L2)-0.49, 1, 0)
+>> mean(Y2)
+>> 
+>> # Analyze fake datasets
+>> 
+>> fakdat = data.frame(Y1,Y2,X1,X2)
+>> 
+>> glm.noint = glm(Y1 ~ X1 * X2, family = "binomial", data = fakdat)
+>> round(summary(glm.noint)$coefficients,4)
+>> 
+>> glm.int = glm(Y2 ~ X1 * X2, family = "binomial", data = fakdat)
+>> round(summary(glm.int)$coefficients,4)
+>> 
+>> After running this a few times, it seemed that spurious interactions weren't appearing all that often, so then I tried to test this more systematically:
+>> 
+>> ### Generalize the above
+>> 
+>> test.floor = function(n=100,asym=0,b0=0,b1=1,b2=1,tries=1000) {
+>> # Generates data from additive Y ~ X1 + X2 logistic regression model
+>> # n = sample size
+>> # asym = number from -0.5 (floor) to 0.5 (ceiling)
+>> # b0 = intercept
+>> # b1 = coefficient for X1
+>> # b2 = coefficient for X2
+>> # note: coefficient for X1:X2 assumed to be 0 (no interaction)
+>> # tries = number of simulations
+>> 
+>> # Prepare to count how often models shows significance (p < .05)
+>>  Int.sig = 0
+>>  X1.sig = 0
+>>  X2.sig = 0
+>>  X1X2.sig = 0
+>>  for (i in 1:tries) {
+>>   # Create fake independents
+>>     X1 = runif(n)
+>>     X2 = runif(n)
+>>   # Create fake dependent
+>>     L = b0 + b1*(X1-mean(X1)) + b2*(X2-mean(X1))
+>>     plogisL.asym = plogis(L) + asym
+>>     plogisL.fix = ifelse(plogisL.asym > 1, 0.9,
+>>      ifelse(plogisL.asym < 0, 0.1, plogisL.asym))
+>>     Y = ifelse(runif(n) < plogis(L) + asym, 1, 0)
+>>   # Run logistic regression
+>>     fake.glm = glm(Y ~ X1 * X2, family = "binomial")
+>>     fake.glm.res = round(summary(fake.glm)$coefficients,4)
+>>   # Evaluate results
+>>     if(fake.glm.res[1,4] < .05) {Int.sig = Int.sig + 1}
+>>     if(fake.glm.res[2,4] < .05) {X1.sig = X1.sig + 1}
+>>     if(fake.glm.res[3,4] < .05) {X2.sig = X2.sig + 1}
+>>     if(fake.glm.res[4,4] < .05) {X1X2.sig = X1X2.sig + 1}
+>>  }
+>>  # Compute proportion of significant results
+>>   p.res = numeric(4)
+>>   p.res[1] = Int.sig/tries
+>>   p.res[2] = X1.sig/tries
+>>   p.res[3] = X2.sig/tries
+>>   p.res[4] = X1X2.sig/tries
+>>   names(p.res) = c("Int.sig","X1.sig","X2.sig","X1X2.sig")
+>>   return(p.res)
+>> }
+>> 
+>> Running the function with default values, which tests the model Y ~ X1*X2 assuming no asymmetry in Y values (i.e., roughly equal numbers of 0s and 1s)...
+>> 
+>>> test.floor()
+>> 
+>> ... gives results like the following...
+>> 
+>> Int.sig   X1.sig   X2.sig X1X2.sig
+>>   0.192    0.091    0.083    0.041
+>> 
+>> ... which indicates that the intercept, X1, and X2 all tend to be significant (p < .05) more than 5% of the time, which is what we want for real effects (I assume the intercept is significant, despite the symmetry of Y, because the tested model includes an interaction factor that doesn't accurately reflect the data), while the X1:X2 interaction is only significant around 5% of the time, which is also what we want (since it's only significant by accident).
+>> 
+>> When we run it with data pushed towards the floor...
+>> 
+>>> test.floor(asym=-0.49,tries=10000)
+>> 
+>> ... we just make everything less likely to be significant, e.g.:
+>> 
+>> Int.sig   X1.sig   X2.sig X1X2.sig
+>>  0.0792   0.0171   0.0184   0.0114
+>> There were 50 or more warnings (use warnings() to see the first 50)
+>> 
+>>> warnings()
+>> Warning messages:
+>> 1: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>> 2: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>> 3: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>> 4: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>> 5: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>> 6: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>> 7: glm.fit: algorithm did not converge
+>> ...
+>> 
+>> Apparently with such an asymmetric Y, many times the model just crashes. But there's still no hint that the interaction is significant as often as X1 and X2 are (0.0114 < 0.0171 & 0.0184). So again, no tendency for spurious interactions.
+>> 
+>> So... what am I doing wrong? Is there some sweet spot of Y asymmetry, sample size, and coefficients such that X1 and X2 and a spurious X1:X2 interaction all tend to come out significant? Or am I faking the data incorrectly? Should I explicitly include the assumed floor threshold as a factor in the model? But wouldn't that be begging the question?
+>> 
+>> Or is it in fact the case that if a logistic regression model doesn't crash, it CANNOT give a spurious interaction (beyond the alpha level) due to floor/ceiling effects - since logistic regression doesn't have any floor or ceiling...?
+>> 
+>> -- 
+>> James Myers
+>> Graduate Institute of Linguistics
+>> National Chung Cheng University
+>> 168 University Road, Min-Hsiung
+>> Chia-Yi 62102
+>> TAIWAN
+>> Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+>> 
+>> 
+>
+
+From lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org  Sun Apr 21 01:17:15 2013
+From: lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org (Lngmyers)
+Date: Sun, 21 Apr 2013 09:17:15 +0800
+Subject: Re: floor/ceiling effects & spurious interactions in logistic regression
+In-Reply-To: <78DCBEB1-C9A2-4378-B90B-36A6835C63B5-XkckGZ689+c@public.gmane.org>
+References: <CAE3_nMSpYvRXmH-4PNTeH=bQihJN6dJr8=wcw1xE9A3znMCzew@mail.gmail.com> <57225A54-2218-4F88-805B-04BE2873F004@gmail.com> <1364582002.23674.107.camel@mazurka> <95F417D1-9EE4-402C-B86B-7174EA68EE9A@ucsd.edu> <517211FD.2080604@ccu.edu.tw> <CAABSvoWs5keDXwoeep-94kccrP1aropefp1tj5eEeXGmng14Qg@mail.gmail.com> <3962BEDF-F888-4D0C-8C13-4385A65006DE@ucsd.edu> <78DCBEB1-C9A2-4378-B90B-36A6835C63B5@ucsd.edu>
+Message-ID: <51733E1B.60409@ccu.edu.tw>
+
+
+RL's simulation suggests that the spurious interaction can emerge even when the 
+floor/ceiling effect doesn't cause the main effects themselves to disappear. I 
+tried replacing the last line of RL's function with return(m$coefficients[,4]), 
+then looked at the results in mean(res[i,]<0.05) for i in 1:4, which showed that 
+the intercept was always significant, the main effects almost always were (over 
+90%) and the interaction usually was (over 70%). That's not as bad as if the 
+interaction was significant as often as the main effects, but it's still pretty bad.
+
+Now that the existence proof has been given, the next questions are the 
+following (obviously, I don't demand concrete answers to all of these from 
+y'all, but thoughts of any sort would be welcome):
+
+(1) How often is such a situation likely to arise when all of the parameters are 
+allowed to vary freely, or at least as freely as they typically do across real 
+studies?
+
+(2) If the answer to (1) is "pretty often", is there any mathematically 
+justified diagnostic for a "dangerous" floor or ceiling effect?
+
+(3) If the answer to (2) is "no simple one", then is there some way to estimate 
+the likelihood that the underlying model does indeed involve an interaction, 
+when an interaction is observed in the data? I suppose that you could do this by 
+building on RL's code, plugging your actual variables into an additive model, 
+and running thousands of simulations that vary the noise parameter so you can 
+count how often you come "quite close" to your actual outputs (i.e., using your 
+simulated outcome vectors as the population under the null hypothesis of no 
+interaction, and seeing where your actual outcome vector falls in this 
+distribution). But very few of us are blessed with reliable intuitions about 
+probability and likelihood, and without expert guidance (e.g., the appropriate 
+advanced stats text), mistakes seem inevitable.
+
+(4) If the answer to (3) is "Forget it", is there any such thing as tobit 
+modified to apply with logistic regression? I don't see why there couldn't be, 
+since logistic regression itself is essentially a generalization of linear 
+regression.
+
+- jm
+
+On 2013/4/21 上午 08:20, Levy, Roger wrote:
+> James points out that I forgot two convenience functions to run the code I included…
+>
+> se <- function(x) sd(x)/sqrt(length(subset(x, ! is.na(x))))
+> invlogit <- function(x) {
+>    ex <- exp(x)
+>    ex / (1+ex)
+> }
+>
+>
+> On Apr 20, 2013, at 3:44 PM, "Levy, Roger" <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>
+>> Hi guys,
+>>
+>> As one way that you can get ceiling or floor effects and thus spurious interactions using a logit model: suppose that the true generative process for the data is that an additive logit model is the "truth" but a noise process is overlaid at the end whereby probability p the speaker ignores the outcome of the additive logit process [example real-world translation: the speaker didn't pay attention to the linguistic input for some trial] and randomly generates an output which is 1 with probability q.  This creates ceilings and floors, and can definitely lead to spurious interactions.
+>>
+>> An example in R code, with p=0.3 and q=0.5:
+>>
+>> f <- function(seed=NULL) {
+>> 	if(! is.null(seed))
+>> 		set.seed(seed)
+>> 	dat <- expand.grid(x=c("x1","x2"),y=c("y1","y2"),ignore=1:100)
+>> 	a <- -6 # logit is -6 for x=x1,y=y1
+>> 	bx <- c(0,3) # additive effect of x = 3
+>> 	by <- c(0,3) # additive effect of y = 3
+>> 	p <- 0.3
+>> 	dat$z  <- ifelse(rbinom(nrow(dat),1,p)==1,rbinom(nrow(dat),1,0.5),with(dat,rbinom(nrow(dat),1,invlogit(a+bx[as.numeric(x)] + by[as.numeric(y)]))))
+>> 	##with(dat,tapply(z,list(x,y),mean))  ## run this line to see the actual proportions
+>> 	contrasts(dat$x) <- contr.sum(2)
+>> 	contrasts(dat$y) <- contr.sum(2)
+>> 	m <- summary(glm(z ~ x * y, dat, family=binomial))
+>> 	return(m$coefficients[4,4])
+>> }
+>> res <- sapply(1:1000,f)
+>> mean(res<0.05)
+>> se(res<0.05)
+>>
+>>
+>> Best,
+>>
+>> Roger
+>>
+>>
+>> On Apr 20, 2013, at 4:26 AM, Daniel Ezra Johnson <danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>>
+>>> My guess is that the original presupposition is (at least technically) incorrect and that spurious interactions don't arise when mean(Y) is close to 0 or 1.
+>>>
+>>> That is, I don't think I  follow the logic of "a threshold beyond which X1 + X2 must go before Y tends to become 1, which in turn implies that X1 and X2 as individual variables aren't enough to predict Y, which implies an interaction between X1 & X2, even though this is really just due to the threshold."
+>>>
+>>> I mean modeling the response while it's in the "zero zone" is not going to be very practical or easy, and even if it's an "almost zero zone" then enormous sample sizes would be necessary, but I'm not quite seeing where a spurious interaction arises.
+>>>
+>>> You also are modeling continuous X1 and X2, and yet those variables are constrained between 0 and 1. In a more general case, regardless of the mean value of Y or the intercept or whatever you want to call it, values of |X1| (or |X2|) of much greater magnitude would be enough to break the floor/ceiling effect anyway.
+>>>
+>>> Just rambling above, my real question wasn't to the point of your question, but about your simulation, where L1 is an additive combined effect (implied to be in log-odds) of X1 and X2.
+>>>
+>>> You have:
+>>>
+>>> L1 = (X1-mean(X1)) + (X2-mean(X2))
+>>> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+>>>
+>>> So given that X1 and X2 range from 0 to 1, L1 is going to range between -1 and 1, so plogis(L1) ranges between approximately .27 and .73, which are probabilities. Then you're basically subtracting 0.49 from the probabilities in order to ensure "a lot more 0s than 1s" (even though that means your effective probability can dip into negative territory).
+>>>
+>>> If I'm reading that right, I was just wondering if you thought that was the best method to model a process that produces "a lot more 0s than 1s". I guess I would have done that with a very low intercept, which is equivalent to a constant low X0 in the mix. So plogis(L1') is pushed down - but not past zero...
+>>>
+>>> I think it still is very valuable to simulate and test rather casual comments made sometimes on the list. I think your demonstration about the spurious interaction is completely on point.
+>>>
+>>> Dan
+>>>
+>>>
+>>> On Sat, Apr 20, 2013 at 4:56 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+>>>
+>>> In the following thread from a couple months ago...
+>>>
+>>> http://pidgin.ucsd.edu/pipermail/r-lang/mailman.ucsd.edu/pipermail/ling-r-lang-l/2013-February/000461.html
+>>>
+>>> ... it was suggested that an interaction in a mixed-effects logistic regression may have been an artifact due to a floor effect. This makes sense. Even if two variables X1 and X2 have only an additive effect on the probability of a binary variable Y, it could look like there's an interaction if Y has a lot more 0s than 1s, which implies a threshold beyond which X1 + X2 must go before Y tends to become 1, which in turn implies that X1 and X2 as individual variables aren't enough to predict Y, which implies an interaction between X1 & X2, even though this is really just due to the threshold.
+>>>
+>>> The challenge of floor and ceiling effects apparently led to the invention of the amusingly-named Tobit model, which apparently is implemented (apparently more than one way, in different packages) in R.
+>>>
+>>> However, it's not obvious to me why floor/ceiling effects, or the spurious interactions caused by them, should be much of an issue in logistic regression (the Tobit model is intended for linear regression). After all, the whole point of the log odds transformation in logistic regression is to remove the floor and ceiling, so the S-shaped logistic curve becomes an infinitely long straight line. If the dataset consists of nothing but 0s or nothing but 1s, or if the probability of 0 vs. 1 is (nearly) 100% correlated with the independents (e.g. X1 < 3 always implies Y = 0 and X1 >= 3 always implies Y = 1), then logistic regression won't work. But otherwise logistic regression shouldn't be affected by floors or ceilings... should it?
+>>>
+>>> To get a feeling for this, I googled around for how to generate fake logistic regression data and threw together the following code, to see if by increasing the proportion of 0s I could get a logistic regression analysis to hallucinate an interaction in an additive model:
+>>>
+>>> ### Test how easy it is to get a spurious interaction in logistic regression, due to floor effects
+>>>
+>>> # Create fake independents
+>>>
+>>> X1 = runif(1000)
+>>> X2 = runif(1000)
+>>>
+>>> n = length(X1) # Sample size
+>>>
+>>> # Create fake binary dependent: no interaction
+>>>
+>>> L1 = (X1-mean(X1)) + (X2-mean(X2))
+>>> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+>>> mean(Y1)
+>>>
+>>> # Create fake binary dependent: interaction
+>>>
+>>> L2 = (X1-mean(X1)) + (X2-mean(X2)) + (X1-mean(X1))*(X2-mean(X2))
+>>> Y2 = ifelse(runif(n) < plogis(L2)-0.49, 1, 0)
+>>> mean(Y2)
+>>>
+>>> # Analyze fake datasets
+>>>
+>>> fakdat = data.frame(Y1,Y2,X1,X2)
+>>>
+>>> glm.noint = glm(Y1 ~ X1 * X2, family = "binomial", data = fakdat)
+>>> round(summary(glm.noint)$coefficients,4)
+>>>
+>>> glm.int = glm(Y2 ~ X1 * X2, family = "binomial", data = fakdat)
+>>> round(summary(glm.int)$coefficients,4)
+>>>
+>>> After running this a few times, it seemed that spurious interactions weren't appearing all that often, so then I tried to test this more systematically:
+>>>
+>>> ### Generalize the above
+>>>
+>>> test.floor = function(n=100,asym=0,b0=0,b1=1,b2=1,tries=1000) {
+>>> # Generates data from additive Y ~ X1 + X2 logistic regression model
+>>> # n = sample size
+>>> # asym = number from -0.5 (floor) to 0.5 (ceiling)
+>>> # b0 = intercept
+>>> # b1 = coefficient for X1
+>>> # b2 = coefficient for X2
+>>> # note: coefficient for X1:X2 assumed to be 0 (no interaction)
+>>> # tries = number of simulations
+>>>
+>>> # Prepare to count how often models shows significance (p < .05)
+>>>   Int.sig = 0
+>>>   X1.sig = 0
+>>>   X2.sig = 0
+>>>   X1X2.sig = 0
+>>>   for (i in 1:tries) {
+>>>    # Create fake independents
+>>>      X1 = runif(n)
+>>>      X2 = runif(n)
+>>>    # Create fake dependent
+>>>      L = b0 + b1*(X1-mean(X1)) + b2*(X2-mean(X1))
+>>>      plogisL.asym = plogis(L) + asym
+>>>      plogisL.fix = ifelse(plogisL.asym > 1, 0.9,
+>>>       ifelse(plogisL.asym < 0, 0.1, plogisL.asym))
+>>>      Y = ifelse(runif(n) < plogis(L) + asym, 1, 0)
+>>>    # Run logistic regression
+>>>      fake.glm = glm(Y ~ X1 * X2, family = "binomial")
+>>>      fake.glm.res = round(summary(fake.glm)$coefficients,4)
+>>>    # Evaluate results
+>>>      if(fake.glm.res[1,4] < .05) {Int.sig = Int.sig + 1}
+>>>      if(fake.glm.res[2,4] < .05) {X1.sig = X1.sig + 1}
+>>>      if(fake.glm.res[3,4] < .05) {X2.sig = X2.sig + 1}
+>>>      if(fake.glm.res[4,4] < .05) {X1X2.sig = X1X2.sig + 1}
+>>>   }
+>>>   # Compute proportion of significant results
+>>>    p.res = numeric(4)
+>>>    p.res[1] = Int.sig/tries
+>>>    p.res[2] = X1.sig/tries
+>>>    p.res[3] = X2.sig/tries
+>>>    p.res[4] = X1X2.sig/tries
+>>>    names(p.res) = c("Int.sig","X1.sig","X2.sig","X1X2.sig")
+>>>    return(p.res)
+>>> }
+>>>
+>>> Running the function with default values, which tests the model Y ~ X1*X2 assuming no asymmetry in Y values (i.e., roughly equal numbers of 0s and 1s)...
+>>>
+>>>> test.floor()
+>>>
+>>> ... gives results like the following...
+>>>
+>>> Int.sig   X1.sig   X2.sig X1X2.sig
+>>>    0.192    0.091    0.083    0.041
+>>>
+>>> ... which indicates that the intercept, X1, and X2 all tend to be significant (p < .05) more than 5% of the time, which is what we want for real effects (I assume the intercept is significant, despite the symmetry of Y, because the tested model includes an interaction factor that doesn't accurately reflect the data), while the X1:X2 interaction is only significant around 5% of the time, which is also what we want (since it's only significant by accident).
+>>>
+>>> When we run it with data pushed towards the floor...
+>>>
+>>>> test.floor(asym=-0.49,tries=10000)
+>>>
+>>> ... we just make everything less likely to be significant, e.g.:
+>>>
+>>> Int.sig   X1.sig   X2.sig X1X2.sig
+>>>   0.0792   0.0171   0.0184   0.0114
+>>> There were 50 or more warnings (use warnings() to see the first 50)
+>>>
+>>>> warnings()
+>>> Warning messages:
+>>> 1: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>> 2: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>> 3: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>> 4: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>> 5: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>> 6: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>> 7: glm.fit: algorithm did not converge
+>>> ...
+>>>
+>>> Apparently with such an asymmetric Y, many times the model just crashes. But there's still no hint that the interaction is significant as often as X1 and X2 are (0.0114 < 0.0171 & 0.0184). So again, no tendency for spurious interactions.
+>>>
+>>> So... what am I doing wrong? Is there some sweet spot of Y asymmetry, sample size, and coefficients such that X1 and X2 and a spurious X1:X2 interaction all tend to come out significant? Or am I faking the data incorrectly? Should I explicitly include the assumed floor threshold as a factor in the model? But wouldn't that be begging the question?
+>>>
+>>> Or is it in fact the case that if a logistic regression model doesn't crash, it CANNOT give a spurious interaction (beyond the alpha level) due to floor/ceiling effects - since logistic regression doesn't have any floor or ceiling...?
+>>>
+>>> --
+>>> James Myers
+>>> Graduate Institute of Linguistics
+>>> National Chung Cheng University
+>>> 168 University Road, Min-Hsiung
+>>> Chia-Yi 62102
+>>> TAIWAN
+>>> Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+>>>
+>>>
+>>
+>
+>
+>
+>
+>
+
+-- 
+James Myers
+Graduate Institute of Linguistics
+National Chung Cheng University
+168 University Road, Min-Hsiung
+Chia-Yi 62102
+TAIWAN
+Email:  Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+Phone:  886-5-242-8251
+Fax:    886-5-272-1654
+
+From rlevy-XkckGZ689+c at public.gmane.org  Sun Apr 21 20:11:58 2013
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Sun, 21 Apr 2013 20:11:58 +0000
+Subject: Re: floor/ceiling effects & spurious interactions in logistic regression
+In-Reply-To: <51733E1B.60409@ccu.edu.tw>
+References: <CAE3_nMSpYvRXmH-4PNTeH=bQihJN6dJr8=wcw1xE9A3znMCzew@mail.gmail.com> <57225A54-2218-4F88-805B-04BE2873F004@gmail.com> <1364582002.23674.107.camel@mazurka> <95F417D1-9EE4-402C-B86B-7174EA68EE9A@ucsd.edu> <517211FD.2080604@ccu.edu.tw> <CAABSvoWs5keDXwoeep-94kccrP1aropefp1tj5eEeXGmng14Qg@mail.gmail.com> <3962BEDF-F888-4D0C-8C13-4385A65006DE@ucsd.edu> <78DCBEB1-C9A2-4378-B90B-36A6835C63B5@ucsd.edu> <51733E1B.60409@ccu.edu.tw>
+Message-ID: <31FBF8EF-7927-4AB6-A1A3-37881D996A82@ucsd.edu>
+
+Hi James,
+
+I think that the way that one should proceed in any given situation depends on the kind of data you're working with and the kinds of questions you're trying to address with your logit model analysis.  For example, the source of floor/ceiling effects I suggested is plausible for an experimental forced-choice situation (where we know that participant sometimes just space out) but may be much less plausible for analysis of genuine spontaneous conversation.  My general suggestion is to think carefully about what is the most faithful characterization of the complete generative processes underlying your data, and to think about how various components of that generative process may affect the data analysis procedure you're carrying out.  For the final-stage noise process I was suggesting, for exa
+ mple, you might try to estimate the parameters p and q from various types of filler trials, and see if they're large enough to appreciably change the analysis you're doing.
+
+So I don't think there are cut-and-dried answers to these questions; it just depends a lot on your data and questions.
+
+Best,
+
+Roger
+
+On Apr 20, 2013, at 6:17 PM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+
+> 
+> RL's simulation suggests that the spurious interaction can emerge even when the floor/ceiling effect doesn't cause the main effects themselves to disappear. I tried replacing the last line of RL's function with return(m$coefficients[,4]), then looked at the results in mean(res[i,]<0.05) for i in 1:4, which showed that the intercept was always significant, the main effects almost always were (over 90%) and the interaction usually was (over 70%). That's not as bad as if the interaction was significant as often as the main effects, but it's still pretty bad.
+> 
+> Now that the existence proof has been given, the next questions are the following (obviously, I don't demand concrete answers to all of these from y'all, but thoughts of any sort would be welcome):
+> 
+> (1) How often is such a situation likely to arise when all of the parameters are allowed to vary freely, or at least as freely as they typically do across real studies?
+> 
+> (2) If the answer to (1) is "pretty often", is there any mathematically justified diagnostic for a "dangerous" floor or ceiling effect?
+> 
+> (3) If the answer to (2) is "no simple one", then is there some way to estimate the likelihood that the underlying model does indeed involve an interaction, when an interaction is observed in the data? I suppose that you could do this by building on RL's code, plugging your actual variables into an additive model, and running thousands of simulations that vary the noise parameter so you can count how often you come "quite close" to your actual outputs (i.e., using your simulated outcome vectors as the population under the null hypothesis of no interaction, and seeing where your actual outcome vector falls in this distribution). But very few of us are blessed with reliable intuitions about probability and likelihood, and without expert guidance (e.g., the appropriate advanced stats text),
+  mistakes seem inevitable.
+> 
+> (4) If the answer to (3) is "Forget it", is there any such thing as tobit modified to apply with logistic regression? I don't see why there couldn't be, since logistic regression itself is essentially a generalization of linear regression.
+> 
+> - jm
+> 
+> On 2013/4/21 上午 08:20, Levy, Roger wrote:
+>> James points out that I forgot two convenience functions to run the code I included…
+>> 
+>> se <- function(x) sd(x)/sqrt(length(subset(x, ! is.na(x))))
+>> invlogit <- function(x) {
+>>   ex <- exp(x)
+>>   ex / (1+ex)
+>> }
+>> 
+>> 
+>> On Apr 20, 2013, at 3:44 PM, "Levy, Roger" <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>> 
+>>> Hi guys,
+>>> 
+>>> As one way that you can get ceiling or floor effects and thus spurious interactions using a logit model: suppose that the true generative process for the data is that an additive logit model is the "truth" but a noise process is overlaid at the end whereby probability p the speaker ignores the outcome of the additive logit process [example real-world translation: the speaker didn't pay attention to the linguistic input for some trial] and randomly generates an output which is 1 with probability q.  This creates ceilings and floors, and can definitely lead to spurious interactions.
+>>> 
+>>> An example in R code, with p=0.3 and q=0.5:
+>>> 
+>>> f <- function(seed=NULL) {
+>>> 	if(! is.null(seed))
+>>> 		set.seed(seed)
+>>> 	dat <- expand.grid(x=c("x1","x2"),y=c("y1","y2"),ignore=1:100)
+>>> 	a <- -6 # logit is -6 for x=x1,y=y1
+>>> 	bx <- c(0,3) # additive effect of x = 3
+>>> 	by <- c(0,3) # additive effect of y = 3
+>>> 	p <- 0.3
+>>> 	dat$z  <- ifelse(rbinom(nrow(dat),1,p)==1,rbinom(nrow(dat),1,0.5),with(dat,rbinom(nrow(dat),1,invlogit(a+bx[as.numeric(x)] + by[as.numeric(y)]))))
+>>> 	##with(dat,tapply(z,list(x,y),mean))  ## run this line to see the actual proportions
+>>> 	contrasts(dat$x) <- contr.sum(2)
+>>> 	contrasts(dat$y) <- contr.sum(2)
+>>> 	m <- summary(glm(z ~ x * y, dat, family=binomial))
+>>> 	return(m$coefficients[4,4])
+>>> }
+>>> res <- sapply(1:1000,f)
+>>> mean(res<0.05)
+>>> se(res<0.05)
+>>> 
+>>> 
+>>> Best,
+>>> 
+>>> Roger
+>>> 
+>>> 
+>>> On Apr 20, 2013, at 4:26 AM, Daniel Ezra Johnson <danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>>> 
+>>>> My guess is that the original presupposition is (at least technically) incorrect and that spurious interactions don't arise when mean(Y) is close to 0 or 1.
+>>>> 
+>>>> That is, I don't think I  follow the logic of "a threshold beyond which X1 + X2 must go before Y tends to become 1, which in turn implies that X1 and X2 as individual variables aren't enough to predict Y, which implies an interaction between X1 & X2, even though this is really just due to the threshold."
+>>>> 
+>>>> I mean modeling the response while it's in the "zero zone" is not going to be very practical or easy, and even if it's an "almost zero zone" then enormous sample sizes would be necessary, but I'm not quite seeing where a spurious interaction arises.
+>>>> 
+>>>> You also are modeling continuous X1 and X2, and yet those variables are constrained between 0 and 1. In a more general case, regardless of the mean value of Y or the intercept or whatever you want to call it, values of |X1| (or |X2|) of much greater magnitude would be enough to break the floor/ceiling effect anyway.
+>>>> 
+>>>> Just rambling above, my real question wasn't to the point of your question, but about your simulation, where L1 is an additive combined effect (implied to be in log-odds) of X1 and X2.
+>>>> 
+>>>> You have:
+>>>> 
+>>>> L1 = (X1-mean(X1)) + (X2-mean(X2))
+>>>> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+>>>> 
+>>>> So given that X1 and X2 range from 0 to 1, L1 is going to range between -1 and 1, so plogis(L1) ranges between approximately .27 and .73, which are probabilities. Then you're basically subtracting 0.49 from the probabilities in order to ensure "a lot more 0s than 1s" (even though that means your effective probability can dip into negative territory).
+>>>> 
+>>>> If I'm reading that right, I was just wondering if you thought that was the best method to model a process that produces "a lot more 0s than 1s". I guess I would have done that with a very low intercept, which is equivalent to a constant low X0 in the mix. So plogis(L1') is pushed down - but not past zero...
+>>>> 
+>>>> I think it still is very valuable to simulate and test rather casual comments made sometimes on the list. I think your demonstration about the spurious interaction is completely on point.
+>>>> 
+>>>> Dan
+>>>> 
+>>>> 
+>>>> On Sat, Apr 20, 2013 at 4:56 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+>>>> 
+>>>> In the following thread from a couple months ago...
+>>>> 
+>>>> http://pidgin.ucsd.edu/pipermail/r-lang/mailman.ucsd.edu/pipermail/ling-r-lang-l/2013-February/000461.html
+>>>> 
+>>>> ... it was suggested that an interaction in a mixed-effects logistic regression may have been an artifact due to a floor effect. This makes sense. Even if two variables X1 and X2 have only an additive effect on the probability of a binary variable Y, it could look like there's an interaction if Y has a lot more 0s than 1s, which implies a threshold beyond which X1 + X2 must go before Y tends to become 1, which in turn implies that X1 and X2 as individual variables aren't enough to predict Y, which implies an interaction between X1 & X2, even though this is really just due to the threshold.
+>>>> 
+>>>> The challenge of floor and ceiling effects apparently led to the invention of the amusingly-named Tobit model, which apparently is implemented (apparently more than one way, in different packages) in R.
+>>>> 
+>>>> However, it's not obvious to me why floor/ceiling effects, or the spurious interactions caused by them, should be much of an issue in logistic regression (the Tobit model is intended for linear regression). After all, the whole point of the log odds transformation in logistic regression is to remove the floor and ceiling, so the S-shaped logistic curve becomes an infinitely long straight line. If the dataset consists of nothing but 0s or nothing but 1s, or if the probability of 0 vs. 1 is (nearly) 100% correlated with the independents (e.g. X1 < 3 always implies Y = 0 and X1 >= 3 always implies Y = 1), then logistic regression won't work. But otherwise logistic regression shouldn't be affected by floors or ceilings... should it?
+>>>> 
+>>>> To get a feeling for this, I googled around for how to generate fake logistic regression data and threw together the following code, to see if by increasing the proportion of 0s I could get a logistic regression analysis to hallucinate an interaction in an additive model:
+>>>> 
+>>>> ### Test how easy it is to get a spurious interaction in logistic regression, due to floor effects
+>>>> 
+>>>> # Create fake independents
+>>>> 
+>>>> X1 = runif(1000)
+>>>> X2 = runif(1000)
+>>>> 
+>>>> n = length(X1) # Sample size
+>>>> 
+>>>> # Create fake binary dependent: no interaction
+>>>> 
+>>>> L1 = (X1-mean(X1)) + (X2-mean(X2))
+>>>> Y1 = ifelse(runif(n) < plogis(L1)-0.49, 1, 0)
+>>>> mean(Y1)
+>>>> 
+>>>> # Create fake binary dependent: interaction
+>>>> 
+>>>> L2 = (X1-mean(X1)) + (X2-mean(X2)) + (X1-mean(X1))*(X2-mean(X2))
+>>>> Y2 = ifelse(runif(n) < plogis(L2)-0.49, 1, 0)
+>>>> mean(Y2)
+>>>> 
+>>>> # Analyze fake datasets
+>>>> 
+>>>> fakdat = data.frame(Y1,Y2,X1,X2)
+>>>> 
+>>>> glm.noint = glm(Y1 ~ X1 * X2, family = "binomial", data = fakdat)
+>>>> round(summary(glm.noint)$coefficients,4)
+>>>> 
+>>>> glm.int = glm(Y2 ~ X1 * X2, family = "binomial", data = fakdat)
+>>>> round(summary(glm.int)$coefficients,4)
+>>>> 
+>>>> After running this a few times, it seemed that spurious interactions weren't appearing all that often, so then I tried to test this more systematically:
+>>>> 
+>>>> ### Generalize the above
+>>>> 
+>>>> test.floor = function(n=100,asym=0,b0=0,b1=1,b2=1,tries=1000) {
+>>>> # Generates data from additive Y ~ X1 + X2 logistic regression model
+>>>> # n = sample size
+>>>> # asym = number from -0.5 (floor) to 0.5 (ceiling)
+>>>> # b0 = intercept
+>>>> # b1 = coefficient for X1
+>>>> # b2 = coefficient for X2
+>>>> # note: coefficient for X1:X2 assumed to be 0 (no interaction)
+>>>> # tries = number of simulations
+>>>> 
+>>>> # Prepare to count how often models shows significance (p < .05)
+>>>>  Int.sig = 0
+>>>>  X1.sig = 0
+>>>>  X2.sig = 0
+>>>>  X1X2.sig = 0
+>>>>  for (i in 1:tries) {
+>>>>   # Create fake independents
+>>>>     X1 = runif(n)
+>>>>     X2 = runif(n)
+>>>>   # Create fake dependent
+>>>>     L = b0 + b1*(X1-mean(X1)) + b2*(X2-mean(X1))
+>>>>     plogisL.asym = plogis(L) + asym
+>>>>     plogisL.fix = ifelse(plogisL.asym > 1, 0.9,
+>>>>      ifelse(plogisL.asym < 0, 0.1, plogisL.asym))
+>>>>     Y = ifelse(runif(n) < plogis(L) + asym, 1, 0)
+>>>>   # Run logistic regression
+>>>>     fake.glm = glm(Y ~ X1 * X2, family = "binomial")
+>>>>     fake.glm.res = round(summary(fake.glm)$coefficients,4)
+>>>>   # Evaluate results
+>>>>     if(fake.glm.res[1,4] < .05) {Int.sig = Int.sig + 1}
+>>>>     if(fake.glm.res[2,4] < .05) {X1.sig = X1.sig + 1}
+>>>>     if(fake.glm.res[3,4] < .05) {X2.sig = X2.sig + 1}
+>>>>     if(fake.glm.res[4,4] < .05) {X1X2.sig = X1X2.sig + 1}
+>>>>  }
+>>>>  # Compute proportion of significant results
+>>>>   p.res = numeric(4)
+>>>>   p.res[1] = Int.sig/tries
+>>>>   p.res[2] = X1.sig/tries
+>>>>   p.res[3] = X2.sig/tries
+>>>>   p.res[4] = X1X2.sig/tries
+>>>>   names(p.res) = c("Int.sig","X1.sig","X2.sig","X1X2.sig")
+>>>>   return(p.res)
+>>>> }
+>>>> 
+>>>> Running the function with default values, which tests the model Y ~ X1*X2 assuming no asymmetry in Y values (i.e., roughly equal numbers of 0s and 1s)...
+>>>> 
+>>>>> test.floor()
+>>>> 
+>>>> ... gives results like the following...
+>>>> 
+>>>> Int.sig   X1.sig   X2.sig X1X2.sig
+>>>>   0.192    0.091    0.083    0.041
+>>>> 
+>>>> ... which indicates that the intercept, X1, and X2 all tend to be significant (p < .05) more than 5% of the time, which is what we want for real effects (I assume the intercept is significant, despite the symmetry of Y, because the tested model includes an interaction factor that doesn't accurately reflect the data), while the X1:X2 interaction is only significant around 5% of the time, which is also what we want (since it's only significant by accident).
+>>>> 
+>>>> When we run it with data pushed towards the floor...
+>>>> 
+>>>>> test.floor(asym=-0.49,tries=10000)
+>>>> 
+>>>> ... we just make everything less likely to be significant, e.g.:
+>>>> 
+>>>> Int.sig   X1.sig   X2.sig X1X2.sig
+>>>>  0.0792   0.0171   0.0184   0.0114
+>>>> There were 50 or more warnings (use warnings() to see the first 50)
+>>>> 
+>>>>> warnings()
+>>>> Warning messages:
+>>>> 1: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>>> 2: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>>> 3: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>>> 4: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>>> 5: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>>> 6: glm.fit: fitted probabilities numerically 0 or 1 occurred
+>>>> 7: glm.fit: algorithm did not converge
+>>>> ...
+>>>> 
+>>>> Apparently with such an asymmetric Y, many times the model just crashes. But there's still no hint that the interaction is significant as often as X1 and X2 are (0.0114 < 0.0171 & 0.0184). So again, no tendency for spurious interactions.
+>>>> 
+>>>> So... what am I doing wrong? Is there some sweet spot of Y asymmetry, sample size, and coefficients such that X1 and X2 and a spurious X1:X2 interaction all tend to come out significant? Or am I faking the data incorrectly? Should I explicitly include the assumed floor threshold as a factor in the model? But wouldn't that be begging the question?
+>>>> 
+>>>> Or is it in fact the case that if a logistic regression model doesn't crash, it CANNOT give a spurious interaction (beyond the alpha level) due to floor/ceiling effects - since logistic regression doesn't have any floor or ceiling...?
+>>>> 
+>>>> --
+>>>> James Myers
+>>>> Graduate Institute of Linguistics
+>>>> National Chung Cheng University
+>>>> 168 University Road, Min-Hsiung
+>>>> Chia-Yi 62102
+>>>> TAIWAN
+>>>> Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+>>>> 
+>>>> 
+>>> 
+>> 
+>> 
+>> 
+>> 
+>> 
+> 
+> -- 
+> James Myers
+> Graduate Institute of Linguistics
+> National Chung Cheng University
+> 168 University Road, Min-Hsiung
+> Chia-Yi 62102
+> TAIWAN
+> Email:  Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+> Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+> Phone:  886-5-242-8251
+> Fax:    886-5-272-1654
+

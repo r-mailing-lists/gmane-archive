@@ -1,0 +1,254 @@
+From david-uExtaOD1eI5B5qXD8xI3ZGVWuDBz0atN0E9HWUfgJXw at public.gmane.org  Mon Jan  5 23:18:50 2015
+From: david-uExtaOD1eI5B5qXD8xI3ZGVWuDBz0atN0E9HWUfgJXw at public.gmane.org
+Date: Mon, 05 Jan 2015 15:18:50 -0800
+Subject: New feature for RPostgreSQL: service and sslmode parameters
+Message-ID: <58a9ec39-a0ed-42e8-ae88-46b98746f6d8@googlegroups.com>
+
+Folks,
+
+I've taken the liberty of making a patch for $Subject, along with a pull 
+request on github.
+
+What's next?
+
+Cheers,
+David.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From david-uExtaOD1eI5B5qXD8xI3ZGVWuDBz0atN0E9HWUfgJXw at public.gmane.org  Wed Jan 14 00:40:53 2015
+From: david-uExtaOD1eI5B5qXD8xI3ZGVWuDBz0atN0E9HWUfgJXw at public.gmane.org
+Date: Tue, 13 Jan 2015 16:40:53 -0800
+Subject: Re: New feature for RPostgreSQL: service and sslmode parameters
+In-Reply-To: <58a9ec39-a0ed-42e8-ae88-46b98746f6d8@googlegroups.com>
+References: <58a9ec39-a0ed-42e8-ae88-46b98746f6d8@googlegroups.com>
+Message-ID: <de1c7da4-e833-40a5-b1c8-6d470622ee10@googlegroups.com>
+
+On Monday, January 5, 2015 at 3:18:50 PM UTC-8, 
+da...-uExtaOD1eI5B5qXD8xI3ZGVWuDBz0atN0E9HWUfgJXw at public.gmane.org wrote:
+>
+> Folks,
+>
+> I've taken the liberty of making a patch for $Subject, along with a pull 
+> request on github.
+>
+> What's next?
+>
+> Cheers,
+> David.
+>
+
+Apparently, the pull request went to the wrong place, so please find 
+attached the patch.
+
+Cheers,
+David. 
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+-------------- next part --------------
+diff --git a/R/PostgreSQLSupport.R b/R/PostgreSQLSupport.R
+index 1937736..fd25dc3 100644
+--- a/R/PostgreSQLSupport.R
++++ b/R/PostgreSQLSupport.R
+@@ -78,23 +78,24 @@ postgresqlDriverInfo <- function(obj, what="", ...) {
+ ## while NULL means "no database".
+ postgresqlNewConnection <- function(drv, user = "", password = "",
+                                     host = "", dbname = "",
+-                                    port = "", tty = "", options = "", forceISOdate=TRUE) {
++                                    port = "", tty = "", options = "",
++                                    service = "", sslmode = "", forceISOdate=TRUE) {
+     if(!isPostgresqlIdCurrent(drv))
+         stop("expired manager")
+-    if(is.null(user))
+-        stop("user argument cannot be NULL")
+-    if(is.null(password))
+-        stop("password argument cannot be NULL")
+-    if(is.null(dbname))
+-        stop("dbname argument cannot be NULL")
+-    if(is.null(port))
+-        stop("port argument cannot be NULL")
+-    if(is.null(tty))
+-        stop("tty argument cannot be NULL")
++#     if(is.null(user))
++#         stop("user argument cannot be NULL")
++#     if(is.null(password))
++#         stop("password argument cannot be NULL")
++#     if(is.null(dbname))
++#         stop("dbname argument cannot be NULL")
++#     if(is.null(port))
++#         stop("port argument cannot be NULL")
++#     if(is.null(tty))
++#         stop("tty argument cannot be NULL")
+ 
+     con.params <- as.character(c(user, password, host,
+                                  dbname, port,
+-                                 tty, options))
++                                 tty, options, service, sslmode))
+ 
+     drvId <- as(drv, "integer")
+     conId <- .Call("RS_PostgreSQL_newConnection", drvId, con.params, PACKAGE = .PostgreSQLPkgName)
+diff --git a/man/dbConnect-methods.Rd b/man/dbConnect-methods.Rd
+index a1bc9a7..b139bb0 100644
+--- a/man/dbConnect-methods.Rd
++++ b/man/dbConnect-methods.Rd
+@@ -36,6 +36,10 @@
+  }
+ \item{options}{Command-line options to be sent to the server
+  }
++\item{service}{The service being used, per ~/.pg_service.conf or similar.  This is taken from $PGSERVICE if it is set.
++ }
++\item{sslmode}{Under what circumstances to use SSL to connect to the database.
++ }
+ \item{forceISOdate}{logical if the communication of date (time stamp) from PostgreSQL is forced to ISO style at conection.
+  }
+ }
+diff --git a/src/RS-PostgreSQL.c b/src/RS-PostgreSQL.c
+index 1e6f1cc..e4da5eb 100644
+--- a/src/RS-PostgreSQL.c
++++ b/src/RS-PostgreSQL.c
+@@ -132,11 +132,11 @@ RS_PostgreSQL_cloneConnection(Con_Handle * conHandle)
+     mgrHandle = RS_DBI_asMgrHandle(MGR_ID(conHandle));
+ 
+ 
+-    /* Connection parameters need to be put into a 8-element character
++    /* Connection parameters need to be put into a 10-element character
+      * vector to be passed to the RS_PostgreSQL_newConnection() function.
+      */
+ 
+-    MEM_PROTECT(con_params = NEW_CHARACTER((Sint) 7));
++    MEM_PROTECT(con_params = NEW_CHARACTER((Sint) 9));
+     SET_CHR_EL(con_params, 0, C_S_CPY(conParams->user));
+     SET_CHR_EL(con_params, 1, C_S_CPY(conParams->password));
+     SET_CHR_EL(con_params, 2, C_S_CPY(conParams->host));
+@@ -144,6 +144,8 @@ RS_PostgreSQL_cloneConnection(Con_Handle * conHandle)
+     SET_CHR_EL(con_params, 4, C_S_CPY(conParams->port));
+     SET_CHR_EL(con_params, 5, C_S_CPY(conParams->tty));
+     SET_CHR_EL(con_params, 6, C_S_CPY(conParams->options));
++    SET_CHR_EL(con_params, 7, C_S_CPY(conParams->service));
++    SET_CHR_EL(con_params, 8, C_S_CPY(conParams->sslmode));
+ 
+     MEM_UNPROTECT(1);
+ 
+@@ -191,6 +193,12 @@ RS_PostgreSQL_freeConParams(RS_PostgreSQL_conParams * conParams)
+     if (conParams->options) {
+         free(conParams->options);
+     }
++    if (conParams->service) {
++        free(conParams->service);
++    }
++    if (conParams->sslmode) {
++        free(conParams->sslmode);
++    }
+ 
+     free(conParams);
+     return;
+@@ -204,42 +212,51 @@ RS_PostgreSQL_newConnection(Mgr_Handle * mgrHandle, s_object * con_params)
+     RS_PostgreSQL_conParams *conParams;
+     Con_Handle *conHandle;
+     PGconn *my_connection;
+-
+-    char *user = NULL, *password = NULL, *host = NULL, *dbname = NULL, *port = NULL, *tty = NULL, *options = NULL;
++#define PARAMS_ARRAY_SIZE	10
++	const char *keywords[PARAMS_ARRAY_SIZE];
++	const char *values[PARAMS_ARRAY_SIZE];
+ 
+     if (!is_validHandle(mgrHandle, MGR_HANDLE_TYPE)) {
+         RS_DBI_errorMessage("invalid PostgreSQLManager", RS_DBI_ERROR);
+     }
+ 
+-#define IS_EMPTY(s1)   !strcmp((s1), "")
++    keywords[0] = "user";
++    values[0] = (char *) CHR_EL(con_params, 0);
++    keywords[1] = "password";
++    values[1] = (char *) CHR_EL(con_params, 1);
++    keywords[2] = "host";
++    values[2] = (char *) CHR_EL(con_params, 2);
++    keywords[3] = "dbname";
++    values[3] = (char *) CHR_EL(con_params, 3);
++    keywords[4] = "port";
++    values[4] = (char *) CHR_EL(con_params, 4);
++    keywords[5] = "tty";
++    values[5] = (char *) CHR_EL(con_params, 5);
++    keywords[6] = "options";
++    values[6] = (char *) CHR_EL(con_params, 6);
++    keywords[7] = "service";
++    values[7] = (char *) CHR_EL(con_params, 7);
++    keywords[8] = "sslmode";
++    values[8] = (char *) CHR_EL(con_params, 8);
++    keywords[9] = NULL;
++    values[9] = NULL;
+ 
+-    if (!IS_EMPTY(CHR_EL(con_params, 0))) {
+-        user = (char *) CHR_EL(con_params, 0);
+-    }
+-    if (!IS_EMPTY(CHR_EL(con_params, 1))) {
+-        password = (char *) CHR_EL(con_params, 1);
+-    }
+-    if (!IS_EMPTY(CHR_EL(con_params, 2))) {
+-        host = (char *) CHR_EL(con_params, 2);
+-    }
+-    if (!IS_EMPTY(CHR_EL(con_params, 3))) {
+-        dbname = (char *) CHR_EL(con_params, 3);
+-    }
+-    if (!IS_EMPTY(CHR_EL(con_params, 4))) {
+-        port = (char *) CHR_EL(con_params, 4);
+-    }
+-    if (!IS_EMPTY(CHR_EL(con_params, 5))) {
+-        tty = (char *) CHR_EL(con_params, 5);
+-    }
+-    if (!IS_EMPTY(CHR_EL(con_params, 6))) {
+-        options = (char *) CHR_EL(con_params, 6);
+-    }
+-
+-    my_connection = PQsetdbLogin(host, port, options, tty, dbname, user, password);
++    my_connection = PQconnectdbParams(keywords, values, 0);
+ 
+     if (PQstatus(my_connection) != CONNECTION_OK) {
+-        char buf[1000];
+-	sprintf(buf, "could not connect %s@%s on dbname \"%s\"\n", PQuser(my_connection), host?host:"local", PQdb(my_connection));
++        char buf[4096];
++		/*
++        char params[3072];
++		int i;
++		for (i = 0; i < PARAMS_ARRAY_SIZE; i++)
++		{
++			strcat(params, keywords[i]);
++			strcat(params, ": ");
++			strcat(params, values[i]);
++			strcat(params, "\n");
++		}
++		*/
++	sprintf(buf, "could not connect %s@%s on dbname \"%s\"\n", PQuser(my_connection), values[2]?values[2]:"local", PQdb(my_connection));
+         RS_DBI_errorMessage(buf, RS_DBI_ERROR);
+     }
+ 
+@@ -260,6 +277,8 @@ RS_PostgreSQL_newConnection(Mgr_Handle * mgrHandle, s_object * con_params)
+     conParams->port = RS_DBI_copyString(PQport(my_connection));
+     conParams->tty = RS_DBI_copyString(PQtty(my_connection));
+     conParams->options = RS_DBI_copyString(PQoptions(my_connection));
++    conParams->service = RS_DBI_copyString(PQoptions(my_connection));
++    conParams->sslmode = RS_DBI_copyString(PQoptions(my_connection));
+ 
+     PROTECT(conHandle = RS_DBI_allocConnection(mgrHandle, (Sint) 1)); /* The second argument (1) specifies the number of result sets allocated */
+     con = RS_DBI_getConnection(conHandle);
+diff --git a/src/RS-PostgreSQL.h b/src/RS-PostgreSQL.h
+index 0190024..e0ad0c8 100644
+--- a/src/RS-PostgreSQL.h
++++ b/src/RS-PostgreSQL.h
+@@ -38,6 +38,8 @@ extern "C" {
+         char *port;
+         char *tty;
+         char *options;
++        char *service;
++        char *sslmode;
+     } RS_PostgreSQL_conParams;
+ 
+     RS_PostgreSQL_conParams *RS_PostgreSQL_allocConParams(void);
+

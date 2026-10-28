@@ -1,0 +1,899 @@
+From vdweijer-/lk4vkqkymfLoDKTGw+V6w at public.gmane.org  Fri Sep  3 07:29:41 2010
+From: vdweijer-/lk4vkqkymfLoDKTGw+V6w at public.gmane.org (Joost van de Weijer)
+Date: Fri, 03 Sep 2010 09:29:41 +0200
+Subject: utterance length
+Message-ID: <C8A67085.A168%vdweijer@ling.lu.se>
+
+Dear list members,
+I want to use a mixed model to compare length (in words) of child-directed
+utterances with length of adult-directed utterances. The transcribed
+material that I have comes from different speakers. I have two questions
+that I would appreciate if anyone could give me feedback upon:
+
+1. Does it make sense to use the transcribed utterance as a random factor,
+such that the model looks something like the following:
+
+lmer(nrwords~adressee+(1|speaker)+(1|utterance),corpus)
+
+And if I then fail to find a significant addressee effect, is then the
+following conclusion justified: "the difference in utterance length between
+child-directed utterances and adult-directed utterances is due to the fact
+that the content of the child-directed utterances differs from that of the
+adult-directed utterances".
+
+2. Is it advisable to use the square root (or the log) of the length
+variable rather than the actual number of words? How should I choose whether
+or not to transform?
+
+With many thanks in advance for any feedback that you might have!
+
+Joost van de Weijer
+Lund University
+
+From H.Quene-qTWcuMntz1Q at public.gmane.org  Fri Sep  3 09:23:05 2010
+From: H.Quene-qTWcuMntz1Q at public.gmane.org (=?utf-8?q?Hugo_Quen=C3=A9?=)
+Date: Fri, 03 Sep 2010 11:23:05 +0200
+Subject: Re: utterance length
+In-Reply-To: <C8A67085.A168%vdweijer@ling.lu.se>
+References: <C8A67085.A168%vdweijer@ling.lu.se>
+Message-ID: <4C80BE79.1040906@uu.nl>
+
+Dear Joost, and others,
+
+On 2010.09.03 09:29 , Joost van de Weijer wrote:
+> I want to use a mixed model to compare length (in words) of child-directed
+> utterances with length of adult-directed utterances. The transcribed
+> material that I have comes from different speakers. I have two questions
+> that I would appreciate if anyone could give me feedback upon:
+>
+> 1. Does it make sense to use the transcribed utterance as a random factor,
+> such that the model looks something like the following:
+>
+> lmer(nrwords~adressee+(1|speaker)+(1|utterance),corpus)
+
+Yes this would make sense. Notice however that in this model you 
+have crossed (as opposed to nested) the two random effects of 
+speaker and utterance. That is only meaningful if at least some of 
+the utterances have been produced by multiple speakers. I can 
+imagine that that is indeed the case. If that is not the case, a 
+better model would be
+R> lmer(nrwords~adressee+(1|speaker/utterance),corpus)
+
+Perhaps the following article is relevant (although modeling was 
+done in MLwiN, not in R). Similar to your approach, I modeled the 
+nrwords in the utterance, with speaker's gender as fixed effect.
+
+H. Quené (2008). J.Acoust.Soc.Am. 123 (2), 1104-1113. 
+[doi:10.1121/1.2821762].
+
+
+>
+> And if I then fail to find a significant addressee effect, is then the
+> following conclusion justified: "the difference in utterance length between
+> child-directed utterances and adult-directed utterances is due to the fact
+> that the content of the child-directed utterances differs from that of the
+> adult-directed utterances".
+
+No. If there is no significant adressee effect, then there is *no* 
+difference in utterance length between CDS and ADS in your data.
+
+> 2. Is it advisable to use the square root (or the log) of the length
+> variable rather than the actual number of words? How should I choose whether
+> or not to transform?
+
+R> require(MASS)
+# functions from Venables & Ripley (1994). Modern Applied Statistics 
+with S-Plus. Berlin: Springer. ISBN 0-387-94350-1.
+
+R> boxcox( aux <- lm(nrwords~1,data=corpus) )
+
+You can also extend the lm with additional predictors, but do not 
+include any predictors or fixed effects related to your hypotheses.
+
+Have a look at the resulting plot, and notice the lambda value where 
+the curve is highest. Round off the lambda to about 1/3 or 1/2 
+precision.
+
+The best transformation, according to Venables & Ripley (1994, 
+p.170) is y = x^lambda, a power transformation.
+So if the curve peaks at about 1/2, use y = x^(1/2) = sqrt(x).
+If the curve peaks at 1, use y=x, untransformed.
+If the curve peaks at 0, use y = log(x), a special case.
+If the curve peaks at -1, use y=1/x.
+Etc.
+Also see the boxplot documentation.
+Make QQplots of various transformed DVs, and consider whether the 
+transformed DV is still of interest to you. In particular, think 
+about log and inverse transformations. Additive effects in 
+log-transformed vars mean multiplicative effects in untransformed 
+vars, for example.
+
+Hope this helps! Best, Hugo Quené
+
+-- 
+Dr Hugo Quené | Assoc Prof in Phonetics | Dept Moderne Talen | 
+Utrecht inst of Linguistics OTS | Universiteit Utrecht | Trans 10 | 
+3512 JK Utrecht | The Netherlands | T +31 30 253 6070 | 
+H.Quene-qTWcuMntz1Q at public.gmane.org | www.hugoquene.nl | www.hum.uu.nl | 
+uu.academia.edu/HugoQuene
+
+From bruno.nicenboim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Sep  3 16:45:36 2010
+From: bruno.nicenboim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Bruno Nicenboim)
+Date: Fri, 03 Sep 2010 19:45:36 +0300
+Subject: coding in unbalanced data
+Message-ID: <AANLkTinq5HH-2O-kZa+W1+b5GzBOabZa8yTzRD6LgvO+@mail.gmail.com>
+
+Dear list members,
+
+I'm analyzing the  data of a self paced reading experiment using lmer
+(lme4). I followed the guidelines of http://hlplab.wordpress.com, and
+Baayen 2008, 2010. And my model looks like this:
+
+> lmer(logRTresidual~condition.coded * canimacy * corder_of_the_sentence +cSpillOver1+cSpillOver2+cSpillOver3 + csex +chand+cage+(1|subj) + (1|word) ,data=averb)
+
+(c means centered, and I think the names are pretty straightforward).
+I have a fixed effect "condition" with 4 levels: B, D0, D1,D2. My data
+was balanced until I removed the RTs smaller than 200 and bigger than
+1100. But, now I see it isn't balanced:
+
+> prop.table(table(CNPCC$condition))
+
+        B        D0        D1        D2
+
+0.1496947 0.2280904 0.2889916 0.3332233
+
+I want to use contrast coding (or Helmert coding or orthogonal coding, is it
+the same?). I want to check B vs D0,D1 and D2; D0 vs D1 and D2; and D1 vs
+D2.
+
+When I did the same kind of experiment with judgments (and balanced
+data) I used this:
+
+>CNPCC$cond.co <-CNPCC$condition
+
+>contrasts(CNPCC$cond.cod) <-cbind("B-D0"= c(3,-(1),-(1),-(1)),"D0-D1.D2"= c(0,(2),-(1),-(1)),"D1-D2"= c(0,0,(1),-(1)))
+
+But now I'm seeing larger correlations of fixed effects and I suspect
+that it may be because of the coding (everything else is centered).
+How do I do this kind of coding to unbalanced data?
+
+
+Thanks!
+
+
+Bruno Nicenboim
+
+From phofmeister-XkckGZ689+c at public.gmane.org  Fri Sep  3 21:38:23 2010
+From: phofmeister-XkckGZ689+c at public.gmane.org (Philip Hofmeister)
+Date: Fri, 03 Sep 2010 14:38:23 -0700
+Subject: Re: coding in unbalanced data
+In-Reply-To: <AANLkTinq5HH-2O-kZa+W1+b5GzBOabZa8yTzRD6LgvO+@mail.gmail.com>
+References: <AANLkTinq5HH-2O-kZa+W1+b5GzBOabZa8yTzRD6LgvO+@mail.gmail.com>
+Message-ID: <AANLkTi=1sYUKRoKJyRdSqj7cCtJwc=1GB_m5qe21kq=Z@mail.gmail.com>
+
+Hi Bruno,
+
+First, unbalanced data in LME models will not lead to fixed effect
+correlations, certainly not with the number of data points that
+reading time studies yield. The ability of LME models to handle
+unbalanced data is one of the things that makes it so great.
+
+>
+>> lmer(logRTresidual~condition.coded * canimacy * corder_of_the_sentence
+>> +cSpillOver1+cSpillOver2+cSpillOver3 + csex +chand+cage+(1|subj) + (1|word)
+>> ,data=averb)
+
+Two, until you understand your data, I wouldn't advise using residual
+log reading times. They can be very useful, but coefficients are hard
+to interpret, and it's generally good practice to start with raw or
+length-residualized reading times.
+
+> (c means centered, and I think the names are pretty straightforward). I have
+> a fixed effect "condition" with 4 levels: B, D0, D1,D2. My data was balanced
+> until I removed the RTs smaller than 200 and bigger than 1100. But, now I
+> see it isn't balanced:
+>
+>> prop.table(table(CNPCC$condition))
+>
+>         B        D0        D1        D2
+>
+> 0.1496947 0.2280904 0.2889916 0.3332233
+>
+> I want to use contrast coding (or Helmert coding or orthogonal coding, is it
+> the same?). I want to check B vs D0,D1 and D2; D0 vs D1 and D2; and D1 vs
+> D2.
+>
+
+What you describe is Helmert coding. Did you actually change the
+coding of your condition levels? Once factors have been Helmert coded,
+correlations tend to disappear.
+
+> When I did the same kind of experiment with judgments (and balanced data) I
+> used this:
+>
+>>CNPCC$cond.co <-CNPCC$condition
+>
+>>contrasts(CNPCC$cond.cod) <-cbind("B-D0"= c(3,-(1),-(1),-(1)),"D0-D1.D2"=
+>> c(0,(2),-(1),-(1)),"D1-D2"= c(0,0,(1),-(1)))
+>
+> But now I'm seeing larger correlations of fixed effects and I suspect that
+> it may be because of the coding (everything else is centered). How do I do
+> this kind of coding to unbalanced data?
+
+You didn't specify which factors are correlated so it's hard to say
+exactly what's going on. You can look here for some general coding
+tips in R (and also just use the R help library):
+
+http://www.ats.ucla.edu/stat/r/library/contrast_coding.htm
+
+I vaguely recall some reference to the above UCLA page in a previous
+posting to this list, so you might wanna search the archives of this
+list, too.
+
+Good luck,
+
+Philip
+
+>
+> Thanks!
+>
+> Bruno Nicenboim
+>
+
+From bruno.nicenboim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Sep 12 09:10:22 2010
+From: bruno.nicenboim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Bruno Nicenboim)
+Date: Sun, 12 Sep 2010 12:10:22 +0300
+Subject: Re: coding in unbalanced data
+In-Reply-To: <AANLkTi=1sYUKRoKJyRdSqj7cCtJwc=1GB_m5qe21kq=Z@mail.gmail.com>
+References: <AANLkTinq5HH-2O-kZa+W1+b5GzBOabZa8yTzRD6LgvO+@mail.gmail.com> <AANLkTi=1sYUKRoKJyRdSqj7cCtJwc=1GB_m5qe21kq=Z@mail.gmail.com>
+Message-ID: <AANLkTinENo=CEgEQQbSni8YnQFmNYHXBRDCi5Z0+hjS3@mail.gmail.com>
+
+Hi, thanks for the advice.
+I removed the residuals and used the logRT and the output seems more
+reasonable.
+
+When I use contrasts, how do I interpret the sign in coefs in the lmer
+output
+> contrasts(CNPCC$cond.cod) <-cbind("B-D*"= c(3,-(1),-(1),-(1)),"D0-D1.D2"=
++ c(0,(2),-(1),-(1)),"D1-D2"= c(0,0,(1),-(1)))
+
+The levels of cond are B,D0,D1,D2. If the coef of B-D* is less than 0, does
+it
+mean that the reaction time is faster for B? Is the comparison made between
+the
+leftmost condition, the positive condition or the biggest number, and the
+rest
+of the conditions? or neither of them?
+
+Thanks again
+
+On Sat, Sep 4, 2010 at 12:38 AM, Philip Hofmeister <phofmeister-XkckGZ689+c at public.gmane.org>wrote:
+
+> Hi Bruno,
+>
+> First, unbalanced data in LME models will not lead to fixed effect
+> correlations, certainly not with the number of data points that
+> reading time studies yield. The ability of LME models to handle
+> unbalanced data is one of the things that makes it so great.
+>
+> >
+> >> lmer(logRTresidual~condition.coded * canimacy * corder_of_the_sentence
+> >> +cSpillOver1+cSpillOver2+cSpillOver3 + csex +chand+cage+(1|subj) +
+> (1|word)
+> >> ,data=averb)
+>
+> Two, until you understand your data, I wouldn't advise using residual
+> log reading times. They can be very useful, but coefficients are hard
+> to interpret, and it's generally good practice to start with raw or
+> length-residualized reading times.
+>
+> > (c means centered, and I think the names are pretty straightforward). I
+> have
+> > a fixed effect "condition" with 4 levels: B, D0, D1,D2. My data was
+> balanced
+> > until I removed the RTs smaller than 200 and bigger than 1100. But, now I
+> > see it isn't balanced:
+> >
+> >> prop.table(table(CNPCC$condition))
+> >
+> >         B        D0        D1        D2
+> >
+> > 0.1496947 0.2280904 0.2889916 0.3332233
+> >
+> > I want to use contrast coding (or Helmert coding or orthogonal coding, is
+> it
+> > the same?). I want to check B vs D0,D1 and D2; D0 vs D1 and D2; and D1 vs
+> > D2.
+> >
+>
+> What you describe is Helmert coding. Did you actually change the
+> coding of your condition levels? Once factors have been Helmert coded,
+> correlations tend to disappear.
+>
+> > When I did the same kind of experiment with judgments (and balanced data)
+> I
+> > used this:
+> >
+> >>CNPCC$cond.co <-CNPCC$condition
+> >
+> >>contrasts(CNPCC$cond.cod) <-cbind("B-D0"= c(3,-(1),-(1),-(1)),"D0-D1.D2"=
+> >> c(0,(2),-(1),-(1)),"D1-D2"= c(0,0,(1),-(1)))
+> >
+> > But now I'm seeing larger correlations of fixed effects and I suspect
+> that
+> > it may be because of the coding (everything else is centered). How do I
+> do
+> > this kind of coding to unbalanced data?
+>
+> You didn't specify which factors are correlated so it's hard to say
+> exactly what's going on. You can look here for some general coding
+> tips in R (and also just use the R help library):
+>
+> http://www.ats.ucla.edu/stat/r/library/contrast_coding.htm
+>
+> I vaguely recall some reference to the above UCLA page in a previous
+> posting to this list, so you might wanna search the archives of this
+> list, too.
+>
+> Good luck,
+>
+> Philip
+>
+> >
+> > Thanks!
+> >
+> > Bruno Nicenboim
+> >
+>
+
+
+
+-- 
+Bruno
+
+From r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org  Thu Sep 16 10:54:04 2010
+From: r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org (Roger van-Gompel)
+Date: Thu, 16 Sep 2010 11:54:04 +0100
+Subject: What happens if I include a continuous variable?
+Message-ID: <4C92055D.334D.0064.1@dundee.ac.uk>
+
+I am wondering what happens if I include a continuous variable in my LME
+model.
+
+Let’s say that I am interested in the effect of frequency on lexical
+decision times. I analyse this using the following LME model (the
+variable frequency has two levels (high/low) and is centered):
+
+testdata.lmer <- lmer(lexdectime ~ frequency + (1|participant) +
+(1|item), data = testdata)
+
+However, let’s say I failed to control for word length, and length
+and frequency tend to be highly correlated. Can I then include length as
+a continuous variable (after centering) in order to deconfound frequency
+from length?
+
+testdata.lmer <- lmer(lexdectime ~ frequency*length + (1|participant) +
+(1|item), data = testdata)
+
+In other words, if I still get an effect of frequency in the second
+model, does this mean that this effect is not due to/not confounded with
+length?
+
+Roger van Gompel
+
+************************************************************
+Please consider the environment.  Do you really need to print this
+email?
+
+
+
+The University of Dundee is a registered Scottish charity, No: SC015096
+
+From s0782345-Y3tGgqFSo3OFxr2TtlUqVg at public.gmane.org  Thu Sep 16 11:35:36 2010
+From: s0782345-Y3tGgqFSo3OFxr2TtlUqVg at public.gmane.org (Zhenguang Cai)
+Date: Thu, 16 Sep 2010 12:35:36 +0100
+Subject: Re: What happens if I include a continuous variable?
+In-Reply-To: <4C92055D.334D.0064.1@dundee.ac.uk>
+References: <4C92055D.334D.0064.1@dundee.ac.uk>
+Message-ID: <4C920108.9080508@sms.ed.ac.uk>
+
+I had the same problem before. What I did is, following Florian's 
+advice, test whether one of the predictors can be subsumed by the other. 
+For instance, in your case, you can compare models to see whether 
+frequency still had an effect when length is considered:
+
+fit.length <- lmer(lexdectime ~ length + (1|participant) + (1|item), 
+data = testdata)
+
+fit.length-frequency <- lmer(lexdectime ~ length + frequency + 
+(1|participant) + (1|item), data = testdata)
+
+anova (fit.length, fit.length-frequency)
+
+You can then do the reverse - testing whether frequency had an effect 
+over length.
+
+fit.frequency <- lmer(lexdectime ~ frequency + (1|participant) + 
+(1|item), data = testdata)
+
+fit.length-frequency <- lmer(lexdectime ~ length + frequency + 
+(1|participant) + (1|item), data = testdata)
+
+anova (fit.frequency, fit.length-frequency)
+
+
+
+Garry
+
+
+Roger van-Gompel wrote:
+> I am wondering what happens if I include a continuous variable in my LME
+> model.
+> 
+> Let’s say that I am interested in the effect of frequency on lexical
+> decision times. I analyse this using the following LME model (the
+> variable frequency has two levels (high/low) and is centered):
+> 
+> testdata.lmer <- lmer(lexdectime ~ frequency + (1|participant) +
+> (1|item), data = testdata)
+> 
+> However, let’s say I failed to control for word length, and length
+> and frequency tend to be highly correlated. Can I then include length as
+> a continuous variable (after centering) in order to deconfound frequency
+> from length?
+> 
+> testdata.lmer <- lmer(lexdectime ~ frequency*length + (1|participant) +
+> (1|item), data = testdata)
+> 
+> In other words, if I still get an effect of frequency in the second
+> model, does this mean that this effect is not due to/not confounded with
+> length?
+> 
+> Roger van Gompel
+> 
+> ************************************************************
+> Please consider the environment.  Do you really need to print this
+> email?
+> 
+> 
+> 
+> The University of Dundee is a registered Scottish charity, No: SC015096
+> 
+> 
+
+-- 
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+From reitter-D+Gtc/HYRWM at public.gmane.org  Thu Sep 16 12:17:18 2010
+From: reitter-D+Gtc/HYRWM at public.gmane.org (David Reitter)
+Date: Thu, 16 Sep 2010 08:17:18 -0400
+Subject: Re: What happens if I include a continuous variable?
+In-Reply-To: <18891_1284636186_o8GBN4GF012650_4C92055D.334D.0064.1@dundee.ac.uk>
+References: <18891_1284636186_o8GBN4GF012650_4C92055D.334D.0064.1@dundee.ac.uk>
+Message-ID: <E140DEC8-0C36-41DF-85CF-2519A99D92FE@cmu.edu>
+
+Hi Roger,
+
+On Sep 16, 2010, at 6:54 AM, Roger van-Gompel wrote:
+> 
+> However, let’s say I failed to control for word length, and length
+> and frequency tend to be highly correlated. Can I then include length as
+> a continuous variable (after centering) in order to deconfound frequency
+> from length?
+
+In principle yes, but collinearity is a caveat.
+
+> In other words, if I still get an effect of frequency in the second
+> model, does this mean that this effect is not due to/not confounded with
+> length?
+
+Yes, that's a good start, but have a look at the correlation matrix.   If, after centering, you still find substantial correlations (perhaps >0.2) between frequency or length and their interaction, you will want to do something about it.  Otherwise, significance tests of the fitted effects won't tell you much, as these variables are confounded.  See also:
+
+http://cran.r-project.org/doc/contrib/Faraway-PRA.pdf
+(pages 117ff)
+
+or;  http://en.wikipedia.org/wiki/Multicollinearity
+
+One way to address collinearity is to regress out length from frequency first, e.g. creating testdata$FreqWithoutLen from something like resid(lm(Freq ~ Len)).
+
+I wonder if it would be OK to do stepwise regression, i.e. regressing out length from your response variable (lexdectime) first, and then fitting the main model.
+Similarly, I would think that finding significant changes (improvements) in fit when the Frequency variable is included would demonstrate the significance of its effect (use an ANOVA to compare the models, or just apply R's ANOVA to one model, which will stepwise compare the nested models).  Opinions?
+This is from the perspective of your a-priori hypothesis being that frequency matters, and you are trying to harden your answer against the possible effect of length. 
+
+(Finally, Length and Frequency may work better when log-transformed.)
+
+Hope that helps.
+- David
+
+
+--
+Dr. David Reitter
+Department of Psychology
+Carnegie Mellon University
+
+From njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org  Thu Sep 16 15:34:50 2010
+From: njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org (Nathaniel Smith)
+Date: Thu, 16 Sep 2010 08:34:50 -0700
+Subject: Re: What happens if I include a continuous variable?
+In-Reply-To: <E140DEC8-0C36-41DF-85CF-2519A99D92FE-D+Gtc/HYRWM@public.gmane.org>
+References: <18891_1284636186_o8GBN4GF012650_4C92055D.334D.0064.1@dundee.ac.uk> <E140DEC8-0C36-41DF-85CF-2519A99D92FE@cmu.edu>
+Message-ID: <AANLkTimXQy4Ewtx2WSNaUD4pP4DJrgYH1j5Nqy5C-Rfa@mail.gmail.com>
+
+Hi David,
+
+A few added comments to your reply.
+
+On Thu, Sep 16, 2010 at 5:17 AM, David Reitter <reitter-D+Gtc/HYRWM at public.gmane.org> wrote:
+> Hi Roger,
+>
+> On Sep 16, 2010, at 6:54 AM, Roger van-Gompel wrote:
+>> In other words, if I still get an effect of frequency in the second
+>> model, does this mean that this effect is not due to/not confounded with
+>> length?
+>
+> Yes, that's a good start, but have a look at the correlation matrix.   If, after centering, you still find substantial correlations (perhaps >0.2) between frequency or length and their interaction, you will want to do something about it.  Otherwise, significance tests of the fitted effects won't tell you much, as these variables are confounded.  See also:
+
+This is true in general, but I think it's worth emphasizing that
+significance tests are still meaningful in the presence of
+collinearity, they just have less power. So, collinearity tends to
+mean you need more data in order to find significant results. But if
+you have enough data, this isn't an issue.
+
+(And if you don't have enough data, then there may be nothing you can
+do except collect more/better data -- or give up on trying to
+determine which of the correlated predictors is actually driving the
+effect.)
+
+> One way to address collinearity is to regress out length from frequency first, e.g. creating testdata$FreqWithoutLen from something like resid(lm(Freq ~ Len)).
+>
+> I wonder if it would be OK to do stepwise regression, i.e. regressing out length from your response variable (lexdectime) first, and then fitting the main model.
+
+I think you're talking about residualization, not stepwise regression?
+I would either regress out Length from *both* Freq and lexdectime, or
+not regress it out at all.
+
+> Similarly, I would think that finding significant changes (improvements) in fit when the Frequency variable is included would demonstrate the significance of its effect (use an ANOVA to compare the models, or just apply R's ANOVA to one model, which will stepwise compare the nested models).  Opinions?
+
+Makes sense to me. As mentioned above, the presence of Length will
+tend to decrease your power to detect a Freq effect, but that's
+inherent in the problem of distinguishing correlated predictors.
+
+-- Nathaniel
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Thu Sep 16 18:37:37 2010
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Thu, 16 Sep 2010 20:37:37 +0200
+Subject: Re: What happens if I include a continuous variable?
+In-Reply-To: <AANLkTimXQy4Ewtx2WSNaUD4pP4DJrgYH1j5Nqy5C-Rfa@mail.gmail.com>
+References: <18891_1284636186_o8GBN4GF012650_4C92055D.334D.0064.1@dundee.ac.uk> <E140DEC8-0C36-41DF-85CF-2519A99D92FE@cmu.edu> <AANLkTimXQy4Ewtx2WSNaUD4pP4DJrgYH1j5Nqy5C-Rfa@mail.gmail.com>
+Message-ID: <AANLkTimXeB3H-c-iNdas7EAZmywi01cFbqeUJDoqROQU@mail.gmail.com>
+
+Hi Roger, Garry, David, Nathaniel,
+
+you might find the slides useful that Victor Kuperman and I prepared for
+WOMM (2008 or 2009?). An updated version that I used for a mini workshop at
+McGill this year is available here:
+http://hlplab.wordpress.com/2010/05/10/mini-womm-montreal-slides-now-available/
+
+<http://hlplab.wordpress.com/2010/05/10/mini-womm-montreal-slides-now-available/>These
+slides talk (lecture 2) about how to test for and how to remove collinearity
+from your model. One way is residualization (which is what David meant when
+he said model comparison, as Nathanial pointed out). It's also correct that
+collinearity just causes loss in power, though -as shown in the slides I
+mentioned above- it can be the case that the collinearity between two
+predictors causes a spurious significance, because of secondary correlations
+with variables that are not in the model (that's always a danger though).
+The slides also contain small simulations that help you to understand the
+increase in Type II error (power) and that there is no increase in Type I
+error.
+
+The good thing is that model comparison (described by Garry) is robust
+against collinearity. So, the save and easy first step is indeed:
+
+1) run the full model (with interaction of frequency and length)
+2) run the model w/o frequency (and w/o interaction, of course)
+3) run the model w/o length (and w/o interaction, of course)
+4) compare 1 against 2, using anova() function: if significant, frequency
+matters beyond length
+5) compare 1 against 3: if significant: length matters beyond frequency
+
+of course, both or neither of 4) and 5) may yield significance.
+
+6) only if model comparison returns significance: figure whether the
+direction of the effect is expected (using residualization, as described in
+the slides).
+
+HTH and sorry for the redundancy.
+
+Florian
+
+On Thu, Sep 16, 2010 at 5:34 PM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+
+> Hi David,
+>
+> A few added comments to your reply.
+>
+> On Thu, Sep 16, 2010 at 5:17 AM, David Reitter <reitter-D+Gtc/HYRWM at public.gmane.org> wrote:
+> > Hi Roger,
+> >
+> > On Sep 16, 2010, at 6:54 AM, Roger van-Gompel wrote:
+> >> In other words, if I still get an effect of frequency in the second
+> >> model, does this mean that this effect is not due to/not confounded with
+> >> length?
+> >
+> > Yes, that's a good start, but have a look at the correlation matrix.
+> If, after centering, you still find substantial correlations (perhaps >0.2)
+> between frequency or length and their interaction, you will want to do
+> something about it.  Otherwise, significance tests of the fitted effects
+> won't tell you much, as these variables are confounded.  See also:
+>
+> This is true in general, but I think it's worth emphasizing that
+> significance tests are still meaningful in the presence of
+> collinearity, they just have less power. So, collinearity tends to
+> mean you need more data in order to find significant results. But if
+> you have enough data, this isn't an issue.
+>
+> (And if you don't have enough data, then there may be nothing you can
+> do except collect more/better data -- or give up on trying to
+> determine which of the correlated predictors is actually driving the
+> effect.)
+>
+> > One way to address collinearity is to regress out length from frequency
+> first, e.g. creating testdata$FreqWithoutLen from something like
+> resid(lm(Freq ~ Len)).
+> >
+> > I wonder if it would be OK to do stepwise regression, i.e. regressing out
+> length from your response variable (lexdectime) first, and then fitting the
+> main model.
+>
+> I think you're talking about residualization, not stepwise regression?
+> I would either regress out Length from *both* Freq and lexdectime, or
+> not regress it out at all.
+>
+> > Similarly, I would think that finding significant changes (improvements)
+> in fit when the Frequency variable is included would demonstrate the
+> significance of its effect (use an ANOVA to compare the models, or just
+> apply R's ANOVA to one model, which will stepwise compare the nested
+> models).  Opinions?
+>
+> Makes sense to me. As mentioned above, the presence of Length will
+> tend to decrease your power to detect a Freq effect, but that's
+> inherent in the problem of distinguishing correlated predictors.
+>
+> -- Nathaniel
+>
+>
+
+From reitter-D+Gtc/HYRWM at public.gmane.org  Thu Sep 16 19:00:15 2010
+From: reitter-D+Gtc/HYRWM at public.gmane.org (David Reitter)
+Date: Thu, 16 Sep 2010 15:00:15 -0400
+Subject: Re: What happens if I include a continuous variable?
+In-Reply-To: <AANLkTimXQy4Ewtx2WSNaUD4pP4DJrgYH1j5Nqy5C-Rfa@mail.gmail.com>
+References: <18891_1284636186_o8GBN4GF012650_4C92055D.334D.0064.1@dundee.ac.uk> <E140DEC8-0C36-41DF-85CF-2519A99D92FE@cmu.edu> <AANLkTimXQy4Ewtx2WSNaUD4pP4DJrgYH1j5Nqy5C-Rfa@mail.gmail.com>
+Message-ID: <0DC8D571-E180-46C6-8A2F-EC696E21D540@cmu.edu>
+
+On Sep 16, 2010, at 11:34 AM, Nathaniel Smith wrote:
+> 
+>> One way to address collinearity is to regress out length from frequency first, e.g. creating testdata$FreqWithoutLen from something like resid(lm(Freq ~ Len)).
+>> 
+>> I wonder if it would be OK to do stepwise regression, i.e. regressing out length from your response variable (lexdectime) first, and then fitting the main model.
+> 
+> I think you're talking about residualization, not stepwise regression?
+> I would either regress out Length from *both* Freq and lexdectime, or
+> not regress it out at all.
+
+In the first sentence I talk about residualization, in the second I'm asking if a different approach would also be feasible.
+
+(1) In Florian's slides (I'm referring to the McGill lecture that he referenced, slides 43/44), we're taking the residuals from a model of the structure Freq ~ Len (applied to Roger's example).  These residuals are used as predictor in the original model, as lexdectime ~ residual  (lexdectime is presumable an RT).
+
+(2) The alternative is not really stepwise regression in the sense that you'd add main effects, and then interactions etc., but perhaps something like this:
+
+m1 <- lm(lexdectime ~ Len)
+m2 <- lm(resid(m1) ~ Freq)
+summary(m2)  
+
+... if we are interested in the effect of Freq, after Len has been accounted for.
+Copying from slide 45 in the above reference, one would still say "We have granted Len the entire portion of
+the variance that cannot unambiguously attributed to either Freq or Len!".  Comments appreciated.
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Fri Sep 17 15:13:09 2010
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Fri, 17 Sep 2010 17:13:09 +0200
+Subject: Re: What happens if I include a continuous variable?
+In-Reply-To: <0DC8D571-E180-46C6-8A2F-EC696E21D540-D+Gtc/HYRWM@public.gmane.org>
+References: <18891_1284636186_o8GBN4GF012650_4C92055D.334D.0064.1@dundee.ac.uk> <E140DEC8-0C36-41DF-85CF-2519A99D92FE@cmu.edu> <AANLkTimXQy4Ewtx2WSNaUD4pP4DJrgYH1j5Nqy5C-Rfa@mail.gmail.com> <0DC8D571-E180-46C6-8A2F-EC696E21D540@cmu.edu>
+Message-ID: <AANLkTinkYp0eEDivpuk0Tp2EX0K45ikf0Hj=ERjPqnLV@mail.gmail.com>
+
+On Thu, Sep 16, 2010 at 9:00 PM, David Reitter <reitter-D+Gtc/HYRWM at public.gmane.org> wrote:
+
+> On Sep 16, 2010, at 11:34 AM, Nathaniel Smith wrote:
+> >
+> >> One way to address collinearity is to regress out length from frequency
+> first, e.g. creating testdata$FreqWithoutLen from something like
+> resid(lm(Freq ~ Len)).
+> >>
+> >> I wonder if it would be OK to do stepwise regression, i.e. regressing
+> out length from your response variable (lexdectime) first, and then fitting
+> the main model.
+> >
+> > I think you're talking about residualization, not stepwise regression?
+> > I would either regress out Length from *both* Freq and lexdectime, or
+> > not regress it out at all.
+>
+> In the first sentence I talk about residualization, in the second I'm
+> asking if a different approach would also be feasible.
+>
+> (1) In Florian's slides (I'm referring to the McGill lecture that he
+> referenced, slides 43/44), we're taking the residuals from a model of the
+> structure Freq ~ Len (applied to Roger's example).  These residuals are used
+> as predictor in the original model, as lexdectime ~ residual  (lexdectime is
+> presumable an RT).
+>
+> (2) The alternative is not really stepwise regression in the sense that
+> you'd add main effects, and then interactions etc., but perhaps something
+> like this:
+>
+> m1 <- lm(lexdectime ~ Len)
+> m2 <- lm(resid(m1) ~ Freq)
+> summary(m2)
+>
+> ... if we are interested in the effect of Freq, after Len has been
+> accounted for.
+> Copying from slide 45 in the above reference, one would still say "We have
+> granted Len the entire portion of
+> the variance that cannot unambiguously attributed to either Freq or Len!".
+>  Comments appreciated.
+>
+
+I see. Yes, this is what self-paced reading people call residualization
+(residualized reading times). I would definitely prefer model comparison
+(stepwise regression) as it's more principled and works for a broader set of
+scenarios (self-paced reading folks have a separate reason to use approach
+(2) above because they use the RTs from all trials, including fillers, when
+calculating residualized RTs).
+
+My feeling is further that approach (2) will not work when you have
+additional variables in m1, as the residuals will be result of all those
+predictors not just the one of interest. But I am not entirely sure. I
+assume, as long as we are talking about a linear model this might not matter
+(as soon as the right-hand side of m1 is subjected to a non-linear
+transformation, the relation to model comparison becomes much more
+complicated).
+
+In any case, approach (2) will not work when you, as Roger asked, want to
+also know whether the interaction between length and frequency is relevant.
+
+have you ever run a power simulation to compare the two methods when there
+is more than the two variables of interest? That would be interesting.
+
+Florian
+
+From rlevy-XkckGZ689+c at public.gmane.org  Mon Sep 20 07:48:07 2010
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Mon, 20 Sep 2010 00:48:07 -0700
+Subject: Re: confidence intervals for restricted-cubic spline
+In-Reply-To: <38dc9be90912251842sab032c6k48ee94faf4ad74f0@mail.gmail.com>
+References: <38dc9be90912251842sab032c6k48ee94faf4ad74f0@mail.gmail.com>
+Message-ID: <4E7E2253-D101-41FB-819A-497C0FD0E723@ucsd.edu>
+
+On Dec 25, 2009, at 6:42 PM, T. Florian Jaeger wrote:
+
+> Hi,
+> 
+> does anybody know how to calculate the confidence intervals for restricted cubic splines, rcs(), based on the SEs of the coefficient estimates from an lmer (family="binomial") fit? We've been looking around to see whether our way of doing it makes any sense, but I couldn't find anything online.
+
+Here is a much-belated response to this query -- I recently had cause to figure out how to do this, so I thought I might report it to the list.
+
+The short story is that there is a direct analogy with the standard situation of computing a confidence interval for a single parameter -- call it b -- when a covariate x is assumed to have a linear effect on the linear predictor in a generalized linear model.  In this standard situation, the estimate of b is asymptotically normally distributed, and the standard deviation of this estimate is what we call the standard deviation of the predictor.  So we estimate the standard error, which we can call SE, and then use it to compute a confidence interval -- e.g., the width of a standard 95% confidence interval is
+
+  ( qnorm(0.975) - qnorm(0.025) ) * SE
+
+For a given value of x, say x=x_0, the size of the confidence interval representing x_0's contribution to the linear predictor would be 
+
+  ( qnorm(0.975) - qnorm(0.025) ) * SE * x
+
+In the case of splines, let's denote the spline-basis representation of x_0 as X, and the set of associated parameters as B.  The estimate of B is asymptotically multivariate normally distributed; let's call our estimate of the associated variance-covariance matrix Sigma.  The estimate of x_0's contribution is BX; because this is a linear combination of normally distributed random variables, its variance is
+
+  t(X) %*% Sigma %*% X
+
+We can take the square root of this quantity and treat it as the "standard error" of the estimated contribution of x at x_0.  (Note that in the unidimensional case, we could analogously write SE * x as sqrt(x * SE^2 * x).)  Applying this procedure for many different values of x allows us to construct a confidence interval for x's contribution to the linear predictor.
+
+In practice, because of the way splines work, it's helpful to include the intercept in B, and to include an associated dummy-variable row of 1's in X.  Demonstration code appended.
+
+Roger
+
+--
+
+Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy
+
+*********
+
+### preliminaries
+library(lme4)
+library(Design)
+invlogit <- function(x) exp(x)/(1+exp(x))
+set.seed(1)
+
+### We'll use M groups of N observations each, x1 and x2 uniformly distributed in all cases
+N <- 200
+M <- 25
+
+### let the underlying contribution x2 to the linear predictor be quadratic
+f <- function(x) 0.25*(x-0.5)^2
+
+### set up data
+x1 <- rnorm(N*M,1,0.5)
+x2 <- runif(N*M)
+group.effects <- rnorm(M,0,sd=2)
+group <- factor(paste("G",rep(1:M,1,each=N)))
+intercept <- -0.5
+y <- rbinom(N*M,1,invlogit(intercept + f(x1) + x2 + group.effects[group]))
+df <- data.frame(x1=x1,x2=x2,y=y)
+
+### fit the model
+x1.rcs <- rcs(x1)
+m <- lmer(y ~ x1.rcs + x2 + (1|group),df,family="binomial")
+
+### transform the x1 axis into the spline basis representation
+x1.axis <- seq(min(x1),max(x1),by=0.005)
+tmp <- rcs(x1.axis,parms=attr(x1.rcs,"parms"))
+x1.spline.basis <- matrix(tmp,dim(tmp)[1],dim(tmp)[2]) ## this is to make sure that everything is of the right class -- essential to get the matrix multiplication below to work
+
+### extract the contribution of x1 from the model, and plot it
+include.intercept <- TRUE ## included for pedagogical purposes; you can see how the graph turns out to be horribly non-intuitive if you set this to FALSE
+k <- ifelse(include.intercept,1,2)
+if(include.intercept)
+  x1.spline.basis <- cbind(1,x1.spline.basis) ## add dummy for intercept
+spline.params <- fixef(m)[k:5]
+spline.Sigma <- vcov(m)[k:5,k:5]
+mle.contribution <- x1.spline.basis %*% spline.params
+ci.size <- qnorm(0.975)*sapply(1:length(mle.contribution),function(i) sqrt(t(x1.spline.basis[i,]) %*% as.matrix(spline.Sigma) %*% x1.spline.basis[i,]))
+plot(mle.contribution ~ x1.axis,type="l",ylim=c(-2,2))
+lines(mle.contribution + ci.size ~ x1.axis, lty=2) 
+lines(mle.contribution - ci.size ~ x1.axis, lty=2) 
+
+## now plot the true effect
+if(include.intercept) {
+  lines(f(x1.axis) + intercept ~ x1.axis, lty=3)
+} else
+  lines(f(x1.axis) ~ x1.axis, lty=3)
+legend(0,2,c("MLE","95% CI","True effect"),lty=1:3)
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Mon Sep 20 13:00:49 2010
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Mon, 20 Sep 2010 15:00:49 +0200
+Subject: Re: coding in unbalanced data
+In-Reply-To: <AANLkTi=1sYUKRoKJyRdSqj7cCtJwc=1GB_m5qe21kq=Z@mail.gmail.com>
+References: <AANLkTinq5HH-2O-kZa+W1+b5GzBOabZa8yTzRD6LgvO+@mail.gmail.com> <AANLkTi=1sYUKRoKJyRdSqj7cCtJwc=1GB_m5qe21kq=Z@mail.gmail.com>
+Message-ID: <AANLkTikugPhBQci74uKk+5JmsKgTW7_vUOqsbechJZhD@mail.gmail.com>
+
+Hi Bruno, Philip,
+
+let me react to this somewhat belatedly.
+
+First, unbalanced data in LME models will not lead to fixed effect
+> correlations, certainly not with the number of data points that
+> reading time studies yield. The ability of LME models to handle
+> unbalanced data is one of the things that makes it so great.
+>
+
+Just to be on the safe side, I would qualify this statement a bit. For large
+data sets, small deviations from balanced data are unlikely to result in
+large fixed effect correlations if you use e.g. sum or Helmert coding.
+
+To learn about coding in R, you might also find Maureen Gillespie's tutorial
+useful, which is hosted on the HLP Lab blog (
+http://hlplab.wordpress.com/2010/05/10/mini-womm-montreal-slides-now-available/).
+It goes through different codings and provides R code so that you can follow
+along and understand the consequences of the different ways of coding your
+data.
+
+Florian
+
+>
+>
+

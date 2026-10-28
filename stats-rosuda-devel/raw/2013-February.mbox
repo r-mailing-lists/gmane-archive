@@ -1,0 +1,1487 @@
+From saptarshi.guha at gmail.com  Mon Feb 11 23:12:43 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Mon, 11 Feb 2013 15:12:43 -0800
+Subject: Modifying a classpath after load
+Message-ID: <CAJDot1q7+riD76UmoCnK-mBJPYcZvDH8fMEfn7szUEOg8aVeew@mail.gmail.com>
+
+Hello,
+
+I set my classpath using .jaddclasspath and then created an object of my
+class C.
+C has a method run which instantiates an instance of a user-specified class
+(specified as a string) .e.g
+
+a=.jnew(C)
+a$doSomethingWith(stringnameofClass)
+
+doSomething will try and create an object of class stringnameofclass
+
+Unsurprisingly, since the Jar file which contains stringnameofclass was not
+added to classpath before i created C, i get a "Class not found error".
+
+I tried using JCl2 [2] to add JARs and then call
+a$doSomethingWith(stringnameofClass) but to no avail.
+
+Is there a way i solve this?
+
+Cheers
+Saptarshi
+
+[2] https://github.com/kamranzafar/JCL
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Feb 12 00:44:28 2013
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 11 Feb 2013 19:44:28 -0500
+Subject: Re: Modifying a classpath after load
+In-Reply-To: <CAJDot1q7+riD76UmoCnK-mBJPYcZvDH8fMEfn7szUEOg8aVeew@mail.gmail.com>
+References: <CAJDot1q7+riD76UmoCnK-mBJPYcZvDH8fMEfn7szUEOg8aVeew@mail.gmail.com>
+Message-ID: <978D2324-F0DC-4306-B3A9-64A5CA0754D8@r-project.org>
+
+
+On Feb 11, 2013, at 6:12 PM, Saptarshi Guha wrote:
+
+> Hello,
+> 
+> I set my classpath using .jaddclasspath and then created an object of my class C.
+> C has a method run which instantiates an instance of a user-specified class (specified as a string) .e.g
+> 
+> a=.jnew(C)
+> a$doSomethingWith(stringnameofClass)
+> 
+> doSomething will try and create an object of class stringnameofclass
+> 
+> Unsurprisingly, since the Jar file which contains stringnameofclass was not added to classpath before i created C, i get a "Class not found error".
+> 
+
+No, that is not correct. It doesn't matter when you modify the class path, because the class loader consults the most current class path at the time of finding a new class to load. The rJava class loader specifically uses dynamic look up when loading classes, so it will work regardless of when you modify the class path (see output below).
+
+If you have a problem with the above, it's more likely a bug in class C which may be using the wrong class loader explicitly. But for that we'd have to see your actual code.
+
+Note that if you want to, you can always get the rJava class loader explicitly with .jclassLoader() but well-written Java applications should never need to access it directly - it should always be obtained from the class of the loaded object instead -- you can always check that it should be of the class RJavaClassLoader.
+
+Cheers,
+Simon
+
+Illustration:
+
+> library(rJava)
+> .jinit(".")
+> a=.jnew("A")
+# this will fail, because I have B.class in another directory:
+> a$getClass()$forName("B")
+Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  : 
+  java.lang.ClassNotFoundException
+# I add that directory to the class path
+> .jaddClassPath("class2")
+# now forName() succeeeds
+> a$getClass()$forName("B")
+[1] "Java-Object{class B}"
+
+
+
+> I tried using JCl2 [2] to add JARs and then call a$doSomethingWith(stringnameofClass) but to no avail.
+> 
+> Is there a way i solve this?
+> 
+> Cheers
+> Saptarshi
+> 
+> [2] https://github.com/kamranzafar/JCL
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Tue Feb 12 17:23:07 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Tue, 12 Feb 2013 09:23:07 -0800
+Subject: Re: Modifying a classpath after load
+In-Reply-To: <978D2324-F0DC-4306-B3A9-64A5CA0754D8@r-project.org>
+References: <CAJDot1q7+riD76UmoCnK-mBJPYcZvDH8fMEfn7szUEOg8aVeew@mail.gmail.com> <978D2324-F0DC-4306-B3A9-64A5CA0754D8@r-project.org>
+Message-ID: <CAJDot1ry6_87o1Bk2ZgEVwvOmMP=WnQS1X33PTDDXi+TgzLqqw@mail.gmail.com>
+
+So C has it's own classloader. But it also allows one to specify their own.
+I specified rJava's classloader and things worked after that.
+Regards
+Saptarshi
+
+
+
+On Mon, Feb 11, 2013 at 4:44 PM, Simon Urbanek
+<simon.urbanek at r-project.org>wrote:
+
+>
+> On Feb 11, 2013, at 6:12 PM, Saptarshi Guha wrote:
+>
+> > Hello,
+> >
+> > I set my classpath using .jaddclasspath and then created an object of my
+> class C.
+> > C has a method run which instantiates an instance of a user-specified
+> class (specified as a string) .e.g
+> >
+> > a=.jnew(C)
+> > a$doSomethingWith(stringnameofClass)
+> >
+> > doSomething will try and create an object of class stringnameofclass
+> >
+> > Unsurprisingly, since the Jar file which contains stringnameofclass was
+> not added to classpath before i created C, i get a "Class not found error".
+> >
+>
+> No, that is not correct. It doesn't matter when you modify the class path,
+> because the class loader consults the most current class path at the time
+> of finding a new class to load. The rJava class loader specifically uses
+> dynamic look up when loading classes, so it will work regardless of when
+> you modify the class path (see output below).
+>
+> If you have a problem with the above, it's more likely a bug in class C
+> which may be using the wrong class loader explicitly. But for that we'd
+> have to see your actual code.
+>
+> Note that if you want to, you can always get the rJava class loader
+> explicitly with .jclassLoader() but well-written Java applications should
+> never need to access it directly - it should always be obtained from the
+> class of the loaded object instead -- you can always check that it should
+> be of the class RJavaClassLoader.
+>
+> Cheers,
+> Simon
+>
+> Illustration:
+>
+> > library(rJava)
+> > .jinit(".")
+> > a=.jnew("A")
+> # this will fail, because I have B.class in another directory:
+> > a$getClass()$forName("B")
+> Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  :
+>   java.lang.ClassNotFoundException
+> # I add that directory to the class path
+> > .jaddClassPath("class2")
+> # now forName() succeeeds
+> > a$getClass()$forName("B")
+> [1] "Java-Object{class B}"
+>
+>
+>
+> > I tried using JCl2 [2] to add JARs and then call
+> a$doSomethingWith(stringnameofClass) but to no avail.
+> >
+> > Is there a way i solve this?
+> >
+> > Cheers
+> > Saptarshi
+> >
+> > [2] https://github.com/kamranzafar/JCL
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+-------------- next part --------------
+
+
+From saptarshi.guha at gmail.com  Wed Feb 13 00:51:40 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Tue, 12 Feb 2013 16:51:40 -0800
+Subject: java call r call java
+Message-ID: <CAJDot1pi8f=60ZryPBS_sT_XjUQgU_w4AsOoFSHhzWi9JJn5kQ@mail.gmail.com>
+
+Hello,
+
+It is possible to embed R inside Java.
+
+Q: is it possible to for an R function to call a method in a passed Java
+object?
+
+i.e.
+object O of class C (in Java)
+(pseudo code)
+public void foo(){
+   Rengine.eval("myRfunction",Object2)
+}
+
+R function
+
+myRfunction <- function(javaObj){
+javaObj$doSomething()
+}
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Feb 13 01:50:18 2013
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 12 Feb 2013 20:50:18 -0500
+Subject: Re: java call r call java
+In-Reply-To: <CAJDot1pi8f=60ZryPBS_sT_XjUQgU_w4AsOoFSHhzWi9JJn5kQ@mail.gmail.com>
+References: <CAJDot1pi8f=60ZryPBS_sT_XjUQgU_w4AsOoFSHhzWi9JJn5kQ@mail.gmail.com>
+Message-ID: <B90C62D2-EA50-4001-B8DD-1ED9F0058DC1@r-project.org>
+
+On Feb 12, 2013, at 7:51 PM, Saptarshi Guha wrote:
+
+> Hello,
+> 
+> It is possible to embed R inside Java.
+> 
+> Q: is it possible to for an R function to call a method in a passed Java object?
+> 
+> i.e.
+> object O of class C (in Java)
+> (pseudo code)
+> public void foo(){
+>    Rengine.eval("myRfunction",Object2)
+> }
+> 
+> R function
+> 
+> myRfunction <- function(javaObj){
+> javaObj$doSomething()
+> }
+> 
+
+Yes. Assuming you're using REngine, it would look something like
+
+Object o; // Java object to pass to R
+
+eng.assign("o", new REXPJavaReference(o));
+eng.parseAndEval("myRfunction(o)");
+
+Just make sure you have loaded and initialized rJava, e.g., eng.parseAndEval("{ library(rJava); .jinit() }"); before assigning any references.
+
+Cheers,
+Simon
+
+From saptarshi.guha at gmail.com  Wed Feb 13 05:37:24 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Tue, 12 Feb 2013 21:37:24 -0800
+Subject: Re: java call r call java
+In-Reply-To: <B90C62D2-EA50-4001-B8DD-1ED9F0058DC1@r-project.org>
+References: <CAJDot1pi8f=60ZryPBS_sT_XjUQgU_w4AsOoFSHhzWi9JJn5kQ@mail.gmail.com> <B90C62D2-EA50-4001-B8DD-1ED9F0058DC1@r-project.org>
+Message-ID: <CAJDot1rKWUAppkwv0j513Gy5ASn_krct2zjKgZx6y+RvQ0GnVA@mail.gmail.com>
+
+Thanks
+
+
+On Tue, Feb 12, 2013 at 5:50 PM, Simon Urbanek
+<simon.urbanek at r-project.org>wrote:
+
+> On Feb 12, 2013, at 7:51 PM, Saptarshi Guha wrote:
+>
+> > Hello,
+> >
+> > It is possible to embed R inside Java.
+> >
+> > Q: is it possible to for an R function to call a method in a passed Java
+> object?
+> >
+> > i.e.
+> > object O of class C (in Java)
+> > (pseudo code)
+> > public void foo(){
+> >    Rengine.eval("myRfunction",Object2)
+> > }
+> >
+> > R function
+> >
+> > myRfunction <- function(javaObj){
+> > javaObj$doSomething()
+> > }
+> >
+>
+> Yes. Assuming you're using REngine, it would look something like
+>
+> Object o; // Java object to pass to R
+>
+> eng.assign("o", new REXPJavaReference(o));
+> eng.parseAndEval("myRfunction(o)");
+>
+> Just make sure you have loaded and initialized rJava, e.g.,
+> eng.parseAndEval("{ library(rJava); .jinit() }"); before assigning any
+> references.
+>
+> Cheers,
+> Simon
+>
+>
+
+-------------- next part --------------
+
+
+From saptarshi.guha at gmail.com  Wed Feb 13 05:38:17 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Tue, 12 Feb 2013 21:38:17 -0800
+Subject: Compiling JRI (rJava)
+Message-ID: <CAJDot1qULXfXXJkM=g2XirRZtMQc0ZdBakLb4cQXLe8=DDbMBg@mail.gmail.com>
+
+Hello,
+
+I tried
+./configure (using Sun JDK) but got
+
+checking whether Java interpreter works... yes
+checking for Java environment... in /usr/lib/jvm/java-7-oracle/jre/
+checking for /usr/lib/jvm/java-7-oracle/jre//include/jni.h... no
+checking for /usr/lib/jvm/java-7-oracle/jre//jni.h... no
+checking for /usr/lib/jvm/java-7-oracle/jre//../include/jni.h... yes
+checking for /usr/lib/jvm/java-7-oracle/jre//../include/./jni_md.h... no
+checking for /usr/lib/jvm/java-7-oracle/jre//../include/linux/jni_md.h...
+yes
+checking whether JNI programs can be compiled... configure: error: Cannot
+compile a simple JNI program. See config.log for details.
+
+
+ran sudo R CMD javareconf got this yet still the above output
+Java interpreter : /usr/bin/java
+Java version     : 1.7.0_13
+Java home path   : /usr/lib/jvm/java-7-oracle/jre
+Java compiler    : /usr/bin/javac
+Java headers gen.: /usr/bin/javah
+Java archive tool: /usr/bin/jar
+NOTE: Your JVM has a bogus java.library.path system property!
+      Trying a heuristic via sun.boot.library.path to find jvm library...
+Java library path: $(JAVA_HOME)/lib/amd64:$(JAVA_HOME)/lib/amd64/server
+JNI linker flags : -L$(JAVA_HOME)/lib/amd64 -L$(JAVA_HOME)/lib/amd64/server
+-ljvm
+JNI cpp flags    : -I$(JAVA_HOME)/../include -I$(JAVA_HOME)/../include/linux
+
+-------------- next part --------------
+
+
+From saptarshi.guha at gmail.com  Wed Feb 13 07:49:54 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Tue, 12 Feb 2013 23:49:54 -0800
+Subject: R_HOME in initR
+Message-ID: <CAJDot1oVh3f8tun1Wcf+AyHOMjJp0Mf-xSL_cdVbW1PX7c8rpA@mail.gmail.com>
+
+Hello
+The Rengine call createEngine ends up in C, which checks for R_HOME.
+I'm in an environment where i dont have control over the environment
+variables and R_HOME might not be present in the environment
+
+Would it possible to pass R_HOME to createEngine and the C code instead of
+using getenv would use setenv ?
+
+If no R_HOME is provided to createEngine, createEngine could inspect
+System.getenv (in Java) and use the default. If none is present there, then
+fail
+
+Regards
+Saptarshi
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Feb 13 13:26:41 2013
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 13 Feb 2013 08:26:41 -0500
+Subject: Re: R_HOME in initR
+In-Reply-To: <CAJDot1oVh3f8tun1Wcf+AyHOMjJp0Mf-xSL_cdVbW1PX7c8rpA@mail.gmail.com>
+References: <CAJDot1oVh3f8tun1Wcf+AyHOMjJp0Mf-xSL_cdVbW1PX7c8rpA@mail.gmail.com>
+Message-ID: <D6EF69BC-8CDC-4573-B823-BCE6D4D72E14@r-project.org>
+
+On Feb 13, 2013, at 2:49 AM, Saptarshi Guha wrote:
+
+> Hello
+> The Rengine call createEngine ends up in C, which checks for R_HOME.
+> I'm in an environment where i dont have control over the environment variables and R_HOME might not be present in the environment
+> 
+> Would it possible to pass R_HOME to createEngine and the C code instead of using getenv would use setenv ?
+> 
+> If no R_HOME is provided to createEngine, createEngine could inspect System.getenv (in Java) and use the default. If none is present there, then fail
+> 
+
+There are two problems. One problem is that R_HOME is not the only environment variable that needs to be set - it's just used as a proxy to determine that the environment has beed setup correctly by R CMD. If you don't start the application using R CMD java .. then you're entirely on your own - it's not guaranteed to work as R requires the other variables as well. If you cannot use R CMD directly, then you can dump the set of variables (it differs by R version and build) and set them by other means.
+
+The second problem is that that Rengine has no way to determine R_HOME (at least not reliably across platforms) - there are some heuristics (check on the PATH, registry on Windows etc.), but they are inherently unreliable, because what really matters is the library that has been linked into Rengine at compile time, and since that can be relocatable, there is no way to deduce R_HOME reliably. Therefore you always need some way to tell Rengine how to find its R and R_HOME is the way. At one point we used to have code in JRI that allows you to set environment variables, but it caused portability issues so it has been removed. If you have some other mechanism in mind to specify the R location, let me know, but I fear that we'll have to re-visit the portability issues we had by using setenv in 
+ C and as I said it's just one of several variables that needs to be set, so you'd have to pass them all.
+
+Cheers,
+Simon
+
+From simon.urbanek at r-project.org  Wed Feb 13 13:29:41 2013
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 13 Feb 2013 08:29:41 -0500
+Subject: Re: Compiling JRI (rJava)
+In-Reply-To: <CAJDot1qULXfXXJkM=g2XirRZtMQc0ZdBakLb4cQXLe8=DDbMBg@mail.gmail.com>
+References: <CAJDot1qULXfXXJkM=g2XirRZtMQc0ZdBakLb4cQXLe8=DDbMBg@mail.gmail.com>
+Message-ID: <FCD526C9-F902-4B5F-9745-34397DAE755F@r-project.org>
+
+
+On Feb 13, 2013, at 12:38 AM, Saptarshi Guha wrote:
+
+> Hello,
+> 
+> I tried
+> ./configure (using Sun JDK) but got
+> 
+
+You should not run ./configure directly (it cannot use R Java settings that way) - use R CMD INSTALL rJava_...tar.gz instead (or equivalent install.packages("rJava")). 
+
+Cheers,
+Simon
+
+
+
+> checking whether Java interpreter works... yes
+> checking for Java environment... in /usr/lib/jvm/java-7-oracle/jre/
+> checking for /usr/lib/jvm/java-7-oracle/jre//include/jni.h... no
+> checking for /usr/lib/jvm/java-7-oracle/jre//jni.h... no
+> checking for /usr/lib/jvm/java-7-oracle/jre//../include/jni.h... yes
+> checking for /usr/lib/jvm/java-7-oracle/jre//../include/./jni_md.h... no
+> checking for /usr/lib/jvm/java-7-oracle/jre//../include/linux/jni_md.h... yes
+> checking whether JNI programs can be compiled... configure: error: Cannot compile a simple JNI program. See config.log for details.
+> 
+> 
+> ran sudo R CMD javareconf got this yet still the above output
+> Java interpreter : /usr/bin/java
+> Java version     : 1.7.0_13
+> Java home path   : /usr/lib/jvm/java-7-oracle/jre
+> Java compiler    : /usr/bin/javac
+> Java headers gen.: /usr/bin/javah
+> Java archive tool: /usr/bin/jar
+> NOTE: Your JVM has a bogus java.library.path system property!
+>       Trying a heuristic via sun.boot.library.path to find jvm library...
+> Java library path: $(JAVA_HOME)/lib/amd64:$(JAVA_HOME)/lib/amd64/server
+> JNI linker flags : -L$(JAVA_HOME)/lib/amd64 -L$(JAVA_HOME)/lib/amd64/server -ljvm
+> JNI cpp flags    : -I$(JAVA_HOME)/../include -I$(JAVA_HOME)/../include/linux
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Wed Feb 13 22:45:48 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Wed, 13 Feb 2013 14:45:48 -0800
+Subject: Compiling rJava on centos6
+Message-ID: <CAJDot1pdeM5chP9Dm1eGEFW=10ve8r+_AGjjxNyGTzCOngmYPQ@mail.gmail.com>
+
+Hello,
+
+I tried R CMD INSTALL rJava (0.93),64 bit
+
+interpreter : '/usr/bin/java'
+archiver    : '/usr/bin/jar'
+compiler    : '/usr/bin/javac'
+header prep.: ''
+cpp flags   : '-I/usr/java/jdk1.7.0_09/jre/../include
+-I/usr/java/jdk1.7.0_09/jre/../include/linux'
+java libs   : '-L/usr/java/jdk1.7.0_09/jre/lib/amd64
+-L/usr/java/jdk1.7.0_09/jre/lib/amd64/server -ljvm'
+configure: error: One or more Java configuration variables are not set.
+Make sure R is configured with full Java support (including JDK). Run
+R CMD javareconf
+as root to add Java support to R.
+
+If you don't have root privileges, run
+R CMD javareconf -e
+to set all Java-related variables and then install rJava.
+
+ERROR: configuration failed for package ‘rJava’
+
+Did run R CMD javareconf -e (R is in home dir)
+got
+
+Java interpreter : /usr/bin/java
+Java version     : 1.7.0_09
+Java home path   : /usr/java/jdk1.7.0_09/jre
+Java compiler    : /usr/bin/javac
+Java headers gen.:
+Java archive tool: /usr/bin/jar
+NOTE: Your JVM has a bogus java.library.path system property!
+      Trying a heuristic via sun.boot.library.path to find jvm library...
+Java library path: $(JAVA_HOME)/lib/amd64:$(JAVA_HOME)/lib/amd64/server
+JNI linker flags : -L$(JAVA_HOME)/lib/amd64 -L$(JAVA_HOME)/lib/amd64/server
+-ljvm
+JNI cpp flags    : -I$(JAVA_HOME)/../include -I$(JAVA_HOME)/../include/linux
+
+Updating Java configuration in /home/sguha/software/lib64/R
+mv: try to overwrite `/home/sguha/software/lib64/R/etc/Makeconf.old',
+overriding mode 0644 (rw-r--r--)?
+mv: try to overwrite `/home/sguha/software/lib64/R/etc/ldpaths.old',
+overriding mode 0644 (rw-r--r--)?
+Done.
+
+
+But no success.
+Does anyone have suggestions?
+
+Regards
+Saptarshi
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Feb 13 22:59:58 2013
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 13 Feb 2013 17:59:58 -0500
+Subject: Re: Compiling rJava on centos6
+In-Reply-To: <CAJDot1pdeM5chP9Dm1eGEFW=10ve8r+_AGjjxNyGTzCOngmYPQ@mail.gmail.com>
+References: <CAJDot1pdeM5chP9Dm1eGEFW=10ve8r+_AGjjxNyGTzCOngmYPQ@mail.gmail.com>
+Message-ID: <52424ABD-BE5C-4A53-BDBC-752A708895DB@r-project.org>
+
+
+On Feb 13, 2013, at 5:45 PM, Saptarshi Guha wrote:
+
+> Hello,
+> 
+> I tried R CMD INSTALL rJava (0.93),64 bit
+> 
+> interpreter : '/usr/bin/java'
+> archiver    : '/usr/bin/jar'
+> compiler    : '/usr/bin/javac'
+> header prep.: ''
+> cpp flags   : '-I/usr/java/jdk1.7.0_09/jre/../include -I/usr/java/jdk1.7.0_09/jre/../include/linux'
+> java libs   : '-L/usr/java/jdk1.7.0_09/jre/lib/amd64 -L/usr/java/jdk1.7.0_09/jre/lib/amd64/server -ljvm'
+> configure: error: One or more Java configuration variables are not set.
+> Make sure R is configured with full Java support (including JDK). Run
+> R CMD javareconf
+> as root to add Java support to R.
+> 
+> If you don't have root privileges, run
+> R CMD javareconf -e
+> to set all Java-related variables and then install rJava.
+> 
+> ERROR: configuration failed for package ‘rJava’
+> 
+> Did run R CMD javareconf -e (R is in home dir)
+> got
+> 
+> Java interpreter : /usr/bin/java
+> Java version     : 1.7.0_09
+> Java home path   : /usr/java/jdk1.7.0_09/jre
+> Java compiler    : /usr/bin/javac
+> Java headers gen.: 
+> Java archive tool: /usr/bin/jar
+> NOTE: Your JVM has a bogus java.library.path system property!
+>       Trying a heuristic via sun.boot.library.path to find jvm library...
+> Java library path: $(JAVA_HOME)/lib/amd64:$(JAVA_HOME)/lib/amd64/server
+> JNI linker flags : -L$(JAVA_HOME)/lib/amd64 -L$(JAVA_HOME)/lib/amd64/server -ljvm
+> JNI cpp flags    : -I$(JAVA_HOME)/../include -I$(JAVA_HOME)/../include/linux
+> 
+> Updating Java configuration in /home/sguha/software/lib64/R
+> mv: try to overwrite `/home/sguha/software/lib64/R/etc/Makeconf.old', overriding mode 0644 (rw-r--r--)? 
+> mv: try to overwrite `/home/sguha/software/lib64/R/etc/ldpaths.old', overriding mode 0644 (rw-r--r--)? 
+> Done.
+> 
+> 
+> But no success.
+> Does anyone have suggestions?
+> 
+
+Both above show paths to the JRE and not JDK - you will need the latter. Also they are missing the javah tool. Please make sure you have a full JDK in your PATH (or alternatively set JAVA_HOME to such working JDK).
+
+Cheers,
+Simon
+
+
+> Regards
+> Saptarshi
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Wed Feb 13 23:43:19 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Wed, 13 Feb 2013 15:43:19 -0800
+Subject: Re: Compiling rJava on centos6
+In-Reply-To: <CAJDot1pdeM5chP9Dm1eGEFW=10ve8r+_AGjjxNyGTzCOngmYPQ@mail.gmail.com>
+References: <CAJDot1pdeM5chP9Dm1eGEFW=10ve8r+_AGjjxNyGTzCOngmYPQ@mail.gmail.com>
+Message-ID: <CAJDot1pcenfjPxx-=VQQuXvnmeA73H5QdD2aWPuwvdR1QGt-OQ@mail.gmail.com>
+
+once again, much thanks.
+
+Silly of me.
+Cheers
+saptarshi
+
+
+
+On Wed, Feb 13, 2013 at 2:45 PM, Saptarshi Guha <saptarshi.guha at gmail.com>wrote:
+
+> Hello,
+>
+> I tried R CMD INSTALL rJava (0.93),64 bit
+>
+> interpreter : '/usr/bin/java'
+> archiver    : '/usr/bin/jar'
+> compiler    : '/usr/bin/javac'
+> header prep.: ''
+> cpp flags   : '-I/usr/java/jdk1.7.0_09/jre/../include
+> -I/usr/java/jdk1.7.0_09/jre/../include/linux'
+> java libs   : '-L/usr/java/jdk1.7.0_09/jre/lib/amd64
+> -L/usr/java/jdk1.7.0_09/jre/lib/amd64/server -ljvm'
+> configure: error: One or more Java configuration variables are not set.
+> Make sure R is configured with full Java support (including JDK). Run
+> R CMD javareconf
+> as root to add Java support to R.
+>
+> If you don't have root privileges, run
+> R CMD javareconf -e
+> to set all Java-related variables and then install rJava.
+>
+> ERROR: configuration failed for package ‘rJava’
+>
+> Did run R CMD javareconf -e (R is in home dir)
+> got
+>
+> Java interpreter : /usr/bin/java
+> Java version     : 1.7.0_09
+> Java home path   : /usr/java/jdk1.7.0_09/jre
+> Java compiler    : /usr/bin/javac
+> Java headers gen.:
+> Java archive tool: /usr/bin/jar
+> NOTE: Your JVM has a bogus java.library.path system property!
+>       Trying a heuristic via sun.boot.library.path to find jvm library...
+> Java library path: $(JAVA_HOME)/lib/amd64:$(JAVA_HOME)/lib/amd64/server
+> JNI linker flags : -L$(JAVA_HOME)/lib/amd64
+> -L$(JAVA_HOME)/lib/amd64/server -ljvm
+> JNI cpp flags    : -I$(JAVA_HOME)/../include
+> -I$(JAVA_HOME)/../include/linux
+>
+> Updating Java configuration in /home/sguha/software/lib64/R
+> mv: try to overwrite `/home/sguha/software/lib64/R/etc/Makeconf.old',
+> overriding mode 0644 (rw-r--r--)?
+> mv: try to overwrite `/home/sguha/software/lib64/R/etc/ldpaths.old',
+> overriding mode 0644 (rw-r--r--)?
+> Done.
+>
+>
+> But no success.
+> Does anyone have suggestions?
+>
+> Regards
+> Saptarshi
+>
+>
+
+-------------- next part --------------
+
+
+From saptarshi.guha at gmail.com  Sat Feb 16 11:03:31 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Sat, 16 Feb 2013 03:03:31 -0800
+Subject: Re: java call r call java
+In-Reply-To: <CAJDot1rKWUAppkwv0j513Gy5ASn_krct2zjKgZx6y+RvQ0GnVA@mail.gmail.com>
+References: <CAJDot1pi8f=60ZryPBS_sT_XjUQgU_w4AsOoFSHhzWi9JJn5kQ@mail.gmail.com> <B90C62D2-EA50-4001-B8DD-1ED9F0058DC1@r-project.org> <CAJDot1rKWUAppkwv0j513Gy5ASn_krct2zjKgZx6y+RvQ0GnVA@mail.gmail.com>
+Message-ID: <CAJDot1pth6joUhcjT0jXtcOzA4WxvOJKnEEVaaBWVKgzC=gsow@mail.gmail.com>
+
+For some reason, when i install rJava all i get is JRI.jar (which doesn't
+have REXPJavaReference or JRIEngine ..)
+Am i missing something during install?
+
+
+On Tue, Feb 12, 2013 at 9:37 PM, Saptarshi Guha <saptarshi.guha at gmail.com>wrote:
+
+> Thanks
+>
+>
+> On Tue, Feb 12, 2013 at 5:50 PM, Simon Urbanek <
+> simon.urbanek at r-project.org> wrote:
+>
+>> On Feb 12, 2013, at 7:51 PM, Saptarshi Guha wrote:
+>>
+>> > Hello,
+>> >
+>> > It is possible to embed R inside Java.
+>> >
+>> > Q: is it possible to for an R function to call a method in a passed
+>> Java object?
+>> >
+>> > i.e.
+>> > object O of class C (in Java)
+>> > (pseudo code)
+>> > public void foo(){
+>> >    Rengine.eval("myRfunction",Object2)
+>> > }
+>> >
+>> > R function
+>> >
+>> > myRfunction <- function(javaObj){
+>> > javaObj$doSomething()
+>> > }
+>> >
+>>
+>> Yes. Assuming you're using REngine, it would look something like
+>>
+>> Object o; // Java object to pass to R
+>>
+>> eng.assign("o", new REXPJavaReference(o));
+>> eng.parseAndEval("myRfunction(o)");
+>>
+>> Just make sure you have loaded and initialized rJava, e.g.,
+>> eng.parseAndEval("{ library(rJava); .jinit() }"); before assigning any
+>> references.
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Sat Feb 16 15:25:26 2013
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sat, 16 Feb 2013 10:25:26 -0500
+Subject: Re: java call r call java
+In-Reply-To: <CAJDot1pth6joUhcjT0jXtcOzA4WxvOJKnEEVaaBWVKgzC=gsow@mail.gmail.com>
+References: <CAJDot1pi8f=60ZryPBS_sT_XjUQgU_w4AsOoFSHhzWi9JJn5kQ@mail.gmail.com> <B90C62D2-EA50-4001-B8DD-1ED9F0058DC1@r-project.org> <CAJDot1rKWUAppkwv0j513Gy5ASn_krct2zjKgZx6y+RvQ0GnVA@mail.gmail.com> <CAJDot1pth6joUhcjT0jXtcOzA4WxvOJKnEEVaaBWVKgzC=gsow@mail.gmail.com>
+Message-ID: <995147EA-CFCF-4B6C-BB2D-8D2229C1CAC4@r-project.org>
+
+On Feb 16, 2013, at 6:03 AM, Saptarshi Guha wrote:
+
+> For some reason, when i install rJava all i get is JRI.jar (which doesn't have REXPJavaReference or JRIEngine ..)
+> Am i missing something during install?
+> 
+
+No, JRI has only the classes for the low-level engine. REngine is separate layer on top of it. The fact that REngine doesn't ship with JRI is really for historical reasons since REngine was first created with the Rserve back-end and JRI was added later. But you have a very good point that it should really be shipped together.
+
+For now, you'll have to get JRIEngine.jar and REngine.jar from
+http://rforge.net/JRI/files/
+sorry about that. I'll see if I can add them to the rJava build.
+
+Thanks,
+Simon
+
+
+
+> 
+> On Tue, Feb 12, 2013 at 9:37 PM, Saptarshi Guha <saptarshi.guha at gmail.com> wrote:
+> Thanks
+> 
+> 
+> On Tue, Feb 12, 2013 at 5:50 PM, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> On Feb 12, 2013, at 7:51 PM, Saptarshi Guha wrote:
+> 
+> > Hello,
+> >
+> > It is possible to embed R inside Java.
+> >
+> > Q: is it possible to for an R function to call a method in a passed Java object?
+> >
+> > i.e.
+> > object O of class C (in Java)
+> > (pseudo code)
+> > public void foo(){
+> >    Rengine.eval("myRfunction",Object2)
+> > }
+> >
+> > R function
+> >
+> > myRfunction <- function(javaObj){
+> > javaObj$doSomething()
+> > }
+> >
+> 
+> Yes. Assuming you're using REngine, it would look something like
+> 
+> Object o; // Java object to pass to R
+> 
+> eng.assign("o", new REXPJavaReference(o));
+> eng.parseAndEval("myRfunction(o)");
+> 
+> Just make sure you have loaded and initialized rJava, e.g., eng.parseAndEval("{ library(rJava); .jinit() }"); before assigning any references.
+> 
+> Cheers,
+> Simon
+> 
+> 
+>
+
+From saptarshi.guha at gmail.com  Sun Feb 17 03:21:18 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Sat, 16 Feb 2013 19:21:18 -0800
+Subject: Embedding JRI, and custom R installations
+Message-ID: <CAJDot1p5jCm72+-U9dE3i6Y-it72cCxE1WKYhO2RLXD+xbb7YQ@mail.gmail.com>
+
+Hello,
+
+I am having some teething problems embedding JRI, though I think it
+can be easily solved. That solution however escapes me.
+
+A bit of background. I am the author of RHIPE which embeds R in
+Hadoop, allowing the user to write mapreduce programs from R.  That is
+not the trickiest bit, the trickiest bit is getting R to work on the
+nodes.
+
+In our cluster (at Mozilla), R is not present on the nodes and never
+will be. The solution around this is [3] a small bit of code that
+takes the R distribution, (lib64/R/ downwards) and the users R_LIBS,
+creates a tar.gz file and sends it to th nodes (using Hadoops
+DisributedCache).
+
+The current approach is:
+
+1) The zip archive is unzipped on the local nodes
+1) Create environment variables, R_HOME, R_DOC_DIR, R_INCLUDE_DIR ,
+LD_LIBRARY_PATH
+pointing to this zip archive
+3) Launch R
+
+This works. It is really convenient, since i can have multiple R
+distributions, update packages, recreate this archive and away we
+go. No need to install packages on 55 nodes or request sysadmin to do
+things
+
+JRI
+===
+
+So, i want to move to JRI. I've had some very good experience with
+JRI - e.g I could read 1.5 GB across 2000 R objects from the HDFS into
+R in 18 seconds. Pretty nice.
+
+I wish to embed JRI in my Java job. For some reason java.library.path
+is not reflecting my jri source. So instead before i create Rengine
+instance, I load the jri.so file and set ignore.ule to 'yes'. Also i
+have set R_HOME, LD_LIBRARY_PATH etc Thus JRI loads successfully and
+then i get the following issues ([2])
+
+I'm not sure how this is possible. For jri.so to load, libR.so must be
+present (i removed libR.so and jri.so would not load) Also
+Rf_allocS4Objec is present in librR.so, so i'm not sure why this cant
+be found?
+
+
+Do you have some paths i could investigate?
+Cheers
+Saptarshi
+
+
+
+
+[2]
+
+Error in dyn.load(file, DLLpath = DLLpath, ...) :
+  unable to load shared object
+'/data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/
+admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/methods/libs/methods.so
+':
+
+/data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/
+admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/methods/libs/methods.so:
+undefined symbol: Rf_allocS4Object
+In addition: Warning message:
+package ‘methods’ was built under R version 2.15.2
+Error in dyn.load(file, DLLpath = DLLpath, ...) :
+  unable to load shared object
+'/data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/
+admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/grDevices/libs/grDevices.so
+':
+
+/data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/
+admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/grDevices/libs/grDevices.so:
+undefined symbol: R_ClassSymbol
+In addition: Warning messages:
+1: package "methods" in options("defaultPackages") was not found
+2: package ‘datasets’ was built under R version 2.15.2
+3: package ‘utils’ was built under R version 2.15.2
+4: package ‘grDevices’ was built under R version 2.15.2
+
+
+
+[3]
+buildingR <-
+function(excludeLibs=c(),exclude=NULL,iterate=TRUE,verbose=TRUE,nameof="Rfolder-test"){
+  library(Rhipe)
+  rhinit()
+  local({
+    tfolder <- sprintf("%s/Rdist",tempdir())
+    ## delete folder if it exists!
+    dir.create(tfolder)
+    execu <- if ("package:Rhipe" %in% search()) rhoptions()$RhipeMapReduce
+else sprintf("/home/%s/software/R_LIBS/Rhipe/bin/RhipeMapReduce",USER)
+    getLB <- function(n){
+      a <- system(sprintf("ldd  %s",n),intern=TRUE)
+      b <- lapply(strsplit(a,"=>"), function(r) if (length(r)>=2) r[2] else
+NULL)
+      b <- strsplit(unlist(b)," ")
+      b <- unlist(lapply(b,"[[",2))
+      b <- unique(unlist( sapply(b, function(r) if(nchar(r)>1) r else
+NULL)))
+      names(b) <- NULL
+      if(verbose){
+        cat(sprintf("\n%s depends on:\n",n))
+        cat(paste(b,sep=":",collapse=" "))
+        cat(sprintf("\n---------------\n"))
+      }
+      b
+    }
+    b <- getLB(execu)
+    ## b <- unique(b[!grepl("(libc.so)",b)])
+    for(x in b) {
+      cat(sprintf("Copying %s to %s\n",x,tfolder))
+      file.copy(x,tfolder) ##copies the linked .so files
+    }
+    file.copy(execu,tfolder,overwrite=TRUE)  ## copies the RHIPE C engine
+    file.copy(R.home(),tfolder,recursive=TRUE)
+    ## R_LIBS
+    x <- Sys.getenv("R_LIBS")
+    if(nchar(x)>1){
+      for(y in list.files(x,full.names=TRUE)){
+        if(all( sapply(excludeLibs,function(h) !grepl(h,y))))
+          file.copy(y,sprintf("%s/R/library/",tfolder), recursive=TRUE)
+      }
+      allfiles <- list.files(x,full.names=TRUE,rec=TRUE)
+      allsofiles <- allfiles[grepl(".so$",allfiles)]
+      alldeps <- sort(unique(unlist(sapply(allsofiles, getLB))))
+      id <- 1
+      if(iterate){
+        while(TRUE){
+          message(sprintf("iteration %s", id))
+          alldeps2 <- sort(unique(unlist(sapply(alldeps, getLB))))
+          newones <- sum(!(alldeps2 %in% alldeps))
+          if(newones>0){
+            message(sprintf("There were %s additions(total=%s), iterating
+till this becomes zero", length(newones), length(alldeps2)))
+            id=id+1
+            alldeps=alldeps2
+          }else  break
+        }
+      }
+      if(!is.null(exclude)) alldeps <- alldeps[!grepl(exclude,alldeps)]
+      for(x in alldeps) {
+        cat(sprintf("Copying %s to %s\n",x,tfolder))
+        file.copy(x,tfolder) ##copies the linked .so files
+      }
+    }
+  })
+  cat(sprintf("Building a gzipped tar archive at
+%s/%s.tar.gz\n",tempdir(),nameof))
+  system (sprintf("tar z --create --file=%s/%s.tar.gz -C %s/Rdist
+.",tempdir(),nameof, tempdir()))
+  cat(sprintf("Copying gzipped tar archive to HDFS (see %s) in user
+folder\n",sprintf("%s.tar.gz",nameof)))
+  if ("package:Rhipe" %in% search())
+rhput(sprintf("%s/%s.tar.gz",tempdir(),nameof),sprintf("/user/%s/",USER))
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Sun Feb 17 14:25:36 2013
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sun, 17 Feb 2013 09:25:36 -0500
+Subject: Re: Embedding JRI, and custom R installations
+In-Reply-To: <CAJDot1p5jCm72+-U9dE3i6Y-it72cCxE1WKYhO2RLXD+xbb7YQ@mail.gmail.com>
+References: <CAJDot1p5jCm72+-U9dE3i6Y-it72cCxE1WKYhO2RLXD+xbb7YQ@mail.gmail.com>
+Message-ID: <08B1D75B-0C69-4A85-8CEA-6D0ED4496DE0@r-project.org>
+
+Saptarshi,
+
+On Feb 16, 2013, at 10:21 PM, Saptarshi Guha wrote:
+
+> Hello,
+> 
+> I am having some teething problems embedding JRI, though I think it
+> can be easily solved. That solution however escapes me.
+> 
+> A bit of background. I am the author of RHIPE which embeds R in
+> Hadoop, allowing the user to write mapreduce programs from R.  That is
+> not the trickiest bit, the trickiest bit is getting R to work on the
+> nodes.
+> 
+> In our cluster (at Mozilla), R is not present on the nodes and never
+> will be. The solution around this is [3] a small bit of code that
+> takes the R distribution, (lib64/R/ downwards) and the users R_LIBS,
+> creates a tar.gz file and sends it to th nodes (using Hadoops
+> DisributedCache).
+> 
+> The current approach is:
+> 
+> 1) The zip archive is unzipped on the local nodes
+> 1) Create environment variables, R_HOME, R_DOC_DIR, R_INCLUDE_DIR , LD_LIBRARY_PATH
+> pointing to this zip archive
+> 3) Launch R
+> 
+> This works. It is really convenient, since i can have multiple R
+> distributions, update packages, recreate this archive and away we
+> go. No need to install packages on 55 nodes or request sysadmin to do
+> things
+> 
+> JRI
+> ===
+> 
+> So, i want to move to JRI. I've had some very good experience with
+> JRI - e.g I could read 1.5 GB across 2000 R objects from the HDFS into
+> R in 18 seconds. Pretty nice. 
+> 
+> I wish to embed JRI in my Java job. For some reason java.library.path
+> is not reflecting my jri source. So instead before i create Rengine
+> instance, I load the jri.so file and set ignore.ule to 'yes'. Also i
+> have set R_HOME, LD_LIBRARY_PATH etc Thus JRI loads successfully and
+> then i get the following issues ([2])
+> 
+> I'm not sure how this is possible. For jri.so to load, libR.so must be
+> present (i removed libR.so and jri.so would not load) Also
+> Rf_allocS4Objec is present in librR.so, so i'm not sure why this cant
+> be found?
+> 
+
+Two suggestions here:
+
+a) (optional) try doing it the other way round - i.e. setup the R environment as you do and then set java.library.path property in Java to include the JRI directory. Then load and start JRI. I'm not 100% sure if the loader you are using will honor the change but it should. If it doesn't you could use the RJavaClassLoader explicitly - it automatically detects JRI libraries if they are present so no additional settings are needed.
+
+b) the package errors suggest that you have R version mismatch -- i.e. you may be loading packages from other place than you think - they require more recent version than what you are using. Check .libPaths() in the R instance to verify that. If in doubt, nuke all packages and re-install them.
+
+Cheers,
+Simon
+
+
+> 
+> Do you have some paths i could investigate?
+> Cheers
+> Saptarshi
+> 
+> 
+> 
+> 
+> [2]
+> 
+> Error in dyn.load(file, DLLpath = DLLpath, ...) : 
+>   unable to load shared object '/data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/methods/libs/methods.so':
+>   /data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/methods/libs/methods.so: undefined symbol: Rf_allocS4Object
+> In addition: Warning message:
+> package ‘methods’ was built under R version 2.15.2 
+> Error in dyn.load(file, DLLpath = DLLpath, ...) : 
+>   unable to load shared object '/data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/grDevices/libs/grDevices.so':
+>   /data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/grDevices/libs/grDevices.so: undefined symbol: R_ClassSymbol
+> In addition: Warning messages:
+> 1: package "methods" in options("defaultPackages") was not found 
+> 2: package ‘datasets’ was built under R version 2.15.2 
+> 3: package ‘utils’ was built under R version 2.15.2 
+> 4: package ‘grDevices’ was built under R version 2.15.2 
+> 
+> 
+> 
+> [3]
+> buildingR <- function(excludeLibs=c(),exclude=NULL,iterate=TRUE,verbose=TRUE,nameof="Rfolder-test"){
+>   library(Rhipe)
+>   rhinit()
+>   local({
+>     tfolder <- sprintf("%s/Rdist",tempdir())
+>     ## delete folder if it exists!
+>     dir.create(tfolder)
+>     execu <- if ("package:Rhipe" %in% search()) rhoptions()$RhipeMapReduce else sprintf("/home/%s/software/R_LIBS/Rhipe/bin/RhipeMapReduce",USER)
+>     getLB <- function(n){
+>       a <- system(sprintf("ldd  %s",n),intern=TRUE)
+>       b <- lapply(strsplit(a,"=>"), function(r) if (length(r)>=2) r[2] else NULL)
+>       b <- strsplit(unlist(b)," ")
+>       b <- unlist(lapply(b,"[[",2))
+>       b <- unique(unlist( sapply(b, function(r) if(nchar(r)>1) r else NULL)))
+>       names(b) <- NULL
+>       if(verbose){
+>         cat(sprintf("\n%s depends on:\n",n))
+>         cat(paste(b,sep=":",collapse=" "))
+>         cat(sprintf("\n---------------\n"))
+>       }
+>       b
+>     }
+>     b <- getLB(execu)
+>     ## b <- unique(b[!grepl("(libc.so)",b)])
+>     for(x in b) {
+>       cat(sprintf("Copying %s to %s\n",x,tfolder))
+>       file.copy(x,tfolder) ##copies the linked .so files
+>     }
+>     file.copy(execu,tfolder,overwrite=TRUE)  ## copies the RHIPE C engine
+>     file.copy(R.home(),tfolder,recursive=TRUE)
+>     ## R_LIBS
+>     x <- Sys.getenv("R_LIBS")
+>     if(nchar(x)>1){
+>       for(y in list.files(x,full.names=TRUE)){
+>         if(all( sapply(excludeLibs,function(h) !grepl(h,y))))
+>           file.copy(y,sprintf("%s/R/library/",tfolder), recursive=TRUE)
+>       }
+>       allfiles <- list.files(x,full.names=TRUE,rec=TRUE)
+>       allsofiles <- allfiles[grepl(".so$",allfiles)]
+>       alldeps <- sort(unique(unlist(sapply(allsofiles, getLB))))
+>       id <- 1
+>       if(iterate){
+>         while(TRUE){
+>           message(sprintf("iteration %s", id))
+>           alldeps2 <- sort(unique(unlist(sapply(alldeps, getLB))))
+>           newones <- sum(!(alldeps2 %in% alldeps))
+>           if(newones>0){
+>             message(sprintf("There were %s additions(total=%s), iterating till this becomes zero", length(newones), length(alldeps2)))
+>             id=id+1
+>             alldeps=alldeps2
+>           }else  break
+>         }
+>       }
+>       if(!is.null(exclude)) alldeps <- alldeps[!grepl(exclude,alldeps)]
+>       for(x in alldeps) {
+>         cat(sprintf("Copying %s to %s\n",x,tfolder))
+>         file.copy(x,tfolder) ##copies the linked .so files
+>       }
+>     }
+>   })
+>   cat(sprintf("Building a gzipped tar archive at %s/%s.tar.gz\n",tempdir(),nameof))
+>   system (sprintf("tar z --create --file=%s/%s.tar.gz -C %s/Rdist .",tempdir(),nameof, tempdir()))
+>   cat(sprintf("Copying gzipped tar archive to HDFS (see %s) in user folder\n",sprintf("%s.tar.gz",nameof)))
+>   if ("package:Rhipe" %in% search()) rhput(sprintf("%s/%s.tar.gz",tempdir(),nameof),sprintf("/user/%s/",USER))
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Mon Feb 18 05:49:37 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Sun, 17 Feb 2013 21:49:37 -0800
+Subject: Re: Embedding JRI, and custom R installations
+In-Reply-To: <08B1D75B-0C69-4A85-8CEA-6D0ED4496DE0@r-project.org>
+References: <CAJDot1p5jCm72+-U9dE3i6Y-it72cCxE1WKYhO2RLXD+xbb7YQ@mail.gmail.com> <08B1D75B-0C69-4A85-8CEA-6D0ED4496DE0@r-project.org>
+Message-ID: <CAJDot1p5yPBS_zS0YMWb+NuSGokhxOhH5tfSGt=ZxQpeG=tqeg@mail.gmail.com>
+
+Two suggestions here:
+
+>
+> a) (optional) try doing it the other way round - i.e. setup the R
+> environment as you do and then set java.library.path property in Java to
+> include the JRI directory. Then load and start JRI. I'm not 100% sure if
+> the loader you are using will honor the change but it should. If it doesn't
+> you could use the RJavaClassLoader explicitly - it automatically detects
+> JRI libraries if they are present so no additional settings are needed.
+>
+
+So i'd like to point out the JRI loads successfully. Without any hacky
+approaches, I copied libjri.so to the current folder (the Hadoop Job
+attempt specific local folder
+
+/data1/hadoop/mapred/mapred/taskTracker/sguha/jobcache/job_201302060153_1938/attempt_201302060153_1938_m_000000_0/work/./libjri.so
+
+java.library.path includes "
+/data1/hadoop/mapred/mapred/taskTracker/sguha/jobcache/job_201302060153_1938/attempt_201302060153_1938_m_000000_0/work/"
+
+and JRI loads successfully. No ule=yes required.
+
+However, i get the errors below.
+
+
+
+> b) the package errors suggest that you have R version mismatch -- i.e. you
+> may be loading packages from other place than you think - they require more
+> recent version than what you are using. Check .libPaths() in the R instance
+> to verify that. If in doubt, nuke all packages and re-install them.
+>
+>
+This is .libPaths() output and points to the R distribution i included.
+
+"/data4/hadoop/mapred/mapred/taskTracker/distcache/4005923233462316009_-604865996_1696305928/admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library"
+
+There is no other R on the system! Consider this, instead of loading via
+jri, I ran R via Java's ProcessBuilder e.g. (this is again in the local
+directory of the hadoop job)
+
+    ProcessBuilder builder = new ProcessBuilder(new
+String[]{"/bin/sh","./a.sh"});
+    builder.redirectErrorStream(true);
+    Process process = builder.start();
+    InputStream is = process.getInputStream();
+    InputStreamReader isr = new InputStreamReader(is);
+    BufferedReader br = new BufferedReader(isr);
+    String line;
+    while ((line = br.readLine()) != null) {
+        System.out.println(line);
+    }
+
+a.sh looks like
+
+echo "rhome" $R_HOME
+echo "rhomdir" $R_HOME_DIR
+echo "rshare" $R_SHARE_DIR
+echo "rinclude" $R_INCLUDE_DIR
+echo "rdoc" $R_DOC_DIR
+echo "rpath" $PATH
+echo "rld" $LD_LIBRARY_PATH
+$R_HOME/bin/Rcmd $R_HOME/bin/exec/R  -e 'print(runif(10)); library(rJava);
+.jinit();print(.jclassPath())'
+
+
+And R_HOME is defined as ./Rfolder-exp/R. This works beautifully. I get all
+the expected output.
+So, i'm probably not providing something to JRI (though all the above
+environment variables have been correctly captured by the JRI loaded R
+engine)
+
+Cheers and thanks for your time
+Saptarshi
+
+
+
+
+
+
+> Cheers,
+> Simon
+>
+>
+> >
+> > Do you have some paths i could investigate?
+> > Cheers
+> > Saptarshi
+> >
+> >
+> >
+> >
+> > [2]
+> >
+> > Error in dyn.load(file, DLLpath = DLLpath, ...) :
+> >   unable to load shared object
+> '/data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/
+> admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/methods/libs/methods.so
+> ':
+> >
+> /data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/
+> admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/methods/libs/methods.so:
+> undefined symbol: Rf_allocS4Object
+> > In addition: Warning message:
+> > package ‘methods’ was built under R version 2.15.2
+> > Error in dyn.load(file, DLLpath = DLLpath, ...) :
+> >   unable to load shared object
+> '/data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/
+> admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/grDevices/libs/grDevices.so
+> ':
+> >
+> /data3/hadoop/mapred/mapred/taskTracker/distcache/6637290626576369352_-604865996_1696305928/
+> admin1.mango.metrics.scl3.mozilla.com/user/sguha/Rfolder-exp.tar.gz/R/library/grDevices/libs/grDevices.so:
+> undefined symbol: R_ClassSymbol
+> > In addition: Warning messages:
+> > 1: package "methods" in options("defaultPackages") was not found
+> > 2: package ‘datasets’ was built under R version 2.15.2
+> > 3: package ‘utils’ was built under R version 2.15.2
+> > 4: package ‘grDevices’ was built under R version 2.15.2
+> >
+> >
+> >
+> > [3]
+> > buildingR <-
+> function(excludeLibs=c(),exclude=NULL,iterate=TRUE,verbose=TRUE,nameof="Rfolder-test"){
+> >   library(Rhipe)
+> >   rhinit()
+> >   local({
+> >     tfolder <- sprintf("%s/Rdist",tempdir())
+> >     ## delete folder if it exists!
+> >     dir.create(tfolder)
+> >     execu <- if ("package:Rhipe" %in% search())
+> rhoptions()$RhipeMapReduce else
+> sprintf("/home/%s/software/R_LIBS/Rhipe/bin/RhipeMapReduce",USER)
+> >     getLB <- function(n){
+> >       a <- system(sprintf("ldd  %s",n),intern=TRUE)
+> >       b <- lapply(strsplit(a,"=>"), function(r) if (length(r)>=2) r[2]
+> else NULL)
+> >       b <- strsplit(unlist(b)," ")
+> >       b <- unlist(lapply(b,"[[",2))
+> >       b <- unique(unlist( sapply(b, function(r) if(nchar(r)>1) r else
+> NULL)))
+> >       names(b) <- NULL
+> >       if(verbose){
+> >         cat(sprintf("\n%s depends on:\n",n))
+> >         cat(paste(b,sep=":",collapse=" "))
+> >         cat(sprintf("\n---------------\n"))
+> >       }
+> >       b
+> >     }
+> >     b <- getLB(execu)
+> >     ## b <- unique(b[!grepl("(libc.so)",b)])
+> >     for(x in b) {
+> >       cat(sprintf("Copying %s to %s\n",x,tfolder))
+> >       file.copy(x,tfolder) ##copies the linked .so files
+> >     }
+> >     file.copy(execu,tfolder,overwrite=TRUE)  ## copies the RHIPE C engine
+> >     file.copy(R.home(),tfolder,recursive=TRUE)
+> >     ## R_LIBS
+> >     x <- Sys.getenv("R_LIBS")
+> >     if(nchar(x)>1){
+> >       for(y in list.files(x,full.names=TRUE)){
+> >         if(all( sapply(excludeLibs,function(h) !grepl(h,y))))
+> >           file.copy(y,sprintf("%s/R/library/",tfolder), recursive=TRUE)
+> >       }
+> >       allfiles <- list.files(x,full.names=TRUE,rec=TRUE)
+> >       allsofiles <- allfiles[grepl(".so$",allfiles)]
+> >       alldeps <- sort(unique(unlist(sapply(allsofiles, getLB))))
+> >       id <- 1
+> >       if(iterate){
+> >         while(TRUE){
+> >           message(sprintf("iteration %s", id))
+> >           alldeps2 <- sort(unique(unlist(sapply(alldeps, getLB))))
+> >           newones <- sum(!(alldeps2 %in% alldeps))
+> >           if(newones>0){
+> >             message(sprintf("There were %s additions(total=%s),
+> iterating till this becomes zero", length(newones), length(alldeps2)))
+> >             id=id+1
+> >             alldeps=alldeps2
+> >           }else  break
+> >         }
+> >       }
+> >       if(!is.null(exclude)) alldeps <- alldeps[!grepl(exclude,alldeps)]
+> >       for(x in alldeps) {
+> >         cat(sprintf("Copying %s to %s\n",x,tfolder))
+> >         file.copy(x,tfolder) ##copies the linked .so files
+> >       }
+> >     }
+> >   })
+> >   cat(sprintf("Building a gzipped tar archive at
+> %s/%s.tar.gz\n",tempdir(),nameof))
+> >   system (sprintf("tar z --create --file=%s/%s.tar.gz -C %s/Rdist
+> .",tempdir(),nameof, tempdir()))
+> >   cat(sprintf("Copying gzipped tar archive to HDFS (see %s) in user
+> folder\n",sprintf("%s.tar.gz",nameof)))
+> >   if ("package:Rhipe" %in% search())
+> rhput(sprintf("%s/%s.tar.gz",tempdir(),nameof),sprintf("/user/%s/",USER))
+> >
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+-------------- next part --------------
+
+
+From saptarshi.guha at gmail.com  Mon Feb 18 07:22:57 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Sun, 17 Feb 2013 23:22:57 -0800
+Subject: Re: Embedding JRI, and custom R installations
+In-Reply-To: <CAJDot1p5yPBS_zS0YMWb+NuSGokhxOhH5tfSGt=ZxQpeG=tqeg@mail.gmail.com>
+References: <CAJDot1p5jCm72+-U9dE3i6Y-it72cCxE1WKYhO2RLXD+xbb7YQ@mail.gmail.com> <08B1D75B-0C69-4A85-8CEA-6D0ED4496DE0@r-project.org> <CAJDot1p5yPBS_zS0YMWb+NuSGokhxOhH5tfSGt=ZxQpeG=tqeg@mail.gmail.com>
+Message-ID: <CAJDot1pKUswZBM0pn5c9T9vwVB0Ktt6CFpzg=B-TdPcFbQF6fw@mail.gmail.com>
+
+My apologies for my desperate emails. The packages were built on R.15.2 and
+my distribution being copied to folders
+were from 15.1.
+
+JRI works beautifully after having setup the environment.
+One suggestion, maybe the System.loadlibrary in Rengine.ava could be also
+be System.load based on the presence of public static field in some other
+class?
+That way i dont have to hackily load jri.so and set ule to 'yes'
+
+Thanks for your time
+Saptarshi
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Thu Feb 21 14:50:25 2013
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 21 Feb 2013 09:50:25 -0500
+Subject: Re: TLS/QAP with Java Rserve client
+Message-ID: <AB4E7D8A-4F9A-4538-982F-7D9040BB7659@r-project.org>
+
+> From: Joël Kuiper <me at joelkuiper.eu>
+> Date: February 21, 2013 3:40:25 AM EST
+> To: stats-rosuda-devel-bounces at listserv.uni-augsburg.de
+> Subject: TLS/QAP with Java Rserve client
+> 
+> 
+> Quick question: Is TLS/QAP from the 1.7.0 package supported by the
+> Java Rserve client? I couldn't find any documentation on how to use
+> this.
+> 
+
+No, it is not supported. Currently the only client supporting TLS is the RSclient.
+
+However, given that Java has SSL support it is probably not hard to add to the Java client - I'll have a look and report on it unless someone else already has a patch.
+
+Cheers,
+Simon
+
+From joel at joelkuiper.eu  Thu Feb 21 15:02:49 2013
+From: joel at joelkuiper.eu (=?utf-8?q?Jo=C3=ABl_Kuiper?=)
+Date: Thu, 21 Feb 2013 16:02:49 +0100
+Subject: Re: TLS/QAP with Java Rserve client
+In-Reply-To: <AB4E7D8A-4F9A-4538-982F-7D9040BB7659@r-project.org>
+References: <AB4E7D8A-4F9A-4538-982F-7D9040BB7659@r-project.org>
+Message-ID: <CAD8kUV7sujq-2g-Fc8VD_G2ttfEph8k5phVGM09W3DyO9QY7Wg@mail.gmail.com>
+
+On Thu, Feb 21, 2013 at 3:50 PM, Simon Urbanek
+<simon.urbanek at r-project.org> wrote:
+>> From: Joël Kuiper <me at joelkuiper.eu>
+>> Date: February 21, 2013 3:40:25 AM EST
+>> To: stats-rosuda-devel-bounces at listserv.uni-augsburg.de
+>> Subject: TLS/QAP with Java Rserve client
+>>
+>>
+>> Quick question: Is TLS/QAP from the 1.7.0 package supported by the
+>> Java Rserve client? I couldn't find any documentation on how to use
+>> this.
+>>
+>
+> No, it is not supported. Currently the only client supporting TLS is the RSclient.
+>
+> However, given that Java has SSL support it is probably not hard to add to the Java client - I'll have a look and report on it unless someone else already has a patch.
+>
+> Cheers,
+> Simon
+>
+Hey Simon,
+
+Cool! I added a very insecure piece of code myself
+https://gist.github.com/joelkuiper/5005246 it doesn't check any type
+of validity. Maybe I'll add more decent support later!
+
+Cheers,
+Joel
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Thu Feb 28 09:30:33 2013
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Thu, 28 Feb 2013 01:30:33 -0800
+Subject: Rengine run R expression without returning result
+Message-ID: <CAJDot1pZVgjBQvOLNjvTX2DPwO5xJCK3G3w9KOi++W8vhX_ekQ@mail.gmail.com>
+
+Hello,
+
+Is there a way to for Rengine to evaluate without retrieving the results?
+i.e to evaluate the expression purely for its side effects.
+
+Regards
+Saptarshi
+
+-------------- next part --------------
+
+
+From joel at joelkuiper.eu  Thu Feb 28 09:33:52 2013
+From: joel at joelkuiper.eu (=?utf-8?q?Jo=C3=ABl_Kuiper?=)
+Date: Thu, 28 Feb 2013 10:33:52 +0100
+Subject: Re: Rengine run R expression without returning result
+In-Reply-To: <CAJDot1pZVgjBQvOLNjvTX2DPwO5xJCK3G3w9KOi++W8vhX_ekQ@mail.gmail.com>
+References: <CAJDot1pZVgjBQvOLNjvTX2DPwO5xJCK3G3w9KOi++W8vhX_ekQ@mail.gmail.com>
+Message-ID: <CAD8kUV7HQM_GRzivY15xYRzg1UOm7cNbpR33sBwiWTMW4_6s8g@mail.gmail.com>
+
+If you are using the Java REngine client then maybe you are looking
+for voidEval (http://www.rforge.net/org/docs/org/rosuda/REngine/Rserve/RConnection.html#voidEval%28java.lang.String%29)
+?
+
+On Thu, Feb 28, 2013 at 10:30 AM, Saptarshi Guha
+<saptarshi.guha at gmail.com> wrote:
+> Hello,
+>
+> Is there a way to for Rengine to evaluate without retrieving the results?
+> i.e to evaluate the expression purely for its side effects.
+>
+> Regards
+> Saptarshi
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+

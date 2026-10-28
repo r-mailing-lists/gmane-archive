@@ -1,0 +1,476 @@
+From golgauthic at yahoo.fr  Wed May 20 23:40:23 2015
+From: golgauthic at yahoo.fr (g b)
+Date: Wed, 20 May 2015 23:40:23 +0000
+Subject: Rserve: "ignoring SIGPIPE signal" returned while eval (bioconductor - xcms - packages)
+Message-ID: <1152300938.5216948.1432165223079.JavaMail.yahoo@mail.yahoo.com>
+
+Hello,
+I'm currently struggling with that kind of errors (returning from R through Rserve):
+
+Error : ignoring SIGPIPE signal
+
+
+This usually occurs when a master instance of Rserve has just been forked and the forked instance has been asked to load some packages, or later while using some of its functions. This results in not loading the package, of course, or failing while trying to eval.
+
+My web searches lead me to a related comment in Rserve source code:
+
+#ifndef WIN32
+
+    /* windows uses this in init, unix doesn't so we set it here */
+
+    R_Interactive = Rsrv_interactive;
+
+    /* we let R install sig handlers, but remove those that are bad */
+
+    signal(SIGSEGV, SIG_DFL);
+
+    signal(SIGILL, SIG_DFL);
+
+#ifdef SIGBUS
+
+    signal(SIGBUS, SIG_DFL);
+
+#endif
+
+    /* FIXME: not sure about SIGPIPE - it's ok to use R's handling when
+
+       caused by R code, but it's unclear if it can be caused by
+
+       Rserve's internal code which would prefer death to surrender ... */
+
+#endif
+
+
+So I suppose this is a matter Rserve dev has thought about while developing Rserve.
+
+Notes:
+1/ I'm working under Linux/Debian
+2/ Using the java client
+3/ The packages I am trying to load have dependencies (and come from "BioConductor")
+
+I suspect this is all about doing the things at the right time (race conditions), but I'm not sure (never had that kind of issue before).
+Thing is, I am well connected to Rserve, and it works fine (the very first thing I ask to the forked instance is to display R's version and some other very simple things).
+
+Do you have any idea about that?
+Any help would be greatly appreciated. Thanks by advance. 
+The packages that won't work seem to depend on the "parallel" package or so (actually packages related to BioConductor like CAMERA, xcms, ...). And I read somewhere that R, in this kind of situation (parallel processing) get's a separate R environment for each core it plans to use. I also know that Rserve, in my configuration (Rserve running localhost), is not allowed/able to work on several environments (only the global one - .GlobalEnv).
+Well, what is your opinion about all this. If I'm thinking right, is there any possible workaround? Have you ever tried to use the parallel package over Rserve running on localhost? Is there a chance that this is all about something else?
+
+Thanks very very much again for your time.
+
+
+Gauthier
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Fri May 22 20:02:28 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 22 May 2015 16:02:28 -0400
+Subject: Re: Rserve: "ignoring SIGPIPE signal" returned while eval (bioconductor - xcms - packages)
+In-Reply-To: <1152300938.5216948.1432165223079.JavaMail.yahoo@mail.yahoo.com>
+References: <1152300938.5216948.1432165223079.JavaMail.yahoo@mail.yahoo.com>
+Message-ID: <B8430CA3-78AC-4AAD-ABC4-3CFFE34AEB00@r-project.org>
+
+Gauthier,
+
+SIGPIPE simply says that something in R tries to write to a file/socket which is already closed. R installs a handler on this because it assumes that you did this intentionally and thus you want to be informed - in most cases this aborts the corresponding R code that triggered this write.
+
+So you’d have to figure out what you’re doing that causes this and whether you care. In the context of Rserve specifically, you may get this error if the client closes the connection to the session while the session is still generating output. In that case there is really nothing Rserve can do since the client is already gone - that’s what the comments below refer to but there is no action really since it’s inconsequential.
+
+Cheers,
+Simon
+
+
+
+> On May 20, 2015, at 7:40 PM, g b <golgauthic at yahoo.fr> wrote:
+> 
+> Hello,
+> 
+> I'm currently struggling with that kind of errors (returning from R through Rserve): 
+> 
+> Error : ignoring SIGPIPE signal 
+> 
+> 
+> This usually occurs when a master instance of Rserve has just been forked and the forked instance has been asked to load some packages, or later while using some of its functions. This results in not loading the package, of course, or failing while trying to eval. 
+> 
+> My web searches lead me to a related comment in Rserve source code: 
+> 
+> #ifndef WIN32 
+> 
+>     /* windows uses this in init, unix doesn't so we set it here */ 
+> 
+>     R_Interactive = Rsrv_interactive; 
+> 
+>     /* we let R install sig handlers, but remove those that are bad */ 
+> 
+>     signal(SIGSEGV, SIG_DFL); 
+> 
+>     signal(SIGILL, SIG_DFL); 
+> 
+> #ifdef SIGBUS 
+> 
+>     signal(SIGBUS, SIG_DFL); 
+> 
+> #endif 
+> 
+>     /* FIXME: not sure about SIGPIPE - it's ok to use R's handling when 
+> 
+>        caused by R code, but it's unclear if it can be caused by 
+> 
+>        Rserve's internal code which would prefer death to surrender ... */ 
+> 
+> #endif 
+> 
+> 
+> So I suppose this is a matter Rserve dev has thought about while developing Rserve. 
+> 
+> Notes: 
+> 1/ I'm working under Linux/Debian 
+> 2/ Using the java client 
+> 3/ The packages I am trying to load have dependencies (and come from "BioConductor") 
+> 
+> I suspect this is all about doing the things at the right time (race conditions), but I'm not sure (never had that kind of issue before). 
+> Thing is, I am well connected to Rserve, and it works fine (the very first thing I ask to the forked instance is to display R's version and some other very simple things). 
+> 
+> Do you have any idea about that? 
+> Any help would be greatly appreciated. Thanks by advance. 
+> 
+> The packages that won't work seem to depend on the "parallel" package or so (actually packages related to BioConductor like CAMERA, xcms, ...). And I read somewhere that R, in this kind of situation (parallel processing) get's a separate R environment for each core it plans to use. I also know that Rserve, in my configuration (Rserve running localhost), is not allowed/able to work on several environments (only the global one - .GlobalEnv). 
+> Well, what is your opinion about all this. If I'm thinking right, is there any possible workaround? Have you ever tried to use the parallel package over Rserve running on localhost? 
+> Is there a chance that this is all about something else?
+> 
+> Thanks very very much again for your time. 
+> 
+> 
+> Gauthier 
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Fri May 22 21:06:01 2015
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Fri, 22 May 2015 14:06:01 -0700
+Subject: rJava crashes with -xrs on AWS Instances(m3.xlarge)
+Message-ID: <CAJDot1oOwKBpR7cKsnVGWmwgX3bGSHH1uNqwYQg4zsOtNy8aFg@mail.gmail.com>
+
+Hello,
+I've been running rJava on AWS m3.xlarge, c3.2xlarge and m1.large instances
+using the Amazon EMR (AMI=3.6) types. They come with R 3.0.1 and I've
+installed rJava (0.9.6).
+
+When I call (i started R via R -d valgrind)
+
+.jinit(parameters = c(getOption("java.parameters"), "-Xrs"))
+.jaddClassPath(p1)
+
+where p1 is here: https://sguha.pastebin.mozilla.org/8834483
+
+I get a segfault.
+
+ex amd64->IR: unhandled instruction bytes: 0x66 0xF 0x3A 0x61 0x4 0x46 0x19
+0x72
+vex amd64->IR:   REX=0 REX.W=0 REX.R=0 REX.X=0 REX.B=0
+vex amd64->IR:   VEX=0 VEX.L=0 VEX.nVVVV=0x0 ESC=0F3A
+vex amd64->IR:   PFX.66=1 PFX.F2=0 PFX.F3=0
+==23206== valgrind: Unrecognised instruction at address 0x1658e33c.
+==23206==    at 0x1658E33C: ???
+==23206==    by 0xFFFFFFF6: ???
+==23206==    by 0xDAFA07CF: ???
+==23206==    by 0xDB07010F: ???
+==23206==    by 0xDAF9FBBF: ???
+==23206== Your program just tried to execute an instruction that Valgrind
+==23206== did not recognise.  There are two possible reasons for this.
+==23206== 1. Your program has a bug and erroneously jumped to a non-code
+==23206==    location.  If you are running Memcheck and you just saw a
+==23206==    warning about a bad jump, it's probably your program's fault.
+==23206== 2. The instruction is legitimate but Valgrind doesn't handle it,
+==23206==    i.e. it's Valgrind's fault.  If you think this is the case or
+==23206==    you are not sure, please let us know and we'll try to fix it.
+==23206== Either way, Valgrind will now raise a SIGILL signal which will
+==23206== probably kill your program.
+
+ *** caught illegal operation ***
+address 0x1658e33c, cause 'illegal opcode'
+
+Traceback:
+ 1: .External(interface, obj@jobj, returnSig, method, ...)
+ 2: .jcall(.rJava.class.loader, "V", "addClassPath", as.character(path))
+ 3: .jaddClassPath(p1)
+
+Possible actions:
+1: abort (with core dump, if enabled)
+2: normal R exit
+3: exit R without saving workspace
+4: exit R saving workspace
+
+
+Rather than attach a file, here is the url to
+1. The text file containing the session commands and output -
+http://people.mozilla.org/~sguha/m3.xlarge-on-emr-AMI-3.6.txt
+
+2. The Rdata file containing the variable 'p1'
+http://people.mozilla.org/~sguha/paths.Rdata
+
+If you'd like the vgcore file (not sure if it'll help) i can share a
+private link (it's ~ 1GB file)
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Fri May 22 21:18:58 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 22 May 2015 17:18:58 -0400
+Subject: Re: rJava crashes with -xrs on AWS Instances(m3.xlarge)
+In-Reply-To: <CAJDot1oOwKBpR7cKsnVGWmwgX3bGSHH1uNqwYQg4zsOtNy8aFg@mail.gmail.com>
+References: <CAJDot1oOwKBpR7cKsnVGWmwgX3bGSHH1uNqwYQg4zsOtNy8aFg@mail.gmail.com>
+Message-ID: <59B98E8A-4529-4122-AC78-27C2E607CADA@r-project.org>
+
+Saptarshi,
+
+generally, Java cannot be run inside valgrind, because is creates dynamic code which trips valgrind. Do you see any issues without valgrind? It works for me (/wo vg), but then it may depend on the actual existence of those paths. This is essentially just passed directly to Java code so I wouldn’t be surprised if this is something in the JVM rather than rJava.
+
+Cheers,
+Simon
+
+
+> On May 22, 2015, at 5:06 PM, Saptarshi Guha <saptarshi.guha at gmail.com> wrote:
+> 
+> Hello,
+> I've been running rJava on AWS m3.xlarge, c3.2xlarge and m1.large instances using the Amazon EMR (AMI=3.6) types. They come with R 3.0.1 and I've installed rJava (0.9.6).
+> 
+> When I call (i started R via R -d valgrind)
+> 
+> .jinit(parameters = c(getOption("java.parameters"), "-Xrs"))
+> .jaddClassPath(p1)
+> 
+> where p1 is here: https://sguha.pastebin.mozilla.org/8834483
+> 
+> I get a segfault.
+> 
+> ex amd64->IR: unhandled instruction bytes: 0x66 0xF 0x3A 0x61 0x4 0x46 0x19 0x72
+> vex amd64->IR:   REX=0 REX.W=0 REX.R=0 REX.X=0 REX.B=0
+> vex amd64->IR:   VEX=0 VEX.L=0 VEX.nVVVV=0x0 ESC=0F3A
+> vex amd64->IR:   PFX.66=1 PFX.F2=0 PFX.F3=0
+> ==23206== valgrind: Unrecognised instruction at address 0x1658e33c.
+> ==23206==    at 0x1658E33C: ???
+> ==23206==    by 0xFFFFFFF6: ???
+> ==23206==    by 0xDAFA07CF: ???
+> ==23206==    by 0xDB07010F: ???
+> ==23206==    by 0xDAF9FBBF: ???
+> ==23206== Your program just tried to execute an instruction that Valgrind
+> ==23206== did not recognise.  There are two possible reasons for this.
+> ==23206== 1. Your program has a bug and erroneously jumped to a non-code
+> ==23206==    location.  If you are running Memcheck and you just saw a
+> ==23206==    warning about a bad jump, it's probably your program's fault.
+> ==23206== 2. The instruction is legitimate but Valgrind doesn't handle it,
+> ==23206==    i.e. it's Valgrind's fault.  If you think this is the case or
+> ==23206==    you are not sure, please let us know and we'll try to fix it.
+> ==23206== Either way, Valgrind will now raise a SIGILL signal which will
+> ==23206== probably kill your program.
+> 
+>  *** caught illegal operation ***
+> address 0x1658e33c, cause 'illegal opcode'
+> 
+> Traceback:
+>  1: .External(interface, obj@jobj, returnSig, method, ...)
+>  2: .jcall(.rJava.class.loader, "V", "addClassPath", as.character(path))
+>  3: .jaddClassPath(p1)
+> 
+> Possible actions:
+> 1: abort (with core dump, if enabled)
+> 2: normal R exit
+> 3: exit R without saving workspace
+> 4: exit R saving workspace
+> 
+> 
+> Rather than attach a file, here is the url to
+> 1. The text file containing the session commands and output - http://people.mozilla.org/~sguha/m3.xlarge-on-emr-AMI-3.6.txt
+> 
+> 2. The Rdata file containing the variable 'p1'
+> http://people.mozilla.org/~sguha/paths.Rdata
+> 
+> If you'd like the vgcore file (not sure if it'll help) i can share a private link (it's ~ 1GB file)
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Fri May 22 21:22:42 2015
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Fri, 22 May 2015 14:22:42 -0700
+Subject: Re: rJava crashes with -xrs on AWS Instances(m3.xlarge)
+In-Reply-To: <59B98E8A-4529-4122-AC78-27C2E607CADA@r-project.org>
+References: <CAJDot1oOwKBpR7cKsnVGWmwgX3bGSHH1uNqwYQg4zsOtNy8aFg@mail.gmail.com> <59B98E8A-4529-4122-AC78-27C2E607CADA@r-project.org>
+Message-ID: <CAJDot1r3a3GsrOouEvKbF7ogegDeJp9t37M-HzyABTjWHXhJPg@mail.gmail.com>
+
+Hello,
+Interesting. I do get segfaults without valgrind, but not always at that
+line. The segfault happens sometimes after a java error, but can be tough
+to replicate.
+
+I'll investigate further without the -Xrs option.
+Thanks and regards
+Saptarshi
+
+
+On Fri, May 22, 2015 at 2:18 PM, Simon Urbanek <simon.urbanek at r-project.org>
+wrote:
+
+> Saptarshi,
+>
+> generally, Java cannot be run inside valgrind, because is creates dynamic
+> code which trips valgrind. Do you see any issues without valgrind? It works
+> for me (/wo vg), but then it may depend on the actual existence of those
+> paths. This is essentially just passed directly to Java code so I wouldn’t
+> be surprised if this is something in the JVM rather than rJava.
+>
+> Cheers,
+> Simon
+>
+>
+> > On May 22, 2015, at 5:06 PM, Saptarshi Guha <saptarshi.guha at gmail.com>
+> wrote:
+> >
+> > Hello,
+> > I've been running rJava on AWS m3.xlarge, c3.2xlarge and m1.large
+> instances using the Amazon EMR (AMI=3.6) types. They come with R 3.0.1 and
+> I've installed rJava (0.9.6).
+> >
+> > When I call (i started R via R -d valgrind)
+> >
+> > .jinit(parameters = c(getOption("java.parameters"), "-Xrs"))
+> > .jaddClassPath(p1)
+> >
+> > where p1 is here: https://sguha.pastebin.mozilla.org/8834483
+> >
+> > I get a segfault.
+> >
+> > ex amd64->IR: unhandled instruction bytes: 0x66 0xF 0x3A 0x61 0x4 0x46
+> 0x19 0x72
+> > vex amd64->IR:   REX=0 REX.W=0 REX.R=0 REX.X=0 REX.B=0
+> > vex amd64->IR:   VEX=0 VEX.L=0 VEX.nVVVV=0x0 ESC=0F3A
+> > vex amd64->IR:   PFX.66=1 PFX.F2=0 PFX.F3=0
+> > ==23206== valgrind: Unrecognised instruction at address 0x1658e33c.
+> > ==23206==    at 0x1658E33C: ???
+> > ==23206==    by 0xFFFFFFF6: ???
+> > ==23206==    by 0xDAFA07CF: ???
+> > ==23206==    by 0xDB07010F: ???
+> > ==23206==    by 0xDAF9FBBF: ???
+> > ==23206== Your program just tried to execute an instruction that Valgrind
+> > ==23206== did not recognise.  There are two possible reasons for this.
+> > ==23206== 1. Your program has a bug and erroneously jumped to a non-code
+> > ==23206==    location.  If you are running Memcheck and you just saw a
+> > ==23206==    warning about a bad jump, it's probably your program's
+> fault.
+> > ==23206== 2. The instruction is legitimate but Valgrind doesn't handle
+> it,
+> > ==23206==    i.e. it's Valgrind's fault.  If you think this is the case
+> or
+> > ==23206==    you are not sure, please let us know and we'll try to fix
+> it.
+> > ==23206== Either way, Valgrind will now raise a SIGILL signal which will
+> > ==23206== probably kill your program.
+> >
+> >  *** caught illegal operation ***
+> > address 0x1658e33c, cause 'illegal opcode'
+> >
+> > Traceback:
+> >  1: .External(interface, obj@jobj, returnSig, method, ...)
+> >  2: .jcall(.rJava.class.loader, "V", "addClassPath", as.character(path))
+> >  3: .jaddClassPath(p1)
+> >
+> > Possible actions:
+> > 1: abort (with core dump, if enabled)
+> > 2: normal R exit
+> > 3: exit R without saving workspace
+> > 4: exit R saving workspace
+> >
+> >
+> > Rather than attach a file, here is the url to
+> > 1. The text file containing the session commands and output -
+> http://people.mozilla.org/~sguha/m3.xlarge-on-emr-AMI-3.6.txt
+> >
+> > 2. The Rdata file containing the variable 'p1'
+> > http://people.mozilla.org/~sguha/paths.Rdata
+> >
+> > If you'd like the vgcore file (not sure if it'll help) i can share a
+> private link (it's ~ 1GB file)
+> >
+> >
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From vilardi at ege.fcen.uba.ar  Wed May  6 19:20:55 2015
+From: vilardi at ege.fcen.uba.ar (Juan Cesar Vilardi)
+Date: Wed, 06 May 2015 16:20:55 -0300
+Subject: JGR launcher
+Message-ID: <554A6997.5060109@ege.fcen.uba.ar>
+
+Dear Sirs,
+I am posting this question to you by sugestion of Markus Helbig.
+
+I am user of JGR on ubuntu platform, where it has always worked fine. 
+However, recently I installed R and JGR on ubuntu 14.04.2 but I was not 
+able to create a shortcut directly to JGR.
+
+I started R and run JGR() once, but the script (file "run") is not 
+created (at least it is not in the expected folder).
+Indeed, the only file at /usr/local/lib/R/site-library/JGR/scripts/ is 
+run.in (run is absent).
+
+I would acknowledge if you can give me a solution to this problem or an 
+alternative way to create a launcher directly to JGR (rather than 
+starting it from R).
+Thank you in advance.
+
+Yours faithfully
+
+-- 
+Dr. Juan Cesar Vilardi
+Depto Ecologia, Genetica y Evolucion
+Fac. Ciencias Exactas y Naturales
+Universidad de Buenos Aires
+1428 Buenos Aires-Argentina
+the script (file "run") is not
+       created (at least it is not in the expected folder).
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

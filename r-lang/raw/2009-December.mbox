@@ -1,0 +1,1909 @@
+From jjayez-ENF6MEdF20VWj0EZb7rXcA at public.gmane.org  Sun Dec  6 15:42:03 2009
+From: jjayez-ENF6MEdF20VWj0EZb7rXcA at public.gmane.org (Jacques Jayez)
+Date: Sun, 06 Dec 2009 16:42:03 +0100
+Subject: (Mis)using MCMCglmm
+Message-ID: <4D362139-83BB-41BA-9D16-3BBE3B7D8A72@isc.cnrs.fr>
+
+Dear R-lang users,
+
+I am trying to use the MCMCglmm package to analyze some data relating to prosody. Although I am not a newbie to R, it's fair to say that I am incompetent regarding mixed models. So, pardon the naïvety of my questions. For convenience, I divide them into two different parts, which, I think, can receive partly independent answers.
+
+1. Is MCMCglmm appropriate for what I am trying to do?
+
+22 subjects were asked to categorize 16 sentences, assigning to them one of four labels A(ssertion), Q(uestion), E(xclamation), ind(eterminate). This is my response variable (categorical-nominal, 4 levels). The experimenters had assigned to each sentence one of four labels A(ssertion), Q(uestion), E(xclamation), C(ontinuation). This is my independent variable (categorical-nominal, four levels). I projected the results into a  matrix of length (22 X 16), as follows:
+
+	subj       pair.type response
+1 	subj1         A        	A
+2 	subj1         E       	E
+3 	subj1         C      	ind
+4 	subj1         Q        	Q
+5 	subj1         Q       	Q
+6 	subj1         E        	E 
+...
+
+347 subj22         C        Q
+348 subj22         A        A
+349 subj22         Q        Q
+350 subj22         E        	E
+351 subj22         C       	E
+352 subj22         A        	A
+
+I would like to see if there is an influence of the pair.type. Intuitively, continuatives are massively interpreted as questions by subjects. For instance, clustering on answers returns a single cluster for questions and continuatives. 
+
+I ran a logistic regression exploration using VGAM. The results fit intuition, but, of course, with pseudo-replication (each subject enters the scene 16 times). My idea was to use a mixed model integrating random variation on subjects. Does it make sense in the case at hand and does it make sense with very small data like those ones?
+
+2. Parameterizing the MCMCglmm call
+
+Borrowing alternatively from Florian Jaeger blog page (http://hlplab.wordpress.com/2009/05/07/multinomial-random-effects-models-in-r/#more-378) and the tutorial doc for MCMClgmm, I tried the following:
+
+k = 4; I <- diag(k-1);  J <- matrix(rep(1, (k-1)^2), c(k-1, k-1));
+prior <- list(R=list(fix=1, V=0.25 * (I + J), n = 3),G=list(G1=list(V=diag(4),n=4),G2=list(V=diag(4),n=4)))
+m <- MCMCglmm(response ~ -1+trait+pair.type, random = ~us(trait):subj+us(pair.type):subj, rcov= ~us(trait):units, family = "categorical",burnin=15000,nitt=40000,data = data, prior = prior, verbose = T)
+
+The package complains that V is the wrong dimension ''for some priorG/priorR elements"
+
+I tried a number of variants (on R, G and the fixed vs. random effect distribution), but, obviously, I am stuck ... and unsure about whether my attempt to use subjects as random effect carriers makes sense in the first place!
+
+Any help would be appreciated. The data (with a \t separator) can be seen at http://pagesperso-orange.fr/jjayez/data.txt
+
+Jacques Jayez
+Laboratoire Langage, Cerveau, Cognition (http://l2c2.isc.cnrs.fr/en/)
+Lyon, France
+
+From r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org  Wed Dec 16 12:27:06 2009
+From: r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org (Roger van-Gompel)
+Date: Wed, 16 Dec 2009 12:27:06 +0000
+Subject: Simple effects in mixed logit models
+Message-ID: <4B28D21B.334D.0064.1@dundee.ac.uk>
+
+
+Hi there,
+ 
+I have a 2 (language: Swe vs. Eng) x 2 (prime: pp vs. do) design and
+was wondering how I do simple effects in mixed logit models.  I could
+delete one level of a variable and then analyse the other level of a
+variable (e.g., Swe pp vs. Swe do), but I suspect that that’s not the
+appropriate way of doing it.
+ 
+I have attached my analyses and output. Note that my variables are
+effect coded.  I don’t have an interaction and so strictly speaking, I
+shouldn’t analyse simple effects, but reviewers have asked us to.
+ 
+Thanks a lot for any help!
+ 
+Roger van Gompel
+ 
+ 
+> library(lme4)
+> L2prim = read.table("forLME.txt", header=TRUE)
+> L2prim$langcent <- scale(as.numeric(L2prim$language)) 
+> L2prim$primecent <- scale(as.numeric(L2prim$prime))
+> L2prim$PID=as.factor(L2prim$PID)
+> L2prim$ITEM=as.factor(L2prim$ITEM)
+> head(L2prim)
+  LIST PID ITEM language prime score  langcent  primecent
+1    1   2    4      swe    do     1  1.008740 -0.9742244
+2    1   2    7      swe    do     0  1.008740 -0.9742244
+3    1   2    8      swe    pp     0  1.008740  1.0248334
+4    1   2   20      swe    pp     0  1.008740  1.0248334
+5    1   2   22      eng    pp     0 -0.989767  1.0248334
+6    1   2   23      swe    pp     0  1.008740  1.0248334
+> primanal=lmer(score ~langcent*primecent + (1|PID) + (1|ITEM),
+data=L2prim, family = "binomial")
+> summary(primanal)
+Generalized linear mixed model fit using PQL 
+Formula: score ~ langcent * primecent + (1 | PID) + (1 | ITEM) 
+   Data: L2prim 
+ Family: binomial(logit link)
+      AIC      BIC    logLik deviance
+ 559.0337 590.1759 -272.5168 545.0337
+Random effects:
+ Groups Name        Variance Std.Dev.
+ ITEM   (Intercept) 2.2551   1.5017  
+ PID    (Intercept) 2.5343   1.5919  
+# of obs: 632, groups: ITEM, 40; PID, 32
+ 
+Estimated scale (compare to 1)  0.880811 
+ 
+Fixed effects:
+                    Estimate Std. Error  z value Pr(>|z|)   
+(Intercept)        -0.946211   0.393646 -2.40371 0.016230 * 
+langcent            0.012060   0.108898  0.11075 0.911818   
+primecent           0.337744   0.110732  3.05010 0.002288 **
+langcent:primecent -0.099484   0.109631 -0.90744 0.364172   
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 
+ 
+Correlation of Fixed Effects:
+            (Intr) lngcnt prmcnt
+langcent    -0.001              
+primecent   -0.025 -0.033       
+lngcnt:prmc  0.007 -0.048 -0.005
+The University of Dundee is a registered Scottish charity, No: SC015096
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From stgries-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Dec 16 17:13:05 2009
+From: stgries-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Stefan Th. Gries)
+Date: Wed, 16 Dec 2009 09:13:05 -0800
+Subject: Re: Simple effects in mixed logit models
+In-Reply-To: <4B28D21B.334D.0064.1@dundee.ac.uk>
+References: <4B28D21B.334D.0064.1@dundee.ac.uk>
+Message-ID: <a739b07c0912160913l58411d1bm7e6725686066b807@mail.gmail.com>
+
+Hi Roger
+
+> I don’t have an interaction and so strictly speaking, I shouldn’t analyse simple effects, but reviewers have asked us to.
+But you *do* have an interaction, it's just not significant
+(p=0.364172), just like the effect of langcent. Unless I am missing
+something, all together it seems you're left with the significant main
+effect of primecent, higher values of which increase the probability
+of the predicted level of primecent (probably its alphabetically
+second level). The absolutely simplest way to look at this effect
+would then be
+
+assocplot(table(primecent, score))
+
+It would probably be best though to also test whether you need both
+two random effects or not.
+
+HTH,
+STG
+--
+Stefan Th. Gries
+-----------------------------------------------
+University of California, Santa Barbara
+http://www.linguistics.ucsb.edu/faculty/stgries
+-----------------------------------------------
+
+_______________________________________________
+R-lang mailing list
+R-lang at ling.ucsd.edu
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Wed Dec 16 19:34:16 2009
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Wed, 16 Dec 2009 14:34:16 -0500
+Subject: Re: Simple effects in mixed logit models
+In-Reply-To: <4B28D21B.334D.0064.1@dundee.ac.uk>
+References: <4B28D21B.334D.0064.1@dundee.ac.uk>
+Message-ID: <38dc9be90912161134r698f44e0p8c609907b0861ad1@mail.gmail.com>
+
+Roger,
+
+I agree with you that a simple effect seems out of place here. To get at
+simple effects, there are two options:
+
+1) run the model without only primecent as a predictor on the halves of the
+data (loosing power).
+
+2) recode your variables using treatment coding. To be overly explicit
+(since treatment coding is the default in R):
+
+
+> contrasts(L2prim$lang) <- contr.treatment(L2prim$lang)
+
+> contrasts(L2prim$prime) <- contr.treatment(L2prim$prime)
+
+> primanal=lmer(score ~lang*prime + (1|PID) + (1|ITEM), data=L2prim, family
+= "binomial")
+
+In such a model, the "main" effects are actually simple (main) effects. For
+example, the coefficient of lang will give give you the effect of Lang if
+Prime == 0, where as the effect of Lang for Prime == 1 corresponds to the
+sum of the interaction coefficient and the coefficient of Lang. Now, the
+problem, of course, is that treatment coding leads to collinearity between
+the "main" effects and the interaction (even in a balanced sample). In a
+perfectly balanced sample, the correlation (not the fixed effect
+correlation) will be .33, which is still ok. As long as unbalance due to
+data exclusion is pretty much random, this correlation should not go up much
+beyond .38 (I did some simulation).
+
+In any case, since ANOVA are omnibus test, you can get at least that by
+simple comparing the above model to a model without the interaction or
+without any of the simple (main) effects (using anova(model1, model2)).
+Model comparison is robust against collinearity.
+
+HTH,
+
+Florian
+
+
+On Wed, Dec 16, 2009 at 7:27 AM, Roger van-Gompel <
+r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org> wrote:
+
+>  Hi there,
+>
+>
+>
+> I have a 2 (language: Swe vs. Eng) x 2 (prime: pp vs. do) design and was
+> wondering how I do simple effects in mixed logit models.  I could delete
+> one level of a variable and then analyse the other level of a variable
+> (e.g., Swe pp vs. Swe do), but I suspect that that’s not the appropriate way
+> of doing it.
+>
+>
+>
+> I have attached my analyses and output. Note that my variables are effect
+> coded.  I don’t have an interaction and so strictly speaking, I shouldn’t
+> analyse simple effects, but reviewers have asked us to.
+>
+>
+>
+> Thanks a lot for any help!
+>
+>
+>
+> Roger van Gompel
+>
+>
+>
+>
+>
+> > library(lme4)
+>
+> > L2prim = read.table("forLME.txt", header=TRUE)
+>
+> > L2prim$langcent <- scale(as.numeric(L2prim$language))
+>
+> > L2prim$primecent <- scale(as.numeric(L2prim$prime))
+>
+> > L2prim$PID=as.factor(L2prim$PID)
+>
+> > L2prim$ITEM=as.factor(L2prim$ITEM)
+>
+> > head(L2prim)
+>
+>   LIST PID ITEM language prime score  langcent  primecent
+>
+> 1    1   2    4      swe    do     1  1.008740 -0.9742244
+>
+> 2    1   2    7      swe    do     0  1.008740 -0.9742244
+>
+> 3    1   2    8      swe    pp     0  1.008740  1.0248334
+>
+> 4    1   2   20      swe    pp     0  1.008740  1.0248334
+>
+> 5    1   2   22      eng    pp     0 -0.989767  1.0248334
+>
+> 6    1   2   23      swe    pp     0  1.008740  1.0248334
+>
+> > primanal=lmer(score ~langcent*primecent + (1|PID) + (1|ITEM),
+> data=L2prim, family = "binomial")
+>
+> > summary(primanal)
+>
+> Generalized linear mixed model fit using PQL
+>
+> Formula: score ~ langcent * primecent + (1 | PID) + (1 | ITEM)
+>
+>    Data: L2prim
+>
+>  Family: binomial(logit link)
+>
+>       AIC      BIC    logLik deviance
+>
+>  559.0337 590.1759 -272.5168 545.0337
+>
+> Random effects:
+>
+>  Groups Name        Variance Std.Dev.
+>
+>  ITEM   (Intercept) 2.2551   1.5017
+>
+>  PID    (Intercept) 2.5343   1.5919
+>
+> # of obs: 632, groups: ITEM, 40; PID, 32
+>
+>
+>
+> Estimated scale (compare to 1)  0.880811
+>
+>
+>
+> Fixed effects:
+>
+>                     Estimate Std. Error  z value Pr(>|z|)
+>
+> (Intercept)        -0.946211   0.393646 -2.40371 0.016230 *
+>
+> langcent            0.012060   0.108898  0.11075 0.911818
+>
+> primecent           0.337744   0.110732  3.05010 0.002288 **
+>
+> langcent:primecent -0.099484   0.109631 -0.90744 0.364172
+>
+> ---
+>
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+>
+>
+> Correlation of Fixed Effects:
+>
+>             (Intr) lngcnt prmcnt
+>
+> langcent    -0.001
+>
+> primecent   -0.025 -0.033
+>
+> lngcnt:prmc  0.007 -0.048 -0.005
+>
+>  The University of Dundee is a registered Scottish charity, No: SC015096
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org  Mon Dec 21 15:35:40 2009
+From: r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org (Roger van-Gompel)
+Date: Mon, 21 Dec 2009 15:35:40 +0000
+Subject: Re: Simple effects in mixed logit models
+In-Reply-To: <38dc9be90912181644v4f958522k520aa001a02df50e@mail.gmail.com>
+References: <4B28D21B.334D.0064.1@dundee.ac.uk> <38dc9be90912161134r698f44e0p8c609907b0861ad1@mail.gmail.com> <4B2B7520.334D.0064.1@dundee.ac.uk> <38dc9be90912181644v4f958522k520aa001a02df50e@mail.gmail.com>
+Message-ID: <4B2F95CB.334D.0064.1@dundee.ac.uk>
+
+
+Hi Florian,
+ 
+Thank you very much, your syntax is much simpler.  
+ 
+The correlation between my two independent variables (language and
+prime) is very low (after treatment coding):
+ 
+> cor(L2prim$LangSwe, L2prim$PrimePP) 
+[1] 0.00292528
+ 
+Does this make sense?  Given that there is no correlation, I can
+perhaps just report the analyses with treatment coding.  But you said
+that it should be around .33, and somehow it’s much lower.  I guess I
+still don’t understand what you meant.
+ 
+I have done the model comparisons as you suggest.  When I use the
+following model:
+primanaleng=lmer(score ~LangEng+LangEng:PrimePP + (1|PID) + (1|ITEM),
+data=L2prim, family = "binomial")
+I appear to get both simple effects (simple effect of prime on English
+LangEng0:PrimePP2, and simple effect on Swedish LangEng1:PrimePP2).  See
+APPENDIX 1.
+ 
+I then compare this model with:
+primanalengnoint=lmer(score ~LangEng+PrimePP + (1|PID) + (1|ITEM),
+data=L2prim, family = "binomial")
+ 
+The comparison shows that the models don’t significantly differ
+(APPENDIX 2).  So I think I should conclude that the model with the
+simple effects is no better than without.
+ 
+My question is: The model with the simple effects contains BOTH simple
+effects (effect of prime on English, and effect on Swedish).  But I’d
+like to know whether ONE of the simple effects is significant/improves
+the model (e.g., effect of prime on English only).  How do I get this
+with a model comparison?
+ 
+I have to admit that I don’t quite understand why treatment coding
+results in an analysis of simple effects.  I am sure you are right, but
+it’s difficult for me to conceptualise.
+ 
+Thanks for all your help.
+
+ 
+Roger
+ 
+ 
+APPENDIX 1
+ 
+primanaleng=lmer(score ~LangEng+LangEng:PrimePP + (1|PID) + (1|ITEM),
+data=L2prim, family = "binomial")
+summary(primanalengnoint)
+ 
+Generalized linear mixed model fit by the Laplace approximation 
+Formula: score ~ LangEng + LangEng:PrimePP + (1 | PID) + (1 | ITEM) 
+   Data: L2prim 
+   AIC   BIC logLik deviance
+ 650.5 677.2 -319.2    638.5
+Random effects:
+ Groups Name        Variance Std.Dev.
+ ITEM   (Intercept) 1.9705   1.4038  
+ PID    (Intercept) 2.2791   1.5097  
+Number of obs: 632, groups: ITEM, 40; PID, 32
+ 
+Fixed effects:
+                  Estimate Std. Error z value Pr(>|z|)   
+(Intercept)        -0.5915     0.4153  -1.424  0.15437   
+LangEng2           -0.1875     0.3022  -0.621  0.53486   
+LangEng0:PrimePP2  -0.9496     0.3095  -3.068  0.00215 **
+LangEng1:PrimePP2  -0.5252     0.3100  -1.694  0.09026 . 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1 
+ 
+Correlation of Fixed Effects:
+            (Intr) LngEn2 LE0:PP
+LangEng2    -0.363              
+LngEn0:PPP2 -0.354  0.507       
+LngEn1:PPP2 -0.008 -0.477  0.012
+ 
+ 
+APPENDIX 2
+ 
+Data: L2prim
+Models:
+primanalengnoint: score ~ LangEng + PrimePP + (1 | PID) + (1 | ITEM)
+primanaleng: score ~ LangEng + LangEng:PrimePP + (1 | PID) + (1 |
+ITEM)
+                 Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+primanalengnoint  5 649.33 671.57 -319.66                         
+primanaleng       6 650.46 677.15 -319.23 0.8714      1     0.3506
+ 
+The University of Dundee is a registered Scottish charity, No: SC015096
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Sat Dec 26 02:42:15 2009
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Fri, 25 Dec 2009 21:42:15 -0500
+Subject: confidence intervals for restricted-cubic spline
+Message-ID: <38dc9be90912251842sab032c6k48ee94faf4ad74f0@mail.gmail.com>
+
+Hi,
+
+does anybody know how to calculate the confidence intervals for restricted
+cubic splines, rcs(), based on the SEs of the coefficient estimates from an
+lmer (family="binomial") fit? We've been looking around to see whether our
+way of doing it makes any sense, but I couldn't find anything online.
+
+cheers,
+
+Florian
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Wed Dec 30 08:43:42 2009
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Wed, 30 Dec 2009 03:43:42 -0500
+Subject: Re: Simple effects in mixed logit models
+In-Reply-To: <4B2F95CB.334D.0064.1@dundee.ac.uk>
+References: <4B28D21B.334D.0064.1@dundee.ac.uk> <38dc9be90912161134r698f44e0p8c609907b0861ad1@mail.gmail.com> <4B2B7520.334D.0064.1@dundee.ac.uk> <38dc9be90912181644v4f958522k520aa001a02df50e@mail.gmail.com> <4B2F95CB.334D.0064.1@dundee.ac.uk>
+Message-ID: <38dc9be90912300043g6217a210n2535d78b4a7479a4@mail.gmail.com>
+
+Hi Roger,
+
+sorry for the prolonged silence. deadlines ...
+
+The correlation between my two independent variables (language and prime) is
+> very low (after treatment coding):
+>
+>
+>
+> > cor(L2prim$LangSwe, L2prim$PrimePP)
+>
+> [1] 0.00292528
+>
+>
+>
+> Does this make sense?
+>
+
+yes, the independent variables themselves won't be correlated within a
+balanced data set. They will, however, be correlated with their interaction
+
+cor(L2prim$LangSwe, L2prim$LangSwe * L2prim$PrimePP)
+cor(L2prim$PrimePP, L2prim$LangSwe * L2prim$PrimePP)
+
+should be high.
+
+>   Given that there is no correlation, I can perhaps just report the
+> analyses with treatment coding.  But you said that it should be around
+> .33, and somehow it’s much lower.  I guess I still don’t understand what
+> you meant.
+>
+
+does the above help?
+
+>
+>
+> I have done the model comparisons as you suggest.  When I use the
+> following model:
+>
+> primanaleng=lmer(score ~LangEng+LangEng:PrimePP + (1|PID) + (1|ITEM),
+> data=L2prim, family = "binomial")
+>
+> I appear to get both simple effects (simple effect of prime on English
+> LangEng0:PrimePP2, and simple effect on Swedish LangEng1:PrimePP2).  See
+> APPENDIX 1.
+>
+>
+>
+> I then compare this model with:
+>
+> primanalengnoint=lmer(score ~LangEng+PrimePP + (1|PID) + (1|ITEM),
+> data=L2prim, family = "binomial")
+>
+>
+>
+> The comparison shows that the models don’t significantly differ (APPENDIX
+> 2).  So I think I should conclude that the model with the simple effects
+> is no better than without.
+>
+>
+>
+> My question is: The model with the simple effects contains BOTH simple
+> effects (effect of prime on English, and effect on Swedish).  But I’d like
+> to know whether ONE of the simple effects is significant/improves the model
+> (e.g., effect of prime on English only).  How do I get this with a model
+> comparison?
+>
+
+hmmm, verflixt ;). I gotta admit the ANOVA approach is more intuitive to me
+for this question, too. After I thought about it some more (though probably
+still not long enough), I know think that another way is better, though I
+hope other people may chime in (for practical purposes you may consider just
+running the analyses on the half-data sets and presenting this to the
+reviewers since the whole thing doesn't really make that much sense given
+that you don't have any sign of an interaction).
+
+you could just code a contrast that only contrasts the simple effect, e.g.
+
+d$lang0prim <- ifelse(d$lang == 0, ifelse(d$prim == 0, -1, 1), 0)
+
+now what I am not so sure of is, if you would want to include the main
+effect that you're not interested in. so whether it should be
+
+l.lang0prim <- lmer(score ~ lang + lang0prim + (1|s) + (1|i), d,
+family="binomial")
+compared against
+lmer(score ~ lang + (1|s) + (1|i), d, family="binomial")
+
+or
+
+l.lang0prim <- lmer(score ~ lang0prim + (1|s) + (1|i), d, family="binomial")
+compare against
+lmer(score  ~ 1 + (1|s) + (1|i), d, family="binomial")
+
+in the test I run they come out pretty much the same, but that isn't really
+satisfying. unfortunately, i don't have to time to go back to look at the
+logic of simple effects right so as compare the results to see whether any
+of what i say above makes a grain of sense (it's late in the year, you
+know). but if you feel like it you could use my code below and add the stuff
+above and compare it against a simple effect anova analyses (for a
+continuous variable). and hopefully some other people have some thoughts,
+too. sorry to have given you probably misleading information before! I think
+about it some more after my next deadline, but i didn't want to wait forever
+to answer =).
+
+here's some code that I used to create data like yours. it may be useful in
+order to understand the relation between sum and treatment coding, though I
+now think it's not relevant to your question.
+
+# number of items and subjects
+ni= 32
+ns= 40
+
+# predictors
+s= sort(rep(1:ns, ni))
+l= rep(c(rep(1,ni), rep(2,ni), rep(3,ni), rep(4,ni)), ns/4)
+i= rep(1:ni, ns)
+lang=rep(c(1,0),(ni/2)*ns)
+prim=rep(c(1,1,0,0),(ni/4)*ns)
+
+# noise
+snoise= rnorm(ns, sd=2.5^0.5)
+inoise= rnorm(ni, sd=2.3^0.5)
+
+# assumed effects under sum-coding
+sum.int  = -0.95
+sum.lang =  0.0
+sum.prim =  0.34
+sum.lp  = -0.1
+
+# get effects for dummy coding
+# under assumption of perfectly balanced sample
+dum.int=   sum.int - sum.lang - sum.prim + sum.lp
+dum.lang= 2 * sum.lang - 2 * sum.lp
+dum.prim= 2 * sum.prim - 2 * sum.lp
+dum.lp= 2 * sum.lp
+
+fixed= dum.int + dum.lang * lang + dum.prim * prim + dum.lp * lang * prime
+score= rbinom(ns*ni, 1, plogis(fixed + snoise[s] + inoise[i]))
+
+# test
+lapply(split(score, paste("x=",lang,",z=",prime)), mean)
+
+# dataframe
+d <- as.data.frame(cbind(s,i,lang,prim,score))
+d$s= as.factor(d$s)
+d$i= as.factor(d$i)
+d$lang = as.factor(d$lang)
+d$prim = as.factor(d$prim)
+
+# analysis
+library(lme4)
+contrasts(d$lang) <- c(-1,1)
+contrasts(d$prim) <- c(-1,1)
+l.sum <- lmer(score ~ lang * prim + (1|s) + (1|i), d, family="binomial")
+summary(l.sum)
+
+
+contrasts(d$lang) <- c(0,1)
+contrasts(d$prim) <- c(0,1)
+l.treat <- lmer(score ~ lang * prim + (1|s) + (1|i), d, family="binomial")
+summary(l.treat)
+
+
+
+
+
+>
+> I have to admit that I don’t quite understand why treatment coding results
+> in an analysis of simple effects.  I am sure you are right, but it’s
+> difficult for me to conceptualise.
+>
+>
+>
+> Thanks for all your help.
+>
+>
+>
+> Roger
+>
+>
+>
+>
+>
+> APPENDIX 1
+>
+>
+>
+> primanaleng=lmer(score ~LangEng+LangEng:PrimePP + (1|PID) + (1|ITEM),
+> data=L2prim, family = "binomial")
+>
+> summary(primanalengnoint)
+>
+>
+>
+> Generalized linear mixed model fit by the Laplace approximation
+>
+> Formula: score ~ LangEng + LangEng:PrimePP + (1 | PID) + (1 | ITEM)
+>
+>    Data: L2prim
+>
+>    AIC   BIC logLik deviance
+>
+>  650.5 677.2 -319.2    638.5
+>
+> Random effects:
+>
+>  Groups Name        Variance Std.Dev.
+>
+>  ITEM   (Intercept) 1.9705   1.4038
+>
+>  PID    (Intercept) 2.2791   1.5097
+>
+> Number of obs: 632, groups: ITEM, 40; PID, 32
+>
+>
+>
+> Fixed effects:
+>
+>                   Estimate Std. Error z value Pr(>|z|)
+>
+> (Intercept)        -0.5915     0.4153  -1.424  0.15437
+>
+> LangEng2           -0.1875     0.3022  -0.621  0.53486
+>
+> LangEng0:PrimePP2  -0.9496     0.3095  -3.068  0.00215 **
+>
+> LangEng1:PrimePP2  -0.5252     0.3100  -1.694  0.09026 .
+>
+> ---
+>
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>
+>
+>
+> Correlation of Fixed Effects:
+>
+>             (Intr) LngEn2 LE0:PP
+>
+> LangEng2    -0.363
+>
+> LngEn0:PPP2 -0.354  0.507
+>
+> LngEn1:PPP2 -0.008 -0.477  0.012
+>
+>
+>
+>
+>
+> APPENDIX 2
+>
+>
+>
+> Data: L2prim
+>
+> Models:
+>
+> primanalengnoint: score ~ LangEng + PrimePP + (1 | PID) + (1 | ITEM)
+>
+> primanaleng: score ~ LangEng + LangEng:PrimePP + (1 | PID) + (1 | ITEM)
+>
+>                  Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+>
+> primanalengnoint  5 649.33 671.57 -319.66
+>
+> primanaleng       6 650.46 677.15 -319.23 0.8714      1     0.3506
+>
+>
+>
+>  The University of Dundee is a registered Scottish charity, No: SC015096
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Sat Dec 19 00:44:06 2009
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Fri, 18 Dec 2009 19:44:06 -0500
+Subject: Re: Simple effects in mixed logit models
+In-Reply-To: <4B2B7520.334D.0064.1@dundee.ac.uk>
+References: <4B28D21B.334D.0064.1@dundee.ac.uk> <38dc9be90912161134r698f44e0p8c609907b0861ad1@mail.gmail.com> <4B2B7520.334D.0064.1@dundee.ac.uk>
+Message-ID: <38dc9be90912181644v4f958522k520aa001a02df50e@mail.gmail.com>
+
+Hi Roger,
+
+I have a quite lot of missing responses, and as you can see in the summary
+> of the results, there are correlations between the “main” effects and the
+> interaction.  But you say “not the fixed effect correlation”, so are you
+> referring to a different correlation?
+>
+
+I just meant that the specific numbers I gave were those of the correlations
+between the two variables (cor()). Fixed effect correlations are a somewhat
+complicated beast, so I wasn't talking about them, but usually when the
+correlations are high, the fixed effect correlations are high, too.
+
+
+> I haven’t done the model comparisons yet.  You said:
+>
+> In any case, since ANOVA are omnibus test, you can get at least that by
+> simple comparing the above model to a model without the interaction or
+> without any of the simple (main) effects (using anova(model1, model2)).
+> Model comparison is robust against collinearity.
+>
+>
+>
+> I find it hard to conceptualize what the model comparisons tell me.  What
+> can I conclude if the model with which I got the simple effect differs from
+> a model without the interaction or without any of the simple effects?
+>
+
+I had a somewhat hard time finding what you did in your code below, but I
+was thinking that you can just compare the models with and without a simple
+effect. if the comparison is significant, the simple effect matters. I put
+up some code that might be generally helpful at
+http://hlplab.wordpress.com/2009/12/18/some-r-code-to-understand-the-difference-between-treatment-and-sum-anova-style-coding/,
+but I didn't have time to clean things up. Let me know what you think.
+
+>
+>
+> My previous analyses were done with R 2.2.0.  I have now updated to 2.10.1
+> and suddenly, all the coefficients are different, which I find a bit
+> worrying.  The p-values are now quite a bit larger, although the new R
+> version doesn’t change any of the conclusions that I can draw from the data.
+>
+
+wow. That is worrisome. I'd be interested to hear what other people's
+experience with R 2.10.1 is. I haven't upgraded yet.
+
+Btw, I had a quick look at your code below and I have two thoughts:
+
+   - you can treatment code automatically, by saying:
+      - contrasts(factor) <- contr.treatment(numer_of_levels_of_factor)
+      - e.g. contrasts(language) <- contr.treatment(2)
+      - the contrasts() command creates attributes to the variable which
+      regression functions are sensitive to. i.e. if you put a factor into a
+      regression function (such as lmer) the regression will use the
+      contrast-coding specified by contrasts. to see what the contrasts are,
+      simply enter contrasts(factor).
+      - as a matter of fact, treatment coding is the default in R. so, if
+      you just throw in a factor into a regression, R will treatment code it.
+   - an easy way to create a new variable that contains the contrast coding
+   uses the ifelse statement:
+      - data$LanguageSwedish <- ifelse(data$language == "swe", 1, 0)
+
+maybe useful?
+
+Florian
+
+>
+>
+> Roger
+>
+>
+>
+>
+>
+> > library(lme4)
+>
+> Loading required package: Matrix
+>
+> Loading required package: lattice
+>
+> > L2prim = read.table("forLME.txt", header=TRUE)  # open data file
+>
+> > head(L2prim) # show first 6 lines
+>
+>   LIST PID ITEM language prime score
+>
+> 1    1   2    4      swe    do     1
+>
+> 2    1   2    7      swe    do     0
+>
+> 3    1   2    8      swe    pp     0
+>
+> 4    1   2   20      swe    pp     0
+>
+> 5    1   2   22      eng    pp     0
+>
+> 6    1   2   23      swe    pp     0
+>
+> >
+>
+> > # effect code vars so that they can be interpreted as main effects in
+> ANOVAs
+>
+> > L2prim$langcent <- scale(as.numeric(L2prim$language)) # effect code
+> language
+>
+> > L2prim$primecent <- scale(as.numeric(L2prim$prime))  # effect code prime
+>
+> >
+>
+> > L2prim$PID=as.factor(L2prim$PID)  # convert subject no to factor
+>
+> > L2prim$ITEM=as.factor(L2prim$ITEM)  # convert item no to factor
+>
+> > head(L2prim)
+>
+>   LIST PID ITEM language prime score  langcent  primecent
+>
+> 1    1   2    4      swe    do     1  1.008740 -0.9742244
+>
+> 2    1   2    7      swe    do     0  1.008740 -0.9742244
+>
+> 3    1   2    8      swe    pp     0  1.008740  1.0248334
+>
+> 4    1   2   20      swe    pp     0  1.008740  1.0248334
+>
+> 5    1   2   22      eng    pp     0 -0.989767  1.0248334
+>
+> 6    1   2   23      swe    pp     0  1.008740  1.0248334
+>
+> >
+>
+> > # mixed logit model with variables effect coded (main effects as in
+> ANOVA)
+>
+> > primanal=lmer(score ~langcent*primecent + (1|PID) + (1|ITEM),
+> data=L2prim, family = "binomial")
+>
+> > summary(primanal)
+>
+> Generalized linear mixed model fit by the Laplace approximation
+>
+> Formula: score ~ langcent * primecent + (1 | PID) + (1 | ITEM)
+>
+>    Data: L2prim
+>
+>    AIC   BIC logLik deviance
+>
+>  650.5 677.2 -319.2    638.5
+>
+> Random effects:
+>
+>  Groups Name        Variance Std.Dev.
+>
+>  ITEM   (Intercept) 1.9705   1.4037
+>
+>  PID    (Intercept) 2.2791   1.5097
+>
+> Number of obs: 632, groups: ITEM, 40; PID, 32
+>
+>
+>
+> Fixed effects:
+>
+>                    Estimate Std. Error z value Pr(>|z|)
+>
+> (Intercept)        -1.06339    0.37331  -2.849 0.004392 **
+>
+> langcent            0.01506    0.10822   0.139 0.889334
+>
+> primecent           0.36986    0.11024   3.355 0.000793 ***
+>
+> langcent:primecent -0.10630    0.10898  -0.975 0.329365
+>
+> ---
+>
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>
+>
+>
+> Correlation of Fixed Effects:
+>
+>             (Intr) lngcnt prmcnt
+>
+> langcent    -0.001
+>
+> primecent   -0.028 -0.030
+>
+> lngcnt:prmc  0.008 -0.055 -0.008
+>
+> >
+>
+> >
+>
+> > # Analysis of simple effect of prime for Swedish (coded as 0)
+>
+> >
+>
+> > L2prim[,2:3] # Outputs col 2 and 3 (to check no of rows)
+>
+>     PID ITEM
+>
+> 1     2    4
+>
+> 2     2    7
+>
+> 3     2    8
+>
+> 4     2   20
+>
+> 5     2   22
+>
+> 6     2   23
+>
+>
+>
+> 629  34   35
+>
+> 630  34   36
+>
+> 631  34   37
+>
+> 632  34   38
+>
+> >
+>
+> > # create column for language that is treatment coded
+>
+> > x =c(1:632)   # creates 632 rows of numbers
+>
+> > x[1:632] = 0    # sets the numbers to 0
+>
+> > cbind(L2prim,x)   # adds the 0s to L2prim
+>
+>     LIST PID ITEM language prime score  langcent  primecent x
+>
+> 1      1   2    4      swe    do     1  1.008740 -0.9742244 0
+>
+> 2      1   2    7      swe    do     0  1.008740 -0.9742244 0
+>
+> 3      1   2    8      swe    pp     0  1.008740  1.0248334 0
+>
+> 4      1   2   20      swe    pp     0  1.008740  1.0248334 0
+>
+> 5      1   2   22      eng    pp     0 -0.989767  1.0248334 0
+>
+> 6      1   2   23      swe    pp     0  1.008740  1.0248334 0
+>
+>
+>
+> 629    4  34   35      eng    pp     1 -0.989767  1.0248334 0
+>
+> 630    4  34   36      swe    do     1  1.008740 -0.9742244 0
+>
+> 631    4  34   37      eng    pp     1 -0.989767  1.0248334 0
+>
+> 632    4  34   38      eng    do     0 -0.989767 -0.9742244 0
+>
+> > L2prim[L2prim[,4] =="swe",9] = 0   # recodes swe (col 4) into 1 (col 9)
+>
+> > L2prim[L2prim[,4] =="eng",9] = 1   # recodes eng (col 4) into 0 (col 9)
+>
+> >
+>
+> > # create column for prime that is treatment coded
+>
+> > y =c(1:632)   # creates 632 rows of numbers
+>
+> > y[1:632] = 0    # sets the numbers to 0
+>
+> > cbind(L2prim,y)   # adds the 0s to L2prim
+>
+>     LIST PID ITEM language prime score  langcent  primecent V9 y
+>
+> 1      1   2    4      swe    do     1  1.008740 -0.9742244  0 0
+>
+> 2      1   2    7      swe    do     0  1.008740 -0.9742244  0 0
+>
+> 3      1   2    8      swe    pp     0  1.008740  1.0248334  0 0
+>
+> 4      1   2   20      swe    pp     0  1.008740  1.0248334  0 0
+>
+> 5      1   2   22      eng    pp     0 -0.989767  1.0248334  1 0
+>
+> 6      1   2   23      swe    pp     0  1.008740  1.0248334  0 0
+>
+>
+>
+> 629    4  34   35      eng    pp     1 -0.989767  1.0248334  1 0
+>
+> 630    4  34   36      swe    do     1  1.008740 -0.9742244  0 0
+>
+> 631    4  34   37      eng    pp     1 -0.989767  1.0248334  1 0
+>
+> 632    4  34   38      eng    do     0 -0.989767 -0.9742244  1 0
+>
+> > L2prim[L2prim[,5] =="do",10] = 1   # recodes do (col 5) into 1 (col 10)
+>
+> > L2prim[L2prim[,5] =="pp",10] = 0   # recodes pp (col 5) into 0 (col 10)
+>
+> >
+>
+> > L2prim$langtreat=as.factor(L2prim$V9) # convert language (v9) into factor
+>
+> > L2prim$primetreat=as.factor(L2prim$V10) # convert prime (v10) into factor
+>
+> > L2prim[1:20,] # Outputs rows 1-20
+>
+>    LIST PID ITEM language prime score  langcent  primecent V9 V10
+> langtreat
+>
+> 1     1   2    4      swe    do     1  1.008740 -0.9742244  0   1
+> 0
+>
+> 2     1   2    7      swe    do     0  1.008740 -0.9742244  0   1
+> 0
+>
+> 3     1   2    8      swe    pp     0  1.008740  1.0248334  0   0
+> 0
+>
+> 4     1   2   20      swe    pp     0  1.008740  1.0248334  0   0
+> 0
+>
+> 5     1   2   22      eng    pp     0 -0.989767  1.0248334  1   0
+> 1
+>
+> 6     1   2   23      swe    pp     0  1.008740  1.0248334  0   0
+> 0
+>
+>
+>
+> 20    1   3   10      eng    pp     0 -0.989767  1.0248334  1   0
+> 1
+>
+>    primetreat
+>
+> 1           1
+>
+> 2           1
+>
+> 3           0
+>
+> 4           0
+>
+> 5           0
+>
+> 6           0
+>
+>
+>
+> 20          0
+>
+> >
+>
+> > # mixed logit model with variables treatment coded
+>
+> > primanal=lmer(score ~langtreat*primetreat + (1|PID) + (1|ITEM),
+> data=L2prim, family = "binomial")
+>
+> > summary(primanal)
+>
+> Generalized linear mixed model fit by the Laplace approximation
+>
+> Formula: score ~ langtreat * primetreat + (1 | PID) + (1 | ITEM)
+>
+>    Data: L2prim
+>
+>    AIC   BIC logLik deviance
+>
+>  650.5 677.2 -319.2    638.5
+>
+> Random effects:
+>
+>  Groups Name        Variance Std.Dev.
+>
+>  ITEM   (Intercept) 1.9705   1.4038
+>
+>  PID    (Intercept) 2.2791   1.5097
+>
+> Number of obs: 632, groups: ITEM, 40; PID, 32
+>
+>
+>
+> Fixed effects:
+>
+>                        Estimate Std. Error z value Pr(>|z|)
+>
+> (Intercept)             -0.7790     0.4155  -1.875   0.0608 .
+>
+> langtreat1               0.1875     0.3022   0.621   0.5348
+>
+> primetreat1             -0.5251     0.3100  -1.694   0.0903 .
+>
+> langtreat1:primetreat1  -0.4246     0.4354  -0.975   0.3294
+>
+> ---
+>
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>
+>
+>
+> Correlation of Fixed Effects:
+>
+>             (Intr) lngtr1 prmtr1
+>
+> langtreat1  -0.364
+>
+> primetreat1 -0.354  0.477
+>
+> lngtrt1:pr1  0.262 -0.699 -0.703
+>
+> > # primetreat is the simple effect of prime on Swedish
+>
+> > # the sum of the estimates for primetreat and the interaction (0.9497) is
+> the simple effect
+>
+> > # of prime on English (no z and p values can be calculated)
+>
+> >
+>
+> >
+>
+> > # Analysis of simple effect of prime for English (coded as 0)
+>
+> >
+>
+> > L2prim[,2:3] # Outputs col 2 and 3 (to check no of rows)
+>
+>     PID ITEM
+>
+> 1     2    4
+>
+> 2     2    7
+>
+> 3     2    8
+>
+> 4     2   20
+>
+> 5     2   22
+>
+> 6     2   23
+>
+>
+>
+> 629  34   35
+>
+> 630  34   36
+>
+> 631  34   37
+>
+> 632  34   38
+>
+> >
+>
+> > x =c(1:632)   # creates 632 rows of numbers
+>
+> > x[1:632] = 0    # sets the numbers to 0
+>
+> > cbind(L2prim,x)   # adds the 0s to L2prim
+>
+>     LIST PID ITEM language prime score  langcent  primecent V9 V10
+> langtreat
+>
+> 1      1   2    4      swe    do     1  1.008740 -0.9742244  0   1
+> 0
+>
+> 2      1   2    7      swe    do     0  1.008740 -0.9742244  0   1
+> 0
+>
+> 3      1   2    8      swe    pp     0  1.008740  1.0248334  0   0
+> 0
+>
+> 4      1   2   20      swe    pp     0  1.008740  1.0248334  0   0
+> 0
+>
+> 5      1   2   22      eng    pp     0 -0.989767  1.0248334  1   0
+> 1
+>
+> 6      1   2   23      swe    pp     0  1.008740  1.0248334  0   0
+> 0
+>
+>
+>
+> 629    4  34   35      eng    pp     1 -0.989767  1.0248334  1   0
+> 1
+>
+> 630    4  34   36      swe    do     1  1.008740 -0.9742244  0   1
+> 0
+>
+> 631    4  34   37      eng    pp     1 -0.989767  1.0248334  1   0
+> 1
+>
+> 632    4  34   38      eng    do     0 -0.989767 -0.9742244  1   1
+> 1
+>
+>     primetreat x
+>
+> 1            1 0
+>
+> 2            1 0
+>
+> 3            0 0
+>
+> 4            0 0
+>
+> 5            0 0
+>
+> 6            0 0
+>
+>
+>
+> 629          0 0
+>
+> 630          1 0
+>
+> 631          0 0
+>
+> 632          1 0
+>
+> > L2prim[L2prim[,4] =="swe",9] = 1   # recodes swe (col 4) into 1 (col 9)
+>
+> > L2prim[L2prim[,4] =="eng",9] = 0   # recodes eng (col 4) into 0 (col 9)
+>
+> >
+>
+> > y =c(1:632)   # creates 632 rows of numbers
+>
+> > y[1:632] = 0    # sets the numbers to 0
+>
+> > cbind(L2prim,y)   # adds the 0s to L2prim
+>
+>     LIST PID ITEM language prime score  langcent  primecent V9 V10
+> langtreat
+>
+> 1      1   2    4      swe    do     1  1.008740 -0.9742244  1   1
+> 0
+>
+> 2      1   2    7      swe    do     0  1.008740 -0.9742244  1   1
+> 0
+>
+> 3      1   2    8      swe    pp     0  1.008740  1.0248334  1   0
+> 0
+>
+> 4      1   2   20      swe    pp     0  1.008740  1.0248334  1   0
+>         0
+>
+> 5      1   2   22      eng    pp     0 -0.989767  1.0248334  0   0
+> 1
+>
+> 6      1   2   23      swe    pp     0  1.008740  1.0248334  1   0
+> 0
+>
+>
+>
+> 629    4  34   35      eng    pp     1 -0.989767  1.0248334  0   0
+> 1
+>
+> 630    4  34   36      swe    do     1  1.008740 -0.9742244  1   1
+> 0
+>
+> 631    4  34   37      eng    pp     1 -0.989767  1.0248334  0   0
+> 1
+>
+> 632    4  34   38      eng    do     0 -0.989767 -0.9742244  0   1
+> 1
+>
+>     primetreat y
+>
+> 1            1 0
+>
+> 2            1 0
+>
+> 3            0 0
+>
+> 4            0 0
+>
+> 5            0 0
+>
+> 6            0 0
+>
+>
+>
+> 628          0 0
+>
+> 629          0 0
+>
+> 630          1 0
+>
+> 631          0 0
+>
+> 632          1 0
+>
+> > L2prim[L2prim[,5] =="do",10] = 1   # recodes do (col 5) into 1 (col 10)
+>
+> > L2prim[L2prim[,5] =="pp",10] = 0   # recodes pp (col 5) into 0 (col 10)
+>
+> >
+>
+> > L2prim$langtreat=as.factor(L2prim$V9)
+>
+> > L2prim$primetreat=as.factor(L2prim$V10)
+>
+> > L2prim[1:20,] # Outputs rows 1-20
+>
+>    LIST PID ITEM language prime score  langcent  primecent V9 V10
+> langtreat
+>
+> 1     1   2    4      swe    do     1  1.008740 -0.9742244  1   1
+> 1
+>
+> 2     1   2    7      swe    do     0  1.008740 -0.9742244  1   1
+> 1
+>
+> 3     1   2    8      swe    pp     0  1.008740  1.0248334  1   0
+> 1
+>
+> 4     1   2   20      swe    pp     0  1.008740  1.0248334  1   0
+> 1
+>
+> 5     1   2   22      eng    pp     0 -0.989767  1.0248334  0   0
+> 0
+>
+> 6     1   2   23      swe    pp     0  1.008740  1.0248334  1   0
+> 1
+>
+>
+>
+> 20    1   3   10      eng    pp     0 -0.989767  1.0248334  0   0
+> 0
+>
+>    primetreat
+>
+> 1           1
+>
+> 2           1
+>
+> 3           0
+>
+> 4           0
+>
+> 5           0
+>
+> 6           0
+>
+>
+>
+> 20          0
+>
+> >
+>
+> > primanal=lmer(score ~langtreat*primetreat + (1|PID) + (1|ITEM),
+> data=L2prim, family = "binomial")
+>
+> > summary(primanal)
+>
+> Generalized linear mixed model fit by the Laplace approximation
+>
+> Formula: score ~ langtreat * primetreat + (1 | PID) + (1 | ITEM)
+>
+>    Data: L2prim
+>
+>    AIC   BIC logLik deviance
+>
+>  650.5 677.2 -319.2    638.5
+>
+> Random effects:
+>
+>  Groups Name        Variance Std.Dev.
+>
+>  ITEM   (Intercept) 1.9705   1.4038
+>
+>  PID    (Intercept) 2.2791   1.5097
+>
+> Number of obs: 632, groups: ITEM, 40; PID, 32
+>
+>
+>
+> Fixed effects:
+>
+>                        Estimate Std. Error z value Pr(>|z|)
+>
+> (Intercept)             -0.5915     0.4153  -1.424  0.15435
+>
+> langtreat1              -0.1875     0.3022  -0.621  0.53489
+>
+> primetreat1             -0.9496     0.3095  -3.068  0.00215 **
+>
+> langtreat1:primetreat1   0.4244     0.4354   0.975  0.32973
+>
+> ---
+>
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>
+>
+>
+> Correlation of Fixed Effects:
+>
+>             (Intr) lngtr1 prmtr1
+>
+> langtreat1  -0.363
+>
+> primetreat1 -0.354  0.507
+>
+> lngtrt1:pr1  0.247 -0.699 -0.702
+>
+> > # primetreat is the simple effect of prime on English
+>
+> > # the sum of the estimates for primetreat and the interaction (0.5252) is
+> the simple effect
+>
+> > # of prime on Swedish (no z and p values can be calculated)
+>
+>  The University of Dundee is a registered Scottish charity, No: SC015096
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org  Fri Dec 18 12:27:11 2009
+From: r.p.g.vangompel-ZIY3QdMYOTyFxr2TtlUqVg at public.gmane.org (Roger van-Gompel)
+Date: Fri, 18 Dec 2009 12:27:11 +0000
+Subject: Re: Simple effects in mixed logit models
+In-Reply-To: <38dc9be90912161134r698f44e0p8c609907b0861ad1@mail.gmail.com>
+References: <4B28D21B.334D.0064.1@dundee.ac.uk> <38dc9be90912161134r698f44e0p8c609907b0861ad1@mail.gmail.com>
+Message-ID: <4B2B7520.334D.0064.1@dundee.ac.uk>
+
+
+Stefan, thanks for your comments.  You are right, I don’t have a
+*significant* interaction, all I have is an effect of langcent. 
+Exploring simple effects is therefore not so useful, but it’s just
+something that reviewers suggested.
+ 
+Thanks a lot, Florian, that’s exactly what I wanted to know.  I have
+now analysed both the simple effect of prime for Swedish and the effect
+of prime on English (the complete analyses are below).
+ 
+You said:
+Now, the problem, of course, is that treatment coding leads to
+collinearity between the "main" effects and the interaction (even in a
+balanced sample). In a perfectly balanced sample, the correlation (not
+the fixed effect correlation) will be .33, which is still ok. As long as
+unbalance due to data exclusion is pretty much random, this correlation
+should not go up much beyond .38 (I did some simulation).
+ 
+I have a quite lot of missing responses, and as you can see in the
+summary of the results, there are correlations between the “main”
+effects and the interaction.  But you say “not the fixed effect
+correlation”, so are you referring to a different correlation?
+ 
+I haven’t done the model comparisons yet.  You said:
+In any case, since ANOVA are omnibus test, you can get at least that by
+simple comparing the above model to a model without the interaction or
+without any of the simple (main) effects (using anova(model1, model2)).
+Model comparison is robust against collinearity.
+ 
+I find it hard to conceptualize what the model comparisons tell me. 
+What can I conclude if the model with which I got the simple effect
+differs from a model without the interaction or without any of the
+simple effects?
+ 
+My previous analyses were done with R 2.2.0.  I have now updated to
+2.10.1 and suddenly, all the coefficients are different, which I find a
+bit worrying.  The p-values are now quite a bit larger, although the new
+R version doesn’t change any of the conclusions that I can draw from the
+data.
+ 
+Roger
+ 
+ 
+> library(lme4)
+Loading required package: Matrix
+Loading required package: lattice
+> L2prim = read.table("forLME.txt", header=TRUE)  # open data file
+> head(L2prim) # show first 6 lines
+  LIST PID ITEM language prime score
+1    1   2    4      swe    do     1
+2    1   2    7      swe    do     0
+3    1   2    8      swe    pp     0
+4    1   2   20      swe    pp     0
+5    1   2   22      eng    pp     0
+6    1   2   23      swe    pp     0
+> 
+> # effect code vars so that they can be interpreted as main effects in
+ANOVAs
+> L2prim$langcent <- scale(as.numeric(L2prim$language)) # effect code
+language
+> L2prim$primecent <- scale(as.numeric(L2prim$prime))  # effect code
+prime
+> 
+> L2prim$PID=as.factor(L2prim$PID)  # convert subject no to factor
+> L2prim$ITEM=as.factor(L2prim$ITEM)  # convert item no to factor
+> head(L2prim)
+  LIST PID ITEM language prime score  langcent  primecent
+1    1   2    4      swe    do     1  1.008740 -0.9742244
+2    1   2    7      swe    do     0  1.008740 -0.9742244
+3    1   2    8      swe    pp     0  1.008740  1.0248334
+4    1   2   20      swe    pp     0  1.008740  1.0248334
+5    1   2   22      eng    pp     0 -0.989767  1.0248334
+6    1   2   23      swe    pp     0  1.008740  1.0248334
+> 
+> # mixed logit model with variables effect coded (main effects as in
+ANOVA)
+> primanal=lmer(score ~langcent*primecent + (1|PID) + (1|ITEM),
+data=L2prim, family = "binomial")
+> summary(primanal)
+Generalized linear mixed model fit by the Laplace approximation 
+Formula: score ~ langcent * primecent + (1 | PID) + (1 | ITEM) 
+   Data: L2prim 
+   AIC   BIC logLik deviance
+ 650.5 677.2 -319.2    638.5
+Random effects:
+ Groups Name        Variance Std.Dev.
+ ITEM   (Intercept) 1.9705   1.4037  
+ PID    (Intercept) 2.2791   1.5097  
+Number of obs: 632, groups: ITEM, 40; PID, 32
+ 
+Fixed effects:
+                   Estimate Std. Error z value Pr(>|z|)    
+(Intercept)        -1.06339    0.37331  -2.849 0.004392 ** 
+langcent            0.01506    0.108
+22   0.139 0.889334    
+primecent           0.36986    0.11024   3.355 0.000793 ***
+langcent:primecent -0.10630    0.10898  -0.975 0.329365    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1 
+ 
+Correlation of Fixed Effects:
+            (Intr) lngcnt prmcnt
+langcent    -0.001              
+primecent   -0.028 -0.030       
+lngcnt:prmc  0.008 -0.055 -0.008
+> 
+> 
+> # Analysis of simple effect of prime for Swedish (coded as 0)
+> 
+> L2prim[,2:3] # Outputs col 2 and 3 (to check no of rows)
+    PID ITEM
+1     2    4
+2     2    7
+3     2    8
+4     2   20
+5     2   22
+6     2   23
+ 
+629  34   35
+630  34   36
+631  34   37
+632  34   38
+> 
+> # create column for language that is treatment coded
+> x =c(1:632)   # creates 632 rows of numbers
+> x[1:632] = 0    # sets the numbers to 0
+> cbind(L2prim,x)   # adds the 0s to L2prim
+    LIST PID ITEM language prime score  langcent  primecent x
+1      1   2    4      swe    do     1  1.008740 -0.9742244 0
+2      1   2    7      swe    do     0  1.008740 -0.9742244 0
+3      1   2    8      swe    pp     0  1.008740  1.0248334 0
+4      1   2   20      swe    pp     0  1.008740  1.0248334 0
+5      1   2   22      eng    pp     0 -0.989767  1.0248334 0
+6      1   2   23      swe    pp     0  1.008740  1.0248334 0
+ 
+629    4  34   35      eng    pp     1 -0.989767  1.0248334 0
+630    4  34   36      swe    do     1  1.008740 -0.9742244 0
+631    4  34   37      eng    pp     1 -0.989767  1.0248334 0
+632    4  34   38      eng    do     0 -0.989767 -0.9742244 0
+> L2prim[L2prim[,4] =="swe",9] = 0   # recodes swe (col 4) into 1 (col
+9)
+> L2prim[L2prim[,4] =="eng",9] = 1   # recodes eng (col 4) into 0 (col
+9)
+> 
+> # create column for prime that is treatment coded
+> y =c(1:632)   # creates 632 rows of numbers
+> y[1:632] = 0    # sets the numbers to 0
+> cbind(L2prim,y)   # adds the 0s to L2prim
+    LIST PID ITEM language prime score  langcent  primecent V9 y
+1      1   2    4      swe    do     1  1.008740 -0.9742244  0 0
+2      1   2    7      swe    do     0  1.008740 -0.9742244  0 0
+3      1   2    8      swe    pp     0  1.008740  1.0248334  0 0
+4      1   2   20      swe    pp     0  1.008740  1.0248334  0 0
+5      1   2   22      eng    pp     0 -0.989767  1.0248334  1 0
+6      1   2   23      swe    pp     0  1.008740  1.0248334  0 0
+ 
+629    4  34   35      eng    pp     1 -0.989767  1.0248334  1 0
+630    4  34   36      swe    do     1  1.008740 -0.9742244  0 0
+631    4  34   37      eng    pp     1 -0.989767  1.0248334  1 0
+632    4  34   38      eng    do     0 -0.989767 -0.9742244  1 0
+> L2prim[L2prim[,5] =="do",10] = 1   # recodes do (col 5) into 1 (col
+10)
+> L2prim[L2prim[,5] =="pp",10] = 0   # recodes pp (col 5) into 0 (col
+10)
+> 
+> L2prim$langtreat=as.factor(L2prim$V9) # convert language (v9) into
+factor
+> L2prim$primetreat=as.factor(L2prim$V10) # convert prime (v10) into
+factor
+> L2prim[1:20,] # Outputs rows 1-20
+   LIST PID ITEM language prime score  langcent  primecent V9 V10
+langtreat
+1     1   2    4      swe    do     1  1.008740 -0.9742244  0   1      
+  0
+2     1   2    7      swe    do     0  1.008740 -0.9742244  0   1      
+  0
+3     1   2    8      swe    pp     0  1.008740  1.0248334  0   0      
+  0
+4     1   2   20      swe    pp     0  1.008740  1.0248334  0   0      
+  0
+5     1   2   22      eng    pp     0 -0.989767  1.0248334  1   0      
+  1
+6     1   2   23      swe    pp     0  1.008740  1.0248334  0   0      
+  0
+ 
+20    1   3   10      eng    pp     0 -0.989767  1.0248334  1   0      
+  1
+   primetreat
+1           1
+2           1
+3           0
+4           0
+5           0
+6           0
+ 
+20          0
+> 
+> # mixed logit model with variables treatment coded
+> primanal=lmer(score ~langtreat*primetreat + (1|PID) + (1|ITEM),
+data=L2prim, family = "binomial")
+> summary(primanal)
+Generalized linear mixed model fit by the Laplace approximation 
+Formula: score ~ langtreat * primetreat + (1 | PID) + (1 | ITEM) 
+   Data: L2prim 
+   AIC   BIC logLik deviance
+ 650.5 677.2 -319.2    638.5
+Random effects:
+ Groups Name        Variance Std.Dev.
+ ITEM   (Intercept) 1.9705   1.4038  
+ PID    (Intercept) 2.2791   1.5097  
+Number of obs: 632, groups: ITEM, 40; PID, 32
+ 
+Fixed effects:
+                       Estimate Std. Error z value Pr(>|z|)  
+(Intercept)             -0.7790     0.4155  -1.875   0.0608 .
+langtreat1               0.1875     0.3022   0.621   0.5348  
+primetreat1             -0.5251     0.3100  -1.694   0.0903 .
+langtreat1:primetreat1  -0.4246     0.4354  -0.975   0.3294  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1 
+ 
+Correlation of Fixed Effects:
+            (Intr) lngtr1 prmtr1
+langtreat1  -0.364              
+primetreat1 -0.354  0.477       
+lngtrt1:pr1  0.262 -0.699 -0.703
+> # primetreat is the simple effect of prime on Swedish
+> # the sum of the estimates for primetreat and the interaction
+(0.9497) is the simple effect 
+> # of prime on English (no z and p values can be calculated)
+> 
+> 
+> # Analysis of simple effect of prime for English (coded as 0)
+> 
+> L2prim[,2:3] # Outputs col 2 and 3 (to check no of rows)
+    PID ITEM
+1     2    4
+2     2    7
+3     2    8
+4     2   20
+5     2   22
+6     2   23
+ 
+629  34   35
+630  34   36
+631  34   37
+632  34   38
+> 
+> x =c(1:632)   # creates 632 rows of numbers
+> x[1:632] = 0    # sets the numbers to 0
+> cbind(L2prim,x)   # adds the 0s to L2prim
+    LIST PID ITEM language prime score  langcent  primecent V9 V10
+langtreat
+1      1   2    4      swe    do     1  1.008740 -0.9742244  0   1     
+   0
+2      1   2    7      swe    do     0  1.008740 -0.9742244  0   1     
+   0
+3      1   2    8      swe    pp     0  1.008740  1.0248334  0   0     
+   0
+4      1   2   20      swe    pp     0  1.008740  1.0248334  0   0     
+   0
+5      1   2   22      eng    pp     0 -0.989767  1.0248334  1   0     
+   1
+6      1   2   23      swe    pp     0  1.008740  1.0248334  0   0     
+   0
+ 
+629    4  34   35      eng    pp     1 -0.989767  1.0248334  1   0     
+   1
+630    4  34   36      swe    do     1  1.008740 -0.9742244  0   1     
+   0
+631    4  34   37      eng    pp     1 -0.989767  1.0248334  1   0     
+   1
+632    4  34   38      eng    do     0 -0.989767 -0.9742244  1   1     
+   1
+    primetreat x
+1            1 0
+2            1 0
+3            0 0
+4            0 0
+5            0 0
+6            0 0
+ 
+629          0 0
+630          1 0
+631          0 0
+632          1 0
+> L2prim[L2prim[,4] =="swe",9] = 1   # recodes swe (col 4) into 1 (col
+9)
+> L2prim[L2prim[,4] =="eng",9] = 0   # recodes eng (col 4) into 0 (col
+9)
+> 
+> y =c(1:632)   # creates 632 rows of numbers
+> y[1:632] = 0    # sets the numbers to 0
+> cbind(L2prim,y)   # adds the 0s to L2prim
+    LIST PID ITEM language prime score  langcent  primecent V9 V10
+langtreat
+1      1   2    4      swe    do     1  1.008740 -0.9742244  1   1     
+   0
+2      1   2    7      swe    do     0  1.008740 -0.9742244  1   1     
+   0
+3      1   2    8      swe    pp     0  1.008740  1.0248334  1   0     
+   0
+4      1   2   20      swe    pp     0  1.008740  1.0248334  1   0     
+   0
+5      1   2   22      eng    pp     0 -0.989767  1.0248334  0   0     
+   1
+6      1   2   23      swe    pp     0  1.008740  1.0248334  1   0     
+   0
+ 
+629    4  34   35      eng    pp     1 -0.989767  1.0248334  0   0     
+   1
+630    4  34   36      swe    do     1  1.008740 -0.9742244  1   1     
+   0
+631    4  34   37      eng    pp     1 -0.989767  1.0248334  0   0     
+   1
+632    4  34   38      eng    do     0 -0.989767 -0.9742244  0   1     
+   1
+    primetreat y
+1            1 0
+2            1 0
+3            0 0
+4            0 0
+5            0 0
+6            0 0
+ 
+628          0 0
+629          0 0
+630          1 0
+631          0 0
+632          1 0
+> L2prim[L2prim[,5] =="do",10] = 1   # recodes do (col 5) into 1 (col
+10)
+> L2prim[L2prim[,5] =="pp",10] = 0   # recodes pp (col 5) into 0 (col
+10)
+> 
+> L2prim$langtreat=as.factor(L2prim$V9)
+> L2prim$primetreat=as.factor(L2prim$V10)
+> L2prim[1:20,] # Outputs rows 1-20
+   LIST PID ITEM language prime score  langcent  primecent V9 V10
+langtreat
+1     1   2    4      swe    do     1  1.008740 -0.9742244  1   1      
+  1
+2     1   2    7      swe    do     0  1.008740 -0.9742244  1   1      
+  1
+3     1   2    8      swe    pp     0  1.008740  1.0248334  1   0      
+  1
+4     1   2   20      swe    pp     0  1.008740  1.0248334  1   0      
+  1
+5     1   2   22      eng    pp     0 -0.989767  1.0248334  0   0      
+  0
+6     1   2   23      swe    pp     0  1.008740  1.0248334  1   0      
+  1
+ 
+20    1   3   10      eng    pp     0 -0.989767  1.0248334  0   0      
+  0
+   primetreat
+1           1
+2           1
+3           0
+4           0
+5           0
+6           0
+ 
+20          0
+> 
+> primanal=lmer(score ~langtreat*primetreat + (1|PID) + (1|ITEM),
+data=L2prim, family = "binomial")
+> summary(primanal)
+Generalized linear mixed model fit by the Laplace approximation 
+Formula: score ~ langtreat * primetreat + (1 | PID) + (1 | ITEM) 
+   Data: L2prim 
+   AIC   BIC logLik deviance
+ 650.5 677.2 -319.2    638.5
+Random effects:
+ Groups Name        Variance Std.Dev.
+ ITEM   (Intercept) 1.9705   1.4038  
+ PID    (Intercept) 2.2791   1.5097  
+Number of obs: 632, groups: ITEM, 40; PID, 32
+ 
+Fixed effects:
+                       Estimate Std. Error z value Pr(>|z|)   
+(Intercept)             -0.5915     0.4153  -1.424  0.15435   
+langtreat1              -0.1875     0.3022  -0.621  0.53489   
+primetreat1             -0.9496     0.3095  -3.068  0.00215 **
+langtreat1:primetreat1   0.4244     0.4354   0.975  0.32973   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1 
+ 
+Correlation of Fixed Effects:
+            (Intr) lngtr1 prmtr1
+langtreat1  -0.363              
+primetreat1 -0.354  0.507       
+lngtrt1:pr1  0.247 -0.699 -0.702
+> # primetreat is the simple effect of prime on English
+> # the sum of the estimates for primetreat and the interaction
+(0.5252) is the simple effect 
+> # of prime on Swedish (no z and p values can be calculated)
+The University of Dundee is a registered Scottish charity, No: SC015096
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+

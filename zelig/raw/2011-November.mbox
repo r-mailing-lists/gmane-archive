@@ -1,0 +1,2532 @@
+From Hugo.Mildenberger-S0/GAf8tV78 at public.gmane.org  Sat Nov  5 13:36:39 2011
+From: Hugo.Mildenberger-S0/GAf8tV78 at public.gmane.org (Hugo Mildenberger)
+Date: Sat, 05 Nov 2011 14:36:39 +0100
+Subject: [Patch] fixing Zelig-3.5.1 bootstrap in order to run with lme4 and boot-1.3-3
+Message-ID: <4EB53BE7.3060002@web.de>
+
+Dear list members,
+
+in a recent thread of the R-sig-ME mailing list[1], Christoph Scherber
+communicated the following script which demonstrated a problem within
+Zelig's bootstrap code:
+
+   require(Zelig)
+   data(voteincome)
+
+   z.out1 <- zelig(vote ~ education + age + female + tag(1 | state),
+                   data = voteincome, model = "logit.mixed")
+
+   x <- setx(z.out1, education = 4)
+   s.out1 <- sim(z.out1, x = x, bootstrap=TRUE)
+
+   #Error in `*tmp*`$call : $ operator not defined for this S4 class
+
+
+This error stemmed from the implementation of bootfn.default() in
+Zelig/R/bootfn.default.R, which generally uses "object$call" instead of
+"object@call" (and therefore never worked with lme4)
+
+After having fixed this, the next problem became manifest when
+zelig::sim() was in  bootstrapping mode. R could not find a summary
+method for the object passed to param.mer(). Why this happens, is still
+unclear to me.
+
+Anyway, when having fixed that bug along the lines of the
+non-bootstrapping branch of param.mer() by using selectMethod(), the
+next problem surfaced:
+
+  Error in t.star[r, ] <- res[[r]] :
+    incorrect number of subscripts on matrix
+
+After a while it became clear to me that the list returned by
+param.mer() was incompatible with the type boot::boot() expects (in
+/boot/R/bootfuns.q as of boot version 1.3-3):
+
+ 193     } else lapply(seq_len(RR), fn)
+ 194     t.star <- matrix(, RR, length(t0))
+ 195     for(r in seq_len(RR)) t.star[r, ] <- res[[r]]
+
+"t.star" is the name of the matrix boot::boot() uses to collect results
+from the statistic function.
+
+"fn" is the "statistic" parameter passed to boot::boot(), which in turn
+translates to bootfn.default() as defined in Zelig/R/bootfn.default.R.
+
+The function bootfn.default() in turn passes the result of param.mer(),
+which generally was "list(betas=betas, gammas=gammas, scale=scale)".
+
+length(t0) was three, because the list returned by param.mer() had three
+elements. The implicit type conversion of "t.star" (from matrix to list)
+R does after the first assignment to "t.star" then triggered the index
+error with the next assignment.
+
+A change of boot::boot() code in order to become compatible with Zelig
+appears to be out of question.
+
+However, in order to keep the default configuration working, param.mer()
+needs to return a list, because part of the result is a complete matrix
+(e.g."betas") then, not only a single row of a matrix.
+
+I therefore made the return type of param.mer(object,num,bootstrap,)
+dependent on  "bootstrap", returning a list in the default case, and a
+one-dimensional array while bootstrapping. The related function qi.mer()
+in Zelig/R/qi.mixed.R is of course now able to handle both types.
+
+Since the column names appearing in the array returned by
+param.mer(..,bootstrap=T) are determined by the user controlled model
+specification, the name space separation a list provides implicitly had
+to be coded explicitly.
+
+The rudimentary regression testing I did for sim(,bootstrap=F) using
+patched code against the original version resulted in a quite close
+numerical agreement. I do attribute the differences (generally in the
+order of 1E-3) to a different RNG state, but I haven't examined this
+very closely. Generally, the effective code path of the default case
+should have remained unchanged.
+
+
+The attached patch is against the sources found in the Cran package
+Zelig_3.5.1.tar.gz
+
+
+Unrelated to this patch, plotting of simulated results generally does
+not work as intended:
+
+ > plot(s.out1)
+   Error in plot(density(qi), main = x$qi.name[[i]], xlab = xlab, ...):
+   error in evaluating the argument 'x' in selecting a method for
+   function 'plot': Error in density.default(qi) : argument 'x'
+   must be numeric
+
+   No plot generated for model logit.mixed
+
+
+Also, excluding the intercept using the ~ -1 notation is currently
+disregarded.
+
+
+Best regards
+
+Hugo Mildenberger
+
+
+[1]h ttps://stat.ethz.ch/pipermail/r-sig-mixed-models/2011q4/006933.html
+
+-------------- next part --------------
+diff -ur a/Zelig/R/bootfn.default.R b/Zelig/R/bootfn.default.R
+--- a/Zelig/R/bootfn.default.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig/R/bootfn.default.R	2011-11-04 15:41:42.000000000 +0100
+@@ -1,12 +1,12 @@
+ bootfn.default <- function(data, i, object) {
+   d <- data[i,]
+-  object$call$data <- d
++  object@call$data <- d
+   l <- length(param(object, bootstrap = TRUE))
+-  fit <- eval(object$call, sys.parent())
++  fit <- eval(object@call, parent.frame())
+   l1 <- length(param(fit, bootstrap = TRUE))
+   while (l > l1) {
+-    object$call$data <- data[sample(nrow(data), replace=TRUE),]
+-    fit <- eval(object$call, sys.parent())
++    object@call$data <- data[sample(nrow(data), replace=TRUE),]
++    fit <- eval(object@call, parent.frame())
+     l1 <- length(param(fit, bootstrap = TRUE))
+   }
+   param(fit, bootstrap = TRUE)
+diff -ur a/Zelig/R/param.mixed.R b/Zelig/R/param.mixed.R
+--- a/Zelig/R/param.mixed.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig/R/param.mixed.R	2011-11-04 21:07:59.000000000 +0100
+@@ -22,21 +22,41 @@
+ 			J <- dim(vars.m)[1]
+ 			gammas[[m]] <- mvrnorm(num, rep(0, J), V.beta)
+ 		}
+-	}
+-	else {
+-		object <- summary(object)
++                # betaF is a matrix, so there is a real need for a (nested) list
++		names(gammas) <- names(vars)
++		betas <- betasF
++		scale <- object@sigma
++		return(list(betas=betas, gammas=gammas, scale=scale))
++	} else {
++		object <- selectMethod("summary", "mer")(object)
+ 		# set fixed effects
+-		betasF <- fixed
++		betasF <- fixef(object)
+ 		# sample random effects
+ 		for (m in 1:n.G){
+ 			V.beta <- VarCorr(object)[[m]]
+ 			gammas[[m]]<- mvrnorm(1, 0, V.beta)
+ 		}
++
++		# boot::boot() collects results in a matrix (named "t.star").
++		# Returning a list will therefore create havoc with boot(), 
++		# also because boot() does only reserve space for length(list),
++		# which would result in three for a list like 
++		# list(betas=betas, gammas=gammas, scale=scale)
++		# 
++		# One solution to this situation is to return a vector, and 
++		# pass the name attributes via names(). However, the beta and 
++		# gamma namespaces may intersect, and certainly user models may
++		# also use 'scale' within fixed or random effects. Hence prepend 
++		# a local 'namespace' to all variable names in order to emulate 
++		# a list return type here.
++		scale          <- object@sigma
++		betas          <- betasF
++
++		names(scale)   <- sprintf('a::%s','')
++		names(betas)   <- sprintf('b::%s',names(betasF))
++		names(gammas)  <- sprintf('g::%s',names(vars))
++
++		return(c(betas,gammas,scale))
+ 	}
+-	
+-	names(gammas) <- names(vars)
+-	betas <- betasF
+-	scale <- object@sigma
+-	
+-	list(betas=betas, gammas=gammas, scale=scale)
+-}
+\ Kein Zeilenumbruch am Dateiende.
++	stopifnot(F)
++}
+diff -ur a/Zelig/R/qi.mixed.R b/Zelig/R/qi.mixed.R
+--- a/Zelig/R/qi.mixed.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig/R/qi.mixed.R	2011-11-04 20:28:48.000000000 +0100
+@@ -15,11 +15,45 @@
+   D <- eval(object@call$data, envir = parent.frame())
+   fml <- eval(object@call$formula)
+   parsefml <- .getRandAndFixedTerms(fml)
++
++  #
++  # boot::boot() seems to have changed from a list 
++  # result type into an array. Therefore the original
++  # code below will not work  with bootstrap=T:
++  #
++  # Hence, while bootstraping, the related function 
++  # param.mer() (in param.mixed.R) will return an array
++  # prepending "a::","b::","g::" to the names of scale 
++  # (=mer@sigma), betas(=fixef(mer)) and gammas, respectively.
++
++  #print("qi.mixed.R.simpar=");print(simpar)
++
++  if ( is.list(simpar) )  {
+   
+-  betas <- simpar[["betas"]]
+-  gammas <- simpar[["gammas"]]
+-  alpha <- simpar[["scale"]]
+-  
++	  betas  <- simpar[["betas"]]
++	  gammas <- simpar[["gammas"]]
++	  alpha  <- simpar[["scale"]]
++
++  } else {
++
++	  alpha.idx  <- grep('a::',colnames(simpar))
++	  betas.idx  <- grep('b::',colnames(simpar))
++	  gammas.idx <- grep('g::',colnames(simpar))
++
++	  alpha  <- as.matrix(simpar[,alpha.idx])
++	  betas  <- as.matrix(simpar[,betas.idx])
++	  gammas <- as.matrix(simpar[,gammas.idx])
++
++	  colnames(alpha)  <- gsub("a::","",colnames(simpar)[alpha.idx])
++	  colnames(betas)  <- gsub("b::","",colnames(simpar)[betas.idx])
++	  colnames(gammas) <- gsub("g::","",colnames(simpar)[gammas.idx])
++
++	  alpha <- as.vector(unique(alpha))
++  }
++
++  #print("qi.mixed.R.alpha=");print(alpha)
++  #print("qi.mixed.R.betas=");print(betas)
++  #print("qi.mixed.R.gammas=");print(gammas)
+   
+   fTermsNames <- colnames(model.matrix(parsefml$fixed, data = D))
+                                         #cat(fTermsNames, "\n")
+@@ -65,10 +99,18 @@
+     
+     eta <- betas %*% t(as.matrix(fTerms))
+     mu <- eta
+-    ## For predicted values, add in random effects draws
+-    for (i in 1:length(rTerms)){
+-      mu <- mu + gammas[[names(rTerms[i])]] %*% t(as.matrix(rTerms[[i]]))
++
++    ## For predicted values, add in random effects draws, and
++    ## account for the now Janus-faced return type of param.mer()
++    ## This could be done without code duplication, but for now it works at least.
++    if (is.list(simpar)) { 
++         for (i in 1:length(rTerms))
++              mu <- mu + gammas[[names(rTerms[i])]] %*% t(as.matrix(rTerms[[i]]))
++    } else { 
++         for (i in 1:length(rTerms))
++              mu <- mu + gammas[,names(rTerms[i])] %*% t(as.matrix(rTerms[[i]]))
+     }
++         
+     if (is.null(family)){
+       ev <- eta
+       n <- length(mu[,1])
+
+From Hugo.Mildenberger-S0/GAf8tV78 at public.gmane.org  Sun Nov  6 20:53:02 2011
+From: Hugo.Mildenberger-S0/GAf8tV78 at public.gmane.org (Hugo Mildenberger)
+Date: Sun, 06 Nov 2011 21:53:02 +0100
+Subject: Re: [Patch] fixing Zelig-3.5.1 bootstrap in order to run with lme4 and boot-1.3-3
+In-Reply-To: <4EB53BE7.3060002-S0/GAf8tV78@public.gmane.org>
+References: <4EB53BE7.3060002@web.de>
+Message-ID: <4EB6F3AE.5060608@web.de>
+
+Please use the new patch attached here instead of the previous one. The
+previous version would likely break non-S4 packages used with
+bootfn.default(). Besides this patch also fixes the plot problem.
+Using set.seed(), regression testing was done for the previously working
+non-bootstrapping code  and resulted in no differences with
+"logit.mixed", at least.
+
+Best
+
+
+Am 05.11.2011 14:36, schrieb Hugo Mildenberger:
+> Dear list members,
+> 
+> in a recent thread of the R-sig-ME mailing list[1], Christoph Scherber
+> communicated the following script which demonstrated a problem within
+> Zelig's bootstrap code:
+> 
+>    require(Zelig)
+>    data(voteincome)
+> 
+>    z.out1 <- zelig(vote ~ education + age + female + tag(1 | state),
+>                    data = voteincome, model = "logit.mixed")
+> 
+>    x <- setx(z.out1, education = 4)
+>    s.out1 <- sim(z.out1, x = x, bootstrap=TRUE)
+> 
+>    #Error in `*tmp*`$call : $ operator not defined for this S4 class
+> 
+> 
+> This error stemmed from the implementation of bootfn.default() in
+> Zelig/R/bootfn.default.R, which generally uses "object$call" instead of
+> "object@call" (and therefore never worked with lme4)
+> 
+> After having fixed this, the next problem became manifest when
+> zelig::sim() was in  bootstrapping mode. R could not find a summary
+> method for the object passed to param.mer(). Why this happens, is still
+> unclear to me.
+> 
+> Anyway, when having fixed that bug along the lines of the
+> non-bootstrapping branch of param.mer() by using selectMethod(), the
+> next problem surfaced:
+> 
+>   Error in t.star[r, ] <- res[[r]] :
+>     incorrect number of subscripts on matrix
+> 
+> After a while it became clear to me that the list returned by
+> param.mer() was incompatible with the type boot::boot() expects (in
+> /boot/R/bootfuns.q as of boot version 1.3-3):
+> 
+>  193     } else lapply(seq_len(RR), fn)
+>  194     t.star <- matrix(, RR, length(t0))
+>  195     for(r in seq_len(RR)) t.star[r, ] <- res[[r]]
+> 
+> "t.star" is the name of the matrix boot::boot() uses to collect results
+> from the statistic function.
+> 
+> "fn" is the "statistic" parameter passed to boot::boot(), which in turn
+> translates to bootfn.default() as defined in Zelig/R/bootfn.default.R.
+> 
+> The function bootfn.default() in turn passes the result of param.mer(),
+> which generally was "list(betas=betas, gammas=gammas, scale=scale)".
+> 
+> length(t0) was three, because the list returned by param.mer() had three
+> elements. The implicit type conversion of "t.star" (from matrix to list)
+> R does after the first assignment to "t.star" then triggered the index
+> error with the next assignment.
+> 
+> A change of boot::boot() code in order to become compatible with Zelig
+> appears to be out of question.
+> 
+> However, in order to keep the default configuration working, param.mer()
+> needs to return a list, because part of the result is a complete matrix
+> (e.g."betas") then, not only a single row of a matrix.
+> 
+> I therefore made the return type of param.mer(object,num,bootstrap,)
+> dependent on  "bootstrap", returning a list in the default case, and a
+> one-dimensional array while bootstrapping. The related function qi.mer()
+> in Zelig/R/qi.mixed.R is of course now able to handle both types.
+> 
+> Since the column names appearing in the array returned by
+> param.mer(..,bootstrap=T) are determined by the user controlled model
+> specification, the name space separation a list provides implicitly had
+> to be coded explicitly.
+> 
+> The rudimentary regression testing I did for sim(,bootstrap=F) using
+> patched code against the original version resulted in a quite close
+> numerical agreement. I do attribute the differences (generally in the
+> order of 1E-3) to a different RNG state, but I haven't examined this
+> very closely. Generally, the effective code path of the default case
+> should have remained unchanged.
+> 
+> 
+> The attached patch is against the sources found in the Cran package
+> Zelig_3.5.1.tar.gz
+> 
+> 
+> Unrelated to this patch, plotting of simulated results generally does
+> not work as intended:
+> 
+>  > plot(s.out1)
+>    Error in plot(density(qi), main = x$qi.name[[i]], xlab = xlab, ...):
+>    error in evaluating the argument 'x' in selecting a method for
+>    function 'plot': Error in density.default(qi) : argument 'x'
+>    must be numeric
+> 
+>    No plot generated for model logit.mixed
+> 
+> 
+> Also, excluding the intercept using the ~ -1 notation is currently
+> disregarded.
+> 
+> 
+> Best regards
+> 
+> Hugo Mildenberger
+> 
+> 
+> [1]h ttps://stat.ethz.ch/pipermail/r-sig-mixed-models/2011q4/006933.html
+
+-------------- next part --------------
+diff -dur a/Zelig//R/bootfn.default.R b/Zelig//R/bootfn.default.R
+--- a/Zelig//R/bootfn.default.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig//R/bootfn.default.R	2011-11-06 17:58:19.000000000 +0100
+@@ -1,12 +1,15 @@
+ bootfn.default <- function(data, i, object) {
+   d <- data[i,]
+-  object$call$data <- d
++  # Can't use  stats::getCall() or Zelig's getcall() with assigment 
++  S4 <-zeligS4check(object)
++  if (S4) object@call$data <-d else object$call$data <-d
+   l <- length(param(object, bootstrap = TRUE))
+-  fit <- eval(object$call, sys.parent())
++  fit <- eval(getcall(object), sys.parent())
+   l1 <- length(param(fit, bootstrap = TRUE))
+   while (l > l1) {
+-    object$call$data <- data[sample(nrow(data), replace=TRUE),]
+-    fit <- eval(object$call, sys.parent())
++    if (S4) object@call$data <- data[sample(nrow(data), replace=TRUE),]
++    else    object$call$data <- data[sample(nrow(data), replace=TRUE),]
++    fit <- eval(getcall(object), sys.parent())
+     l1 <- length(param(fit, bootstrap = TRUE))
+   }
+   param(fit, bootstrap = TRUE)
+diff -dur a/Zelig//R/param.mixed.R b/Zelig//R/param.mixed.R
+--- a/Zelig//R/param.mixed.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig//R/param.mixed.R	2011-11-06 20:36:51.000000000 +0100
+@@ -22,21 +22,42 @@
+ 			J <- dim(vars.m)[1]
+ 			gammas[[m]] <- mvrnorm(num, rep(0, J), V.beta)
+ 		}
+-	}
+-	else {
+-		object <- summary(object)
+-		# set fixed effects
+-		betasF <- fixed
++                # betasF is a matrix, so there is a real need for a (nested) list
++		names(gammas) <- names(vars)
++		betas <- betasF
++		scale <- object@sigma
++		return(list(betas=betas, gammas=gammas, scale=scale))
++	} else {
++		object <- selectMethod("summary", "mer")(object)
++
+ 		# sample random effects
+ 		for (m in 1:n.G){
+ 			V.beta <- VarCorr(object)[[m]]
+ 			gammas[[m]]<- mvrnorm(1, 0, V.beta)
+ 		}
++
++		# boot::boot() collects results in a matrix (named "t.star").
++		# Returning a list will therefore create havoc with boot(), 
++		# also because boot() does only reserve space for length(list),
++		# which would result in three for a list like 
++		# list(betas=betas, gammas=gammas, scale=scale)
++		# 
++		# One solution to this situation is to return a vector, and 
++		# pass the name attributes via names(). However, the beta and 
++		# gamma namespaces may intersect, and certainly user models may
++		# also use 'scale' within fixed or random effects. Hence prepend 
++		# a local 'namespace' to all variable names in order to emulate 
++		# a list return type here.
++
++		scale          <- object@sigma
++		betas          <- fixef(object)
++
++		names(scale)   <- 'a::'
++		names(betas)   <- sprintf('b::%s',names(betas))
++		names(gammas)  <- sprintf('g::%s',names(vars))
++
++		return(c(betas,gammas,scale))
+ 	}
+-	
+-	names(gammas) <- names(vars)
+-	betas <- betasF
+-	scale <- object@sigma
+-	
+-	list(betas=betas, gammas=gammas, scale=scale)
+-}
+\ No newline at end of file
++	# not reached
++	stopifnot(F)
++}
+diff -dur a/Zelig//R/plot.zelig.default.R b/Zelig//R/plot.zelig.default.R
+--- a/Zelig//R/plot.zelig.default.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig//R/plot.zelig.default.R	2011-11-06 19:18:02.000000000 +0100
+@@ -7,7 +7,10 @@
+   for (i in 1:k) {
+     for (j in 1:dims(x$qi[[i]])[2]){
+       qi <- as.vector((x$qi[[i]])[,j])
+-      plot(density(qi), main = x$qi.name[[i]], xlab = xlab, ...)
++      # An apparently desparate deed for binomial models in qi.mixed.R 
++      # leads to 'qi' being a character vector here, which in turn the 
++      # density() function doesn't like. Hence convert qi back to numeric.
++      plot(density(as.numeric(qi)), main = x$qi.name[[i]], xlab = xlab, ...)
+     }
+   }
+   par(op)
+diff -dur a/Zelig//R/qi.mixed.R b/Zelig//R/qi.mixed.R
+--- a/Zelig//R/qi.mixed.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig//R/qi.mixed.R	2011-11-06 21:30:59.000000000 +0100
+@@ -15,11 +15,72 @@
+   D <- eval(object@call$data, envir = parent.frame())
+   fml <- eval(object@call$formula)
+   parsefml <- .getRandAndFixedTerms(fml)
++
++  # boot::boot() seems to have moved from a list result type to an array 
++  # type. Therefore the original code below did not work with bootstrap=T.
++  #
++  # Hence, while bootstraping, the related function param.mer() (defined in 
++  # param.mixed.R) will return an array prepending "a::","b::","g::" to the 
++  # names of scale (=mer@sigma), betas(=fixef(mer)) and gammas, respectively.
++
++  #print("qi.mixed.R.simpar=");print(simpar)
++
++  if ( is.list(simpar) )  {
+   
+-  betas <- simpar[["betas"]]
+-  gammas <- simpar[["gammas"]]
+-  alpha <- simpar[["scale"]]
+-  
++	  betas  <- simpar[["betas"]]
++	  gammas <- simpar[["gammas"]]
++	  alpha  <- simpar[["scale"]]
++
++  } else {
++
++	  alpha.idx  <- grep('a::',colnames(simpar))
++	  betas.idx  <- grep('b::',colnames(simpar))
++	  gammas.idx <- grep('g::',colnames(simpar))
++
++	  cn.a <- unique(gsub("a::","",colnames(simpar)[alpha.idx]))
++	  cn.b <- unique(gsub("b::","",colnames(simpar)[betas.idx]))
++	  cn.g <- unique(gsub("g::","",colnames(simpar)[gammas.idx]))
++	 
++	  alpha  <- matrix(simpar[,alpha.idx],  ncol=length(cn.a))
++	  betas  <- matrix(simpar[,betas.idx],  ncol=length(cn.b))
++	  gammas <- matrix(simpar[,gammas.idx], ncol=length(cn.g))
++
++	  colnames(alpha)  <- cn.a
++	  colnames(betas)  <- cn.b
++
++	  # alpha is object@sigma and thus a scalar. It became a vector here
++	  # because boot() calls param.mer() row by row.
++	  alpha   <- list(scale=unique(alpha))
++
++	  # The original, non-bootstrapping code branch above did not result 
++	  # in a list containing an array, but in a plain array for betas. So
++	  # betas must not have a list type.
++	  #
++	  #   betas   <- list(betas)
++	  #
++	  # ... whereas 'gammas' really must be a list, in turn containing a 
++	  # 1-dimensional array, since 'gammas' are indexed using list syntax 
++	  # later in this file. 
++	  #
++	  # Another subtle difference is this: the non-bootstrap code will 
++	  # also return '(Intercept)' as a column name for e.g. 'tag(1|state)'
++	  # in formula, whereas  the bootstraping code will return the tagged name
++	  # and no column name. '(Intercept)' stems  from VarCorr(object)[[m]] in 
++	  # param.mer(...,bootstrap=F). That name is not preserved in the bootstrap 
++	  # case, because then mvrnorm() does not return a matrix  but a scalar. 
++	  # However, 'gammas' are only used once in this function, indexed by 
++	  # rTerms[i], which appears to contain the tagged name(s) only --
++	  # e.g. 'state' with 'tag(1|state)' in formula,  but not '(Intercept)',
++	  # Lastly, '(Intercept)' like any column name from 'gamma' does not 
++	  # survive the matrix operation in line 130
++
++	  gammas  <- list(gammas)
++	  names(gammas) <- cn.g
++  }
++
++  #print("qi.mixed.R.alpha=");print(alpha)
++  #print("qi.mixed.R.betas=");print(betas)
++  #print("qi.mixed.R.gammas=");print(gammas)
+   
+   fTermsNames <- colnames(model.matrix(parsefml$fixed, data = D))
+                                         #cat(fTermsNames, "\n")
+@@ -86,6 +147,26 @@
+       if (family == "binomial"){
+         ev <- theta
+         for (i in 1:ncol(mut)){
++
++	  # The as.character() type cast here did cause an exception in 
++	  # plot.zelig.default later. The character type is then used 
++	  # in summarize.default() as a distinction of cases for producing 
++	  # a special summary like this one:
++	  #
++	  #    Predicted Values: Y|X
++	  #         0    1
++	  #    1 0.08 0.92
++	  #
++	  # Leaving out the type cast results in this variant instead:
++	  #
++	  #    Predicted Values: Y|X
++	  #      mean        sd 2.5% 97.5%
++	  #    1 0.92 0.2726599    0     1
++	  #
++	  # I don't think this was a really good idea. However, I'd like to
++	  # interfere as little as possible with else probably working code, 
++	  # and had therefore fixed this problem in plot.default.R 
++
+           pr[,i] <- as.character(rbinom(n, 1, mut[,i]))
+         }
+         if (!is.null(y)) {
+diff -dur a/Zelig//R/summarize.default.R b/Zelig//R/summarize.default.R
+--- a/Zelig//R/summarize.default.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig//R/summarize.default.R	2011-11-06 21:15:15.000000000 +0100
+@@ -6,7 +6,9 @@
+     res <- c(res, quantile(x, cip, na.rm=TRUE))
+     names(res) <- c(stats, paste(cip*100, "%", sep = ""))
+   }
+-  else if (is.character(x)) {
++  # typeof(x) is (ab)used as a case marker for a binomial distribution 
++  # (see comment to 'pr' in qi.mixed.R)
++  else if (is.character(x)) { 
+     res <- c(table(x) / length(x))
+   }
+   res
+
+From llfrankel-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Nov  7 20:26:31 2011
+From: llfrankel-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Laura Lazarus Frankel)
+Date: Mon, 07 Nov 2011 15:26:31 -0500
+Subject: Zelig help
+Message-ID: <CAF0MO7RK06+MhfJw3Z4nanDdJW_3_Te0oC7u7MoD-YWrRGCM7A@mail.gmail.com>
+
+Hi All,
+
+Fledgling graduate student here.  I'm trying to run zelig for a logit model
+that will run in the R base package, but no matter what I seem to do to the
+recoded variables (attach, detach, reattach, put them back into the
+dataset, create a new dataset, etc.) I keep getting the following error
+message:
+
+Error in `[.data.frame`(d, , all.vars(as.expression(formula))) :
+  undefined columns selected
+
+The most concise form of the code is below.
+
+Thanks in advance!
+
+Laura
+
+
+library(foreign)
+
+library(car)
+
+library(survival)
+
+library(lmeSplines)
+
+library(MASS)
+
+library(nnet)
+
+library(nlme)
+
+library(reshape)
+
+library(plyr)
+
+library(grid)
+
+library(proto)
+
+library(ggplot2)
+
+library(lattice)
+
+gss<-read.dta('/Users/Laura/Dropbox/projects/PanelAttrition/GSS
+Data/GSS.dta')
+
+names(gss)
+
+summary(gss$panstat_2)
+
+summary(gss$panstat_3)
+
+gssattrition<-c()
+
+gssattrition[gss$panstat_3=='selected, eligible, but not reinterviewed']<-1
+
+gssattrition[gss$panstat_2=='selected, eligible, but not reinterviewed']<-1
+
+gssattrition[gss$panstat_3=='selected, eligible, and reinterviewed']<-0
+
+summary(gssattrition)
+
+gssattrition<-c()
+
+gssattrition[gss$panstat_3=='selected, eligible, but not reinterviewed']<-1
+
+gssattrition[gss$panstat_3=='attrited']<-1
+
+gssattrition[gss$panstat_3=='selected, eligible, and reinterviewed']<-0
+
+gssattrition[gss$panstat_2=='selected, but not eligible and not
+reinterviewd']<-NA
+
+gssattrition[gss$panstat_2=='selected, but not eligible and not
+reinterviewd because r was in institution']<-NA
+
+gssattrition[gss$panstat_2=='selected, but not eligible and not
+reinterviewd because r was in institution']<-NA
+
+gssattrition[gss$panstat_2=='selected, but not eligible and not
+reinterviewd because r was deceased']<-NA
+
+summary(gssattrition)
+
+
+
+gssfulltime<-c()
+
+gssfulltime[gss$wrkstat_1=='working fulltime']<-1
+
+gssfulltime[gss$wrkstat_1=='working parttime']<-1
+
+gssfulltime<-recode(gssfulltime, 'NA=0')
+
+gssforeign<-c()
+
+gssforeign[gss$born_1=='yes']<-0
+
+gssforeign[gss$born_1=='no']<-1
+
+gsshome<-c()
+
+summary(gss$dwelown_1)
+
+gsshome[gss$dwelown_1=='own or is buying']<-1
+
+gsshome[gss$dwelown_1=='pays rent']<-0
+
+gsshome[gss$dwelown_1=='other']<-0
+
+summary(gsshome)
+
+gssrace<-c()
+
+gssrace[gss$race_1=='2']<-1
+
+gssrace[gss$race_1=='1']<-0
+
+gssrace[gss$race_1=='3']<-1
+
+gssincome<-c()
+
+gssincome[gss$income06_1=='under $1 000']<-1
+
+gssincome[gss$income06_1=='$1 000 to 2 999']<-1
+
+gssincome[gss$income06_1=='$3 000 to 3 999']<-1
+
+gssincome[gss$income06_1=='$4 000 to 4 999']<-1
+
+gssincome[gss$income06_1=='$5 000 to 5 999']<-2
+
+gssincome[gss$income06_1=='$6 000 to 6 999']<-2
+
+gssincome[gss$income06_1=='$7 000 to 7 999']<-2
+
+gssincome[gss$income06_1=='$8 000 to 9 999']<-3
+
+gssincome[gss$income06_1=='$10000 to 12499']<-4
+
+gssincome[gss$income06_1=='$12500 to 14999']<-5
+
+gssincome[gss$income06_1=='$15000 to 17499']<-6
+
+gssincome[gss$income06_1=='$17500 to 19999']<-6
+
+gssincome[gss$income06_1=='$20000 to 22499']<-7
+
+gssincome[gss$income06_1=='$22500 to 24999']<-7
+
+gssincome[gss$income06_1=='$25000 to 29999']<-8
+
+gssincome[gss$income06_1=='$30000 to 34999']<-9
+
+gssincome[gss$income06_1=='$35000 to 39999']<-10
+
+gssincome[gss$income06_1=='$50000 to 59999']<-12
+
+gssincome[gss$income06_1=='$40000 to 49999']<-11
+
+gssincome[gss$income06_1=='$60000 to 74999']<-13
+
+gssincome[gss$income06_1=='$75000 to $89999']<-14
+
+gssincome[gss$income06_1=='$90000 to $109999']<-15
+
+gssincome[gss$income06_1=='$110000 to $129999']<-16
+
+gssincome[gss$income06_1=='$130000 to $149999']<-17
+
+gssincome[gss$income06_1=='$150000 or over']<-18
+
+summary(gssincome)
+
+summary(gss$degree_1)
+
+gsseducation<-c()
+
+gsseducation[gss$degree_1=='lt high school']<-1
+
+gsseducation[gss$degree_1=='high school']<-2
+
+gsseducation[gss$degree_1=='junior college']<-3
+
+gsseducation[gss$degree_1=='bachelor']<-4
+
+gsseducation[gss$degree_1=='graduate']<-5
+
+gssage<-gss$age_1
+
+gssalone<-c()
+
+gssalone[gss$hompop_1=='1']<-1
+
+gssalone<-recode(gssalone, 'NA=0')
+
+gssexperience<-gss$intyrs_1
+
+gsslength<-gss$lngthinv_1
+
+gssfee<-gss$feelevel_1
+
+gssfee[gss$feeused_1=='no']<-0
+
+gssface<-c()
+
+gssface[gss$mode_1=='in-person']<-1
+
+gssface[gss$mode_1=='over the phone']<-0
+
+gssface[gss$mode_1=='in-person/phone']<-0
+
+gssintwoman<-c()
+
+summary(gss$intsex_1)
+
+gssintwoman[gss$intsex_1=='female']<-1
+
+gssintwoman<-recode(gssintwoman, 'NA=0')
+
+gssintwhite<-c()
+
+gssintwhite[gss$intrace1_1=='white']<-1
+
+gssintwhite<-recode(gssintwhite, 'NA=0')
+
+gsshispanic<-c()
+
+gsshispanic[gss$hispanic_1=='not hispanic']<-0
+
+gsshispanic<-recode(gsshispanic, 'NA=1')
+
+
+gssracesame<-c()
+
+gssracesame[gss$intrace1_1=='white' & gss$racecen1_1=='white']<-1
+
+gssracesame[gss$intrace1_1=='black or african american' &
+gss$racecen1_1=='black
+or african american']<-1
+
+gssracesame[gss$intrace1_1=='asian indian' & gss$racecen1_1=='asian indian'
+]<-1
+
+gssracesame[gss$intrace1_1=='chinese' & gss$racecen1_1=='chinese']<-1
+
+gssracesame[gss$intrace1_1=='filipino' & gss$racecen1_1=='filipino']<-1
+
+gssracesame[gss$intrace1_1=='japanese' & gss$racecen1_1=='japanese']<-1
+
+gssracesame[gss$intrace1_1=='korean' & gss$racecen1_1=='korean']<-1
+
+gssracesame[gss$intrace1_1=='vietnamese' & gss$racecen1_1=='vietnamese']<-1
+
+gssracesame[gss$intrace1_1=='other asian' & gss$racecen1_1=='other asian']<-
+1
+
+gssracesame[gss$intrace1_1=='native hawaiian' & gss$racecen1_1=='native
+hawaiian']<-1
+
+gssracesame[gss$intrace1_1=='other pacific islander' & gss$racecen1_1=='other
+pacific islander']<-1
+
+gssracesame[gss$intrace1_1=='some other race' & gss$racecen1_1=='some other
+race']<-1
+
+gssracesame[gss$intrace1_1=='hispanic' & gss$racecen1_1=='hispanic']<-1
+
+gssracesame[gsshispanic=='1' & gss$intethn=='hispanic']<-1
+
+gssracesame<-recode(gssracesame, 'NA=0')
+
+gsssexsame<-c()
+
+gsssexsame[gss$sex_1=='1' & gssintwoman=='0']<-1
+
+gsssexsame[gss$sex_1=='2'& gssintwoman=='1']<-1
+
+gsssexsame<-recode(gsssexsame, 'NA=0')
+
+gsssex<-c()
+
+gsssex[gss$sex_1=='1']<-0
+
+gsssex[gss$sex_1=='2']<-1
+
+gssvote04<-c()
+
+gssvote04[gss$vote04_1=='voted']<-1
+
+gssvote04[gss$vote04_1=='did not vote']<-0
+
+summary(gssvote04)
+
+
+
+summary(gss$babies_1)
+
+gchildren<-gss$babies_1
+
+summary(gchildren)
+
+
+
+gss$gssattriiton1<-gssattrition
+
+gss$gssage1<-gssage
+
+gss$gsssex1<-gsssex
+
+gss$gssrace1<-gssrace
+
+gss$gssfulltime1<-gssfulltime
+
+gss$gsseducation1<-gsseducation
+
+gss$gssattriiton1<-gssincome
+
+gss$gsshome1<-gsshome
+
+gss$gssfulltime1<-gssfulltime
+
+gss$gchildren1<-gchildren
+
+gss$gssforeign1<-gssforeign
+
+gss$gssattriiton1<-gssvote04
+
+gss$gssalone1<-gssalone
+
+gss$gssexperience1<-gssexperience
+
+gss$gssintwoman1<-gssintwoman
+
+gss$gsssexsame1<-gsssexsame
+
+library(Zelig)
+
+
+gsslogit<- zelig(gssattrition1~gssage1+gsssex1+gssrace1+gssfulltime1+
+gsseducation1+gssincome1+gsshome1+gssfulltime1+gchildren1+gssforeign1+
+gssvote041+gssalone1+gssexperience1+gssintwoman1+gsssexsame1, model="logit"
+, data=gss)
+
+
+
+gss.data<-gss[,c(1833, 1855:1867)]
+
+names(gss.data)
+
+
+gsslogit<- zelig(gssattrition1~gssage1+gsssex1+gssrace1+gssfulltime1+
+gsseducation1+gssincome1+gsshome1+gssfulltime1+gchildren1+gssforeign1+
+gssvote041+gssalone1+gssexperience1+gssintwoman1+gsssexsame1, model="logit"
+, data=gss.data)
+
+From olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org  Mon Nov  7 21:13:14 2011
+From: olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org (Olivia Lau)
+Date: Mon, 07 Nov 2011 13:13:14 -0800
+Subject: Re: Zelig help
+In-Reply-To: <CAF0MO7RK06+MhfJw3Z4nanDdJW_3_Te0oC7u7MoD-YWrRGCM7A@mail.gmail.com>
+References: <CAF0MO7RK06+MhfJw3Z4nanDdJW_3_Te0oC7u7MoD-YWrRGCM7A@mail.gmail.com>
+Message-ID: <CAFKPR10B9GCcY6sz-bnhu5i=O8Ms3bocgsPh+y-QDHV5ksjuXw@mail.gmail.com>
+
+1) Never attach a data set because you will get the error that you got
+below.   Try your recodes without attaching.
+
+2)  Only load the R libraries that you need for the session.  Based on a
+quick scan of your code, you don't need any of the packages that you've
+loaded.  Note that function names in packages conflict, so when you load
+more than you need, you introduce potential instability in the R session.
+
+3)  Rather than use recode() as you have above, you should do
+           var[is.na(var)] <- 0
+
+Yours,
+Olivia
+
+On Mon, Nov 7, 2011 at 12:26 PM, Laura Lazarus Frankel
+<llfrankel-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:
+
+> Hi All,
+>
+> Fledgling graduate student here.  I'm trying to run zelig for a logit
+> model that will run in the R base package, but no matter what I seem to do
+> to the recoded variables (attach, detach, reattach, put them back into the
+> dataset, create a new dataset, etc.) I keep getting the following error
+> message:
+>
+> Error in `[.data.frame`(d, , all.vars(as.expression(formula))) :
+>   undefined columns selected
+>
+> The most concise form of the code is below.
+>
+> Thanks in advance!
+>
+> Laura
+>
+>
+> library(foreign)
+>
+> library(car)
+>
+> library(survival)
+>
+> library(lmeSplines)
+>
+> library(MASS)
+>
+> library(nnet)
+>
+> library(nlme)
+>
+> library(reshape)
+>
+> library(plyr)
+>
+> library(grid)
+>
+> library(proto)
+>
+> library(ggplot2)
+>
+> library(lattice)
+>
+> gss<-read.dta('/Users/Laura/Dropbox/projects/PanelAttrition/GSS
+> Data/GSS.dta')
+>
+> names(gss)
+>
+> summary(gss$panstat_2)
+>
+> summary(gss$panstat_3)
+>
+> gssattrition<-c()
+>
+> gssattrition[gss$panstat_3=='selected, eligible, but not reinterviewed']<-
+> 1
+>
+> gssattrition[gss$panstat_2=='selected, eligible, but not reinterviewed']<-
+> 1
+>
+> gssattrition[gss$panstat_3=='selected, eligible, and reinterviewed']<-0
+>
+> summary(gssattrition)
+>
+> gssattrition<-c()
+>
+> gssattrition[gss$panstat_3=='selected, eligible, but not reinterviewed']<-
+> 1
+>
+> gssattrition[gss$panstat_3=='attrited']<-1
+>
+> gssattrition[gss$panstat_3=='selected, eligible, and reinterviewed']<-0
+>
+> gssattrition[gss$panstat_2=='selected, but not eligible and not
+> reinterviewd']<-NA
+>
+> gssattrition[gss$panstat_2=='selected, but not eligible and not
+> reinterviewd because r was in institution']<-NA
+>
+> gssattrition[gss$panstat_2=='selected, but not eligible and not
+> reinterviewd because r was in institution']<-NA
+>
+> gssattrition[gss$panstat_2=='selected, but not eligible and not
+> reinterviewd because r was deceased']<-NA
+>
+> summary(gssattrition)
+>
+>
+>
+> gssfulltime<-c()
+>
+> gssfulltime[gss$wrkstat_1=='working fulltime']<-1
+>
+> gssfulltime[gss$wrkstat_1=='working parttime']<-1
+>
+> gssfulltime<-recode(gssfulltime, 'NA=0')
+>
+> gssforeign<-c()
+>
+> gssforeign[gss$born_1=='yes']<-0
+>
+> gssforeign[gss$born_1=='no']<-1
+>
+> gsshome<-c()
+>
+> summary(gss$dwelown_1)
+>
+> gsshome[gss$dwelown_1=='own or is buying']<-1
+>
+> gsshome[gss$dwelown_1=='pays rent']<-0
+>
+> gsshome[gss$dwelown_1=='other']<-0
+>
+> summary(gsshome)
+>
+> gssrace<-c()
+>
+> gssrace[gss$race_1=='2']<-1
+>
+> gssrace[gss$race_1=='1']<-0
+>
+> gssrace[gss$race_1=='3']<-1
+>
+> gssincome<-c()
+>
+> gssincome[gss$income06_1=='under $1 000']<-1
+>
+> gssincome[gss$income06_1=='$1 000 to 2 999']<-1
+>
+> gssincome[gss$income06_1=='$3 000 to 3 999']<-1
+>
+> gssincome[gss$income06_1=='$4 000 to 4 999']<-1
+>
+> gssincome[gss$income06_1=='$5 000 to 5 999']<-2
+>
+> gssincome[gss$income06_1=='$6 000 to 6 999']<-2
+>
+> gssincome[gss$income06_1=='$7 000 to 7 999']<-2
+>
+> gssincome[gss$income06_1=='$8 000 to 9 999']<-3
+>
+> gssincome[gss$income06_1=='$10000 to 12499']<-4
+>
+> gssincome[gss$income06_1=='$12500 to 14999']<-5
+>
+> gssincome[gss$income06_1=='$15000 to 17499']<-6
+>
+> gssincome[gss$income06_1=='$17500 to 19999']<-6
+>
+> gssincome[gss$income06_1=='$20000 to 22499']<-7
+>
+> gssincome[gss$income06_1=='$22500 to 24999']<-7
+>
+> gssincome[gss$income06_1=='$25000 to 29999']<-8
+>
+> gssincome[gss$income06_1=='$30000 to 34999']<-9
+>
+> gssincome[gss$income06_1=='$35000 to 39999']<-10
+>
+> gssincome[gss$income06_1=='$50000 to 59999']<-12
+>
+> gssincome[gss$income06_1=='$40000 to 49999']<-11
+>
+> gssincome[gss$income06_1=='$60000 to 74999']<-13
+>
+> gssincome[gss$income06_1=='$75000 to $89999']<-14
+>
+> gssincome[gss$income06_1=='$90000 to $109999']<-15
+>
+> gssincome[gss$income06_1=='$110000 to $129999']<-16
+>
+> gssincome[gss$income06_1=='$130000 to $149999']<-17
+>
+> gssincome[gss$income06_1=='$150000 or over']<-18
+>
+> summary(gssincome)
+>
+> summary(gss$degree_1)
+>
+> gsseducation<-c()
+>
+> gsseducation[gss$degree_1=='lt high school']<-1
+>
+> gsseducation[gss$degree_1=='high school']<-2
+>
+> gsseducation[gss$degree_1=='junior college']<-3
+>
+> gsseducation[gss$degree_1=='bachelor']<-4
+>
+> gsseducation[gss$degree_1=='graduate']<-5
+>
+> gssage<-gss$age_1
+>
+> gssalone<-c()
+>
+> gssalone[gss$hompop_1=='1']<-1
+>
+> gssalone<-recode(gssalone, 'NA=0')
+>
+> gssexperience<-gss$intyrs_1
+>
+> gsslength<-gss$lngthinv_1
+>
+> gssfee<-gss$feelevel_1
+>
+> gssfee[gss$feeused_1=='no']<-0
+>
+> gssface<-c()
+>
+> gssface[gss$mode_1=='in-person']<-1
+>
+> gssface[gss$mode_1=='over the phone']<-0
+>
+> gssface[gss$mode_1=='in-person/phone']<-0
+>
+> gssintwoman<-c()
+>
+> summary(gss$intsex_1)
+>
+> gssintwoman[gss$intsex_1=='female']<-1
+>
+> gssintwoman<-recode(gssintwoman, 'NA=0')
+>
+> gssintwhite<-c()
+>
+> gssintwhite[gss$intrace1_1=='white']<-1
+>
+> gssintwhite<-recode(gssintwhite, 'NA=0')
+>
+> gsshispanic<-c()
+>
+> gsshispanic[gss$hispanic_1=='not hispanic']<-0
+>
+> gsshispanic<-recode(gsshispanic, 'NA=1')
+>
+>
+> gssracesame<-c()
+>
+> gssracesame[gss$intrace1_1=='white' & gss$racecen1_1=='white']<-1
+>
+> gssracesame[gss$intrace1_1=='black or african american' & gss$racecen1_1=='black
+> or african american']<-1
+>
+> gssracesame[gss$intrace1_1=='asian indian' & gss$racecen1_1=='asian
+> indian']<-1
+>
+> gssracesame[gss$intrace1_1=='chinese' & gss$racecen1_1=='chinese']<-1
+>
+> gssracesame[gss$intrace1_1=='filipino' & gss$racecen1_1=='filipino']<-1
+>
+> gssracesame[gss$intrace1_1=='japanese' & gss$racecen1_1=='japanese']<-1
+>
+> gssracesame[gss$intrace1_1=='korean' & gss$racecen1_1=='korean']<-1
+>
+> gssracesame[gss$intrace1_1=='vietnamese' & gss$racecen1_1=='vietnamese']<-
+> 1
+>
+> gssracesame[gss$intrace1_1=='other asian' & gss$racecen1_1=='other asian'
+> ]<-1
+>
+> gssracesame[gss$intrace1_1=='native hawaiian' & gss$racecen1_1=='native
+> hawaiian']<-1
+>
+> gssracesame[gss$intrace1_1=='other pacific islander' & gss$racecen1_1=='other
+> pacific islander']<-1
+>
+> gssracesame[gss$intrace1_1=='some other race' & gss$racecen1_1=='some
+> other race']<-1
+>
+> gssracesame[gss$intrace1_1=='hispanic' & gss$racecen1_1=='hispanic']<-1
+>
+> gssracesame[gsshispanic=='1' & gss$intethn=='hispanic']<-1
+>
+> gssracesame<-recode(gssracesame, 'NA=0')
+>
+> gsssexsame<-c()
+>
+> gsssexsame[gss$sex_1=='1' & gssintwoman=='0']<-1
+>
+> gsssexsame[gss$sex_1=='2'& gssintwoman=='1']<-1
+>
+> gsssexsame<-recode(gsssexsame, 'NA=0')
+>
+> gsssex<-c()
+>
+> gsssex[gss$sex_1=='1']<-0
+>
+> gsssex[gss$sex_1=='2']<-1
+>
+> gssvote04<-c()
+>
+> gssvote04[gss$vote04_1=='voted']<-1
+>
+> gssvote04[gss$vote04_1=='did not vote']<-0
+>
+> summary(gssvote04)
+>
+>
+>
+> summary(gss$babies_1)
+>
+> gchildren<-gss$babies_1
+>
+> summary(gchildren)
+>
+>
+>
+> gss$gssattriiton1<-gssattrition
+>
+> gss$gssage1<-gssage
+>
+> gss$gsssex1<-gsssex
+>
+> gss$gssrace1<-gssrace
+>
+> gss$gssfulltime1<-gssfulltime
+>
+> gss$gsseducation1<-gsseducation
+>
+> gss$gssattriiton1<-gssincome
+>
+> gss$gsshome1<-gsshome
+>
+> gss$gssfulltime1<-gssfulltime
+>
+> gss$gchildren1<-gchildren
+>
+> gss$gssforeign1<-gssforeign
+>
+> gss$gssattriiton1<-gssvote04
+>
+> gss$gssalone1<-gssalone
+>
+> gss$gssexperience1<-gssexperience
+>
+> gss$gssintwoman1<-gssintwoman
+>
+> gss$gsssexsame1<-gsssexsame
+>
+> library(Zelig)
+>
+>
+> gsslogit<- zelig(gssattrition1~gssage1+gsssex1+gssrace1+gssfulltime1+
+> gsseducation1+gssincome1+gsshome1+gssfulltime1+gchildren1+gssforeign1+
+> gssvote041+gssalone1+gssexperience1+gssintwoman1+gsssexsame1, model=
+> "logit", data=gss)
+>
+>
+>
+> gss.data<-gss[,c(1833, 1855:1867)]
+>
+> names(gss.data)
+>
+>
+> gsslogit<- zelig(gssattrition1~gssage1+gsssex1+gssrace1+gssfulltime1+
+> gsseducation1+gssincome1+gsshome1+gssfulltime1+gchildren1+gssforeign1+
+> gssvote041+gssalone1+gssexperience1+gssintwoman1+gsssexsame1, model=
+> "logit", data=gss.data)
+>
+>
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Nov  8 15:58:52 2011
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Tue, 08 Nov 2011 10:58:52 -0500
+Subject: Re: [Patch] fixing Zelig-3.5.1 bootstrap in order to run with lme4 and boot-1.3-3
+In-Reply-To: <4EB6F3AE.5060608-S0/GAf8tV78@public.gmane.org>
+References: <4EB53BE7.3060002@web.de> <4EB6F3AE.5060608@web.de>
+Message-ID: <5F53573D-FAAB-42D0-884A-3F01078F9F2B@iq.harvard.edu>
+
+Hugo, thank you for your patch!  Additionally, I will be reviewing the submitted bugs, and hopefully will have a fix in the very near future.
+
+Cheers - 
+Matt Owen
+
+
+On Nov 6, 2011, at 3:53 PM, Hugo Mildenberger wrote:
+
+> Please use the new patch attached here instead of the previous one. The
+> previous version would likely break non-S4 packages used with
+> bootfn.default(). Besides this patch also fixes the plot problem.
+> Using set.seed(), regression testing was done for the previously working
+> non-bootstrapping code  and resulted in no differences with
+> "logit.mixed", at least.
+> 
+> Best
+> 
+> 
+> Am 05.11.2011 14:36, schrieb Hugo Mildenberger:
+>> Dear list members,
+>> 
+>> in a recent thread of the R-sig-ME mailing list[1], Christoph Scherber
+>> communicated the following script which demonstrated a problem within
+>> Zelig's bootstrap code:
+>> 
+>>   require(Zelig)
+>>   data(voteincome)
+>> 
+>>   z.out1 <- zelig(vote ~ education + age + female + tag(1 | state),
+>>                   data = voteincome, model = "logit.mixed")
+>> 
+>>   x <- setx(z.out1, education = 4)
+>>   s.out1 <- sim(z.out1, x = x, bootstrap=TRUE)
+>> 
+>>   #Error in `*tmp*`$call : $ operator not defined for this S4 class
+>> 
+>> 
+>> This error stemmed from the implementation of bootfn.default() in
+>> Zelig/R/bootfn.default.R, which generally uses "object$call" instead of
+>> "object@call" (and therefore never worked with lme4)
+>> 
+>> After having fixed this, the next problem became manifest when
+>> zelig::sim() was in  bootstrapping mode. R could not find a summary
+>> method for the object passed to param.mer(). Why this happens, is still
+>> unclear to me.
+>> 
+>> Anyway, when having fixed that bug along the lines of the
+>> non-bootstrapping branch of param.mer() by using selectMethod(), the
+>> next problem surfaced:
+>> 
+>>  Error in t.star[r, ] <- res[[r]] :
+>>    incorrect number of subscripts on matrix
+>> 
+>> After a while it became clear to me that the list returned by
+>> param.mer() was incompatible with the type boot::boot() expects (in
+>> /boot/R/bootfuns.q as of boot version 1.3-3):
+>> 
+>> 193     } else lapply(seq_len(RR), fn)
+>> 194     t.star <- matrix(, RR, length(t0))
+>> 195     for(r in seq_len(RR)) t.star[r, ] <- res[[r]]
+>> 
+>> "t.star" is the name of the matrix boot::boot() uses to collect results
+>> from the statistic function.
+>> 
+>> "fn" is the "statistic" parameter passed to boot::boot(), which in turn
+>> translates to bootfn.default() as defined in Zelig/R/bootfn.default.R.
+>> 
+>> The function bootfn.default() in turn passes the result of param.mer(),
+>> which generally was "list(betas=betas, gammas=gammas, scale=scale)".
+>> 
+>> length(t0) was three, because the list returned by param.mer() had three
+>> elements. The implicit type conversion of "t.star" (from matrix to list)
+>> R does after the first assignment to "t.star" then triggered the index
+>> error with the next assignment.
+>> 
+>> A change of boot::boot() code in order to become compatible with Zelig
+>> appears to be out of question.
+>> 
+>> However, in order to keep the default configuration working, param.mer()
+>> needs to return a list, because part of the result is a complete matrix
+>> (e.g."betas") then, not only a single row of a matrix.
+>> 
+>> I therefore made the return type of param.mer(object,num,bootstrap,)
+>> dependent on  "bootstrap", returning a list in the default case, and a
+>> one-dimensional array while bootstrapping. The related function qi.mer()
+>> in Zelig/R/qi.mixed.R is of course now able to handle both types.
+>> 
+>> Since the column names appearing in the array returned by
+>> param.mer(..,bootstrap=T) are determined by the user controlled model
+>> specification, the name space separation a list provides implicitly had
+>> to be coded explicitly.
+>> 
+>> The rudimentary regression testing I did for sim(,bootstrap=F) using
+>> patched code against the original version resulted in a quite close
+>> numerical agreement. I do attribute the differences (generally in the
+>> order of 1E-3) to a different RNG state, but I haven't examined this
+>> very closely. Generally, the effective code path of the default case
+>> should have remained unchanged.
+>> 
+>> 
+>> The attached patch is against the sources found in the Cran package
+>> Zelig_3.5.1.tar.gz
+>> 
+>> 
+>> Unrelated to this patch, plotting of simulated results generally does
+>> not work as intended:
+>> 
+>>> plot(s.out1)
+>>   Error in plot(density(qi), main = x$qi.name[[i]], xlab = xlab, ...):
+>>   error in evaluating the argument 'x' in selecting a method for
+>>   function 'plot': Error in density.default(qi) : argument 'x'
+>>   must be numeric
+>> 
+>>   No plot generated for model logit.mixed
+>> 
+>> 
+>> Also, excluding the intercept using the ~ -1 notation is currently
+>> disregarded.
+>> 
+>> 
+>> Best regards
+>> 
+>> Hugo Mildenberger
+>> 
+>> 
+>> [1]h ttps://stat.ethz.ch/pipermail/r-sig-mixed-models/2011q4/006933.html
+> <Zelig_3.5.1.fix-boot-v2.patch>
+
+From Hugo.Mildenberger-S0/GAf8tV78 at public.gmane.org  Tue Nov  8 19:05:04 2011
+From: Hugo.Mildenberger-S0/GAf8tV78 at public.gmane.org (Hugo Mildenberger)
+Date: Tue, 08 Nov 2011 20:05:04 +0100
+Subject: Re: [Patch] fixing Zelig-3.5.1 bootstrap in order to run with lme4 and boot-1.3-3
+In-Reply-To: <5F53573D-FAAB-42D0-884A-3F01078F9F2B@iq.harvard.edu>
+References: <4EB53BE7.3060002@web.de> <4EB6F3AE.5060608@web.de> <5F53573D-FAAB-42D0-884A-3F01078F9F2B@iq.harvard.edu>
+Message-ID: <4EB97D60.6080103@web.de>
+
+Matt,
+
+please skip also version 2. It is still not the end of the story. I've
+encountered another severe problem when testing the mixed model examples
+in Zelig's inst/doc directory with bootstrap=T. When running, as I
+recall, the example from poisson.mixed.Rnw, I got the following:
+
+
+ Error in mvrnorm(1, 0, V.beta) : incompatible arguments
+ Calls: sim ... sim.default -> boot -> statistic -> param ->
+        param.mer -> mvrnorm
+
+The mvrnorm call is again in R/param.mixed.R (using original code here)
+
+ 30                 # sample random effects
+ 31                 for (m in 1:n.G){
+ 32                         V.beta <- VarCorr(object)[[m]]
+ 33                         gammas[[m]]<- mvrnorm(1, 0, V.beta)
+ 34                 }
+
+
+This had to do with random effect term tag(player - 1| month). In the
+homerun dataset, there are two players. I concluded that line 33 should
+probably written as:
+
+    gammas[[name]] <- mvrnorm(1,rep(0,dim(vars.m)[1]),V.beta)
+
+Even so this gives apparently acceptable results, I'm a rather unsure
+about this.
+
+Another problem is with gamma.mixed.Rnw. lmer/glmer had deprecated the
+method argument and also dropped support for PQL, but introduced nAGQ as
+a new argument for use with glmer. Anyway, whatever you try, the model
+does not converge any more. I've reported this to R-sig-ME, but there
+was no response until now.
+
+Finally, I tried to run R CMD check with the original version. To my
+knowledge, the check command must complete successfully for a package to
+be included in the cran repository. But the check command failed in just
+another way:
+
+  Error in pp.vglm(object, cm, all.coef, x, ndim, cnames) :
+   no slot of name "inverse" for this object of class "vglmff"
+  Calls: sim -> sim.default -> qi -> qi.vglm -> pp.vglm
+  Execution halted
+
+
+I've also attached the complete output of "R CMD check
+Zelig_3.5.1.tar.gz", because there are some formal problems too.
+
+
+
+Kind regards
+
+Hugo Mildenberger
+
+
+
+Am 08.11.2011 16:58, schrieb Matt Owen:
+> Hugo, thank you for your patch!  Additionally, I will be reviewing the submitted bugs, and hopefully will have a fix in the very near future.
+> 
+> Cheers - 
+> Matt Owen
+> 
+> 
+> On Nov 6, 2011, at 3:53 PM, Hugo Mildenberger wrote:
+> 
+>> Please use the new patch attached here instead of the previous one. The
+>> previous version would likely break non-S4 packages used with
+>> bootfn.default(). Besides this patch also fixes the plot problem.
+>> Using set.seed(), regression testing was done for the previously working
+>> non-bootstrapping code  and resulted in no differences with
+>> "logit.mixed", at least.
+>>
+>> Best
+>>
+>>
+>> Am 05.11.2011 14:36, schrieb Hugo Mildenberger:
+>>> Dear list members,
+>>>
+>>> in a recent thread of the R-sig-ME mailing list[1], Christoph Scherber
+>>> communicated the following script which demonstrated a problem within
+>>> Zelig's bootstrap code:
+>>>
+>>>   require(Zelig)
+>>>   data(voteincome)
+>>>
+>>>   z.out1 <- zelig(vote ~ education + age + female + tag(1 | state),
+>>>                   data = voteincome, model = "logit.mixed")
+>>>
+>>>   x <- setx(z.out1, education = 4)
+>>>   s.out1 <- sim(z.out1, x = x, bootstrap=TRUE)
+>>>
+>>>   #Error in `*tmp*`$call : $ operator not defined for this S4 class
+>>>
+>>>
+>>> This error stemmed from the implementation of bootfn.default() in
+>>> Zelig/R/bootfn.default.R, which generally uses "object$call" instead of
+>>> "object@call" (and therefore never worked with lme4)
+>>>
+>>> After having fixed this, the next problem became manifest when
+>>> zelig::sim() was in  bootstrapping mode. R could not find a summary
+>>> method for the object passed to param.mer(). Why this happens, is still
+>>> unclear to me.
+>>>
+>>> Anyway, when having fixed that bug along the lines of the
+>>> non-bootstrapping branch of param.mer() by using selectMethod(), the
+>>> next problem surfaced:
+>>>
+>>>  Error in t.star[r, ] <- res[[r]] :
+>>>    incorrect number of subscripts on matrix
+>>>
+>>> After a while it became clear to me that the list returned by
+>>> param.mer() was incompatible with the type boot::boot() expects (in
+>>> /boot/R/bootfuns.q as of boot version 1.3-3):
+>>>
+>>> 193     } else lapply(seq_len(RR), fn)
+>>> 194     t.star <- matrix(, RR, length(t0))
+>>> 195     for(r in seq_len(RR)) t.star[r, ] <- res[[r]]
+>>>
+>>> "t.star" is the name of the matrix boot::boot() uses to collect results
+>>> from the statistic function.
+>>>
+>>> "fn" is the "statistic" parameter passed to boot::boot(), which in turn
+>>> translates to bootfn.default() as defined in Zelig/R/bootfn.default.R.
+>>>
+>>> The function bootfn.default() in turn passes the result of param.mer(),
+>>> which generally was "list(betas=betas, gammas=gammas, scale=scale)".
+>>>
+>>> length(t0) was three, because the list returned by param.mer() had three
+>>> elements. The implicit type conversion of "t.star" (from matrix to list)
+>>> R does after the first assignment to "t.star" then triggered the index
+>>> error with the next assignment.
+>>>
+>>> A change of boot::boot() code in order to become compatible with Zelig
+>>> appears to be out of question.
+>>>
+>>> However, in order to keep the default configuration working, param.mer()
+>>> needs to return a list, because part of the result is a complete matrix
+>>> (e.g."betas") then, not only a single row of a matrix.
+>>>
+>>> I therefore made the return type of param.mer(object,num,bootstrap,)
+>>> dependent on  "bootstrap", returning a list in the default case, and a
+>>> one-dimensional array while bootstrapping. The related function qi.mer()
+>>> in Zelig/R/qi.mixed.R is of course now able to handle both types.
+>>>
+>>> Since the column names appearing in the array returned by
+>>> param.mer(..,bootstrap=T) are determined by the user controlled model
+>>> specification, the name space separation a list provides implicitly had
+>>> to be coded explicitly.
+>>>
+>>> The rudimentary regression testing I did for sim(,bootstrap=F) using
+>>> patched code against the original version resulted in a quite close
+>>> numerical agreement. I do attribute the differences (generally in the
+>>> order of 1E-3) to a different RNG state, but I haven't examined this
+>>> very closely. Generally, the effective code path of the default case
+>>> should have remained unchanged.
+>>>
+>>>
+>>> The attached patch is against the sources found in the Cran package
+>>> Zelig_3.5.1.tar.gz
+>>>
+>>>
+>>> Unrelated to this patch, plotting of simulated results generally does
+>>> not work as intended:
+>>>
+>>>> plot(s.out1)
+>>>   Error in plot(density(qi), main = x$qi.name[[i]], xlab = xlab, ...):
+>>>   error in evaluating the argument 'x' in selecting a method for
+>>>   function 'plot': Error in density.default(qi) : argument 'x'
+>>>   must be numeric
+>>>
+>>>   No plot generated for model logit.mixed
+>>>
+>>>
+>>> Also, excluding the intercept using the ~ -1 notation is currently
+>>> disregarded.
+>>>
+>>>
+>>> Best regards
+>>>
+>>> Hugo Mildenberger
+>>>
+>>>
+>>> [1]h ttps://stat.ethz.ch/pipermail/r-sig-mixed-models/2011q4/006933.html
+>> <Zelig_3.5.1.fix-boot-v2.patch>
+> 
+>
+
+-------------- next part --------------
+diff -urd a/Zelig/R/bootfn.default.R b/Zelig/R/bootfn.default.R
+--- a/Zelig/R/bootfn.default.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig/R/bootfn.default.R	2011-11-06 17:58:19.000000000 +0100
+@@ -1,12 +1,15 @@
+ bootfn.default <- function(data, i, object) {
+   d <- data[i,]
+-  object$call$data <- d
++  # Can't use  stats::getCall() or Zelig's getcall() with assigment 
++  S4 <-zeligS4check(object)
++  if (S4) object@call$data <-d else object$call$data <-d
+   l <- length(param(object, bootstrap = TRUE))
+-  fit <- eval(object$call, sys.parent())
++  fit <- eval(getcall(object), sys.parent())
+   l1 <- length(param(fit, bootstrap = TRUE))
+   while (l > l1) {
+-    object$call$data <- data[sample(nrow(data), replace=TRUE),]
+-    fit <- eval(object$call, sys.parent())
++    if (S4) object@call$data <- data[sample(nrow(data), replace=TRUE),]
++    else    object$call$data <- data[sample(nrow(data), replace=TRUE),]
++    fit <- eval(getcall(object), sys.parent())
+     l1 <- length(param(fit, bootstrap = TRUE))
+   }
+   param(fit, bootstrap = TRUE)
+diff -urd a/Zelig/R/param.mixed.R b/Zelig/R/param.mixed.R
+--- a/Zelig/R/param.mixed.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig/R/param.mixed.R	2011-11-08 17:33:34.000000000 +0100
+@@ -1,20 +1,28 @@
+ ## modified by delia 09/22/08
+-################################
++## modified by Hugo Mildenberger 11/07/2011
++##        - fix support for boot::boot()
++#           param.mer() now returns a vector instead of a list 
++#           while bootstrapping. See also corresponding code in 
++#           qi.mer() ('qi.mixed.R')
++################################################################
+ 
+ param.mer <- function(object, num, bootstrap=FALSE){
+-	fixed <- fixef(object)
+-	vars <- ranef(object, postVar=TRUE)
+-	gammas <- NULL
+-	n.G <- length(vars)
+ 	
+ 	if (!bootstrap){
++	        fixed <- fixef(object)
++	        vars <- ranef(object, postVar=TRUE)
++	        gammas <- NULL
++	        n.G <- length(vars)
++
+ 		object <- selectMethod("summary", "mer")(object)
++
+ 		# sample fixed effects
+ 		betasF <- NULL
+ 		vcov.fix <- vcov(object)
+ 		if (length(fixed) > 0){
+ 			betasF <- mvrnorm(num, fixed, vcov.fix)
+ 		}
++
+ 		# sample random effects
+ 		for (m in 1:n.G){
+ 			vars.m <- attr(vars[[m]], "postVar")
+@@ -22,21 +30,39 @@
+ 			J <- dim(vars.m)[1]
+ 			gammas[[m]] <- mvrnorm(num, rep(0, J), V.beta)
+ 		}
+-	}
+-	else {
+-		object <- summary(object)
+-		# set fixed effects
+-		betasF <- fixed
++
++                # betasF is a matrix, and gammas may be a list possibly containing 
++		# a matrix, so there is a real need for a (nested) list
++		betas <- betasF
++		scale <- object@sigma
++		names(gammas) <- names(vars)
++		return(list(betas=betas, gammas=gammas, scale=scale))
++	} else {
++		object <- selectMethod("summary", "mer")(object)
++		
++	        vars <- ranef(object, postVar=TRUE)
++		gammas <- list()
++
+ 		# sample random effects
+-		for (m in 1:n.G){
+-			V.beta <- VarCorr(object)[[m]]
+-			gammas[[m]]<- mvrnorm(1, 0, V.beta)
++		for ( name in names(vars) ) {
++			vars.m <- attr(vars[[name]], "postVar")
++			V.beta <- VarCorr(object)[[name]]
++			gammas[[name]] <- mvrnorm(1,rep(0,dim(vars.m)[1]),V.beta)
++			#Please check if above statement is correct, old below
++			#gammas[[name]] <- mvrnorm(1,0,V.beta)
+ 		}
++
++		# boot::boot() collects results in a matrix (named "t.star").
++		# Returning a list will therefore create havoc with boot()
++
++		scale          <- object@sigma
++		betas          <- fixef(object)
++                names(gammas)  <- names(vars)
++
++                return(unlist(as.relistable( list( betas  = betas, 
++		                                   gammas = gammas, 
++			                           scale  = scale ))))
+ 	}
+-	
+-	names(gammas) <- names(vars)
+-	betas <- betasF
+-	scale <- object@sigma
+-	
+-	list(betas=betas, gammas=gammas, scale=scale)
+-}
+\ No newline at end of file
++	# not reached
++	stopifnot(F)
++}
+diff -urd a/Zelig/R/plot.zelig.default.R b/Zelig/R/plot.zelig.default.R
+--- a/Zelig/R/plot.zelig.default.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig/R/plot.zelig.default.R	2011-11-06 19:18:02.000000000 +0100
+@@ -7,7 +7,10 @@
+   for (i in 1:k) {
+     for (j in 1:dims(x$qi[[i]])[2]){
+       qi <- as.vector((x$qi[[i]])[,j])
+-      plot(density(qi), main = x$qi.name[[i]], xlab = xlab, ...)
++      # An apparently desparate deed for binomial models in qi.mixed.R 
++      # leads to 'qi' being a character vector here, which in turn the 
++      # density() function doesn't like. Hence convert qi back to numeric.
++      plot(density(as.numeric(qi)), main = x$qi.name[[i]], xlab = xlab, ...)
+     }
+   }
+   par(op)
+diff -urd a/Zelig/R/qi.mixed.R b/Zelig/R/qi.mixed.R
+--- a/Zelig/R/qi.mixed.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig/R/qi.mixed.R	2011-11-08 18:49:22.000000000 +0100
+@@ -2,7 +2,9 @@
+ ## modified by Gregor Gorjanc 2008-01-07
+ ## modified by Ferdi  10/30/07
+ ## modified by delia 09/22/08
+-################################
++## modified by Hugo Mildenberger 11/07/2011: 
++##       - add support for bootstrapped simpar
++##############################################
+ 
+ qi.mer <- function(object, simpar, x, x1 = NULL, y = NULL) {
+   
+@@ -10,16 +12,98 @@
+   if (!is.null(x1))
+     x1 <- as.data.frame(x1)
+   
+-  
+   ## original dataset
+   D <- eval(object@call$data, envir = parent.frame())
+   fml <- eval(object@call$formula)
+   parsefml <- .getRandAndFixedTerms(fml)
++
++  #print('qi.mixed.R.simpar=');print(simpar)
++
++  # boot::boot() seems to have moved from a list result type to an array 
++  # type. Therefore the original code just below did not work with bootstrap=T.
++  if ( is.list(simpar)) {
++       betas  <- simpar[["betas"]]
++       gammas <- simpar[["gammas"]]
++       alpha  <- simpar[["scale"]]
++  } else {
++       # simpar <- relist(simpar)
++
++       # Regrettably, relist() does not work because the skeleton attribute was 
++       # stripped elsewhere en route. The skeleton could be reconstructed in
++       # sim.default() using 't0', but 't0' holds information for one
++       # row only. It is also doubtful if sim.default() should know about
++       # the details of each module. But it probably should pass t0.
++       # Anyway, reconstruct the attributes here manually, using regular 
++       # expressions on the mangled columnames of the 'simpar' matrix.
++
++       # Mangled names example as generated by param.mer() in 'param.mixed.R' 
++       #
++       # betas.(Intercept) betas.playerSosa gammas.playerMcGwire gammas.playerSosa scale 
++       # [1,]   -0.7509672      -0.31154137           0.00000000        0.00000000     1
++       # [2,]   -1.0572002      -0.19148588          -0.12205996        0.02321421     1
++       # [...]
++
++       alpha.idx  <- grep('^scale$',    colnames(simpar))
++       betas.idx  <- grep('^betas[.]',  colnames(simpar))
++       gammas.idx <- grep('^gammas[.]', colnames(simpar))
++
++       cn.a <- unique(gsub('^scale$',   '', colnames(simpar)[alpha.idx]))
++       cn.b <- unique(gsub('^betas[.]', '', colnames(simpar)[betas.idx]))
++       cn.g <- unique(gsub('^gammas[.]','', colnames(simpar)[gammas.idx]))
++ 
++       alpha  <- matrix(simpar[,alpha.idx],  ncol=length(cn.a))
++       betas  <- matrix(simpar[,betas.idx],  ncol=length(cn.b))
++       gammas <- matrix(simpar[,gammas.idx], ncol=length(cn.g))
++
++       colnames(alpha)  <- cn.a
++       colnames(betas)  <- cn.b
++       colnames(gammas) <- cn.g
++
++       # 'alpha' actually is object@sigma and thus a scalar. It emerges as a 
++       # vector here because boot::boot() calls param.mer() row by row.
++       alpha   <- unique(alpha)
++
++       # 'betas' is always a matrix, only 'gammas' wants to be addressed 
++       # as a list. 
++       #
++       # Strategy to restore the gamma list structure:
++       #
++       # 1.) Extract random effect grouping factor name. E.g., extract 'month' 
++       #     as in 'month.playerSosa', with 'month' being the grouping factor,
++       #     as generated by a Zelig random effect term like tag(player-1| month).
++
++       tags <- unique(sapply(strsplit(cn.g,'\\.'),function(x) x[1]))
++
++       # 2.) Sort columns of 'gamma' into distinct arrays depending on group name
++
++       g2l <- function(tag,gammas) {
++
++              # Select columns beginning with `tag`, followed by a dot
++	      idx <- grep(sprintf('^%s[.]',tag),colnames(gammas))
++
++	      # Strip grouping factor name including dot from column name(s)
++	      dmn <- gsub('(^[^.]+[.])','',colnames(gammas)[idx])
++
++	      # Subset gammas and apply as.matrix() because R automagically 
++	      # downcasts an one-dimensional array to a vector ...
++              r <- as.matrix(gammas[,idx])
++
++	      # ... which in turn would cause colnames() to fail
++	      colnames(r) <- dmn
++	      r
++       }
++
++       gl <- list()
++       for ( tag in tags ) 
++             gl[[tag]] <- g2l(tag,gammas)
++       gammas <- gl
++  }
++
+   
+-  betas <- simpar[["betas"]]
+-  gammas <- simpar[["gammas"]]
+-  alpha <- simpar[["scale"]]
+   
++  # print('qi.mixed.R.alpha=');print(alpha)
++  # print('qi.mixed.R.betas=');print(betas)
++  # print('qi.mixed.R.gammas=');print(gammas)
+   
+   fTermsNames <- colnames(model.matrix(parsefml$fixed, data = D))
+                                         #cat(fTermsNames, "\n")
+@@ -86,6 +170,26 @@
+       if (family == "binomial"){
+         ev <- theta
+         for (i in 1:ncol(mut)){
++
++	  # The as.character() type cast here did cause an exception in 
++	  # plot.zelig.default later. The character type is used 
++	  # in summarize.default() as a distinction of cases for producing 
++	  # a special summary like this one:
++	  #
++	  #    Predicted Values: Y|X
++	  #         0    1
++	  #    1 0.08 0.92
++	  #
++	  # Leaving out the type cast results in this variant instead:
++	  #
++	  #    Predicted Values: Y|X
++	  #      mean        sd 2.5% 97.5%
++	  #    1 0.92 0.2726599    0     1
++	  #
++	  # I don't think this was a really good idea. However, I'd like to
++	  # interfere as little as possible with else probably working code, 
++	  # and had therefore fixed this problem in plot.default.R 
++
+           pr[,i] <- as.character(rbinom(n, 1, mut[,i]))
+         }
+         if (!is.null(y)) {
+diff -urd a/Zelig/R/summarize.default.R b/Zelig/R/summarize.default.R
+--- a/Zelig/R/summarize.default.R	2011-10-04 12:58:06.000000000 +0200
++++ b/Zelig/R/summarize.default.R	2011-11-06 21:15:15.000000000 +0100
+@@ -6,7 +6,9 @@
+     res <- c(res, quantile(x, cip, na.rm=TRUE))
+     names(res) <- c(stats, paste(cip*100, "%", sep = ""))
+   }
+-  else if (is.character(x)) {
++  # typeof(x) is (ab)used as a case marker for a binomial distribution 
++  # (see comment to 'pr' in qi.mixed.R)
++  else if (is.character(x)) { 
+     res <- c(table(x) / length(x))
+   }
+   res
+
+-------------- next part --------------
+* using R version 2.14.0 (2011-10-31)
+* using platform: x86_64-pc-linux-gnu (64-bit)
+* using session charset: ASCII
+* checking for file 'Zelig/DESCRIPTION' ... OK
+* this is package 'Zelig' version '3.5.1'
+* checking package namespace information ... OK
+* checking package dependencies ... OK
+* checking if this is a source package ... OK
+* checking if there is a namespace ... OK
+* checking for executable files ... OK
+* checking whether package 'Zelig' can be installed ... OK
+* checking installed package size ... NOTE
+  installed size is 10.4Mb
+  sub-directories of 1Mb or more:
+    doc   9.2Mb
+* checking package directory ... OK
+* checking for portable file names ... OK
+* checking for sufficient/correct file permissions ... OK
+* checking DESCRIPTION meta-information ... OK
+* checking top-level files ... OK
+* checking index information ... OK
+* checking package subdirectories ... OK
+* checking R files for non-ASCII characters ... OK
+* checking R files for syntax errors ... OK
+* checking whether the package can be loaded ... OK
+* checking whether the package can be loaded with stated dependencies ... OK
+* checking whether the package can be unloaded cleanly ... OK
+* checking whether the namespace can be loaded with stated dependencies ... OK
+* checking whether the namespace can be unloaded cleanly ... OK
+* checking for unstated dependencies in R code ... OK
+* checking S3 generic/method consistency ... OK
+* checking replacement functions ... OK
+* checking foreign function calls ... OK
+* checking R code for possible problems ... NOTE
+File 'Zelig/R/load.first.R':
+  .onAttach calls:
+    cat(paste("## \n##  Zelig (Version ", ver, ", built: ", builddate,     ")\n", sep = ""))
+    cat("##  Please refer to http://gking.harvard.edu/zelig for full\n",     "##  documentation or help.zelig() for help with commands and\n",     "##  models supported by Zelig.\n##\n\n", sep = "")
+    cat("##  Zelig project citations:\n", "##    Kosuke Imai, Gary King, and Olivia Lau. (2009).\n",     "##    ``Zelig: Everyone's Statistical Software,''\n", "##    http://gking.harvard.edu/zelig.\n",     "##  and\n", "##    Kosuke Imai, Gary King, and Olivia Lau. (2008).\n",     "##    ``Toward A Common Framework for Statistical Analysis\n",     "##    and Development,'' Journal of Computational and\n",     "##    Graphical Statistics, Vol. 17, No. 4 (December)\n",     "##    pp. 892-913. \n\n", "##  To cite individual Zelig models, please use the citation format printed with\n",     "##  each model run and in the documentation.\n##\n", sep = "")
+
+Package startup functions should use 'packageStartupMessage' to
+  generate messages.
+See section 'Good practice' in ?.onAttach.
+
+* checking Rd files ... OK
+* checking Rd metadata ... OK
+* checking Rd cross-references ... OK
+* checking for missing documentation entries ... OK
+* checking for code/documentation mismatches ... OK
+* checking Rd \usage sections ... NOTE
+S3 methods shown with full name in documentation object 'model.frame.multiple':
+  'model.frame.multiple'
+
+S3 methods shown with full name in documentation object 'model.matrix.multiple':
+  'model.matrix.multiple'
+
+S3 methods shown with full name in documentation object 'plot.ci':
+  'plot.ci'
+
+S3 methods shown with full name in documentation object 'plot.surv':
+  'plot.surv'
+
+The \usage entries for S3 methods should use the \method markup and not
+their full name.
+See the chapter 'Writing R documentation files' in the 'Writing R
+Extensions' manual.
+* checking Rd contents ... OK
+* checking for unstated dependencies in examples ... OK
+* checking contents of 'data' directory ... OK
+* checking data for non-ASCII characters ... OK
+* checking data for ASCII and uncompressed saves ... OK
+* checking examples ... ERROR
+Running examples in 'Zelig-Ex.R' failed
+The error most likely occurred in:
+
+> ### Name: ternaryplot
+> ### Title: Ternary diagram
+> ### Aliases: ternaryplot
+> ### Keywords: hplot
+> 
+> ### ** Examples
+> 
+> data(mexico)
+> if (require(VGAM)) { 
++ z.out <- zelig(as.factor(vote88) ~ pristr + othcok + othsocok, 
++                 model = "mlogit", data = mexico)
++ x.out <- setx(z.out)
++ s.out <- sim(z.out, x = x.out)
++ 
++ ternaryplot(s.out$qi$ev, pch = ".", col = "blue",
++             main = "1988 Mexican Presidential Election")
++ }
+Loading required package: VGAM
+Loading required package: splines
+Loading required package: stats4
+
+Attaching package: 'VGAM'
+
+The following object(s) are masked from 'package:splines':
+
+    bs, ns
+
+The following object(s) are masked from 'package:boot':
+
+    logit, simplex
+
+The following object(s) are masked from 'package:MASS':
+
+    huber
+
+The following object(s) are masked from 'package:stats':
+
+    case.names, coefficients, df.residual, fitted, fitted.values,
+    formula, poly, residuals, variable.names, weights
+
+The following object(s) are masked from 'package:base':
+
+    identity, print, scale.default
+
+How to cite this model in Zelig:
+Kosuke Imai, Gary King, and Oliva Lau. 2007. "mlogit: Multinomial Logistic Regression for Dependent Variables with Unordered Categorical Values" in Kosuke Imai, Gary King, and Olivia Lau, "Zelig: Everyone's Statistical Software," http://gking.harvard.edu/zelig
+Error in pp.vglm(object, cm, all.coef, x, ndim, cnames) : 
+  no slot of name "inverse" for this object of class "vglmff"
+Calls: sim -> sim.default -> qi -> qi.vglm -> pp.vglm
+Execution halted
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Nov  8 19:35:02 2011
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Tue, 08 Nov 2011 14:35:02 -0500
+Subject: Re: [Patch] fixing Zelig-3.5.1 bootstrap in order to run with lme4 and boot-1.3-3
+In-Reply-To: <4EB97D60.6080103-S0/GAf8tV78@public.gmane.org>
+References: <4EB53BE7.3060002@web.de> <4EB6F3AE.5060608@web.de> <5F53573D-FAAB-42D0-884A-3F01078F9F2B@iq.harvard.edu> <4EB97D60.6080103@web.de>
+Message-ID: <D00DAFAD-067D-43DE-9B66-EB2B709A304C@iq.harvard.edu>
+
+>  Error in pp.vglm(object, cm, all.coef, x, ndim, cnames) :
+>   no slot of name "inverse" for this object of class "vglmff"
+>  Calls: sim -> sim.default -> qi -> qi.vglm -> pp.vglm
+>  Execution halted
+
+This is a result a change in VGAM that actually was just patched today.
+
+This morning, Zelig incremented to version 3.5-2 (for Linux/unix and Windows), in order to be consistent with the VGAM changes. You can find the new version at CRAN:
+  http://cran.r-project.org/web/packages/Zelig/index.html
+
+On Nov 8, 2011, at 2:05 PM, Hugo Mildenberger wrote:
+
+> Matt,
+> 
+> please skip also version 2. It is still not the end of the story. I've
+> encountered another severe problem when testing the mixed model examples
+> in Zelig's inst/doc directory with bootstrap=T. When running, as I
+> recall, the example from poisson.mixed.Rnw, I got the following:
+> 
+> 
+> Error in mvrnorm(1, 0, V.beta) : incompatible arguments
+> Calls: sim ... sim.default -> boot -> statistic -> param ->
+>        param.mer -> mvrnorm
+> 
+> The mvrnorm call is again in R/param.mixed.R (using original code here)
+> 
+> 30                 # sample random effects
+> 31                 for (m in 1:n.G){
+> 32                         V.beta <- VarCorr(object)[[m]]
+> 33                         gammas[[m]]<- mvrnorm(1, 0, V.beta)
+> 34                 }
+> 
+> 
+> This had to do with random effect term tag(player - 1| month). In the
+> homerun dataset, there are two players. I concluded that line 33 should
+> probably written as:
+> 
+>    gammas[[name]] <- mvrnorm(1,rep(0,dim(vars.m)[1]),V.beta)
+> 
+> Even so this gives apparently acceptable results, I'm a rather unsure
+> about this.
+> 
+> Another problem is with gamma.mixed.Rnw. lmer/glmer had deprecated the
+> method argument and also dropped support for PQL, but introduced nAGQ as
+> a new argument for use with glmer. Anyway, whatever you try, the model
+> does not converge any more. I've reported this to R-sig-ME, but there
+> was no response until now.
+> 
+> Finally, I tried to run R CMD check with the original version. To my
+> knowledge, the check command must complete successfully for a package to
+> be included in the cran repository. But the check command failed in just
+> another way:
+> 
+>  Error in pp.vglm(object, cm, all.coef, x, ndim, cnames) :
+>   no slot of name "inverse" for this object of class "vglmff"
+>  Calls: sim -> sim.default -> qi -> qi.vglm -> pp.vglm
+>  Execution halted
+> 
+> 
+> I've also attached the complete output of "R CMD check
+> Zelig_3.5.1.tar.gz", because there are some formal problems too.
+> 
+> 
+> 
+> Kind regards
+> 
+> Hugo Mildenberger
+> 
+> 
+> 
+> Am 08.11.2011 16:58, schrieb Matt Owen:
+>> Hugo, thank you for your patch!  Additionally, I will be reviewing the submitted bugs, and hopefully will have a fix in the very near future.
+>> 
+>> Cheers - 
+>> Matt Owen
+>> 
+>> 
+>> On Nov 6, 2011, at 3:53 PM, Hugo Mildenberger wrote:
+>> 
+>>> Please use the new patch attached here instead of the previous one. The
+>>> previous version would likely break non-S4 packages used with
+>>> bootfn.default(). Besides this patch also fixes the plot problem.
+>>> Using set.seed(), regression testing was done for the previously working
+>>> non-bootstrapping code  and resulted in no differences with
+>>> "logit.mixed", at least.
+>>> 
+>>> Best
+>>> 
+>>> 
+>>> Am 05.11.2011 14:36, schrieb Hugo Mildenberger:
+>>>> Dear list members,
+>>>> 
+>>>> in a recent thread of the R-sig-ME mailing list[1], Christoph Scherber
+>>>> communicated the following script which demonstrated a problem within
+>>>> Zelig's bootstrap code:
+>>>> 
+>>>>  require(Zelig)
+>>>>  data(voteincome)
+>>>> 
+>>>>  z.out1 <- zelig(vote ~ education + age + female + tag(1 | state),
+>>>>                  data = voteincome, model = "logit.mixed")
+>>>> 
+>>>>  x <- setx(z.out1, education = 4)
+>>>>  s.out1 <- sim(z.out1, x = x, bootstrap=TRUE)
+>>>> 
+>>>>  #Error in `*tmp*`$call : $ operator not defined for this S4 class
+>>>> 
+>>>> 
+>>>> This error stemmed from the implementation of bootfn.default() in
+>>>> Zelig/R/bootfn.default.R, which generally uses "object$call" instead of
+>>>> "object@call" (and therefore never worked with lme4)
+>>>> 
+>>>> After having fixed this, the next problem became manifest when
+>>>> zelig::sim() was in  bootstrapping mode. R could not find a summary
+>>>> method for the object passed to param.mer(). Why this happens, is still
+>>>> unclear to me.
+>>>> 
+>>>> Anyway, when having fixed that bug along the lines of the
+>>>> non-bootstrapping branch of param.mer() by using selectMethod(), the
+>>>> next problem surfaced:
+>>>> 
+>>>> Error in t.star[r, ] <- res[[r]] :
+>>>>   incorrect number of subscripts on matrix
+>>>> 
+>>>> After a while it became clear to me that the list returned by
+>>>> param.mer() was incompatible with the type boot::boot() expects (in
+>>>> /boot/R/bootfuns.q as of boot version 1.3-3):
+>>>> 
+>>>> 193     } else lapply(seq_len(RR), fn)
+>>>> 194     t.star <- matrix(, RR, length(t0))
+>>>> 195     for(r in seq_len(RR)) t.star[r, ] <- res[[r]]
+>>>> 
+>>>> "t.star" is the name of the matrix boot::boot() uses to collect results
+>>>> from the statistic function.
+>>>> 
+>>>> "fn" is the "statistic" parameter passed to boot::boot(), which in turn
+>>>> translates to bootfn.default() as defined in Zelig/R/bootfn.default.R.
+>>>> 
+>>>> The function bootfn.default() in turn passes the result of param.mer(),
+>>>> which generally was "list(betas=betas, gammas=gammas, scale=scale)".
+>>>> 
+>>>> length(t0) was three, because the list returned by param.mer() had three
+>>>> elements. The implicit type conversion of "t.star" (from matrix to list)
+>>>> R does after the first assignment to "t.star" then triggered the index
+>>>> error with the next assignment.
+>>>> 
+>>>> A change of boot::boot() code in order to become compatible with Zelig
+>>>> appears to be out of question.
+>>>> 
+>>>> However, in order to keep the default configuration working, param.mer()
+>>>> needs to return a list, because part of the result is a complete matrix
+>>>> (e.g."betas") then, not only a single row of a matrix.
+>>>> 
+>>>> I therefore made the return type of param.mer(object,num,bootstrap,)
+>>>> dependent on  "bootstrap", returning a list in the default case, and a
+>>>> one-dimensional array while bootstrapping. The related function qi.mer()
+>>>> in Zelig/R/qi.mixed.R is of course now able to handle both types.
+>>>> 
+>>>> Since the column names appearing in the array returned by
+>>>> param.mer(..,bootstrap=T) are determined by the user controlled model
+>>>> specification, the name space separation a list provides implicitly had
+>>>> to be coded explicitly.
+>>>> 
+>>>> The rudimentary regression testing I did for sim(,bootstrap=F) using
+>>>> patched code against the original version resulted in a quite close
+>>>> numerical agreement. I do attribute the differences (generally in the
+>>>> order of 1E-3) to a different RNG state, but I haven't examined this
+>>>> very closely. Generally, the effective code path of the default case
+>>>> should have remained unchanged.
+>>>> 
+>>>> 
+>>>> The attached patch is against the sources found in the Cran package
+>>>> Zelig_3.5.1.tar.gz
+>>>> 
+>>>> 
+>>>> Unrelated to this patch, plotting of simulated results generally does
+>>>> not work as intended:
+>>>> 
+>>>>> plot(s.out1)
+>>>>  Error in plot(density(qi), main = x$qi.name[[i]], xlab = xlab, ...):
+>>>>  error in evaluating the argument 'x' in selecting a method for
+>>>>  function 'plot': Error in density.default(qi) : argument 'x'
+>>>>  must be numeric
+>>>> 
+>>>>  No plot generated for model logit.mixed
+>>>> 
+>>>> 
+>>>> Also, excluding the intercept using the ~ -1 notation is currently
+>>>> disregarded.
+>>>> 
+>>>> 
+>>>> Best regards
+>>>> 
+>>>> Hugo Mildenberger
+>>>> 
+>>>> 
+>>>> [1]h ttps://stat.ethz.ch/pipermail/r-sig-mixed-models/2011q4/006933.html
+>>> <Zelig_3.5.1.fix-boot-v2.patch>
+>> 
+>> 
+> <Zelig_3.5.1.fix-boot-v3.patch><R-CMD-check-Zelig_3.5.1.tar.gz.txt>
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Nov  8 19:42:47 2011
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Tue, 08 Nov 2011 14:42:47 -0500
+Subject: Zelig 3.5-2 (Bug fixes for VGAM 0.8-4)
+Message-ID: <9E029657-8549-4112-A720-1ADC9A45424A@iq.harvard.edu>
+
+Hi All - 
+
+Zelig has been updated to version 3.5-2 in order to correspond with a change in VGAM version 0.8-4. This change will only affect Windows and Unix users, as the new revision of VGAM is only available for these operating systems at the moment.
+
+To run the latest version of Zelig 3.5, the user must:
+ 1. Install VGAM 0.8-4 (Windows and Linux/Unix only)
+ 2. Install Zelig 3.5-2 from source within an R-session via 'install.packages':
+
+> install.packages("Zelig", type="source")
+
+(Note that the ">" symbol should be ignored when typing commands into an R-session.)
+
+Zelig 3.5-2 will be released for Mac OS X once VGAM 0.8-4 has a Mac Binary available on CRAN.
+
+If there are any questions/comments, please do not hesitate to contact the Zelig mailing list.
+
+Cheers - 
+Matt
+
+email: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org
+
+From mike.c.daly-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Nov 28 23:03:40 2011
+From: mike.c.daly-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Mike Daly)
+Date: Mon, 28 Nov 2011 18:03:40 -0500
+Subject: Zelig 3.5.3... ERROR due to VGAM? I'm using Mac OS X 10.7.2
+Message-ID: <CABOVuivk=wSzXQtVdFF3m=JmFYSBETzM6QAyX3c7Exj96pw0Vw@mail.gmail.com>
+
+Hello,
+
+
+I was using Zelig yesterday (Mac OS 10.7.2, R 2.13.0
+x86_64-apple-darwin9.8.0/x86_64 (64-bit), Zelig 3.5.3, VGAM 0.8-4) and
+everything was working just fine. However, this morning I updated all of my
+R packages and now I cannot even run the sample commands in the Zelig
+manual (and my project is due soon!). I have no idea how to fix this --
+what should I do?
+
+> data(mexico)
+> z.out1 <- zelig(as.factor(vote88) ~ pristr + othcok + othsocok, model =
+"mlogit", data = mexico)
+Error in dyn.load(file, DLLpath = DLLpath, ...) :
+ unable to load shared object
+'/Library/Frameworks/R.framework/Versions/2.13/Resources/library/VGAM/libs/
+x86_64/VGAM.so':
+
+dlopen(/Library/Frameworks/R.framework/Versions/2.13/
+Resources/library/VGAM/libs/x86_64/VGAM.so,
+6): Library not loaded: /usr/local/lib/libgfortran.2.dylib
+ Referenced from:
+/Library/Frameworks/R.framework/Versions/2.13/Resources/library/VGAM/libs/
+x86_64/VGAM.so
+ Reason: image not found
+Error in loadModelDeps(model) :
+ This model depends on package "VGAM". Please install this package and try
+again
+In addition: Warning message:
+package 'VGAM' was built under R version 2.13.2
+Error: package/namespace load failed for 'VGAM'
+
+> install.packages("VGAM")
+trying URL '
+http://software.rc.fas.harvard.edu/mirrors/R/bin/macosx/leopard/contrib/2.13/VGAM_0.8-4.tgz
+'
+Content type 'application/x-gzip' length 4525473 bytes (4.3 Mb)
+opened URL
+==================================================
+downloaded 4.3 Mb
+
+The downloaded packages are in
+
+/var/folders/0z/6lnh31r9211fldsd3hxl7zdw0000gn/T//Rtmpy6JZzF/downloaded_
+packages
+
+
+
+Any help would be greatly appreciated. I **really** like the Zelig
+framework, but if I can't get this to work soon then unfortunately I'll
+have to use SAS instead, which would be a real bummer.
+
+Thanks!
+Mike
+
+-- 
+Michael Daly, MSc
+
+University of California, Irvine, School of Medicine
+Medical Student, Year IV -- Research Year
+Beth Israel Deaconess Medical Center
+Dr. Charles Day's Orthopaedic Surgery Research Group
+mcdaly-tJOv79wOuz/aZwrp7/ava4dd74u8MsAO at public.gmane.org | (925) 997-2786
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Tue Nov 29 01:08:23 2011
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Mon, 28 Nov 2011 20:08:23 -0500
+Subject: Re: Zelig 3.5.3... ERROR due to VGAM? I'm using Mac OS X 10.7.2
+In-Reply-To: <CABOVuivk=wSzXQtVdFF3m=JmFYSBETzM6QAyX3c7Exj96pw0Vw@mail.gmail.com>
+References: <CABOVuivk=wSzXQtVdFF3m=JmFYSBETzM6QAyX3c7Exj96pw0Vw@mail.gmail.com>
+Message-ID: <46E7C5C9-1C4B-4690-BB6C-69564E2D71F7@Princeton.Edu>
+
+Hi Mike,
+
+ Can you try updating your R to the most recent version 2.14.0 and reinstall VGAM as well as Zelig?  Then, everything should work.
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu 
+
+On Nov 28, 2011, at 6:03 PM, Mike Daly wrote:
+
+> Hello,
+> 
+> 
+> I was using Zelig yesterday (Mac OS 10.7.2, R 2.13.0
+> x86_64-apple-darwin9.8.0/x86_64 (64-bit), Zelig 3.5.3, VGAM 0.8-4) and
+> everything was working just fine. However, this morning I updated all of my
+> R packages and now I cannot even run the sample commands in the Zelig
+> manual (and my project is due soon!). I have no idea how to fix this --
+> what should I do?
+> 
+> > data(mexico)
+> > z.out1 <- zelig(as.factor(vote88) ~ pristr + othcok + othsocok, model =
+> "mlogit", data = mexico)
+> Error in dyn.load(file, DLLpath = DLLpath, ...) :
+>  unable to load shared object
+> '/Library/Frameworks/R.framework/Versions/2.13/Resources/library/VGAM/libs/x86_64/VGAM.so':
+> 
+> dlopen(/Library/Frameworks/R.framework/Versions/2.13/Resources/library/VGAM/libs/x86_64/VGAM.so,
+> 6): Library not loaded: /usr/local/lib/libgfortran.2.dylib
+>  Referenced from:
+> /Library/Frameworks/R.framework/Versions/2.13/Resources/library/VGAM/libs/x86_64/VGAM.so
+>  Reason: image not found
+> Error in loadModelDeps(model) :
+>  This model depends on package "VGAM". Please install this package and try
+> again
+> In addition: Warning message:
+> package 'VGAM' was built under R version 2.13.2
+> Error: package/namespace load failed for 'VGAM'
+> 
+> > install.packages("VGAM")
+> trying URL '
+> http://software.rc.fas.harvard.edu/mirrors/R/bin/macosx/leopard/contrib/2.13/VGAM_0.8-4.tgz
+> '
+> Content type 'application/x-gzip' length 4525473 bytes (4.3 Mb)
+> opened URL
+> ==================================================
+> downloaded 4.3 Mb
+> 
+> The downloaded packages are in
+> 
+> /var/folders/0z/6lnh31r9211fldsd3hxl7zdw0000gn/T//Rtmpy6JZzF/downloaded_packages
+> 
+> 
+> 
+> Any help would be greatly appreciated. I **really** like the Zelig
+> framework, but if I can't get this to work soon then unfortunately I'll
+> have to use SAS instead, which would be a real bummer.
+> 
+> Thanks!
+> Mike
+> 
+> -- 
+> Michael Daly, MSc
+> 
+> University of California, Irvine, School of Medicine
+> Medical Student, Year IV -- Research Year
+> Beth Israel Deaconess Medical Center
+> Dr. Charles Day's Orthopaedic Surgery Research Group
+> mcdaly-tJOv79wOuz/aZwrp7/ava4dd74u8MsAO at public.gmane.org | (925) 997-2786
+>
+
+From xuwang762-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Nov 29 23:14:38 2011
+From: xuwang762-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Xu Wang)
+Date: Tue, 29 Nov 2011 18:14:38 -0500
+Subject: documentation updates
+Message-ID: <CAJhTkNi1WrLay5q775LWHFPe-QHoY6p8RoHp8yuqUgB_aGb_xQ@mail.gmail.com>
+
+I'm just curious -- is the documentation (listed here
+http://gking.harvard.edu/sites/scholar.iq.harvard.edu/files/zelig.pdf)
+usually updated for the minor releases? That is, will it be updated for
+3.5.3 or not for a while?
+
+Thank you,
+
+Xu Wang
+
+From ylelkes-FGKo4X94FMn2fBVCVOL8/A at public.gmane.org  Wed Nov 30 01:08:24 2011
+From: ylelkes-FGKo4X94FMn2fBVCVOL8/A at public.gmane.org (Yph Lelkes)
+Date: Tue, 29 Nov 2011 17:08:24 -0800
+Subject: updating an amelia object
+Message-ID: <CADAtM_A7TGDBTWH9qOa_sT05uvXv_8RqRRwoVZcfUksXh4zx3Q@mail.gmail.com>
+
+Hello all,
+Is there a way to update() an amelia object to use in Zelig?
+
+thanks,
+yph
+

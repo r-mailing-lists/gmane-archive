@@ -1,0 +1,1039 @@
+From matt.nil at gmail.com  Tue Mar  1 17:22:23 2011
+From: matt.nil at gmail.com (Matt Nilsson)
+Date: Tue, 01 Mar 2011 17:22:23 +0000
+Subject: JRI and read.arff {RWeka}
+Message-ID: <loom.20110301T181211-538@post.gmane.org>
+
+Hi,
+
+I am trying to use read.arff from the RWeka package together with JRI but 
+I do not manage to get it right. In my java program I would like to read in a 
+file in arff-format using read.arff, and then call R functions on the resulting 
+data frame. 
+
+My try (which fails):
+
+Rengine re = new Rengine(args,false,null);
+re.eval("library(RWeka)");
+String filename = "\"filename.arff\"";
+REXP myarff = re.eval("data = read.arff(" + filename + ")");
+int type = myarff.getType(); //FAILS WITH java.lang.NullPointerException
+
+Thankful for any help.
+
+Best,
+Matt
+
+From simon.urbanek at r-project.org  Wed Mar  2 02:03:15 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 01 Mar 2011 21:03:15 -0500
+Subject: Re: JRI and read.arff {RWeka}
+In-Reply-To: <loom.20110301T181211-538@post.gmane.org>
+References: <loom.20110301T181211-538@post.gmane.org>
+Message-ID: <F5AE3271-489D-46A8-9A98-5A85FD74FC30@r-project.org>
+
+Matt,
+
+On Mar 1, 2011, at 12:22 PM, Matt Nilsson wrote:
+
+> Hi,
+> 
+> I am trying to use read.arff from the RWeka package together with JRI but 
+> I do not manage to get it right. In my java program I would like to read in a 
+> file in arff-format using read.arff, and then call R functions on the resulting 
+> data frame. 
+> 
+> My try (which fails):
+> 
+> Rengine re = new Rengine(args,false,null);
+> re.eval("library(RWeka)");
+> String filename = "\"filename.arff\"";
+> REXP myarff = re.eval("data = read.arff(" + filename + ")");
+> int type = myarff.getType(); //FAILS WITH java.lang.NullPointerException
+> 
+
+It works for me without problems. I just added
+	    System.out.println(type);
+	    System.out.println(myarff);
+
+and as you can see:
+[...]
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+16
+[VECTOR ([FACTOR {levels=("young","pre-presbyopic","presbyopic"),ids=(0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2)}], [FACTOR {levels=("myope","hypermetrope"),ids=(0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1)}], [FACTOR {levels=("no","yes"),ids=(0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1)}], [FACTOR {levels=("reduced","normal"),ids=(0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1)}], [FACTOR {levels=("soft","hard","none"),ids=(2,0,2,1,2,0,2,1,2,0,2,1,2,0,2,2,2,2,2,1,2,0,2,2)}])]
+Fino:jri$ 
+
+I used the arff file from RWeka example (after renaming it to filename.arff).
+
+If I were you I'd check your files etc. Also using eval("..." + filename + ...)  is not a good idea as you can easily get into quoting hell, so I'd recommend something like:
+
+	    String filename = "filename.arff";
+	    re.assign("fn", filename);
+	    REXP myarff = re.eval("data = read.arff(fn)");
+
+Cheers,
+Simon
+
+From matt.nil at gmail.com  Wed Mar  2 07:13:57 2011
+From: matt.nil at gmail.com (Matt Nilsson)
+Date: Wed, 02 Mar 2011 07:13:57 +0000
+Subject: Re: JRI and read.arff {RWeka}
+References: <loom.20110301T181211-538@post.gmane.org> <F5AE3271-489D-46A8-9A98-5A85FD74FC30@r-project.org>
+Message-ID: <loom.20110302T074023-898@post.gmane.org>
+
+Simon Urbanek <simon.urbanek <at> r-project.org> writes:
+
+> 
+> Matt,
+> 
+> On Mar 1, 2011, at 12:22 PM, Matt Nilsson wrote:
+> 
+> > Hi,
+> > 
+> > I am trying to use read.arff from the RWeka package together with JRI but 
+> > I do not manage to get it right. In my java program I would like to read in 
+a 
+> > file in arff-format using read.arff, and then call R functions on the 
+resulting 
+> > data frame. 
+> > 
+> > My try (which fails):
+> > 
+> > Rengine re = new Rengine(args,false,null);
+> > re.eval("library(RWeka)");
+> > String filename = "\"filename.arff\"";
+> > REXP myarff = re.eval("data = read.arff(" + filename + ")");
+> > int type = myarff.getType(); //FAILS WITH java.lang.NullPointerException
+> > 
+> 
+> It works for me without problems. I just added
+> 	    System.out.println(type);
+> 	    System.out.println(myarff);
+> 
+> and as you can see:
+> [...]
+> Type 'demo()' for some demos, 'help()' for on-line help, or
+> 'help.start()' for an HTML browser interface to help.
+> Type 'q()' to quit R.
+> 
+> 16
+> [VECTOR ([FACTOR
+> {levels=("young","pre-presbyopic","presbyopic"),ids=
+(0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2)}],
+> [FACTOR
+> {levels=("myope","hypermetrope"),ids=
+(0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1)}],
+> [FACTOR {levels=("no","yes"),ids=
+(0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1)}],
+> [FACTOR
+> {levels=("reduced","normal"),ids=
+(0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1)}],
+> [FACTOR {levels=("soft","hard","none"),ids=
+(2,0,2,1,2,0,2,1,2,0,2,1,2,0,2,2,2,2,2,1,2,0,2,2)}])]
+> Fino:jri$ 
+> 
+> I used the arff file from RWeka example (after renaming it to filename.arff).
+> 
+> If I were you I'd check your files etc. Also using eval("..." + filename + 
+...)  is not a good idea as you can
+> easily get into quoting hell, so I'd recommend something like:
+> 
+> 	    String filename = "filename.arff";
+> 	    re.assign("fn", filename);
+> 	    REXP myarff = re.eval("data = read.arff(fn)");
+> 
+> Cheers,
+> Simon
+> 
+> 
+
+Thanks Simon. 
+
+The problem turned out to be that the package RWeka was not loaded despite the 
+line re.eval("library(RWeka)") in my code. I am not exactly sure why it is not 
+loaded (I'm running windows 7 and R-2.12.2) but by printing out the result of 
+search() (after re.eval("library(RWeka)") I can see that RWeka is not among the 
+loaded packages. 
+
+More generally, the problem seems to be that my personal library of R packages 
+is not found automatically. My solution was to set the .libPaths() to include my 
+personal library of R packages, i.e. I did:
+
+re.eval(".libPaths(\"C:/Users/MyUserName/Documents/R/win-library/2.12\")");
+re.eval("library(RWeka)");
+
+Then it worked.
+
+Best,
+Mattias
+
+From jurgis at melix.net  Tue Mar  8 22:48:03 2011
+From: jurgis at melix.net (Jurgis SAPIJANSKAS)
+Date: Tue, 08 Mar 2011 17:48:03 -0500
+Subject: User classer not found on a Mac: NoClassDefFoundError
+Message-ID: <AANLkTi=hkt=y7Jku9KC1R_0Wt1vwbysa9KgwDQs7Vv0P@mail.gmail.com>
+
+Hi all,
+
+I have two issues with rJava that might be related:
+
+I have a particular java class "Sampler3.class" that won't work on my MacOS
+10.6.6 with R 2.12.2 GUI 1.36 Leopard build 64-bit and rJava 0-8-8:
+###########
+Gibbs<-.jnew("Sampler3",.jarray(speciesJava),0.25,0.01,.jarray(rep(0.25,5)),.jarray(YearEffect),.jarray(alpha_sp),.jarray(sizeg),.jarray(BAdata),.jarray(logIncReal),.jarray(BAdata),.jarray(RanIndiv),.jarray(rep(sigmaData,Ntrees)),.jarray(rep(sigma,Ntrees)))
+Error in .jnew("Sampler3", .jarray(speciesJava), 0.25, 0.01, .jarray(rep(0.25,
+:
+  java.lang.NoClassDefFoundError: Sampler3
+#########
+BUT, it works fine on my win7 laptop (same class, same R script, classes were
+recompiled on each computers and work fine since a "java Sampler" runs the main
+with expected results). And it seems specific to this class, as other classes
+put in the same folder work fine: e.g. the testrJava class that just stores a
+double and has a method printit() returning it:
+##########
+testclass=.jnew("testrJava",5)
+> testclass$printit()
+[1] 5
+##########
+Where could the problem be?
+
+Thanks in advance,
+
+Jurgis
+
+From jurgis.sapijanskas at polytechnique.org  Tue Mar  8 22:52:24 2011
+From: jurgis.sapijanskas at polytechnique.org (Jurgis SAPIJANSKAS)
+Date: Tue, 08 Mar 2011 17:52:24 -0500
+Subject: rJava 0.9 installation fails: Cannot compile a simple JNI program
+Message-ID: <AANLkTim0q_7zLLQm7S=mak5Nv1d=1WjFJ-_FHYzGS7kM@mail.gmail.com>
+
+Hi all,
+I wanted to try a more recent version of rJava on my MacOS 10.6.6 with
+R 2.12.2 GUI 1.36 Leopard build 64.
+I thus downloaded rJava_0.9-0.tar.gz but even after sudoing R CMD
+javareconf installation failed:
+
+##########
+* installing *source* package ‘rJava’ ...
+checking for gcc... gcc -arch x86_64 -std=gnu99
+checking for C compiler default output file name... a.out
+checking whether the C compiler works... yes
+checking whether we are cross compiling... no
+checking for suffix of executables...
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc -arch x86_64 -std=gnu99 accepts -g... yes
+checking for gcc -arch x86_64 -std=gnu99 option to accept ISO C89... none
+needed
+checking how to run the C preprocessor... gcc -arch x86_64 -std=gnu99 -E
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for ANSI C header files... rm: conftest.dSYM: is a directory
+rm: conftest.dSYM: is a directory
+yes
+checking for sys/wait.h that is POSIX.1 compatible... yes
+checking for sys/types.h... yes
+checking for sys/stat.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for memory.h... yes
+checking for strings.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for unistd.h... yes
+checking for string.h... (cached) yes
+checking sys/time.h usability... yes
+checking sys/time.h presence... yes
+checking for sys/time.h... yes
+checking for unistd.h... (cached) yes
+checking for an ANSI C-conforming const... yes
+checking whether time.h and sys/time.h may both be included... yes
+configure: checking whether gcc -arch x86_64 -std=gnu99 supports static
+inline...
+yes
+checking whether setjmp.h is POSIX.1 compatible... yes
+checking whether sigsetjmp is declared... yes
+checking whether siglongjmp is declared... yes
+checking Java support in R... present:
+interpreter : '/usr/bin/java'
+archiver    : '/usr/bin/jar'
+compiler    : '/usr/bin/javac'
+header prep.: '/usr/bin/javah'
+cpp flags   :
+'-I/System/Library/Frameworks/JavaVM.framework/Versions/1.5.0/Home/include'
+java libs   : '-framework JavaVM'
+checking whether JNI programs can be compiled... configure: error: Cannot
+compile a simple JNI program. See config.log for details.
+
+Make sure you have Java Development Kit installed and correctly registered in
+R.
+If in doubt, re-run "R CMD javareconf" as root.
+
+ERROR: configuration failed for package ‘rJava’
+* removing
+‘/Library/Frameworks/R.framework/Versions/2.12/Resources/library/rJava’
+* restoring previous
+‘/Library/Frameworks/R.framework/Versions/2.12/Resources/library/rJava’
+##########
+
+
+ R CMD javareconf gives:
+
+##########
+Java interpreter : /usr/bin/java
+Java version     : 1.6.0_22
+Java home path   :
+/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home
+Java compiler    : /usr/bin/javac
+Java headers gen.: /usr/bin/javah
+Java archive tool: /usr/bin/jar
+Java library path:
+JNI linker flags : -framework JavaVM
+JNI cpp flags    : -I$(JAVA_HOME)/include
+
+Updating Java configuration in /Library/Frameworks/R.framework/Resources
+Done.
+##########
+
+Yet rJava 0.8.8 installs fine from Cran with no warnings and seems to
+works. Java also works.
+
+Where could be the problem?
+
+Thanks in advance,
+
+
+Jurgis
+
+From simon.urbanek at r-project.org  Tue Mar  8 23:41:33 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 08 Mar 2011 18:41:33 -0500
+Subject: Re: User classer not found on a Mac: NoClassDefFoundError
+In-Reply-To: <AANLkTi=hkt=y7Jku9KC1R_0Wt1vwbysa9KgwDQs7Vv0P@mail.gmail.com>
+References: <AANLkTi=hkt=y7Jku9KC1R_0Wt1vwbysa9KgwDQs7Vv0P@mail.gmail.com>
+Message-ID: <85B9D984-073A-49B8-8EC9-66A0272FFBB3@r-project.org>
+
+
+On Mar 8, 2011, at 5:48 PM, Jurgis SAPIJANSKAS wrote:
+
+> Hi all,
+> 
+> I have two issues with rJava that might be related:
+> 
+> I have a particular java class "Sampler3.class" that won't work on my MacOS
+> 10.6.6 with R 2.12.2 GUI 1.36 Leopard build 64-bit and rJava 0-8-8:
+> ###########
+> Gibbs<-.jnew("Sampler3",.jarray(speciesJava),0.25,0.01,.jarray(rep(0.25,5)),.jarray(YearEffect),.jarray(alpha_sp),.jarray(sizeg),.jarray(BAdata),.jarray(logIncReal),.jarray(BAdata),.jarray(RanIndiv),.jarray(rep(sigmaData,Ntrees)),.jarray(rep(sigma,Ntrees)))
+> Error in .jnew("Sampler3", .jarray(speciesJava), 0.25, 0.01, .jarray(rep(0.25,
+> :
+>  java.lang.NoClassDefFoundError: Sampler3
+> #########
+> BUT, it works fine on my win7 laptop (same class, same R script, classes were
+> recompiled on each computers and work fine since a "java Sampler" runs the main
+> with expected results). And it seems specific to this class, as other classes
+> put in the same folder work fine: e.g. the testrJava class that just stores a
+> double and has a method printit() returning it:
+> ##########
+> testclass=.jnew("testrJava",5)
+>> testclass$printit()
+> [1] 5
+> ##########
+> Where could the problem be?
+> 
+
+Very often "NoClassDefFoundError" masks the underlying class loading error - so if you know for sure that you have that class in your JAR file (or on the class path - check .jclassPath()) the cause is usually JavaVM version mismatch - i.e. a class compiled on 1.6 won't work in 1.5. You have to use -target 1.4 -source 1.4 (or 1.5 etc.) when compiling the classes and make sure there is not incompatible one.
+
+You can find out the version easily using the "file" utility on the command line:
+
+Fino:REngine$ file REXP.class 
+REXP.class: compiled Java class data, version 48.0 (Java 1.4)
+
+Note that OS X comes with several JVM versions check R to see which is being used.
+
+If that doesn't solve the problem, let us know - there are debugging options you can enable in rJava to see what the loader does.
+
+Cheers,
+Simon
+
+From simon.urbanek at r-project.org  Tue Mar  8 23:44:19 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 08 Mar 2011 18:44:19 -0500
+Subject: Re: rJava 0.9 installation fails: Cannot compile a simple JNI program
+In-Reply-To: <AANLkTim0q_7zLLQm7S=mak5Nv1d=1WjFJ-_FHYzGS7kM@mail.gmail.com>
+References: <AANLkTim0q_7zLLQm7S=mak5Nv1d=1WjFJ-_FHYzGS7kM@mail.gmail.com>
+Message-ID: <4197BF1A-E2EE-4422-9F1D-669F04DB6273@r-project.org>
+
+
+On Mar 8, 2011, at 5:52 PM, Jurgis SAPIJANSKAS wrote:
+
+> Hi all,
+> I wanted to try a more recent version of rJava on my MacOS 10.6.6 with
+> R 2.12.2 GUI 1.36 Leopard build 64.
+
+
+Apple has removed Java header files from OS X 10.6.5 and later. You will have to either download the Java Development Kit from Apple (ADC at http://connect.apple.com/ ) or re-configure R to use headers from the SDK if you have them installed -- see 
+http://www.mail-archive.com/r-sig-mac at r-project.org/msg00004.html
+
+Cheers,
+Simon
+
+From jurgis.sapijanskas at polytechnique.org  Wed Mar  9 14:59:45 2011
+From: jurgis.sapijanskas at polytechnique.org (Jurgis SAPIJANSKAS)
+Date: Wed, 09 Mar 2011 09:59:45 -0500
+Subject: Re: User classer not found on a Mac: NoClassDefFoundError
+In-Reply-To: <85B9D984-073A-49B8-8EC9-66A0272FFBB3@r-project.org>
+References: <AANLkTi=hkt=y7Jku9KC1R_0Wt1vwbysa9KgwDQs7Vv0P@mail.gmail.com> <85B9D984-073A-49B8-8EC9-66A0272FFBB3@r-project.org>
+Message-ID: <AANLkTimpuHdYn_bQhdybYUR7wpGnBdQpKGK5Dszvt810@mail.gmail.com>
+
+Many Thanks for the quick answer but it seems I was not clear enough
+that it wasn't a JavaVM version mismatch since the testrJava.class
+works fine
+
+#########
+bijou:MCMCjava jurgis$ file testrJava.class
+testrJava.class: compiled Java class data, version 50.0 (Java 1.6)
+#########
+
+while Sampler3.class does not while being in the same folder, pointed
+to by the same .jaddClassPath() call and compiled on the same system
+:
+
+#########
+bijou:MCMCjava jurgis$ file Sampler3.class
+Sampler3.class: compiled Java class data, version 50.0 (Java 1.6)
+#########
+
+> If that doesn't solve the problem, let us know - there are debugging options you can enable in rJava to see what the loader does.
+
+What do I need to do to see what the loader actually does?
+
+Jurgis
+
+
+2011/3/8 Simon Urbanek <simon.urbanek at r-project.org>:
+>
+> On Mar 8, 2011, at 5:48 PM, Jurgis SAPIJANSKAS wrote:
+>
+>> Hi all,
+>>
+>> I have two issues with rJava that might be related:
+>>
+>> I have a particular java class "Sampler3.class" that won't work on my MacOS
+>> 10.6.6 with R 2.12.2 GUI 1.36 Leopard build 64-bit and rJava 0-8-8:
+>> ###########
+>> Gibbs<-.jnew("Sampler3",.jarray(speciesJava),0.25,0.01,.jarray(rep(0.25,5)),.jarray(YearEffect),.jarray(alpha_sp),.jarray(sizeg),.jarray(BAdata),.jarray(logIncReal),.jarray(BAdata),.jarray(RanIndiv),.jarray(rep(sigmaData,Ntrees)),.jarray(rep(sigma,Ntrees)))
+>> Error in .jnew("Sampler3", .jarray(speciesJava), 0.25, 0.01, .jarray(rep(0.25,
+>> :
+>>  java.lang.NoClassDefFoundError: Sampler3
+>> #########
+>> BUT, it works fine on my win7 laptop (same class, same R script, classes were
+>> recompiled on each computers and work fine since a "java Sampler" runs the main
+>> with expected results). And it seems specific to this class, as other classes
+>> put in the same folder work fine: e.g. the testrJava class that just stores a
+>> double and has a method printit() returning it:
+>> ##########
+>> testclass=.jnew("testrJava",5)
+>>> testclass$printit()
+>> [1] 5
+>> ##########
+>> Where could the problem be?
+>>
+>
+> Very often "NoClassDefFoundError" masks the underlying class loading error - so if you know for sure that you have that class in your JAR file (or on the class path - check .jclassPath()) the cause is usually JavaVM version mismatch - i.e. a class compiled on 1.6 won't work in 1.5. You have to use -target 1.4 -source 1.4 (or 1.5 etc.) when compiling the classes and make sure there is not incompatible one.
+>
+> You can find out the version easily using the "file" utility on the command line:
+>
+> Fino:REngine$ file REXP.class
+> REXP.class: compiled Java class data, version 48.0 (Java 1.4)
+>
+> Note that OS X comes with several JVM versions check R to see which is being used.
+>
+> If that doesn't solve the problem, let us know - there are debugging options you can enable in rJava to see what the loader does.
+>
+> Cheers,
+> Simon
+>
+>
+
+From simon.urbanek at r-project.org  Wed Mar  9 17:03:26 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 09 Mar 2011 12:03:26 -0500
+Subject: Re: User classer not found on a Mac: NoClassDefFoundError
+In-Reply-To: <AANLkTimpuHdYn_bQhdybYUR7wpGnBdQpKGK5Dszvt810@mail.gmail.com>
+References: <AANLkTi=hkt=y7Jku9KC1R_0Wt1vwbysa9KgwDQs7Vv0P@mail.gmail.com> <85B9D984-073A-49B8-8EC9-66A0272FFBB3@r-project.org> <AANLkTimpuHdYn_bQhdybYUR7wpGnBdQpKGK5Dszvt810@mail.gmail.com>
+Message-ID: <4536C138-53D8-4D9D-833E-E505F8774072@r-project.org>
+
+Jurgis,
+
+you can make the loader verbose using:
+
+cl = .jclassLoader()
+cl$verbose=TRUE
+
+and you should see something like:
+
+> .jcall("J",,"foo")
+RJavaClassLoader at 33dff3a2.findClass(J)
+RJavaClassLoader: found class J using URL loader
+
+Also try simply
+.jfindClass("Sampler3")
+to see that it's not some signature issue. 
+
+Cheers,
+Simon
+
+On Mar 9, 2011, at 9:59 AM, Jurgis SAPIJANSKAS wrote:
+
+> Many Thanks for the quick answer but it seems I was not clear enough
+> that it wasn't a JavaVM version mismatch since the testrJava.class
+> works fine
+> 
+> #########
+> bijou:MCMCjava jurgis$ file testrJava.class
+> testrJava.class: compiled Java class data, version 50.0 (Java 1.6)
+> #########
+> 
+> while Sampler3.class does not while being in the same folder, pointed
+> to by the same .jaddClassPath() call and compiled on the same system
+> :
+> 
+> #########
+> bijou:MCMCjava jurgis$ file Sampler3.class
+> Sampler3.class: compiled Java class data, version 50.0 (Java 1.6)
+> #########
+> 
+>> If that doesn't solve the problem, let us know - there are debugging options you can enable in rJava to see what the loader does.
+> 
+> What do I need to do to see what the loader actually does?
+> 
+> Jurgis
+> 
+> 
+> 2011/3/8 Simon Urbanek <simon.urbanek at r-project.org>:
+>> 
+>> On Mar 8, 2011, at 5:48 PM, Jurgis SAPIJANSKAS wrote:
+>> 
+>>> Hi all,
+>>> 
+>>> I have two issues with rJava that might be related:
+>>> 
+>>> I have a particular java class "Sampler3.class" that won't work on my MacOS
+>>> 10.6.6 with R 2.12.2 GUI 1.36 Leopard build 64-bit and rJava 0-8-8:
+>>> ###########
+>>> Gibbs<-.jnew("Sampler3",.jarray(speciesJava),0.25,0.01,.jarray(rep(0.25,5)),.jarray(YearEffect),.jarray(alpha_sp),.jarray(sizeg),.jarray(BAdata),.jarray(logIncReal),.jarray(BAdata),.jarray(RanIndiv),.jarray(rep(sigmaData,Ntrees)),.jarray(rep(sigma,Ntrees)))
+>>> Error in .jnew("Sampler3", .jarray(speciesJava), 0.25, 0.01, .jarray(rep(0.25,
+>>> :
+>>>  java.lang.NoClassDefFoundError: Sampler3
+>>> #########
+>>> BUT, it works fine on my win7 laptop (same class, same R script, classes were
+>>> recompiled on each computers and work fine since a "java Sampler" runs the main
+>>> with expected results). And it seems specific to this class, as other classes
+>>> put in the same folder work fine: e.g. the testrJava class that just stores a
+>>> double and has a method printit() returning it:
+>>> ##########
+>>> testclass=.jnew("testrJava",5)
+>>>> testclass$printit()
+>>> [1] 5
+>>> ##########
+>>> Where could the problem be?
+>>> 
+>> 
+>> Very often "NoClassDefFoundError" masks the underlying class loading error - so if you know for sure that you have that class in your JAR file (or on the class path - check .jclassPath()) the cause is usually JavaVM version mismatch - i.e. a class compiled on 1.6 won't work in 1.5. You have to use -target 1.4 -source 1.4 (or 1.5 etc.) when compiling the classes and make sure there is not incompatible one.
+>> 
+>> You can find out the version easily using the "file" utility on the command line:
+>> 
+>> Fino:REngine$ file REXP.class
+>> REXP.class: compiled Java class data, version 48.0 (Java 1.4)
+>> 
+>> Note that OS X comes with several JVM versions check R to see which is being used.
+>> 
+>> If that doesn't solve the problem, let us know - there are debugging options you can enable in rJava to see what the loader does.
+>> 
+>> Cheers,
+>> Simon
+>> 
+>> 
+> 
+>
+
+From jurgis.sapijanskas at polytechnique.org  Thu Mar 10 13:59:09 2011
+From: jurgis.sapijanskas at polytechnique.org (Jurgis SAPIJANSKAS)
+Date: Thu, 10 Mar 2011 08:59:09 -0500
+Subject: Re: User classer not found on a Mac: NoClassDefFoundError
+In-Reply-To: <4536C138-53D8-4D9D-833E-E505F8774072@r-project.org>
+References: <AANLkTi=hkt=y7Jku9KC1R_0Wt1vwbysa9KgwDQs7Vv0P@mail.gmail.com> <85B9D984-073A-49B8-8EC9-66A0272FFBB3@r-project.org> <AANLkTimpuHdYn_bQhdybYUR7wpGnBdQpKGK5Dszvt810@mail.gmail.com> <4536C138-53D8-4D9D-833E-E505F8774072@r-project.org>
+Message-ID: <AANLkTik9Xyu1Jjjow0_b4FBhy+ubE9NqK8h8M7K0AnG-@mail.gmail.com>
+
+Thanks a lot,
+
+it was the path to another class used within this class that was missing.
+
+Thanks again,
+
+Jurgis
+
+2011/3/9 Simon Urbanek <simon.urbanek at r-project.org>:
+> Jurgis,
+>
+> you can make the loader verbose using:
+>
+> cl = .jclassLoader()
+> cl$verbose=TRUE
+>
+> and you should see something like:
+>
+>> .jcall("J",,"foo")
+> RJavaClassLoader at 33dff3a2.findClass(J)
+> RJavaClassLoader: found class J using URL loader
+>
+> Also try simply
+> .jfindClass("Sampler3")
+> to see that it's not some signature issue.
+>
+> Cheers,
+> Simon
+>
+> On Mar 9, 2011, at 9:59 AM, Jurgis SAPIJANSKAS wrote:
+>
+>> Many Thanks for the quick answer but it seems I was not clear enough
+>> that it wasn't a JavaVM version mismatch since the testrJava.class
+>> works fine
+>>
+>> #########
+>> bijou:MCMCjava jurgis$ file testrJava.class
+>> testrJava.class: compiled Java class data, version 50.0 (Java 1.6)
+>> #########
+>>
+>> while Sampler3.class does not while being in the same folder, pointed
+>> to by the same .jaddClassPath() call and compiled on the same system
+>> :
+>>
+>> #########
+>> bijou:MCMCjava jurgis$ file Sampler3.class
+>> Sampler3.class: compiled Java class data, version 50.0 (Java 1.6)
+>> #########
+>>
+>>> If that doesn't solve the problem, let us know - there are debugging options you can enable in rJava to see what the loader does.
+>>
+>> What do I need to do to see what the loader actually does?
+>>
+>> Jurgis
+>>
+>>
+>> 2011/3/8 Simon Urbanek <simon.urbanek at r-project.org>:
+>>>
+>>> On Mar 8, 2011, at 5:48 PM, Jurgis SAPIJANSKAS wrote:
+>>>
+>>>> Hi all,
+>>>>
+>>>> I have two issues with rJava that might be related:
+>>>>
+>>>> I have a particular java class "Sampler3.class" that won't work on my MacOS
+>>>> 10.6.6 with R 2.12.2 GUI 1.36 Leopard build 64-bit and rJava 0-8-8:
+>>>> ###########
+>>>> Gibbs<-.jnew("Sampler3",.jarray(speciesJava),0.25,0.01,.jarray(rep(0.25,5)),.jarray(YearEffect),.jarray(alpha_sp),.jarray(sizeg),.jarray(BAdata),.jarray(logIncReal),.jarray(BAdata),.jarray(RanIndiv),.jarray(rep(sigmaData,Ntrees)),.jarray(rep(sigma,Ntrees)))
+>>>> Error in .jnew("Sampler3", .jarray(speciesJava), 0.25, 0.01, .jarray(rep(0.25,
+>>>> :
+>>>>  java.lang.NoClassDefFoundError: Sampler3
+>>>> #########
+>>>> BUT, it works fine on my win7 laptop (same class, same R script, classes were
+>>>> recompiled on each computers and work fine since a "java Sampler" runs the main
+>>>> with expected results). And it seems specific to this class, as other classes
+>>>> put in the same folder work fine: e.g. the testrJava class that just stores a
+>>>> double and has a method printit() returning it:
+>>>> ##########
+>>>> testclass=.jnew("testrJava",5)
+>>>>> testclass$printit()
+>>>> [1] 5
+>>>> ##########
+>>>> Where could the problem be?
+>>>>
+>>>
+>>> Very often "NoClassDefFoundError" masks the underlying class loading error - so if you know for sure that you have that class in your JAR file (or on the class path - check .jclassPath()) the cause is usually JavaVM version mismatch - i.e. a class compiled on 1.6 won't work in 1.5. You have to use -target 1.4 -source 1.4 (or 1.5 etc.) when compiling the classes and make sure there is not incompatible one.
+>>>
+>>> You can find out the version easily using the "file" utility on the command line:
+>>>
+>>> Fino:REngine$ file REXP.class
+>>> REXP.class: compiled Java class data, version 48.0 (Java 1.4)
+>>>
+>>> Note that OS X comes with several JVM versions check R to see which is being used.
+>>>
+>>> If that doesn't solve the problem, let us know - there are debugging options you can enable in rJava to see what the loader does.
+>>>
+>>> Cheers,
+>>> Simon
+>>>
+>>>
+>>
+>>
+>
+>
+
+From kornelius.rohmeyer at small-projects.de  Tue Mar 22 08:52:22 2011
+From: kornelius.rohmeyer at small-projects.de (Kornelius Rohmeyer)
+Date: Tue, 22 Mar 2011 09:52:22 +0100
+Subject: Problem with CRAN checks for arch 'ppc' and rJava
+Message-ID: <AANLkTin5Kqnf5YMN1vAP5_CP5dbDA9MFLUrV6YvQeoAF@mail.gmail.com>
+
+Dear all,
+
+we have the problem, that adding a (up to now dummy) C source file to
+our rJava based package leads to separate checks for each architecture
+on CRAN, which will fail for arch='ppc':
+http://www.r-project.org/nosvn/R.check/r-devel-macosx-ix86/gMCP-00check.html
+
+loading checks for arch 'ppc'
+** checking whether the package can be loaded ... ERROR
+Loading required package: graph
+Loading required package: rJava
+Loading required package: MASS
+Loading required package: PolynomF
+Java for ppc cannot run in this configuration.
+Please consult documentation.
+Error : .onLoad failed in loadNamespace() for 'gMCP', details:
+call: .jinit()
+error: Cannot create Java virtual machine (-1)
+Error: package/namespace load failed for 'gMCP'
+Execution halted
+
+(Without the C file, CRAN provides the package also for MacOS X.)
+
+So since I am totally unfamiliar with this problem and do not own a Mac:
+Is rJava not working that way on arch='ppc' or is CRAN misconfigured
+or am I doing something wrong and is there a way to fix that? (Also
+other rJava based projects on CRAN with C files seem to have the same
+problem.)
+Or is there a way to check for architectures with these problems and
+disable calls to rJava there?
+(Since the functionality of the package is fully usable also without
+the Java GUI.)
+
+Or am totally on the wrong track? ;)
+
+Thanks and best regards, Kornelius.
+
+From simon.urbanek at r-project.org  Tue Mar 22 14:02:52 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 22 Mar 2011 10:02:52 -0400
+Subject: Re: Problem with CRAN checks for arch 'ppc' and rJava
+In-Reply-To: <AANLkTin5Kqnf5YMN1vAP5_CP5dbDA9MFLUrV6YvQeoAF@mail.gmail.com>
+References: <AANLkTin5Kqnf5YMN1vAP5_CP5dbDA9MFLUrV6YvQeoAF@mail.gmail.com>
+Message-ID: <9E1BA1C1-D83A-4B48-94CB-8B68758BFDEB@r-project.org>
+
+Kornelius,
+
+the issue has to do with Apple updates - they no longer support Java in Rosetta (for a while, actually) so unfortunately ppc checks cannot be run if they include Java. I think the most reliable solution for me is to disable checks on ppc. Given that we did not run separate checks before and we may want to leave ppc behind in not-so-distant future, I think it's an acceptable solution. The next rounds of checks shall not include ppc so the package should go through as long as it passes on both Intel archs.
+
+Thanks,
+Simon
+
+
+On Mar 22, 2011, at 4:52 AM, Kornelius Rohmeyer wrote:
+
+> Dear all,
+> 
+> we have the problem, that adding a (up to now dummy) C source file to
+> our rJava based package leads to separate checks for each architecture
+> on CRAN, which will fail for arch='ppc':
+> http://www.r-project.org/nosvn/R.check/r-devel-macosx-ix86/gMCP-00check.html
+> 
+> loading checks for arch 'ppc'
+> ** checking whether the package can be loaded ... ERROR
+> Loading required package: graph
+> Loading required package: rJava
+> Loading required package: MASS
+> Loading required package: PolynomF
+> Java for ppc cannot run in this configuration.
+> Please consult documentation.
+> Error : .onLoad failed in loadNamespace() for 'gMCP', details:
+> call: .jinit()
+> error: Cannot create Java virtual machine (-1)
+> Error: package/namespace load failed for 'gMCP'
+> Execution halted
+> 
+> (Without the C file, CRAN provides the package also for MacOS X.)
+> 
+> So since I am totally unfamiliar with this problem and do not own a Mac:
+> Is rJava not working that way on arch='ppc' or is CRAN misconfigured
+> or am I doing something wrong and is there a way to fix that? (Also
+> other rJava based projects on CRAN with C files seem to have the same
+> problem.)
+> Or is there a way to check for architectures with these problems and
+> disable calls to rJava there?
+> (Since the functionality of the package is fully usable also without
+> the Java GUI.)
+> 
+> Or am totally on the wrong track? ;)
+> 
+> Thanks and best regards, Kornelius.
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From ilhami.visne at gmail.com  Mon Mar 28 13:17:16 2011
+From: ilhami.visne at gmail.com (Ilhami Visne)
+Date: Mon, 28 Mar 2011 15:17:16 +0200
+Subject: R x64 Crash on Windows 7 x64
+Message-ID: <AANLkTi=ubnmQ4_0A7RMqLfP9G=Rhg1goG1v6dOTO0gjU@mail.gmail.com>
+
+Hello,
+
+I've asked this question sometime ago but did not get an answer. I've
+noticed that there is a new rJava version and hoped that this error was
+fixed in the new version. Unfortunately it is still there.
+
+The error:
+
+I was trying to start callback engine from R but the following code crashes
+R x64 on Windows 7 x64:
+
+library(rJava)
+.jpackage("rJava")
+.jengine(TRUE)
+
+
+Do i have to call something else before?
+
+Thanks.
+ilhami.
+
+My system:
+rJava 0.9
+Java 6 update 24, 64-bit
+R 2.12.2 x64
+Windows 7 x64
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Mon Mar 28 14:20:00 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 28 Mar 2011 10:20:00 -0400
+Subject: Re: R x64 Crash on Windows 7 x64
+In-Reply-To: <AANLkTi=ubnmQ4_0A7RMqLfP9G=Rhg1goG1v6dOTO0gjU@mail.gmail.com>
+References: <AANLkTi=ubnmQ4_0A7RMqLfP9G=Rhg1goG1v6dOTO0gjU@mail.gmail.com>
+Message-ID: <4576EE97-964E-48E9-849D-C0390AEA6312@r-project.org>
+
+I bet that's because your JRI.DLL is 32-bit -- easy to check-run R on the command line and you'll see:
+
+> .jengine(T)
+Cannot find JRI native library!
+Please make sure that the JRI native library is in a directory listed in java.library.path.
+
+java.lang.UnsatisfiedLinkError: C:\Program Files\R\R-2.12.2\library\rJava\jri\jri.dll: Can't load IA 32-bit .dll on a AMD 64-bit platform
+
+
+If that's the case, make sure you use the 64-bit version of JRI.DLL (either add x64 to the library path or copy the 64-bit version down).
+
+Cheers,
+Simon
+
+
+On Mar 28, 2011, at 9:17 AM, Ilhami Visne wrote:
+
+> Hello,
+> 
+> I've asked this question sometime ago but did not get an answer. I've noticed that there is a new rJava version and hoped that this error was fixed in the new version. Unfortunately it is still there.
+> 
+> The error:
+> 
+> I was trying to start callback engine from R but the following code crashes R x64 on Windows 7 x64:
+> 
+> library(rJava)
+> .jpackage("rJava")
+> .jengine(TRUE)
+> 
+> 
+> Do i have to call something else before?
+> 
+> Thanks.
+> ilhami.
+> 
+> My system: 
+> rJava 0.9
+> Java 6 update 24, 64-bit
+> R 2.12.2 x64
+> Windows 7 x64
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ilhami.visne at gmail.com  Mon Mar 28 15:06:55 2011
+From: ilhami.visne at gmail.com (Ilhami Visne)
+Date: Mon, 28 Mar 2011 17:06:55 +0200
+Subject: Re: R x64 Crash on Windows 7 x64
+In-Reply-To: <4576EE97-964E-48E9-849D-C0390AEA6312@r-project.org>
+References: <AANLkTi=ubnmQ4_0A7RMqLfP9G=Rhg1goG1v6dOTO0gjU@mail.gmail.com> <4576EE97-964E-48E9-849D-C0390AEA6312@r-project.org>
+Message-ID: <AANLkTi=v7dAa4QNKv0DLwRsJWq1ORGDMp4i=jXBOSjR8@mail.gmail.com>
+
+Thanks Simon,
+
+
+I bet that's because your JRI.DLL is 32-bit -- easy to check-run R on the
+> command line and you'll see:
+>
+
+Yes, that was the case. I copied the jri.dll from the x64 folder and it has
+worked.
+
+I see that rJava has two seperated folders, i386 and x64. Whay can't rJava
+find and use the right jri.dll? Any way to do this automatically?
+
+Best wishes,
+ilhami.
+
+
+
+>
+> > .jengine(T)
+> Cannot find JRI native library!
+> Please make sure that the JRI native library is in a directory listed in
+> java.library.path.
+>
+> java.lang.UnsatisfiedLinkError: C:\Program
+> Files\R\R-2.12.2\library\rJava\jri\jri.dll: Can't load IA 32-bit .dll on a
+> AMD 64-bit platform
+>
+>
+> If that's the case, make sure you use the 64-bit version of JRI.DLL (either
+> add x64 to the library path or copy the 64-bit version down).
+>
+> Cheers,
+> Simon
+>
+>
+> On Mar 28, 2011, at 9:17 AM, Ilhami Visne wrote:
+>
+> > Hello,
+> >
+> > I've asked this question sometime ago but did not get an answer. I've
+> noticed that there is a new rJava version and hoped that this error was
+> fixed in the new version. Unfortunately it is still there.
+> >
+> > The error:
+> >
+> > I was trying to start callback engine from R but the following code
+> crashes R x64 on Windows 7 x64:
+> >
+> > library(rJava)
+> > .jpackage("rJava")
+> > .jengine(TRUE)
+> >
+> >
+> > Do i have to call something else before?
+> >
+> > Thanks.
+> > ilhami.
+> >
+> > My system:
+> > rJava 0.9
+> > Java 6 update 24, 64-bit
+> > R 2.12.2 x64
+> > Windows 7 x64
+> >
+> >
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Mon Mar 28 17:28:02 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 28 Mar 2011 13:28:02 -0400
+Subject: Re: R x64 Crash on Windows 7 x64
+In-Reply-To: <AANLkTi=v7dAa4QNKv0DLwRsJWq1ORGDMp4i=jXBOSjR8@mail.gmail.com>
+References: <AANLkTi=ubnmQ4_0A7RMqLfP9G=Rhg1goG1v6dOTO0gjU@mail.gmail.com> <4576EE97-964E-48E9-849D-C0390AEA6312@r-project.org> <AANLkTi=v7dAa4QNKv0DLwRsJWq1ORGDMp4i=jXBOSjR8@mail.gmail.com>
+Message-ID: <B6782A5A-B3CD-4724-AE10-80E398A91E94@r-project.org>
+
+
+On Mar 28, 2011, at 11:06 AM, Ilhami Visne wrote:
+
+> Thanks Simon,
+> 
+> 
+> I bet that's because your JRI.DLL is 32-bit -- easy to check-run R on the command line and you'll see:
+> 
+> Yes, that was the case. I copied the jri.dll from the x64 folder and it has worked.
+> 
+> I see that rJava has two seperated folders, i386 and x64. Whay can't rJava find and use the right jri.dll? Any way to do this automatically?
+> 
+
+It's a little complicated because Java doesn't know about R's arch settings (until JRI is loaded but that's too late). If you tell Java about the r_arch setting, it works:
+
+> library(rJava)
+> .jinit(parameters=paste("-Dr.arch=/",.Platform$r_arch,sep=''))
+> .jengine(T)
+[1] "Java-Object{Thread[Thread-0,5,main]}"
+
+I could have .jinit() set r.arch automatically, but normally that is the responsibility of the invoker (e.g., JGR launcher sets r.arch correctly when starting Java that will host JRI). In general, starting JRI from R is very dangerous and not supported on most platforms, so I'm little reluctant to add that to rJava in general.
+
+Cheers,
+Simon
+
+
+> 
+>  
+> 
+> > .jengine(T)
+> Cannot find JRI native library!
+> Please make sure that the JRI native library is in a directory listed in java.library.path.
+> 
+> java.lang.UnsatisfiedLinkError: C:\Program Files\R\R-2.12.2\library\rJava\jri\jri.dll: Can't load IA 32-bit .dll on a AMD 64-bit platform
+> 
+> 
+> If that's the case, make sure you use the 64-bit version of JRI.DLL (either add x64 to the library path or copy the 64-bit version down).
+> 
+> Cheers,
+> Simon
+> 
+> 
+> On Mar 28, 2011, at 9:17 AM, Ilhami Visne wrote:
+> 
+> > Hello,
+> >
+> > I've asked this question sometime ago but did not get an answer. I've noticed that there is a new rJava version and hoped that this error was fixed in the new version. Unfortunately it is still there.
+> >
+> > The error:
+> >
+> > I was trying to start callback engine from R but the following code crashes R x64 on Windows 7 x64:
+> >
+> > library(rJava)
+> > .jpackage("rJava")
+> > .jengine(TRUE)
+> >
+> >
+> > Do i have to call something else before?
+> >
+> > Thanks.
+> > ilhami.
+> >
+> > My system:
+> > rJava 0.9
+> > Java 6 update 24, 64-bit
+> > R 2.12.2 x64
+> > Windows 7 x64
+> >
+> >
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+

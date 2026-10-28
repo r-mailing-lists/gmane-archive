@@ -1,0 +1,539 @@
+{
+  "list": "zelig",
+  "description": "",
+  "month": "2008-01",
+  "messages": [
+    {
+      "id": "msg-f92240e25466",
+      "message_id": "<loom.20080106T150855-935@post.gmane.org>",
+      "from_name": "Gregor Gorjanc",
+      "from_email_hash": "21c477eef7f444bfaae5668550c968c3c393e98c276f619a185c89e7589cd692",
+      "date": "2008-01-06T15:44:33Z",
+      "subject": "Predicted values for lm.mixed",
+      "subject_clean": "Predicted values for lm.mixed",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hello!\n\nI noticed that the predicted vaues (PR) in ls.mixed are not caulculated as in \nother {poisson,gamma,probit,logit}.mixed models. In ls.mixed the PR are equal\nto \n\nY = Xbeta + Zb\n\nwhile PR in other *.mixed models are equal to\n\nrdist(linkinv(eta))\n\nwhere \n\neta = Xbeta + Zb\n\nCurrent implementation for PR in ls.mixed is not predicting the values from\nthe normal distribution, but just adding variability from beta and b posteriors\nto fitted values (Xbeta + Zb).\n\nIf I got the whole thing right, the code in qi.mixed.R (from line 95)\nshould be\n\nelse if (class(object) == \"lmer\"){\n        ev <- betas %*% t(as.matrix(fTerms))\n        mu <- ev\n        ## For predicted values, add in random effects draws\n        for (i in 1:length(rTerms)){\n                mu <- mu + gammas[[names(rTerms[i])]] %*% \n                           t(as.matrix(rTerms[[i]]))\n        }\n        ## Sample from normal distribution with given mean and variance\n        n <- length(mu[,1])\n        for (i in 1:ncol(mu)){\n                pr[,i] <- rnorm(n, mean=mu[,i], sd=attr(VarCorr(object), \"sc\"))\n        }\n}\n\nOf course ls.mixed vignette should be updated. My proposal is: \n\nThe predicted values (qi$pr) are draws from the gaussian (normal) distribution\ndefined by mean $\\mu_{ij}$ and variance $\\sigma^2$,\n\n                              $$\\mu_{ij} = X_{ij}\\beta + Z_{ij} b_{i}$$\n\ngiven $X_{ij}$ and $Z_{ij}$ and simulations of $\\beta$ and $b_{i}$ from \ntheir posterior distributions. The estimated variance covariance matrices \nare taken as correct and are themselves not simulated.\n\nAdditionally the code in qi.mixed.R uses length(mut[,i]) or length(mut[i,])\nwithin each loop of prediction. I propose the following change starting on\nline 65\n\nn <- length(mut[, 1])\nif (family == \"binomial\"){\n        ev <- theta\n        for (i in 1:ncol(mut)){\n                pr[,i] <- as.character(rbinom(n, 1, mut[,i]))\n        }\n        if (!is.null(y)) {\n                if (NCOL(y) > 1) {\n                        y <- y[,1]\n                }\n        }\n}\nelse if (family == \"Gamma\"){\n        ev <- theta * 1/alpha\n        n <- length(mut[i,])\n        for (i in 1:nrow(mut)){\n                pr[i,] <- rgamma(n, shape = mut[i,], scale= 1/alpha)\n        }\n}\nelse if (family == \"poisson\"){\n        ev <- theta\n        for (i in 1:ncol(mut)){\n                pr[,i] <- rpois(n, lambda = mut[,i])\n        }\n}\n\nRegards, Gregor",
+      "body_snippet": "Hello!\n\nI noticed that the predicted vaues (PR) in ls.mixed are not caulculated as in \nother {poisson,gamma,probit,logit}.mixed models. In ls.mixed the PR are equal\nto \n\nY = Xbeta + Zb\n\nwhile PR in ot",
+      "thread_id": "thread-f92240e25466",
+      "thread_depth": 0,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-84bf3b2b0fda",
+      "message_id": "<loom.20080106T202247-546@post.gmane.org>",
+      "from_name": "Gregor Gorjanc",
+      "from_email_hash": "21c477eef7f444bfaae5668550c968c3c393e98c276f619a185c89e7589cd692",
+      "date": "2008-01-06T20:27:30Z",
+      "subject": "Re: Predicted values for lm.mixed",
+      "subject_clean": "Predicted values for lm.mixed",
+      "in_reply_to": null,
+      "references": [
+        "<loom.20080106T150855-935@post.gmane.org>"
+      ],
+      "body_plain": "Gregor Gorjanc <gregor.gorjanc@...> writes:\n...\n>         ## Sample from normal distribution with given mean and variance\n>         n <- length(mu[,1])\n>         for (i in 1:ncol(mu)){\n>                 pr[,i] <- rnorm(n, mean=mu[,i], sd=attr(VarCorr(object), \"sc\"))\n>         }\n> }\n\nI forgot to setup the pr matrix in the above code.\n\nGregor",
+      "body_snippet": "Gregor Gorjanc <gregor.gorjanc@...> writes:\n...\n>         ## Sample from normal distribution with given mean and variance\n>         n <- length(mu[,1])\n>         for (i in 1:ncol(mu)){\n>              ",
+      "thread_id": "thread-f92240e25466",
+      "thread_depth": 1,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-add946dba421",
+      "message_id": "<loom.20080108T175107-955@post.gmane.org>",
+      "from_name": "Gregor Gorjanc",
+      "from_email_hash": "21c477eef7f444bfaae5668550c968c3c393e98c276f619a185c89e7589cd692",
+      "date": "2008-01-08T18:03:25Z",
+      "subject": "Re: Predicted values for lm.mixed + patches",
+      "subject_clean": "Predicted values for lm.mixed + patches",
+      "in_reply_to": null,
+      "references": [
+        "<loom.20080106T150855-935@post.gmane.org>",
+        "<loom.20080106T202247-546@post.gmane.org>"
+      ],
+      "body_plain": "Hi!\n\nI fixed the issue with predicted values for lm.mixed plus some other minor\ntweaks. I uploaded the files as noted bellow. Please let me know what you\nthink about these fixes/additions.\n\nRegards, Gregor\n\n--------------------------------------------------------------------------\n\nhttp://gregor.gorjanc.googlepages.com/qi.mixed.R\n\n- fixed issue with predicted values\n\n- added two errors i.e. stop() if family or link not provided by\n  qi.mixed.R is being used. Additionally, I added support for log-normal \n  model to above file, so that one can use \n\nz.out1 <- zelig(income ~ education + age + female + tag(1 | state), \n                data=voteincome, model=\"ls.mixed\", family=gaussian(link=\"log\"))\n                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n--------------------------------------------------------------------------\n\nhttp://gregor.gorjanc.googlepages.com/ls.mixed.Rnw\n\n- added note about support for log-normal mixed model\n\n--------------------------------------------------------------------------\n\nhttp://gregor.gorjanc.googlepages.com/param.mixed.R\n\n- removed duplicated code so that it is easier to understand what is done\n\n--------------------------------------------------------------------------\n\nhttp://gregor.gorjanc.googlepages.com/gamma.mixed.Rnw\nhttp://gregor.gorjanc.googlepages.com/logit.mixed.Rnw\nhttp://gregor.gorjanc.googlepages.com/poisson.mixed.Rnw\nhttp://gregor.gorjanc.googlepages.com/probit.mixed.Rnw\n\n- changed Matrix package to lme4, since lmer is now back in lme4",
+      "body_snippet": "Hi!\n\nI fixed the issue with predicted values for lm.mixed plus some other minor\ntweaks. I uploaded the files as noted bellow. Please let me know what you\nthink about these fixes/additions.\n\nRegards, G",
+      "thread_id": "thread-f92240e25466",
+      "thread_depth": 2,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-4a67883518bb",
+      "message_id": "<C53BDCB1-7670-4248-9ABB-37977381C90E@wustl.edu>",
+      "from_name": "Delia Bailey",
+      "from_email_hash": "93b5d4df37ba8c400d392a25d69a6fac26fad0afae549e151c1279d4714fa244",
+      "date": "2008-01-08T22:27:09Z",
+      "subject": "Re: Predicted values for lm.mixed + patches",
+      "subject_clean": "Predicted values for lm.mixed + patches",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi Gregor,\n\nYou are correct that the predicted values should be draws from the\nnormal distribution. Thanks for catching this!\n\nAdditionally, the code benefits from your clean-up proposals ...\npulling definitions out of loops, adding stop() errors, updating\ndependencies, etc. I appreciate your edits. My code can virtually\nalways benefit from an editor!\n\nFinally, the log-normal support is a straightforward extension.\nThanks for the additional utility.\n\nSo, in short, thank you for your careful attention and contribution  \nto the public good.\n\nMuch appreciation,\nDelia\n\n\n\n\n************************************************\nDelia Bailey\n\nWashington University in St. Louis\nSchool of Law, CERL\nCampus Box 1120\nOne Brookings Drive\nSt. Louis, MO 63130\n\ndbailey-cM8NO6H+dvaHXe+LvDLADg at public.gmane.org\nhttp://delia.wustl.edu\n************************************************\n\n\nBegin forwarded message:\n\n\n\n> From: Gregor Gorjanc <gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org>\n> Date: January 8, 2008 1:03:25 PM EST\n> To: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> Subject: [zelig] Re: Predicted values for lm.mixed + patches\n>\n> Hi!\n>\n> I fixed the issue with predicted values for lm.mixed plus some\n> other minor\n> tweaks. I uploaded the files as noted bellow. Please let me know\n> what you\n> think about these fixes/additions.\n>\n> Regards, Gregor\n>\n> ----------------------------------------------------------------------\n> ----\n>\n> http://gregor.gorjanc.googlepages.com/qi.mixed.R\n>\n> - fixed issue with predicted values\n>\n> - added two errors i.e. stop() if family or link not provided by\n>  qi.mixed.R is being used. Additionally, I added support for log-\n> normal\n>  model to above file, so that one can use\n>\n> z.out1 <- zelig(income ~ education + age + female + tag(1 | state),\n>                data=voteincome, model=\"ls.mixed\", family=gaussian\n> (link=\"log\"))\n>\n> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n>\n> ----------------------------------------------------------------------\n> ----\n>\n> http://gregor.gorjanc.googlepages.com/ls.mixed.Rnw\n>\n> - added note about support for log-normal mixed model\n>\n> ----------------------------------------------------------------------\n> ----\n>\n> http://gregor.gorjanc.googlepages.com/param.mixed.R\n>\n> - removed duplicated code so that it is easier to understand what\n> is done\n>\n> ----------------------------------------------------------------------\n> ----\n>\n> http://gregor.gorjanc.googlepages.com/gamma.mixed.Rnw\n> http://gregor.gorjanc.googlepages.com/logit.mixed.Rnw\n> http://gregor.gorjanc.googlepages.com/poisson.mixed.Rnw\n> http://gregor.gorjanc.googlepages.com/probit.mixed.Rnw\n>\n> - changed Matrix package to lme4, since lmer is now back in lme4\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>\n>\n\n\n************************************************\nDelia Bailey\n\nWashington University in St. Louis\nSchool of Law, CERL\nCampus Box 1120\nOne Brookings Drive\nSt. Louis, MO 63130\n\ndbailey-cM8NO6H+dvaHXe+LvDLADg at public.gmane.org\nhttp://delia.wustl.edu\n************************************************",
+      "body_snippet": "Hi Gregor,\n\nYou are correct that the predicted values should be draws from the\nnormal distribution. Thanks for catching this!\n\nAdditionally, the code benefits from your clean-up proposals ...\npulling ",
+      "thread_id": "thread-4a67883518bb",
+      "thread_depth": 0,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-e1a98f8d727c",
+      "message_id": "<loom.20080112T205048-369@post.gmane.org>",
+      "from_name": "Gregor Gorjanc",
+      "from_email_hash": "21c477eef7f444bfaae5668550c968c3c393e98c276f619a185c89e7589cd692",
+      "date": "2008-01-12T20:51:20Z",
+      "subject": "Add *.mixed models to plot.ci",
+      "subject_clean": "Add *.mixed models to plot.ci",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "\"lm.mixed\", \"logit.mixed\", \"probit.mixed\", \"gamma.mixed\", \"poisson.mixed\"",
+      "body_snippet": "\"lm.mixed\", \"logit.mixed\", \"probit.mixed\", \"gamma.mixed\", \"poisson.mixed\"",
+      "thread_id": "thread-e1a98f8d727c",
+      "thread_depth": 0,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-cb308bbfc530",
+      "message_id": "<5abc11d80801130105w635e7e54pc06c41822a6eb97f@mail.gmail.com>",
+      "from_name": "宋时歌",
+      "from_email_hash": "8296a4f374cf967d97bc14e8219248780a9b2d2757b5824d0f8441000ccb72a7",
+      "date": "2008-01-13T09:05:03Z",
+      "subject": "Re: Add *.mixed models to plot.ci",
+      "subject_clean": "Add *.mixed models to plot.ci",
+      "in_reply_to": "<loom.20080112T205048-369@post.gmane.org>",
+      "references": [
+        "<loom.20080112T205048-369@post.gmane.org>"
+      ],
+      "body_plain": "Dear Gregor,\n\nDo you mean you have incorporate these new improvements in a new\nversion? How do I update my existing installation of Zelig then?\n\nThanks.\n\nShige\n\nOn Jan 13, 2008 4:51 AM, Gregor Gorjanc <gregor.gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org> wrote:\n> \"lm.mixed\", \"logit.mixed\", \"probit.mixed\", \"gamma.mixed\", \"poisson.mixed\"\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "Dear Gregor,\n\nDo you mean you have incorporate these new improvements in a new\nversion? How do I update my existing installation of Zelig then?\n\nThanks.\n\nShige\n\nOn Jan 13, 2008 4:51 AM, Gregor Gorjanc",
+      "thread_id": "thread-e1a98f8d727c",
+      "thread_depth": 1,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-5f59ceeee3f6",
+      "message_id": "<F189E18BBAA8B6479F618B9044CF4E9C06A79927CC@owa.bfro.uni-lj.si>",
+      "from_name": "Gorjanc Gregor",
+      "from_email_hash": "0fc21e5d95c49c673aebee27d0ffbdc2f09a6a75cbde148579f32766024d6324",
+      "date": "2008-01-13T13:13:05Z",
+      "subject": "RE: Add *.mixed models to plot.ci",
+      "subject_clean": "Add *.mixed models to plot.ci",
+      "in_reply_to": "<5abc11d80801130105w635e7e54pc06c41822a6eb97f@mail.gmail.com>",
+      "references": [
+        "<loom.20080112T205048-369@post.gmane.org>",
+        "<5abc11d80801130105w635e7e54pc06c41822a6eb97f@mail.gmail.com>"
+      ],
+      "body_plain": "> Do you mean you have incorporate these new improvements in a new\n> version? How do I update my existing installation of Zelig then?\n\nMentioned models were added (not by me!) to Zelig in last? version and I\njust send a quick note to add these models to plot.ci() function.\n\nRegards, Gregor",
+      "body_snippet": "> Do you mean you have incorporate these new improvements in a new\n> version? How do I update my existing installation of Zelig then?\n\nMentioned models were added (not by me!) to Zelig in last? versio",
+      "thread_id": "thread-e1a98f8d727c",
+      "thread_depth": 2,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-64ce1ff9ca6e",
+      "message_id": "<8167262d0801141217o55416043w5cc285f0db4f7297@mail.gmail.com>",
+      "from_name": "Olivia Lau",
+      "from_email_hash": "8412bddebe94f58284d56e0ab398cbce622fd84aab4cd888e3f5971ce7c8f3c9",
+      "date": "2008-01-14T20:17:05Z",
+      "subject": "Re: Add *.mixed models to plot.ci",
+      "subject_clean": "Add *.mixed models to plot.ci",
+      "in_reply_to": "<F189E18BBAA8B6479F618B9044CF4E9C06A79927CC@owa.bfro.uni-lj.si>",
+      "references": [
+        "<loom.20080112T205048-369@post.gmane.org>",
+        "<5abc11d80801130105w635e7e54pc06c41822a6eb97f@mail.gmail.com>",
+        "<F189E18BBAA8B6479F618B9044CF4E9C06A79927CC@owa.bfro.uni-lj.si>"
+      ],
+      "body_plain": "Hi, Gregor.\n\nI've added the new models to plot.ci() and we'll release it in the\nnext version of Zelig.  plot.ci() now supports the following\nnon-categorical, univariate response models:\n   * ls, logit, probit, exp, gamma, lognorm, weibull, normal, poisson,\ntobit, relogit, negbin;\n   * logit.bayes, probit.bayes, poisson.bayes, normal.bayes,\ntobit.bayes;\n   * ls.mixed, logit.mixed, probit.mixed, gamma.mixed, poisson.mixed;\n   * logit.gam, probit.gam, normal.gam;\n   * logit.gee, probit.gee, normal.gee, poisson.gee, gamma.gee.\n\nAs soon as the new version is available, we'll send an email to the\nlist, and you can obtain it as usual by launching R and typing:\n   > install.packages(\"Zelig\", repos = \"http://gking.harvard.edu\")\nfor Windows and Linux users.\n\nYours,\nOlivia Lau\n\nOn Jan 13, 2008 8:13 AM, Gorjanc Gregor <Gregor.Gorjanc-9T0mJvD/FdoBkiSCaE/Esw at public.gmane.org> wrote:\n>\n> > Do you mean you have incorporate these new improvements in a new\n> > version? How do I update my existing installation of Zelig then?\n>\n> Mentioned models were added (not by me!) to Zelig in last? version and I\n> just send a quick note to add these models to plot.ci() function.\n>\n> Regards, Gregor\n>\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "Hi, Gregor.\n\nI've added the new models to plot.ci() and we'll release it in the\nnext version of Zelig.  plot.ci() now supports the following\nnon-categorical, univariate response models:\n   * ls, logit",
+      "thread_id": "thread-e1a98f8d727c",
+      "thread_depth": 3,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-412b2e50b05e",
+      "message_id": "<908b53c80801241503j62b84e9erc4b35d1f3d1398fc@mail.gmail.com>",
+      "from_name": "Amber Wichowsky",
+      "from_email_hash": "26bb10b6b94ebddffae487e79d2eaddce9ab9d8fbc1365a2a6ec2bef0fb1e824",
+      "date": "2008-01-24T23:03:35Z",
+      "subject": "predicted probabilities with zelig and imputed data",
+      "subject_clean": "predicted probabilities with zelig and imputed data",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hello,I have estimated a logistic regression model with Zelig using the mi\ncommand to combine multiple imputed datasets. I understand that the summary\noutput is the combined result and that I can also print out individual\nresults by dataset. However, in calculating predicted probabilities, I am\nwondering which coefficients are being used by Zelig - would these be from\nthe combined results?  In addition, when setting the independent variables\nto their means (setx command) - would this be some weighted mean of that\nvariable across those five datasets? Finally, could someone clarify the\ndifference between the expected values and the predicted values that are\ngiven in the output.\n\nThank you,\nAmber Wichowsky\nUniversity of Wisconsin-Madison",
+      "body_snippet": "Hello,I have estimated a logistic regression model with Zelig using the mi\ncommand to combine multiple imputed datasets. I understand that the summary\noutput is the combined result and that I can also",
+      "thread_id": "thread-412b2e50b05e",
+      "thread_depth": 0,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-7c515fbdd7e1",
+      "message_id": "<Pine.OSX.4.64.0801242132470.6244@pol-w87351t4x8a.princeton.edu>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-01-25T02:35:53Z",
+      "subject": "Re: predicted probabilities with zelig and imputed data",
+      "subject_clean": "predicted probabilities with zelig and imputed data",
+      "in_reply_to": "<908b53c80801241503j62b84e9erc4b35d1f3d1398fc@mail.gmail.com>",
+      "references": [
+        "<908b53c80801241503j62b84e9erc4b35d1f3d1398fc@mail.gmail.com>"
+      ],
+      "body_plain": "Hi Amber,\n\n   All coefficients are used. Basically, you simulate the quantities of \ninterest based on each of the multiply imputed data sets and then combine \nthem all. This takes into account imputation uncertainty as well as usual \nestimation uncertainty for each imputed data set. When setting the \nindpendent variables to their means, setx() will calculate the mean using \nall imputed data sets. Finally, the expected values are probabilities, \ni.e., Pr(Y = 1 | X), whereas the predicted values take either 1 or 0, \ni.e., Y.\n\nKosuke\n\n---------------------------------------------------------\nKosuke Imai               Office: Corwin Hall 041\nAssistant Professor       Phone: 609-258-6601\nDepartment of Politics    eFax:  973-556-1929\nPrinceton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org\nPrinceton, NJ 08544-1012  http://imai.princeton.edu/\n---------------------------------------------------------\n\nOn Thu, 24 Jan 2008, Amber Wichowsky wrote:\n\n> Hello,I have estimated a logistic regression model with Zelig using the mi\n> command to combine multiple imputed datasets. I understand that the summary\n> output is the combined result and that I can also print out individual\n> results by dataset. However, in calculating predicted probabilities, I am\n> wondering which coefficients are being used by Zelig - would these be from\n> the combined results?  In addition, when setting the independent variables\n> to their means (setx command) - would this be some weighted mean of that\n> variable across those five datasets? Finally, could someone clarify the\n> difference between the expected values and the predicted values that are\n> given in the output.\n>\n> Thank you,\n> Amber Wichowsky\n> University of Wisconsin-Madison\n>",
+      "body_snippet": "Hi Amber,\n\n   All coefficients are used. Basically, you simulate the quantities of \ninterest based on each of the multiply imputed data sets and then combine \nthem all. This takes into account imputat",
+      "thread_id": "thread-412b2e50b05e",
+      "thread_depth": 1,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-4a5a45f2c386",
+      "message_id": "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>",
+      "from_name": "宋时歌",
+      "from_email_hash": "8296a4f374cf967d97bc14e8219248780a9b2d2757b5824d0f8441000ccb72a7",
+      "date": "2008-01-26T12:53:36Z",
+      "subject": "Basic question on counterfactual simulation",
+      "subject_clean": "Basic question on counterfactual simulation",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear Colleagues:\n\nI am using Zelig to estimate a population model and would like to do\nsome counterfactual simulation based on the results. Both the\ndependent (whether have a newly born boy) and the main independent\nvariable of interest (whether had a prior abortion) are binary ones.\nZelig can handle questions like: what is the difference in probability\nof having a boy between those who had prior abortion and those who had\nnot. I want to go a step further and ask: give the estimated model, if\n50% of the total women had abortion, what the percentage of boys will\nbe in all the newly born babies? What if only 25% of the women had\nabortion? And what about 75% of women had abortion? etc. Is there an\neasy way to do this? Thanks.\n\nBest,\nShige",
+      "body_snippet": "Dear Colleagues:\n\nI am using Zelig to estimate a population model and would like to do\nsome counterfactual simulation based on the results. Both the\ndependent (whether have a newly born boy) and the m",
+      "thread_id": "thread-4a5a45f2c386",
+      "thread_depth": 0,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-a4637fa21c65",
+      "message_id": "<Pine.LNX.4.64.0801260757390.24244@w5.hmdc.harvard.edu>",
+      "from_name": "Gary King",
+      "from_email_hash": "41f318cc9479b7e6547da961a515b619f2320f2e8f522ce4e29760130e2c2195",
+      "date": "2008-01-26T12:59:20Z",
+      "subject": "Re: Basic question on counterfactual simulation",
+      "subject_clean": "Basic question on counterfactual simulation",
+      "in_reply_to": "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>",
+      "references": [
+        "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>"
+      ],
+      "body_plain": "this is an interesting substantive question, but it is not answerable by \nany means precisely how you have proposed it.  you also need to specify \nWHICH 25% of women had abortions.  you'd get different answers if you \nchose different groups of 25%.  So just choose the ones you want to flip \nfrom 0s to 1s or to set at 0s and 1s, compute your predicted values and \nyou're set.\nGary\n\nOn Sat, 26 Jan 2008, å®~Kæ~W¶æ­~L wrote:\n\n> Dear Colleagues:\n>\n> I am using Zelig to estimate a population model and would like to do\n> some counterfactual simulation based on the results. Both the\n> dependent (whether have a newly born boy) and the main independent\n> variable of interest (whether had a prior abortion) are binary ones.\n> Zelig can handle questions like: what is the difference in probability\n> of having a boy between those who had prior abortion and those who had\n> not. I want to go a step further and ask: give the estimated model, if\n> 50% of the total women had abortion, what the percentage of boys will\n> be in all the newly born babies? What if only 25% of the women had\n> abortion? And what about 75% of women had abortion? etc. Is there an\n> easy way to do this? Thanks.\n>\n> Best,\n> Shige\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "this is an interesting substantive question, but it is not answerable by \nany means precisely how you have proposed it.  you also need to specify \nWHICH 25% of women had abortions.  you'd get differen",
+      "thread_id": "thread-4a5a45f2c386",
+      "thread_depth": 1,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-336ba6b8efbe",
+      "message_id": "<5abc11d80801260525q1d2126bbs3564ce7e34d6b89c@mail.gmail.com>",
+      "from_name": "宋时歌",
+      "from_email_hash": "8296a4f374cf967d97bc14e8219248780a9b2d2757b5824d0f8441000ccb72a7",
+      "date": "2008-01-26T13:25:52Z",
+      "subject": "Re: Basic question on counterfactual simulation",
+      "subject_clean": "Basic question on counterfactual simulation",
+      "in_reply_to": "<Pine.LNX.4.64.0801260757390.24244@w5.hmdc.harvard.edu>",
+      "references": [
+        "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260757390.24244@w5.hmdc.harvard.edu>"
+      ],
+      "body_plain": "Dear Gary:\n\nSo it will be something like:\n\nz.out <- zelig(Y ~ X + T, data = data, model=\"logit\")\n>>some operation on the data frame to get the counterfactuals set <<\nx.out <- setx(z.out)\ns.out <- sim(z.out, x=x.out)\n\nCorrect?\n\nThanks.\n\nBest,\nShige\n\nOn Jan 26, 2008 8:59 PM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n>\n> this is an interesting substantive question, but it is not answerable by\n> any means precisely how you have proposed it.  you also need to specify\n> WHICH 25% of women had abortions.  you'd get different answers if you\n> chose different groups of 25%.  So just choose the ones you want to flip\n> from 0s to 1s or to set at 0s and 1s, compute your predicted values and\n> you're set.\n> Gary\n>\n>\n> On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n>\n> > Dear Colleagues:\n> >\n> > I am using Zelig to estimate a population model and would like to do\n> > some counterfactual simulation based on the results. Both the\n> > dependent (whether have a newly born boy) and the main independent\n> > variable of interest (whether had a prior abortion) are binary ones.\n> > Zelig can handle questions like: what is the difference in probability\n> > of having a boy between those who had prior abortion and those who had\n> > not. I want to go a step further and ask: give the estimated model, if\n> > 50% of the total women had abortion, what the percentage of boys will\n> > be in all the newly born babies? What if only 25% of the women had\n> > abortion? And what about 75% of women had abortion? etc. Is there an\n> > easy way to do this? Thanks.\n> >\n> > Best,\n> > Shige\n> >\n> > -\n> > Zelig Mailing List, served by Harvard-MIT Data Center\n> > Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> > [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> > Zelig program information: http://gking.harvard.edu/zelig/\n> >",
+      "body_snippet": "Dear Gary:\n\nSo it will be something like:\n\nz.out <- zelig(Y ~ X + T, data = data, model=\"logit\")\n>>some operation on the data frame to get the counterfactuals set <<\nx.out <- setx(z.out)\ns.out <- sim(",
+      "thread_id": "thread-4a5a45f2c386",
+      "thread_depth": 2,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-cf3d91f4a1cc",
+      "message_id": "<Pine.LNX.4.64.0801260832290.24244@w5.hmdc.harvard.edu>",
+      "from_name": "Gary King",
+      "from_email_hash": "41f318cc9479b7e6547da961a515b619f2320f2e8f522ce4e29760130e2c2195",
+      "date": "2008-01-26T13:32:48Z",
+      "subject": "Re: Basic question on counterfactual simulation",
+      "subject_clean": "Basic question on counterfactual simulation",
+      "in_reply_to": "<5abc11d80801260525q1d2126bbs3564ce7e34d6b89c@mail.gmail.com>",
+      "references": [
+        "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260757390.24244@w5.hmdc.harvard.edu>",
+        "<5abc11d80801260525q1d2126bbs3564ce7e34d6b89c@mail.gmail.com>"
+      ],
+      "body_plain": "yes, although of course the 'some operation' would be part of the setx \nstep.\nGary\n\nOn Sat, 26 Jan 2008, å®~Kæ~W¶æ­~L wrote:\n\n> Dear Gary:\n>\n> So it will be something like:\n>\n> z.out <- zelig(Y ~ X + T, data = data, model=\"logit\")\n>>> some operation on the data frame to get the counterfactuals set <<\n> x.out <- setx(z.out)\n> s.out <- sim(z.out, x=x.out)\n>\n> Correct?\n>\n> Thanks.\n>\n> Best,\n> Shige\n>\n> On Jan 26, 2008 8:59 PM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n>>\n>> this is an interesting substantive question, but it is not answerable by\n>> any means precisely how you have proposed it.  you also need to specify\n>> WHICH 25% of women had abortions.  you'd get different answers if you\n>> chose different groups of 25%.  So just choose the ones you want to flip\n>> from 0s to 1s or to set at 0s and 1s, compute your predicted values and\n>> you're set.\n>> Gary\n>>\n>>\n>> On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n>>\n>>> Dear Colleagues:\n>>>\n>>> I am using Zelig to estimate a population model and would like to do\n>>> some counterfactual simulation based on the results. Both the\n>>> dependent (whether have a newly born boy) and the main independent\n>>> variable of interest (whether had a prior abortion) are binary ones.\n>>> Zelig can handle questions like: what is the difference in probability\n>>> of having a boy between those who had prior abortion and those who had\n>>> not. I want to go a step further and ask: give the estimated model, if\n>>> 50% of the total women had abortion, what the percentage of boys will\n>>> be in all the newly born babies? What if only 25% of the women had\n>>> abortion? And what about 75% of women had abortion? etc. Is there an\n>>> easy way to do this? Thanks.\n>>>\n>>> Best,\n>>> Shige\n>>>\n>>> -\n>>> Zelig Mailing List, served by Harvard-MIT Data Center\n>>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n>>> Zelig program information: http://gking.harvard.edu/zelig/\n>>>\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "yes, although of course the 'some operation' would be part of the setx \nstep.\nGary\n\nOn Sat, 26 Jan 2008, å®~Kæ~W¶æ­~L wrote:\n\n> Dear Gary:\n>\n> So it will be something like:\n>\n> z.out <- zelig(Y ~ X + ",
+      "thread_id": "thread-4a5a45f2c386",
+      "thread_depth": 3,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-59e4ead05e63",
+      "message_id": "<5abc11d80801260647m10f44635v5994257b4062ace8@mail.gmail.com>",
+      "from_name": "宋时歌",
+      "from_email_hash": "8296a4f374cf967d97bc14e8219248780a9b2d2757b5824d0f8441000ccb72a7",
+      "date": "2008-01-26T14:47:37Z",
+      "subject": "Re: Basic question on counterfactual simulation",
+      "subject_clean": "Basic question on counterfactual simulation",
+      "in_reply_to": "<Pine.LNX.4.64.0801260832290.24244@w5.hmdc.harvard.edu>",
+      "references": [
+        "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260757390.24244@w5.hmdc.harvard.edu>",
+        "<5abc11d80801260525q1d2126bbs3564ce7e34d6b89c@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260832290.24244@w5.hmdc.harvard.edu>"
+      ],
+      "body_plain": "Dear Gary,\n\nLet me make sure I get this right. The correct procedure to do the\ncounterfactual prediction consists the following steps:\n\n1) estimation: z.out <- zelig(Y ~ X + T, data = data, model=\"logit\");\n2) manipulating the data set, generate a new data set (\"new.data\")\nwith the counterfactual conditions correctly setup;\n3) setx using the newly generated data: x.out <- setx(z.out, data=new.data);\n4) simulate posterior distribution: s.out <- sim(z.out, x=x.out).\n\nCorrect?\n\nI just realize that SETX has an option to use a different data set,\nwhich is very convenient.\n\nThanks.\n\nShige\n\nOn Jan 26, 2008 9:32 PM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n>\n> yes, although of course the 'some operation' would be part of the setx\n> step.\n> Gary\n>\n>\n> On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n>\n> > Dear Gary:\n> >\n> > So it will be something like:\n> >\n> > z.out <- zelig(Y ~ X + T, data = data, model=\"logit\")\n> >>> some operation on the data frame to get the counterfactuals set <<\n> > x.out <- setx(z.out)\n> > s.out <- sim(z.out, x=x.out)\n> >\n> > Correct?\n> >\n> > Thanks.\n> >\n> > Best,\n> > Shige\n> >\n> > On Jan 26, 2008 8:59 PM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n> >>\n> >> this is an interesting substantive question, but it is not answerable by\n> >> any means precisely how you have proposed it.  you also need to specify\n> >> WHICH 25% of women had abortions.  you'd get different answers if you\n> >> chose different groups of 25%.  So just choose the ones you want to flip\n> >> from 0s to 1s or to set at 0s and 1s, compute your predicted values and\n> >> you're set.\n> >> Gary\n> >>\n> >>\n> >> On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n> >>\n> >>> Dear Colleagues:\n> >>>\n> >>> I am using Zelig to estimate a population model and would like to do\n> >>> some counterfactual simulation based on the results. Both the\n> >>> dependent (whether have a newly born boy) and the main independent\n> >>> variable of interest (whether had a prior abortion) are binary ones.\n> >>> Zelig can handle questions like: what is the difference in probability\n> >>> of having a boy between those who had prior abortion and those who had\n> >>> not. I want to go a step further and ask: give the estimated model, if\n> >>> 50% of the total women had abortion, what the percentage of boys will\n> >>> be in all the newly born babies? What if only 25% of the women had\n> >>> abortion? And what about 75% of women had abortion? etc. Is there an\n> >>> easy way to do this? Thanks.\n> >>>\n> >>> Best,\n> >>> Shige\n> >>>\n> >>> -\n> >>> Zelig Mailing List, served by Harvard-MIT Data Center\n> >>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> >>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> >>> Zelig program information: http://gking.harvard.edu/zelig/\n> >>>\n> >\n> > -\n> > Zelig Mailing List, served by Harvard-MIT Data Center\n> > Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> > [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> > Zelig program information: http://gking.harvard.edu/zelig/\n> >",
+      "body_snippet": "Dear Gary,\n\nLet me make sure I get this right. The correct procedure to do the\ncounterfactual prediction consists the following steps:\n\n1) estimation: z.out <- zelig(Y ~ X + T, data = data, model=\"log",
+      "thread_id": "thread-4a5a45f2c386",
+      "thread_depth": 4,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-4228d7d2684d",
+      "message_id": "<470542488-1201365356-cardhu_decombobulator_blackberry.rim.net-612502770-@bxe022.bisx.prod.on.blackberry>",
+      "from_name": "Gary King",
+      "from_email_hash": "41f318cc9479b7e6547da961a515b619f2320f2e8f522ce4e29760130e2c2195",
+      "date": "2008-01-26T16:37:55Z",
+      "subject": "Re: Basic question on counterfactual simulation",
+      "subject_clean": "Basic question on counterfactual simulation",
+      "in_reply_to": "<5abc11d80801260647m10f44635v5994257b4062ace8@mail.gmail.com>",
+      "references": [
+        "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260757390.24244@w5.hmdc.harvard.edu>",
+        "<5abc11d80801260525q1d2126bbs3564ce7e34d6b89c@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260832290.24244@w5.hmdc.harvard.edu>",
+        "<5abc11d80801260647m10f44635v5994257b4062ace8@mail.gmail.com>"
+      ],
+      "body_plain": "Yes, that's the idea. Gary\n---\nSent from my phone; please excuse the terse note.\nGary King\nhttp://gking.harvard.edu\n\n\n-----Original Message-----\nFrom: \"宋时歌\" <shigesong at gmail.com>\n\nDate: Sat, 26 Jan 2008 22:47:37 \nTo:\"Gary King\" <king at harvard.edu>\nCc:zelig at lists.gking.harvard.edu\nSubject: Re: [zelig] Basic question on counterfactual simulation\n\n\nDear Gary,\n\nLet me make sure I get this right. The correct procedure to do the\ncounterfactual prediction consists the following steps:\n\n1) estimation: z.out <- zelig(Y ~ X + T, data = data, model=\"logit\");\n2) manipulating the data set, generate a new data set (\"new.data\")\nwith the counterfactual conditions correctly setup;\n3) setx using the newly generated data: x.out <- setx(z.out, data=new.data);\n4) simulate posterior distribution: s.out <- sim(z.out, x=x.out).\n\nCorrect?\n\nI just realize that SETX has an option to use a different data set,\nwhich is very convenient.\n\nThanks.\n\nShige\n\nOn Jan 26, 2008 9:32 PM, Gary King <king at harvard.edu> wrote:\n>\n> yes, although of course the 'some operation' would be part of the setx\n> step.\n> Gary\n>\n>\n> On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n>\n> > Dear Gary:\n> >\n> > So it will be something like:\n> >\n> > z.out <- zelig(Y ~ X + T, data = data, model=\"logit\")\n> >>> some operation on the data frame to get the counterfactuals set <<\n> > x.out <- setx(z.out)\n> > s.out <- sim(z.out, x=x.out)\n> >\n> > Correct?\n> >\n> > Thanks.\n> >\n> > Best,\n> > Shige\n> >\n> > On Jan 26, 2008 8:59 PM, Gary King <king at harvard.edu> wrote:\n> >>\n> >> this is an interesting substantive question, but it is not answerable by\n> >> any means precisely how you have proposed it.  you also need to specify\n> >> WHICH 25% of women had abortions.  you'd get different answers if you\n> >> chose different groups of 25%.  So just choose the ones you want to flip\n> >> from 0s to 1s or to set at 0s and 1s, compute your predicted values and\n> >> you're set.\n> >> Gary\n> >>\n> >>\n> >> On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n> >>\n> >>> Dear Colleagues:\n> >>>\n> >>> I am using Zelig to estimate a population model and would like to do\n> >>> some counterfactual simulation based on the results. Both the\n> >>> dependent (whether have a newly born boy) and the main independent\n> >>> variable of interest (whether had a prior abortion) are binary ones.\n> >>> Zelig can handle questions like: what is the difference in probability\n> >>> of having a boy between those who had prior abortion and those who had\n> >>> not. I want to go a step further and ask: give the estimated model, if\n> >>> 50% of the total women had abortion, what the percentage of boys will\n> >>> be in all the newly born babies? What if only 25% of the women had\n> >>> abortion? And what about 75% of women had abortion? etc. Is there an\n> >>> easy way to do this? Thanks.\n> >>>\n> >>> Best,\n> >>> Shige\n> >>>\n> >>> -\n> >>> Zelig Mailing List, served by Harvard-MIT Data Center\n> >>> Send messages: zelig at lists.gking.harvard.edu\n> >>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> >>> Zelig program information: http://gking.harvard.edu/zelig/\n> >>>\n> >\n> > -\n> > Zelig Mailing List, served by Harvard-MIT Data Center\n> > Send messages: zelig at lists.gking.harvard.edu\n> > [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> > Zelig program information: http://gking.harvard.edu/zelig/\n> >",
+      "body_snippet": "Yes, that's the idea. Gary\n---\nSent from my phone; please excuse the terse note.\nGary King\nhttp://gking.harvard.edu\n\n\n-----Original Message-----\nFrom: \"宋时歌\" <shigesong at gmail.com>\n\nDate: Sat, 26 Jan",
+      "thread_id": "thread-4a5a45f2c386",
+      "thread_depth": 5,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-3c35dcc75b04",
+      "message_id": "<5abc11d80801270053g67060fd4x218d54b708a4fe6a@mail.gmail.com>",
+      "from_name": "宋时歌",
+      "from_email_hash": "8296a4f374cf967d97bc14e8219248780a9b2d2757b5824d0f8441000ccb72a7",
+      "date": "2008-01-27T08:53:57Z",
+      "subject": "Re: Basic question on counterfactual simulation",
+      "subject_clean": "Basic question on counterfactual simulation",
+      "in_reply_to": "<470542488-1201365356-cardhu_decombobulator_blackberry.rim.net-612502770-@bxe022.bisx.prod.on.blackberry>",
+      "references": [
+        "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260757390.24244@w5.hmdc.harvard.edu>",
+        "<5abc11d80801260525q1d2126bbs3564ce7e34d6b89c@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260832290.24244@w5.hmdc.harvard.edu>",
+        "<5abc11d80801260647m10f44635v5994257b4062ace8@mail.gmail.com>",
+        "<470542488-1201365356-cardhu_decombobulator_blackberry.rim.net-612502770-@bxe022.bisx.prod.on.blackberry>"
+      ],
+      "body_plain": "Dear Gary,\n\nI have estimated the model using raw data and the preprocessed data\n(using MatchIt), and the results are significantly different (did not\nchange the substantive conclusion though). My question is: for the\npurpose of counterfactual simulation, which set of estimates, the ones\nbased on raw data or the one based on matched data, are preferable,\nand why? It will be most helpful if you can point me to some\nreferences, if they exist. Thank you very much.\n\nBest,\nShige\n\nOn Jan 27, 2008 12:37 AM, Gary  King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n> Yes, that's the idea. Gary\n> ---\n> Sent from my phone; please excuse the terse note.\n> Gary King\n> http://gking.harvard.edu\n>\n>\n>\n> -----Original Message-----\n> From: \"宋时歌\" <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>\n>\n> Date: Sat, 26 Jan 2008 22:47:37\n> To:\"Gary King\" <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org>\n> Cc:zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> Subject: Re: [zelig] Basic question on counterfactual simulation\n>\n>\n> Dear Gary,\n>\n> Let me make sure I get this right. The correct procedure to do the\n> counterfactual prediction consists the following steps:\n>\n> 1) estimation: z.out <- zelig(Y ~ X + T, data = data, model=\"logit\");\n> 2) manipulating the data set, generate a new data set (\"new.data\")\n> with the counterfactual conditions correctly setup;\n> 3) setx using the newly generated data: x.out <- setx(z.out, data=new.data);\n> 4) simulate posterior distribution: s.out <- sim(z.out, x=x.out).\n>\n> Correct?\n>\n> I just realize that SETX has an option to use a different data set,\n> which is very convenient.\n>\n> Thanks.\n>\n> Shige\n>\n> On Jan 26, 2008 9:32 PM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n> >\n> > yes, although of course the 'some operation' would be part of the setx\n> > step.\n> > Gary\n> >\n> >\n> > On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n> >\n> > > Dear Gary:\n> > >\n> > > So it will be something like:\n> > >\n> > > z.out <- zelig(Y ~ X + T, data = data, model=\"logit\")\n> > >>> some operation on the data frame to get the counterfactuals set <<\n> > > x.out <- setx(z.out)\n> > > s.out <- sim(z.out, x=x.out)\n> > >\n> > > Correct?\n> > >\n> > > Thanks.\n> > >\n> > > Best,\n> > > Shige\n> > >\n> > > On Jan 26, 2008 8:59 PM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n> > >>\n> > >> this is an interesting substantive question, but it is not answerable by\n> > >> any means precisely how you have proposed it.  you also need to specify\n> > >> WHICH 25% of women had abortions.  you'd get different answers if you\n> > >> chose different groups of 25%.  So just choose the ones you want to flip\n> > >> from 0s to 1s or to set at 0s and 1s, compute your predicted values and\n> > >> you're set.\n> > >> Gary\n> > >>\n> > >>\n> > >> On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n> > >>\n> > >>> Dear Colleagues:\n> > >>>\n> > >>> I am using Zelig to estimate a population model and would like to do\n> > >>> some counterfactual simulation based on the results. Both the\n> > >>> dependent (whether have a newly born boy) and the main independent\n> > >>> variable of interest (whether had a prior abortion) are binary ones.\n> > >>> Zelig can handle questions like: what is the difference in probability\n> > >>> of having a boy between those who had prior abortion and those who had\n> > >>> not. I want to go a step further and ask: give the estimated model, if\n> > >>> 50% of the total women had abortion, what the percentage of boys will\n> > >>> be in all the newly born babies? What if only 25% of the women had\n> > >>> abortion? And what about 75% of women had abortion? etc. Is there an\n> > >>> easy way to do this? Thanks.\n> > >>>\n> > >>> Best,\n> > >>> Shige\n> > >>>\n> > >>> -\n> > >>> Zelig Mailing List, served by Harvard-MIT Data Center\n> > >>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> > >>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> > >>> Zelig program information: http://gking.harvard.edu/zelig/\n> > >>>\n> > >\n> > > -\n> > > Zelig Mailing List, served by Harvard-MIT Data Center\n> > > Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> > > [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> > > Zelig program information: http://gking.harvard.edu/zelig/\n> > >\n>",
+      "body_snippet": "Dear Gary,\n\nI have estimated the model using raw data and the preprocessed data\n(using MatchIt), and the results are significantly different (did not\nchange the substantive conclusion though). My ques",
+      "thread_id": "thread-4a5a45f2c386",
+      "thread_depth": 6,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-ace46bfc15db",
+      "message_id": "<Pine.LNX.4.64.0801271232090.18850@w5.hmdc.harvard.edu>",
+      "from_name": "Gary King",
+      "from_email_hash": "41f318cc9479b7e6547da961a515b619f2320f2e8f522ce4e29760130e2c2195",
+      "date": "2008-01-27T17:47:10Z",
+      "subject": "Re: Basic question on counterfactual simulation",
+      "subject_clean": "Basic question on counterfactual simulation",
+      "in_reply_to": "<5abc11d80801270053g67060fd4x218d54b708a4fe6a@mail.gmail.com>",
+      "references": [
+        "<5abc11d80801260453x52166bf7rfa11754a33d7128@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260757390.24244@w5.hmdc.harvard.edu>",
+        "<5abc11d80801260525q1d2126bbs3564ce7e34d6b89c@mail.gmail.com>",
+        "<Pine.LNX.4.64.0801260832290.24244@w5.hmdc.harvard.edu>",
+        "<5abc11d80801260647m10f44635v5994257b4062ace8@mail.gmail.com>",
+        "<470542488-1201365356-cardhu_decombobulator_blackberry.rim.net-612502770-@bxe022.bisx.prod.on.blackberry>",
+        "<5abc11d80801270053g67060fd4x218d54b708a4fe6a@mail.gmail.com>"
+      ],
+      "body_plain": "Often, estimates based on matched data is what you want.  Without \nmatching, analyses can be highly 'model dependent', which means that your \nresults can very sensitive to minor specification decisions (which can \nmake the results you choose to present highly suspect).  If the goal is \ncausal inference, preprocessing your data via matching can eliminate much \nof this model dependence.  Have a look at one of the first two papers at \nthis web site on model dependence and the third on matching:\n\n \thttp://gking.harvard.edu/projects/cause.shtml\n\nGary\n\n\nOn Sun, 27 Jan 2008,  wrote:\n\n> Dear Gary,\n\nI have estimated the model using raw data and the preprocessed data\n(using MatchIt), and the results are significantly different (did not\nchange the substantive conclusion though). My question is: for the\npurpose of counterfactual simulation, which set of estimates, the ones\nbased on raw data or the one based on matched data, are preferable,\nand why? It will be most helpful if you can point me to some\nreferences, if they exist. Thank you very much.\n\nBest,\nShige\n\nOn Jan 27, 2008 12:37 AM, Gary  King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n> Yes, that's the idea. Gary\n> ---\n> Sent from my phone; please excuse the terse note.\n> Gary King\n> http://gking.harvard.edu\n>\n>\n>\n> -----Original Message-----\n> From: \"ÿÿÿÿÿÿ\" <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>\n>\n> Date: Sat, 26 Jan 2008 22:47:37\n> To:\"Gary King\" <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org>\n> Cc:zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> Subject: Re: [zelig] Basic question on counterfactual simulation\n>\n>\n> Dear Gary,\n>\n> Let me make sure I get this right. The correct procedure to do the\n> counterfactual prediction consists the following steps:\n>\n> 1) estimation: z.out <- zelig(Y ~ X + T, data = data, model=\"logit\");\n> 2) manipulating the data set, generate a new data set (\"new.data\")\n> with the counterfactual conditions correctly setup;\n> 3) setx using the newly generated data: x.out <- setx(z.out, data=new.data);\n> 4) simulate posterior distribution: s.out <- sim(z.out, x=x.out).\n>\n> Correct?\n>\n> I just realize that SETX has an option to use a different data set,\n> which is very convenient.\n>\n> Thanks.\n>\n> Shige\n>\n> On Jan 26, 2008 9:32 PM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n> >\n> > yes, although of course the 'some operation' would be part of the setx\n> > step.\n> > Gary\n> >\n> >\n> > On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n> >\n> > > Dear Gary:\n> > >\n> > > So it will be something like:\n> > >\n> > > z.out <- zelig(Y ~ X + T, data = data, model=\"logit\")\n> > >>> some operation on the data frame to get the counterfactuals set <<\n> > > x.out <- setx(z.out)\n> > > s.out <- sim(z.out, x=x.out)\n> > >\n> > > Correct?\n> > >\n> > > Thanks.\n> > >\n> > > Best,\n> > > Shige\n> > >\n> > > On Jan 26, 2008 8:59 PM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:\n> > >>\n> > >> this is an interesting substantive question, but it is not answerable by\n> > >> any means precisely how you have proposed it.  you also need to specify\n> > >> WHICH 25% of women had abortions.  you'd get different answers if you\n> > >> chose different groups of 25%.  So just choose the ones you want to flip\n> > >> from 0s to 1s or to set at 0s and 1s, compute your predicted values and\n> > >> you're set.\n> > >> Gary\n> > >>\n> > >>\n> > >> On Sat, 26 Jan 2008, å(R)~Kæ~W¶æ­~L wrote:\n> > >>\n> > >>> Dear Colleagues:\n> > >>>\n> > >>> I am using Zelig to estimate a population model and would like to do\n> > >>> some counterfactual simulation based on the results. Both the\n> > >>> dependent (whether have a newly born boy) and the main independent\n> > >>> variable of interest (whether had a prior abortion) are binary ones.\n> > >>> Zelig can handle questions like: what is the difference in probability\n> > >>> of having a boy between those who had prior abortion and those who had\n> > >>> not. I want to go a step further and ask: give the estimated model, if\n> > >>> 50% of the total women had abortion, what the percentage of boys will\n> > >>> be in all the newly born babies? What if only 25% of the women had\n> > >>> abortion? And what about 75% of women had abortion? etc. Is there an\n> > >>> easy way to do this? Thanks.\n> > >>>\n> > >>> Best,\n> > >>> Shige\n> > >>>\n> > >>> -\n> > >>> Zelig Mailing List, served by Harvard-MIT Data Center\n> > >>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> > >>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> > >>> Zelig program information: http://gking.harvard.edu/zelig/\n> > >>>\n> > >\n> > > -\n> > > Zelig Mailing List, served by Harvard-MIT Data Center\n> > > Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> > > [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> > > Zelig program information: http://gking.harvard.edu/zelig/\n> > >\n>",
+      "body_snippet": "Often, estimates based on matched data is what you want.  Without \nmatching, analyses can be highly 'model dependent', which means that your \nresults can very sensitive to minor specification decision",
+      "thread_id": "thread-4a5a45f2c386",
+      "thread_depth": 7,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-07160a27072f",
+      "message_id": "<E57D48BDE559BD499AF75F1A85F9AC5253CA2C@smmail11.rand.org>",
+      "from_name": "Lim, Nelson",
+      "from_email_hash": "9e7ce64d5d52aef00bea2c3563c51e11d3f5947116644b36c171965f68f66c7f",
+      "date": "2008-01-27T20:50:56Z",
+      "subject": "can we use zelig with survey data?",
+      "subject_clean": "can we use zelig with survey data?",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "I apologize if I am missing something ovious. I am analyzing the Current\nPopulation Survey (CPS) which uses the multi-stage stratified samples. \n\n\n\n__________________________________________________________________________\n\nThis email message is for the sole use of the intended recipient(s) and\nmay contain confidential information. Any unauthorized review, use,\ndisclosure or distribution is prohibited. If you are not the intended\nrecipient, please contact the sender by reply email and destroy all copies\nof the original message.",
+      "body_snippet": "I apologize if I am missing something ovious. I am analyzing the Current\nPopulation Survey (CPS) which uses the multi-stage stratified samples. \n\n\n\n____________________________________________________",
+      "thread_id": "thread-07160a27072f",
+      "thread_depth": 0,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-8a525ca7039b",
+      "message_id": "<Pine.OSX.4.64.0801272058430.7774@pol-w87351t4x8a.princeton.edu>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-01-28T01:58:59Z",
+      "subject": "Re: can we use zelig with survey data?",
+      "subject_clean": "can we use zelig with survey data?",
+      "in_reply_to": "<E57D48BDE559BD499AF75F1A85F9AC5253CA2C@smmail11.rand.org>",
+      "references": [
+        "<E57D48BDE559BD499AF75F1A85F9AC5253CA2C@smmail11.rand.org>"
+      ],
+      "body_plain": "Not yet, but this is on our to-do list!\n\nKosuke\n\n---------------------------------------------------------\nKosuke Imai               Office: Corwin Hall 041\nAssistant Professor       Phone: 609-258-6601\nDepartment of Politics    eFax:  973-556-1929\nPrinceton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org\nPrinceton, NJ 08544-1012  http://imai.princeton.edu/\n---------------------------------------------------------\n\nOn Sun, 27 Jan 2008, Lim, Nelson wrote:\n\n> I apologize if I am missing something ovious. I am analyzing the Current\n> Population Survey (CPS) which uses the multi-stage stratified samples.\n>\n>\n>\n> __________________________________________________________________________\n>\n> This email message is for the sole use of the intended recipient(s) and\n> may contain confidential information. Any unauthorized review, use,\n> disclosure or distribution is prohibited. If you are not the intended\n> recipient, please contact the sender by reply email and destroy all copies\n> of the original message.\n>",
+      "body_snippet": "Not yet, but this is on our to-do list!\n\nKosuke\n\n---------------------------------------------------------\nKosuke Imai               Office: Corwin Hall 041\nAssistant Professor       Phone: 609-258-66",
+      "thread_id": "thread-07160a27072f",
+      "thread_depth": 1,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-a9d43b5d1ac8",
+      "message_id": "<loom.20080129T140236-577@post.gmane.org>",
+      "from_name": "Gregor Gorjanc",
+      "from_email_hash": "21c477eef7f444bfaae5668550c968c3c393e98c276f619a185c89e7589cd692",
+      "date": "2008-01-29T14:23:15Z",
+      "subject": "Re: Predicted values for lm.mixed + patches",
+      "subject_clean": "Predicted values for lm.mixed + patches",
+      "in_reply_to": null,
+      "references": [
+        "<C53BDCB1-7670-4248-9ABB-37977381C90E@wustl.edu>"
+      ],
+      "body_plain": "Hello again!\n\nI was bitten today by Zelig ls.mixed model, since due to the nature \n(collinearity) of my data one coefficient (silently!) drops out from the model\nfit. The dropout is done by lmer(), but Zelig's sim() can not work with such an \nobject.\n\nqi.lmer is using the following code to get the coefficient names:\n\nfTermsNames <- colnames(model.matrix(parsefml$fixed, data = D))\n\nHowever, in my case above code gives one coefficient to many. I believe that\nthe following code is:\n- more generic\n- simpler\n- more efficient as there is no need to set up the model.matrix and fixed \n  effects coefficient names are already in simpar or betas objects availale\n  in qi.lmer.\n\nfTermsNames <- dimnames(betas)[[2]]\n\nAs previously I upload the changed qi.mixed.R to\n\nhttp://gregor.gorjanc.googlepages.com/qi.mixed.R\n\nI tested (R CMD check with 2.6.1) the package with modfified version of \nqi.mixed and there is not problems. Btw. codetools says \"qi.survreg: no \nvisible binding for global variable ‘arr.ind’\".\n\n-----------------------------------------------------------------------------\n\nVery similar code as above is also used for random effects, but I was not able \nto fully understand it and I did not dare to touch it.\n\n\nRegards, Gregor",
+      "body_snippet": "Hello again!\n\nI was bitten today by Zelig ls.mixed model, since due to the nature \n(collinearity) of my data one coefficient (silently!) drops out from the model\nfit. The dropout is done by lmer(), bu",
+      "thread_id": "thread-4a67883518bb",
+      "thread_depth": 1,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-11b786d8af8d",
+      "message_id": "<Pine.OSX.4.64.0801291014580.8865@pol-w87351t4x8a.princeton.edu>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-01-29T15:15:48Z",
+      "subject": "Re: Re: Predicted values for lm.mixed + patches",
+      "subject_clean": "Predicted values for lm.mixed + patches",
+      "in_reply_to": "<loom.20080129T140236-577@post.gmane.org>",
+      "references": [
+        "<C53BDCB1-7670-4248-9ABB-37977381C90E@wustl.edu>",
+        "<loom.20080129T140236-577@post.gmane.org>"
+      ],
+      "body_plain": "Thanks, Gregor. We are going to release a new version soon (hopefully by \nthe end of this week) with your contribution and other improvements. \nThanks for your patience!\n\nKosuke\n\n---------------------------------------------------------\nKosuke Imai               Office: Corwin Hall 041\nAssistant Professor       Phone: 609-258-6601\nDepartment of Politics    eFax:  973-556-1929\nPrinceton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org\nPrinceton, NJ 08544-1012  http://imai.princeton.edu/\n---------------------------------------------------------\n\nOn Tue, 29 Jan 2008, Gregor Gorjanc wrote:\n\n> Hello again!\n>\n> I was bitten today by Zelig ls.mixed model, since due to the nature\n> (collinearity) of my data one coefficient (silently!) drops out from the model\n> fit. The dropout is done by lmer(), but Zelig's sim() can not work with such an\n> object.\n>\n> qi.lmer is using the following code to get the coefficient names:\n>\n> fTermsNames <- colnames(model.matrix(parsefml$fixed, data = D))\n>\n> However, in my case above code gives one coefficient to many. I believe that\n> the following code is:\n> - more generic\n> - simpler\n> - more efficient as there is no need to set up the model.matrix and fixed\n>  effects coefficient names are already in simpar or betas objects availale\n>  in qi.lmer.\n>\n> fTermsNames <- dimnames(betas)[[2]]\n>\n> As previously I upload the changed qi.mixed.R to\n>\n> http://gregor.gorjanc.googlepages.com/qi.mixed.R\n>\n> I tested (R CMD check with 2.6.1) the package with modfified version of\n> qi.mixed and there is not problems. Btw. codetools says \"qi.survreg: no\n> visible binding for global variable ‘arr.ind’\".\n>\n> -----------------------------------------------------------------------------\n>\n> Very similar code as above is also used for random effects, but I was not able\n> to fully understand it and I did not dare to touch it.\n>\n>\n> Regards, Gregor\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "Thanks, Gregor. We are going to release a new version soon (hopefully by \nthe end of this week) with your contribution and other improvements. \nThanks for your patience!\n\nKosuke\n\n---------------------",
+      "thread_id": "thread-4a67883518bb",
+      "thread_depth": 2,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-87e956bc527b",
+      "message_id": "<5abc11d80801310617v45aba209sd0c108ba649ad512@mail.gmail.com>",
+      "from_name": "宋时歌",
+      "from_email_hash": "8296a4f374cf967d97bc14e8219248780a9b2d2757b5824d0f8441000ccb72a7",
+      "date": "2008-01-31T14:17:51Z",
+      "subject": "Problems with memory size and workaround",
+      "subject_clean": "Problems with memory size and workaround",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear Colleagues:\n\nIn the process of simulating the sex ratio at birth using Zelig, I\nencountered a memory problem. Here is my program:\n\n-------------------\nz.out <- zelig(...)\nx.0 <- setx(z.out, abort = 0, fn = NULL)\nx.1 <- setx(z.out, abort = 1, fn = NULL)\ns.out <- sim(z.out, x=x.0, x1=x.1)\nsummary(s.out)\n-------------------\n\nThe first three statements ran fine. But I got error message with the\nfourth statement saying something like \"cannot allocate vector size of\n380 MB\". If I get rid of the \"fn = NULL\" option, the problem goes\naway. is this because my data is too big? I am running Ubuntu linux on\na core2duo laptop with 2 GB of memory. My data file contains about\n50,000 observations.\n\nThe workaround (other than buying a new computer with 64-bit\nprocessor) is draw a random sample from the data file and do the\ncounterfactual simulation on that smaller data, something like:\n\n------------------------\nz.out <- zelig(...)\n\nsd <- d[sample(1:nrow(d), 2000, replace = F),]\n\nx.0 <- setx(z.out, abort = 0, fn = NULL, data=sd)\nx.1 <- setx(z.out, abort = 1, fn = NULL, data=sd)\ns.out <- sim(z.out, x=x.0, x1=x.1)\nsummary(s.out)\n-----------------------\n\nIs this a viable option? Are there other options?\n\nThanks.\n\nBest,\nShige",
+      "body_snippet": "Dear Colleagues:\n\nIn the process of simulating the sex ratio at birth using Zelig, I\nencountered a memory problem. Here is my program:\n\n-------------------\nz.out <- zelig(...)\nx.0 <- setx(z.out, abort",
+      "thread_id": "thread-87e956bc527b",
+      "thread_depth": 0,
+      "month": "2008-01"
+    },
+    {
+      "id": "msg-304024f949f2",
+      "message_id": "<Pine.OSX.4.64.0801311013140.10417@pol-w87351t4x8a.princeton.edu>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-01-31T15:14:14Z",
+      "subject": "Re: Problems with memory size and workaround",
+      "subject_clean": "Problems with memory size and workaround",
+      "in_reply_to": "<5abc11d80801310617v45aba209sd0c108ba649ad512@mail.gmail.com>",
+      "references": [
+        "<5abc11d80801310617v45aba209sd0c108ba649ad512@mail.gmail.com>"
+      ],
+      "body_plain": "This is an R question (there is a little FAQ in the Zelig manual but I \nthink it's for Windows users) and so I would look at the R manual. If it's \nnot there, you could perhaps consult the R help list.\n\nGood luck,\nKosuke\n\nOn Thu, 31 Jan 2008, ��� wrote:\n\n> Dear Colleagues:\n>\n> In the process of simulating the sex ratio at birth using Zelig, I\n> encountered a memory problem. Here is my program:\n>\n> -------------------\n> z.out <- zelig(...)\n> x.0 <- setx(z.out, abort = 0, fn = NULL)\n> x.1 <- setx(z.out, abort = 1, fn = NULL)\n> s.out <- sim(z.out, x=x.0, x1=x.1)\n> summary(s.out)\n> -------------------\n>\n> The first three statements ran fine. But I got error message with the\n> fourth statement saying something like \"cannot allocate vector size of\n> 380 MB\". If I get rid of the \"fn = NULL\" option, the problem goes\n> away. is this because my data is too big? I am running Ubuntu linux on\n> a core2duo laptop with 2 GB of memory. My data file contains about\n> 50,000 observations.\n>\n> The workaround (other than buying a new computer with 64-bit\n> processor) is draw a random sample from the data file and do the\n> counterfactual simulation on that smaller data, something like:\n>\n> ------------------------\n> z.out <- zelig(...)\n>\n> sd <- d[sample(1:nrow(d), 2000, replace = F),]\n>\n> x.0 <- setx(z.out, abort = 0, fn = NULL, data=sd)\n> x.1 <- setx(z.out, abort = 1, fn = NULL, data=sd)\n> s.out <- sim(z.out, x=x.0, x1=x.1)\n> summary(s.out)\n> -----------------------\n>\n> Is this a viable option? Are there other options?\n>\n> Thanks.\n>\n> Best,\n> Shige\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "This is an R question (there is a little FAQ in the Zelig manual but I \nthink it's for Windows users) and so I would look at the R manual. If it's \nnot there, you could perhaps consult the R help list",
+      "thread_id": "thread-87e956bc527b",
+      "thread_depth": 1,
+      "month": "2008-01"
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-f92240e25466",
+      "subject": "Predicted values for lm.mixed",
+      "message_count": 3,
+      "participants": [
+        "Gregor Gorjanc"
+      ],
+      "started": "2008-01-06T15:44:33Z",
+      "last_reply": "2008-01-08T18:03:25Z",
+      "root_message_id": "msg-f92240e25466"
+    },
+    {
+      "id": "thread-4a67883518bb",
+      "subject": "Predicted values for lm.mixed + patches",
+      "message_count": 3,
+      "participants": [
+        "Delia Bailey",
+        "Gregor Gorjanc",
+        "Kosuke Imai"
+      ],
+      "started": "2008-01-08T22:27:09Z",
+      "last_reply": "2008-01-29T15:15:48Z",
+      "root_message_id": "msg-4a67883518bb"
+    },
+    {
+      "id": "thread-e1a98f8d727c",
+      "subject": "Add *.mixed models to plot.ci",
+      "message_count": 4,
+      "participants": [
+        "Gorjanc Gregor",
+        "Gregor Gorjanc",
+        "Olivia Lau",
+        "宋时歌"
+      ],
+      "started": "2008-01-12T20:51:20Z",
+      "last_reply": "2008-01-14T20:17:05Z",
+      "root_message_id": "msg-e1a98f8d727c"
+    },
+    {
+      "id": "thread-412b2e50b05e",
+      "subject": "predicted probabilities with zelig and imputed data",
+      "message_count": 2,
+      "participants": [
+        "Amber Wichowsky",
+        "Kosuke Imai"
+      ],
+      "started": "2008-01-24T23:03:35Z",
+      "last_reply": "2008-01-25T02:35:53Z",
+      "root_message_id": "msg-412b2e50b05e"
+    },
+    {
+      "id": "thread-4a5a45f2c386",
+      "subject": "Basic question on counterfactual simulation",
+      "message_count": 8,
+      "participants": [
+        "Gary King",
+        "宋时歌"
+      ],
+      "started": "2008-01-26T12:53:36Z",
+      "last_reply": "2008-01-27T17:47:10Z",
+      "root_message_id": "msg-4a5a45f2c386"
+    },
+    {
+      "id": "thread-07160a27072f",
+      "subject": "can we use zelig with survey data?",
+      "message_count": 2,
+      "participants": [
+        "Kosuke Imai",
+        "Lim, Nelson"
+      ],
+      "started": "2008-01-27T20:50:56Z",
+      "last_reply": "2008-01-28T01:58:59Z",
+      "root_message_id": "msg-07160a27072f"
+    },
+    {
+      "id": "thread-87e956bc527b",
+      "subject": "Problems with memory size and workaround",
+      "message_count": 2,
+      "participants": [
+        "Kosuke Imai",
+        "宋时歌"
+      ],
+      "started": "2008-01-31T14:17:51Z",
+      "last_reply": "2008-01-31T15:14:14Z",
+      "root_message_id": "msg-87e956bc527b"
+    }
+  ]
+}

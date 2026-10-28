@@ -1,0 +1,1094 @@
+From dng-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org  Thu Sep  6 19:46:41 2012
+From: dng-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org (Derek Ng)
+Date: Thu, 06 Sep 2012 19:46:41 +0000
+Subject: graphical displays of weighted matched units
+Message-ID: <loom.20120906T213504-492@post.gmane.org>
+
+I would like to replicate the scaling factor of the dots in the matchit jitter 
+plot for data points that are weighted for a modified graph.  
+
+I am estimating the ATT, so all treated subjects are equal to cex=1. 
+In the documentation, it says "the size of each point is proportional to the 
+weight given to that unit".  
+
+Is the cex function the appropriate way to scale the size of each 
+point? 
+
+For example, if a control subject is matched with a weight of 2.2, would 
+that mean the appropriate point size is cex=2.2?  Similarly, if the control 
+subject weight is 0.25, then the cex=0.25?  
+
+When I do this, it does not seem to be the same scaling factor as the MatchIt 
+jitter plot (the larger points look too big and the smaller points look too 
+small). I also could not find the source code that generates the standardized 
+jitter plot (is that available?).  
+
+Any help is very appreciated.
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org  Mon Sep 10 01:00:28 2012
+From: estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org (Stuart, Elizabeth A.)
+Date: Sun, 09 Sep 2012 21:00:28 -0400
+Subject: Re: graphical displays of weighted matched units
+In-Reply-To: <loom.20120906T213504-492@post.gmane.org>
+References: <loom.20120906T213504-492@post.gmane.org>
+Message-ID: <CC72B3EC.2B842%estuart@jhsph.edu>
+
+Hi Derek,
+Here is some code that I had modified (from the original matchit code) to do a weighted jitter plot.
+
+Liz
+
+library(MatchIt)
+data(lalonde)
+
+m.out <- matchit(treat ~ re74 + re75 + age + educ + married + hispan + black + nodegree,
+                data=lalonde, method="subclass")
+m.data <- match.data(m.out)
+
+# ATE weights
+pdf("WeightsIPTW.pdf")
+m.data$weights.iptw <- ifelse(m.data$treat==1, 1/m.data$distance, 1/(1-m.data$distance))
+
+weights <- m.data$weights.iptw
+matched <- weights!=0
+pscore <- m.data$distance
+treat <- m.data$treat
+
+  jitp <- jitter(rep(1,length(treat)),factor=6)+(treat==1)*(weights==0)-(treat==0)-(weights==0)*(treat==0)
+ cwt <- sqrt(weights)
+ minp <- min(pscore,na.rm=T)
+ maxp <- max(pscore,na.rm=T)
+ plot(pscore,xlim=c(minp,maxp+0.1*(maxp-minp)),ylim=c(-1.5,2.5),
+      type="n",ylab="",xlab="Propensity Score",
+      axes=F,main="Distribution of Propensity Scores")
+ points(pscore[treat==1&weights!=0],jitp[treat==1&weights!=0],
+        pch=18,cex=cwt[treat==1&weights!=0])
+ points(pscore[treat==1&weights==0],jitp[treat==1&weights==0],
+        pch=5,col="grey",cex=0.5)
+ points(pscore[treat==0&weights!=0],jitp[treat==0&weights!=0],
+        pch=18,cex=cwt[treat==0&weights!=0])
+ points(pscore[treat==0&weights==0],jitp[treat==0&weights==0],
+        pch=5,col="grey",cex=0.5)
+ axis(1)
+ text(sum(range(na.omit(pscore)))/2,2.5,"Unmatched Treatment Units")
+ text(sum(range(na.omit(pscore)))/2,1.5,"Matched Treatment Units")
+ text(sum(range(na.omit(pscore)))/2,0.5,"Matched Control Units")
+ text(sum(range(na.omit(pscore)))/2,-0.5,"Unmatched Control Units")
+ box()
+dev.off()
+
+pdf("WeightsOdds.pdf")
+m.data$weights.odds <- ifelse(m.data$treat==1, 1, m.data$distance/(1-m.data$distance))
+
+weights <- m.data$weights.odds
+matched <- weights!=0
+pscore <- m.data$distance
+treat <- m.data$treat
+
+jitp <- jitter(rep(1,length(treat)),factor=6)+(treat==1)*(weights==0)-(treat==0)-(weights==0)*(treat==0)
+cwt <- sqrt(weights)
+minp <- min(pscore,na.rm=T)
+maxp <- max(pscore,na.rm=T)
+plot(pscore,xlim=c(minp,maxp+0.1*(maxp-minp)),ylim=c(-1.5,2.5),
+    type="n",ylab="",xlab="Propensity Score",
+    axes=F,main="Distribution of Propensity Scores")
+points(pscore[treat==1&weights!=0],jitp[treat==1&weights!=0],
+      pch=18,cex=cwt[treat==1&weights!=0])
+points(pscore[treat==1&weights==0],jitp[treat==1&weights==0],
+      pch=5,col="grey",cex=0.5)
+points(pscore[treat==0&weights!=0],jitp[treat==0&weights!=0],
+      pch=18,cex=cwt[treat==0&weights!=0])
+points(pscore[treat==0&weights==0],jitp[treat==0&weights==0],
+      pch=5,col="grey",cex=0.5)
+axis(1)
+text(sum(range(na.omit(pscore)))/2,2.5,"Unmatched Treatment Units")
+text(sum(range(na.omit(pscore)))/2,1.5,"Matched Treatment Units")
+text(sum(range(na.omit(pscore)))/2,0.5,"Matched Control Units")
+text(sum(range(na.omit(pscore)))/2,-0.5,"Unmatched Control Units")
+box()
+dev.off()
+
+
+
+
+On 9/6/12 3:46 PM, "Derek Ng" <dng-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org> wrote:
+
+I would like to replicate the scaling factor of the dots in the matchit jitter
+plot for data points that are weighted for a modified graph.
+
+I am estimating the ATT, so all treated subjects are equal to cex=1.
+In the documentation, it says "the size of each point is proportional to the
+weight given to that unit".
+
+Is the cex function the appropriate way to scale the size of each
+point?
+
+For example, if a control subject is matched with a weight of 2.2, would
+that mean the appropriate point size is cex=2.2?  Similarly, if the control
+subject weight is 0.25, then the cex=0.25?
+
+When I do this, it does not seem to be the same scaling factor as the MatchIt
+jitter plot (the larger points look too big and the smaller points look too
+small). I also could not find the source code that generates the standardized
+jitter plot (is that available?).
+
+Any help is very appreciated.
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Sat Sep 15 01:18:05 2012
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Fri, 14 Sep 2012 21:18:05 -0400
+Subject: Re: MatchIt Question
+In-Reply-To: <BE59899B04C9CB4A801945AE6921EE762C54F3AF@EXCHANGE01.MCREL2000.mcrel.org>
+References: <BE59899B04C9CB4A801945AE6921EE762C54F3AF@EXCHANGE01.MCREL2000.mcrel.org>
+Message-ID: <F5D0E0C9-0E97-4355-8BF9-36F811BA812C@Princeton.Edu>
+
+Yes, you can do nearest neighbor matching with exact restrictions.  The option is called "exact": see http://gking.harvard.edu/node/4355/rbuild_documentation/Additional_Arguments_f3.html  For optimal matching, you would have to tweak the inputs to outmatch package by Ben Hansen.  I'm not sure how exactly you would do that, but if you figured it out, then you can pass those arguments through matchit() function.
+
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Sep 14, 2012, at 5:22 PM, Joshua Stewart wrote:
+
+> Kosuke Imai,
+>  
+> I am writing in regard to a question I have with your MatchIt R program. Currently I am trying to analyze a data set with continuous and categorical data. We have achievement score of students, race, school ID, free and reduced lunch status and treatment or control status. My question relates to whether or not it is possible to perform an exact match on categorical data such as race, while at the same time run and optimal or nearest neighbor match on achievement scores. Thank you very much for your time.
+>  
+> Regards,
+>  
+> Joshua Stewart
+> Researcher
+> Mid-continent Research for Education and Learning (McREL)
+> 4601 DTC Blvd, Office 480
+> Denver, CO 80120
+> 303.632.5508
+> www.mcrel.org
+>  
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org  Sun Sep 16 19:51:16 2012
+From: annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org (Ana Kolar)
+Date: Sun, 16 Sep 2012 12:51:16 -0700
+Subject: Matching with true propensity score
+In-Reply-To: <mailman.1.1347724801.13184.matchit@lists.gking.harvard.edu>
+References: <mailman.1.1347724801.13184.matchit@lists.gking.harvard.edu>
+Message-ID: <1347825076.26973.YahooMailNeo@web140006.mail.bf1.yahoo.com>
+
+Hi there,
+
+I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not carefully enough) but couldn't find my answers there.
+
+I'm looking forward to hearing from you soon!
+
+Ana
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Mon Sep 17 00:19:18 2012
+From: kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Kosuke Imai)
+Date: Sun, 16 Sep 2012 20:19:18 -0400
+Subject: Re: Matching with true propensity score
+In-Reply-To: <1347825076.26973.YahooMailNeo@web140006.mail.bf1.yahoo.com>
+References: <mailman.1.1347724801.13184.matchit@lists.gking.harvard.edu> <1347825076.26973.YahooMailNeo@web140006.mail.bf1.yahoo.com>
+Message-ID: <885C71D0-F005-49AE-BC09-AA2CC01F93C4@Princeton.Edu>
+
+Hi Ana,
+
+ You can use your own distance matrix (including the true propensity score in a simulation study) in MatchIt: http://gking.harvard.edu/node/4355/rbuild_documentation/How_Do_I3.html
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Sep 16, 2012, at 3:51 PM, Ana Kolar wrote:
+
+> Hi there,
+> 
+> I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not carefully enough) but couldn't find my answers there.
+> 
+> I'm looking forward to hearing from you soon!
+> 
+> Ana
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org  Mon Sep 17 00:35:29 2012
+From: estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org (Stuart, Elizabeth A.)
+Date: Sun, 16 Sep 2012 20:35:29 -0400
+Subject: Re: Matching with true propensity score
+In-Reply-To: <885C71D0-F005-49AE-BC09-AA2CC01F93C4@Princeton.Edu>
+References: <885C71D0-F005-49AE-BC09-AA2CC01F93C4@Princeton.Edu>
+Message-ID: <CC7BE891.2BAE0%estuart@jhsph.edu>
+
+Hi Ana,
+Yes, I have often sent MatchIt my own propensity score, using the code Kosuke is referring you to below.
+
+As for the Mahalanobis distance, you can either match on the Mahalanobis distance of all of the variables you list in the propensity score formula (so then it isn't really a propensity score; the formula is just the way of sending the variable names) by just saying distance="mahalanobis"  ( http://gking.harvard.edu/node/4355/rbuild_documentation/Additional_Arguments_f.html).
+
+If you want to do a Mahalanobis match on a few variables within propensity score calipers you can also do that, by specifying your normal propensity score model in the formula and then adding the mahvars=c("x1", "x2") option ( http://gking.harvard.edu/node/4355/rbuild_documentation/Additional_Arguments_f3.html).
+
+Thanks,
+Liz
+
+
+On 9/16/12 8:19 PM, "Kosuke Imai" <kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org> wrote:
+
+Hi Ana,
+
+ You can use your own distance matrix (including the true propensity score in a simulation study) in MatchIt: http://gking.harvard.edu/node/4355/rbuild_documentation/How_Do_I3.html
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Sep 16, 2012, at 3:51 PM, Ana Kolar wrote:
+
+> Hi there,
+>
+> I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not carefully enough) but couldn't find my answers there.
+>
+> I'm looking forward to hearing from you soon!
+>
+> Ana
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org  Tue Sep 18 14:11:17 2012
+From: annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org (Ana Kolar)
+Date: Tue, 18 Sep 2012 07:11:17 -0700
+Subject: Re: Matching with true propensity score
+In-Reply-To: <885C71D0-F005-49AE-BC09-AA2CC01F93C4@Princeton.Edu>
+References: <mailman.1.1347724801.13184.matchit@lists.gking.harvard.edu> <1347825076.26973.YahooMailNeo@web140006.mail.bf1.yahoo.com> <885C71D0-F005-49AE-BC09-AA2CC01F93C4@Princeton.Edu>
+Message-ID: <1347977477.68272.YahooMailNeo@web140005.mail.bf1.yahoo.com>
+
+Hi Kosuke,
+
+If I understand this correctly, by using my own distance matrix (ps.true) the function should look something like that:
+m.out.base <- matchit(formula, data, method, distance.options = list(ps.true))
+
+So, I have to specify the formula for estimating PS although I'm using then the true PS for matching which I specify in the distance.options=list(ps.true)? Does this mean that when I specify distance.option argument, the program doesn't estimate PS although the formula for it has to be provided?
+
+The thing is that I've tried two ways:
+(i) distance.options=ps.true (where ps.true object is already a list
+(ii) distance.options=list(ps.true) (where ps.true object is a vector)
+
+In none of these trials things worked out so I'm wondering where I might get it wrong. Your help will be greatly appreciated!
+
+Best wishes,
+
+Ana
+
+
+
+
+
+>________________________________
+> From: Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>
+>To: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> 
+>Cc: "matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org> 
+>Sent: Monday, 17 September 2012, 2:19
+>Subject: Re: [matchit] Matching with true propensity score
+> 
+>Hi Ana,
+>
+>You can use your own distance matrix (including the true propensity score in a simulation study) in MatchIt: http://gking.harvard.edu/node/4355/rbuild_documentation/How_Do_I3.html
+>
+>Best,
+>Kosuke
+>
+>Department of Politics
+>Princeton University
+>http://imai.princeton.edu
+>
+>On Sep 16, 2012, at 3:51 PM, Ana Kolar wrote:
+>
+>> Hi there,
+>> 
+>> I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not carefully enough) but couldn't find my answers there.
+>> 
+>> I'm looking forward to hearing from you soon!
+>> 
+>> Ana
+>> -
+>> ---
+>> MatchIt mailing list served by HUIT
+>> List Address: matchit-boHuZhbfW+af0DUV/oxz1A at public.gmane.orgg.harvard.edu
+>> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+>> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+>> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+>> Matchit mailing list
+>> Matchit at lists.gking.harvard.edu
+>> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+>
+>
+>
+>
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org  Tue Sep 18 14:32:07 2012
+From: annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org (Ana Kolar)
+Date: Tue, 18 Sep 2012 07:32:07 -0700
+Subject: Re: Matching with true propensity score
+In-Reply-To: <1347977477.68272.YahooMailNeo@web140005.mail.bf1.yahoo.com>
+References: <mailman.1.1347724801.13184.matchit@lists.gking.harvard.edu> <1347825076.26973.YahooMailNeo@web140006.mail.bf1.yahoo.com> <885C71D0-F005-49AE-BC09-AA2CC01F93C4@Princeton.Edu> <1347977477.68272.YahooMailNeo@web140005.mail.bf1.yahoo.com>
+Message-ID: <1347978727.64378.YahooMailNeo@web140003.mail.bf1.yahoo.com>
+
+Perhaps I got it wrong with the distance.options argument. I looked at your documentation one more time and I guess I should use the argument distance and specify a vector object to this argument, i.e., distance=ps.true where ps.true is a vector BUT unfortunately this doesn't work either.
+
+Looking forward to hearing from you!
+
+Best wishes,
+
+Ana
+
+
+
+
+>________________________________
+> From: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org>
+>To: Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org> 
+>Cc: "matchit-boHuZhbfW+Y6DHxCPSz5rA at public.gmane.orgard.edu" <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org> 
+>Sent: Tuesday, 18 September 2012, 16:11
+>Subject: Re: [matchit] Matching with true propensity score
+> 
+>
+>Hi Kosuke,
+>
+>If I understand this correctly, by using my own distance matrix (ps.true) the function should look something like that:
+>m.out.base <- matchit(formula, data, method, distance.options = list(ps.true))
+>
+>So, I have to specify the formula for estimating PS although I'm using then the true PS for matching which I specify in the distance.options=list(ps.true)? Does this mean that when I specify distance.option argument, the program doesn't estimate PS although the formula for it has to be provided?
+>
+>The thing is that I've tried two ways:
+>(i) distance.options=ps.true (where ps.true object is already a list
+>(ii) distance.options=list(ps.true) (where ps.true object is a vector)
+>
+>In none of these trials things worked out so I'm wondering where I might get it wrong. Your help will be greatly
+ appreciated!
+>
+>Best wishes,
+>
+>Ana
+>
+>
+>
+>
+>
+>>________________________________
+>> From: Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>
+>>To: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> 
+>>Cc: "matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org> 
+>>Sent: Monday, 17 September 2012, 2:19
+>>Subject: Re: [matchit] Matching with true propensity score
+>> 
+>>Hi Ana,
+>>
+>>You can use your
+ own distance matrix (including the true propensity score in a simulation study) in MatchIt: http://gking.harvard.edu/node/4355/rbuild_documentation/How_Do_I3.html
+>>
+>>Best,
+>>Kosuke
+>>
+>>Department of Politics
+>>Princeton University
+>>http://imai.princeton.edu
+>>
+>>On Sep 16, 2012, at 3:51 PM, Ana Kolar wrote:
+>>
+>>> Hi there,
+>>> 
+>>> I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not
+ carefully enough) but couldn't find my answers there.
+>>> 
+>>> I'm looking forward to hearing from you soon!
+>>> 
+>>> Ana
+>>> -
+>>> ---
+>>> MatchIt mailing list served by HUIT
+>>> List Address: matchit-boHuZhbfW+af0DUV/oxz1A at public.gmane.orgg.harvard.edu
+>>> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+>>> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+>>> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+>>> Matchit mailing list
+>>> Matchit at lists.gking.harvard.edu
+>>> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+>>
+>>
+>>
+>>
+>
+>
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org  Tue Sep 18 14:32:06 2012
+From: estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org (Stuart, Elizabeth A.)
+Date: Tue, 18 Sep 2012 10:32:06 -0400
+Subject: Re: Matching with true propensity score
+In-Reply-To: <1347977477.68272.YahooMailNeo@web140005.mail.bf1.yahoo.com>
+References: <1347977477.68272.YahooMailNeo@web140005.mail.bf1.yahoo.com>
+Message-ID: <CC7DFE26.2BBA4%estuart@jhsph.edu>
+
+Hi Ana,
+I have sent MatchIt my own propensity score using code like:
+
+m.out.gbm.att <- matchit(treat ~ age + educ + black + hispan + married + re74 + re75, data=lalonde, distance=lalonde$pscore)
+
+(Where in this case "pscore" in the lalonde dataset is the propensity score values I had estimated myself).  Note that it is the distance option, not the distance.options option...
+
+And yes, you have to specify the formula still, so matchit know what variables on which to calculate balance, but it doesn't actually estimate the propensity score using that formula; it uses the propensity scores you send it in the distance option.
+
+One minor note is that in your email below you mention a "distance matrix" but really matchit will just take a distance vector (one propensity score for each person).  If you have a distance matrix you may want to look at using some of Ben Hansen's optmatch functions, which take a distance matrix.
+
+Liz
+
+
+On 9/18/12 10:11 AM, "Ana Kolar" <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> wrote:
+
+Hi Kosuke,
+
+If I understand this correctly, by using my own distance matrix (ps.true) the function should look something like that:
+m.out.base <- matchit(formula, data, method, distance.options = list(ps.true))
+
+So, I have to specify the formula for estimating PS although I'm using then the true PS for matching which I specify in the distance.options=list(ps.true)? Does this mean that when I specify distance.option argument, the program doesn't estimate PS although the formula for it has to be provided?
+
+The thing is that I've tried two ways:
+(i) distance.options=ps.true (where ps.true object is already a list
+(ii) distance.options=list(ps.true) (where ps.true object is a vector)
+
+In none of these trials things worked out so I'm wondering where I might get it wrong. Your help will be greatly appreciated!
+
+Best wishes,
+
+Ana
+
+
+
+
+
+
+________________________________
+ From: Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>
+ To: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org>
+Cc: "matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+ Sent: Monday, 17 September 2012, 2:19
+ Subject: Re: [matchit] Matching with true propensity score
+
+
+Hi Ana,
+
+ You can use your own distance matrix (including the true propensity score in a simulation study) in MatchIt: http://gking.harvard.edu/node/4355/rbuild_documentation/How_Do_I3.html
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu <http://imai.princeton.edu/>
+
+On Sep 16, 2012, at 3:51 PM, Ana Kolar wrote:
+
+> Hi there,
+>
+> I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not carefully enough) but couldn't find my answers there.
+>
+> I'm looking forward to hearing from you soon!
+>
+> Ana
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org  Tue Sep 18 15:05:25 2012
+From: annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org (Ana Kolar)
+Date: Tue, 18 Sep 2012 08:05:25 -0700
+Subject: Re: Matching with true propensity score
+In-Reply-To: <CC7DFE26.2BBA4%estuart@jhsph.edu>
+References: <1347977477.68272.YahooMailNeo@web140005.mail.bf1.yahoo.com> <CC7DFE26.2BBA4%estuart@jhsph.edu>
+Message-ID: <1347980725.13029.YahooMailNeo@web140003.mail.bf1.yahoo.com>
+
+Hi Liz,
+
+Thank you for prompt responses! So, I followed your advice and got matched data by using the following command: matchit(formula, data, distance = ps.tp) where ps.tp is a vector subtracted from a data-frame object - I guess the same form as in your case. However, I got the following warning message:
+
+Warning message:
+In if (distance %in% c("GAMlogit", "GAMprobit", "GAMcloglog", "GAMlog",  :
+  the condition has length > 1 and only the first element will be used
+
+Not quite sure what the message exactly means in this context - any ideas?
+
+Many thanks!
+
+Ana
+
+
+
+
+
+>________________________________
+> From: "Stuart, Elizabeth A." <estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org>
+>To: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org>; Kosuke Imai <kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org> 
+>Cc: MatchIt <matchit-boHuZhbfW+Y6DHxCPSz5rKkm5W21vHkk at public.gmane.orgd.edu> 
+>Sent: Tuesday, 18 September 2012, 16:32
+>Subject: Re: [matchit] Matching with true propensity score
+> 
+>
+>Re: [matchit] Matching with true propensity score 
+>Hi Ana,
+>I have sent MatchIt my own propensity score using code like:
+>
+>m.out.gbm.att <- matchit(treat ~ age + educ + black + hispan + married + re74 + re75, data=lalonde, distance=lalonde$pscore)
+>
+>(Where in this case “pscore” in the lalonde dataset is the propensity score values I had estimated myself).  Note that it is the distance option, not the distance.options option...  
+>
+>And yes, you have to specify the formula still, so matchit know what variables on which to calculate balance, but it doesn’t actually estimate the propensity score using that formula; it uses the propensity scores you send it in the distance option.  
+>
+>One minor note is that in your email below you mention a “distance matrix” but really matchit will just take a distance vector (one propensity score for each person).  If you have a distance matrix you may want to look at using some of Ben Hansen’s optmatch functions, which take a distance matrix.  
+>
+>Liz
+>
+>
+>On 9/18/12 10:11 AM, "Ana Kolar" <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> wrote:
+>
+>
+>Hi Kosuke,
+>>
+>>If I understand this correctly, by using my own distance matrix (ps.true) the function should look something like that:
+>>m.out.base <- matchit(formula, data, method, distance.options = list(ps.true))
+>>
+>>So, I have to specify the formula for estimating PS although I'm using then the true PS for matching which I specify in the distance.options=list(ps.true)? Does this mean that when I specify distance.option argument, the program doesn't estimate PS although the formula for it has to be provided?
+>>
+>>The thing is that I've tried two ways:
+>>(i) distance.options=ps.true (where ps.true object is already a list
+>>(ii) distance.options=list(ps.true) (where ps.true object is a vector)
+>>
+>>In none of these trials things worked out so I'm wondering where I might get it wrong. Your help will be greatly appreciated!
+>>
+>>Best wishes,
+>>
+>>Ana
+>>
+>>
+>>
+>> 
+>>> 
+>>>
+>>> 
+>>>>>>________________________________
+>>>  From:Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>
+>>> To: Ana Kolar <annakolar at yahoo.com> 
+>>>Cc: "matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <matchit-boHuZhbfW+bZHoLOdjMb2Q at public.gmane.org.harvard.edu> 
+>>> Sent: Monday, 17 September 2012, 2:19
+>>> Subject: Re: [matchit] Matching with true propensity score
+>>> 
+>>> 
+>>>Hi Ana,
+>>>
+>>> You can use your own distance matrix (including the true propensity score in a simulation study) in MatchIt: http://gking.harvard.edu/node/4355/rbuild_documentation/How_Do_I3.html
+>>>
+>>>Best,
+>>>Kosuke
+>>>
+>>>Department of Politics
+>>>Princeton University
+>>>http://imai.princeton.edu <http://imai.princeton.edu/> 
+>>>
+>>>On Sep 16, 2012, at 3:51 PM, Ana Kolar wrote:
+>>>
+>>>> Hi there,
+>>>> 
+>>>> I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not carefully enough) but couldn't find my answers there.
+>>>> 
+>>>> I'm looking forward to hearing from you soon!
+>>>> 
+>>>> Ana
+>>>> -
+>>>> ---
+>>>> MatchIt mailing list served by HUIT
+>>>> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>>> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+>>>> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+>>>> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+>>>> Matchit mailing list
+>>>> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>>> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+>>>
+>>>
+>>>
+>>> 
+>>>
+>>> 
+>>>  
+>>
+>>
+>
+>
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org  Tue Sep 18 15:11:50 2012
+From: estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org (Stuart, Elizabeth A.)
+Date: Tue, 18 Sep 2012 11:11:50 -0400
+Subject: Re: Matching with true propensity score
+In-Reply-To: <1347980725.13029.YahooMailNeo@web140003.mail.bf1.yahoo.com>
+References: <1347980725.13029.YahooMailNeo@web140003.mail.bf1.yahoo.com>
+Message-ID: <CC7E0776.2BBB5%estuart@jhsph.edu>
+
+Oh, sorry; you can ignore that warning.  It is just a glitch in that we have that warning print out but didn't take into account this situation where someone is sending matchit a vector of propensity scores.   We should probably fix that.
+
+Liz
+
+
+On 9/18/12 11:05 AM, "Ana Kolar" <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> wrote:
+
+Hi Liz,
+
+Thank you for prompt responses! So, I followed your advice and got matched data by using the following command: matchit(formula, data, distance = ps.tp) where ps.tp is a vector subtracted from a data-frame object - I guess the same form as in your case. However, I got the following warning message:
+
+Warning message:
+In if (distance %in% c("GAMlogit", "GAMprobit", "GAMcloglog", "GAMlog",  :
+  the condition has length > 1 and only the first element will be used
+
+Not quite sure what the message exactly means in this context - any ideas?
+
+Many thanks!
+
+Ana
+
+
+
+
+
+
+________________________________
+ From: "Stuart, Elizabeth A." <estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org>
+ To: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org>; Kosuke Imai <kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org>
+Cc: MatchIt <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+ Sent: Tuesday, 18 September 2012, 16:32
+ Subject: Re: [matchit] Matching with true propensity score
+
+
+Re: [matchit] Matching with true propensity score
+Hi Ana,
+I have sent MatchIt my own propensity score using code like:
+
+m.out.gbm.att <- matchit(treat ~ age + educ + black + hispan + married + re74 + re75, data=lalonde, distance=lalonde$pscore)
+
+(Where in this case "pscore" in the lalonde dataset is the propensity score values I had estimated myself).  Note that it is the distance option, not the distance.options option...
+
+And yes, you have to specify the formula still, so matchit know what variables on which to calculate balance, but it doesn't actually estimate the propensity score using that formula; it uses the propensity scores you send it in the distance option.
+
+One minor note is that in your email below you mention a "distance matrix" but really matchit will just take a distance vector (one propensity score for each person).  If you have a distance matrix you may want to look at using some of Ben Hansen's optmatch functions, which take a distance matrix.
+
+Liz
+
+
+On 9/18/12 10:11 AM, "Ana Kolar" <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> wrote:
+
+Hi Kosuke,
+
+If I understand this correctly, by using my own distance matrix (ps.true) the function should look something like that:
+m.out.base <- matchit(formula, data, method, distance.options = list(ps.true))
+
+So, I have to specify the formula for estimating PS although I'm using then the true PS for matching which I specify in the distance.options=list(ps.true)? Does this mean that when I specify distance.option argument, the program doesn't estimate PS although the formula for it has to be provided?
+
+The thing is that I've tried two ways:
+(i) distance.options=ps.true (where ps.true object is already a list
+(ii) distance.options=list(ps.true) (where ps.true object is a vector)
+
+In none of these trials things worked out so I'm wondering where I might get it wrong. Your help will be greatly appreciated!
+
+Best wishes,
+
+Ana
+
+
+
+
+
+
+________________________________
+ From: Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>
+ To: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org>
+Cc: "matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+ Sent: Monday, 17 September 2012, 2:19
+ Subject: Re: [matchit] Matching with true propensity score
+
+
+Hi Ana,
+
+ You can use your own distance matrix (including the true propensity score in a simulation study) in MatchIt: http://gking.harvard.edu/node/4355/rbuild_documentation/How_Do_I3.html
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu <http://imai.princeton.edu/>  <http://imai.princeton.edu/>
+
+On Sep 16, 2012, at 3:51 PM, Ana Kolar wrote:
+
+> Hi there,
+>
+> I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not carefully enough) but couldn't find my answers there.
+>
+> I'm looking forward to hearing from you soon!
+>
+> Ana
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org  Tue Sep 18 15:17:34 2012
+From: annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org (Ana Kolar)
+Date: Tue, 18 Sep 2012 08:17:34 -0700
+Subject: Re: Matching with true propensity score
+In-Reply-To: <CC7E0776.2BBB5%estuart@jhsph.edu>
+References: <1347980725.13029.YahooMailNeo@web140003.mail.bf1.yahoo.com> <CC7E0776.2BBB5%estuart@jhsph.edu>
+Message-ID: <1347981454.55542.YahooMailNeo@web140004.mail.bf1.yahoo.com>
+
+Thank you for your support! Have a lovely day!
+
+Ana
+
+
+
+
+
+>________________________________
+> From: "Stuart, Elizabeth A." <estuart at jhsph.edu>
+>To: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org>; Kosuke Imai <kimai at Princeton.Edu> 
+>Cc: MatchIt <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org> 
+>Sent: Tuesday, 18 September 2012, 17:11
+>Subject: Re: [matchit] Matching with true propensity score
+> 
+>
+>Re: [matchit] Matching with true propensity score 
+>Oh, sorry; you can ignore that warning.  It is just a glitch in that we have that warning print out but didn’t take into account this situation where someone is sending matchit a vector of propensity scores.   We should probably fix that.  
+>
+>Liz
+>
+>
+>On 9/18/12 11:05 AM, "Ana Kolar" <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> wrote:
+>
+>
+>Hi Liz,
+>>
+>>Thank you for prompt responses! So, I followed your advice and got matched data by using the following command: matchit(formula, data, distance = ps.tp) where ps.tp is a vector subtracted from a data-frame object - I guess the same form as in your case. However, I got the following warning message:
+>>
+>>Warning message:
+>>In if (distance %in% c("GAMlogit", "GAMprobit", "GAMcloglog", "GAMlog",  :
+>>  the condition has length > 1 and only the first element will be used
+>>
+>>Not quite sure what the message exactly means in this context - any ideas?
+>>
+>>Many thanks!
+>>
+>>Ana
+>>
+>>
+>>
+>> 
+>>> 
+>>>
+>>> 
+>>>>>>________________________________
+>>>  From:"Stuart, Elizabeth A." <estuart-SZLOfyx5T3qHXe+LvDLADg at public.gmane.org>
+>>> To: Ana Kolar <annakolar at yahoo.com>; Kosuke Imai <kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org> 
+>>>Cc: MatchIt <matchit at lists.gking.harvard.edu> 
+>>> Sent: Tuesday, 18 September 2012, 16:32
+>>> Subject: Re: [matchit] Matching with true propensity score
+>>> 
+>>> 
+>>>Re: [matchit] Matching with true propensity score 
+>>>Hi Ana,
+>>>I have sent MatchIt my own propensity score using code like:
+>>>
+>>>m.out.gbm.att <- matchit(treat ~ age + educ + black + hispan + married + re74 + re75, data=lalonde, distance=lalonde$pscore)
+>>>
+>>>(Where in this case “pscore” in the lalonde dataset is the propensity score values I had estimated myself).  Note that it is the distance option, not the distance.options option...  
+>>>
+>>>And yes, you have to specify the formula still, so matchit know what variables on which to calculate balance, but it doesn’t actually estimate the propensity score using that formula; it uses the propensity scores you send it in the distance option.  
+>>>
+>>>One minor note is that in your email below you mention a “distance matrix” but really matchit will just take a distance vector (one propensity score for each person).  If you have a distance matrix you may want to look at using some of Ben Hansen’s optmatch functions, which take a distance matrix.  
+>>>
+>>>Liz
+>>>
+>>>
+>>>On 9/18/12 10:11 AM, "Ana Kolar" <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> wrote:
+>>>
+>>>
+>>>Hi Kosuke,
+>>>>
+>>>>If I understand this correctly, by using my own distance matrix (ps.true) the function should look something like that:
+>>>>m.out.base <- matchit(formula, data, method, distance.options = list(ps.true))
+>>>>
+>>>>So, I have to specify the formula for estimating PS although I'm using then the true PS for matching which I specify in the distance.options=list(ps.true)? Does this mean that when I specify distance.option argument, the program doesn't estimate PS although the formula for it has to be provided?
+>>>>
+>>>>The thing is that I've tried two ways:
+>>>>(i) distance.options=ps.true (where ps.true object is already a list
+>>>>(ii) distance.options=list(ps.true) (where ps.true object is a vector)
+>>>>
+>>>>In none of these trials things worked out so I'm wondering where I might get it wrong. Your help will be greatly appreciated!
+>>>>
+>>>>Best wishes,
+>>>>
+>>>>Ana
+>>>>
+>>>>
+>>>>
+>>>> 
+>>>>> 
+>>>>>
+>>>>> 
+>>>>>>>>>>________________________________
+>>>>>  From:Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>
+>>>>> To: Ana Kolar <annakolar-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> 
+>>>>>Cc: "matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org> 
+>>>>> Sent: Monday, 17 September 2012, 2:19
+>>>>> Subject: Re: [matchit] Matching with true propensity score
+>>>>> 
+>>>>> 
+>>>>>Hi Ana,
+>>>>>
+>>>>> You can use your own distance matrix (including the true propensity score in a simulation study) in MatchIt: http://gking.harvard.edu/node/4355/rbuild_documentation/How_Do_I3.html
+>>>>>
+>>>>>Best,
+>>>>>Kosuke
+>>>>>
+>>>>>Department of Politics
+>>>>>Princeton University
+>>>>>http://imai.princeton.edu <http://imai.princeton.edu/>  <http://imai.princeton.edu/> 
+>>>>>
+>>>>>On Sep 16, 2012, at 3:51 PM, Ana Kolar wrote:
+>>>>>
+>>>>>> Hi there,
+>>>>>> 
+>>>>>> I'm wondering if Matchit package allows to match on the true propensity score - meaning that instead of estimating PS (what matchit function does) I would be able to provide a vector of true propensity scores which would be then used in the process of matching. The second thing that I'm interested in is, whether it is possible to do Mahalanobis distance matching and not only propensity score matching. I did check your documentation (perhaps not carefully enough) but couldn't find my answers there.
+>>>>>> 
+>>>>>> I'm looking forward to hearing from you soon!
+>>>>>> 
+>>>>>> Ana
+>>>>>> -
+>>>>>> ---
+>>>>>> MatchIt mailing list served by HUIT
+>>>>>> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>>>>> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+>>>>>> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+>>>>>> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+>>>>>> Matchit mailing list
+>>>>>> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>>>>> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+>>>>>
+>>>>>
+>>>>>
+>>>>> 
+>>>>>
+>>>>> 
+>>>>>  
+>>>>
+>>>>
+>>>
+>>> 
+>>>
+>>> 
+>>>  
+>>
+>>
+>
+>
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+

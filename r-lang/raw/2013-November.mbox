@@ -1,0 +1,1907 @@
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Mon Nov  4 10:59:29 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Mon, 04 Nov 2013 12:59:29 +0200
+Subject: Plotting residuals for GLMER model and zero counts
+In-Reply-To: <52777C5D.3050008@sabanciuniv.edu>
+References: <52777C5D.3050008@sabanciuniv.edu>
+Message-ID: <52777E11.5060107@sabanciuniv.edu>
+
+Dear R-ers,
+
+although a number of options exist out there to plot logit models, I
+can't seem
+to find one that works for glmer. What I would like to do is, in light of
+having found no interaction between the two fixed effects (which answers my
+research question), look at a plot to tell how well the model fits the data.
+
+The package LMERconveniencefunctions ver 2.0
+has a nice plot for lmer but this won't work on my model because R
+automatically
+asks me to use glmer. It has a factor DV (Correct), two fixed factor IVs
+(Group and Syntax),
+and two random effect (ID and item).
+
+Here's the output of calling:
+
+model<- glmer(Correct ~ Group * Syntax + (Syntax + 1 | ID) + (Group + 1
+| item), data=...., family=binomial)
+
+#Generalized linear mixed model fit by maximum likelihood ['glmerMod']
+Family: binomial ( logit )
+Formula: Correct ~ Group * Syntax + (Syntax + 1 | ID) + (Group + 1 | item)
+Data: .....
+
+AIC BIC logLik deviance
+235.4060 276.5207 -107.7030 215.4060
+
+Random effects:
+Groups Name Variance Std.Dev. Corr
+ID (Intercept) 44.919 6.702
+Syntaxof 45.850 6.771 -0.99
+item (Intercept) 6.282 2.506
+Groupns 38.105 6.173 -0.63
+Number of obs: 451, groups: ID, 38; item, 16
+
+Fixed effects:
+Estimate Std. Error z value Pr(>|z|)
+(Intercept) -9.236 2.192 -4.214 2.51e-05
+Groupns -2.815 4.743 -0.594 0.5528
+Syntax of 5.546 2.458 2.256 0.0241
+Groupns:Syntax of -1.457 6.405 -0.228 0.8200
+
+(Intercept) ***
+Groupns
+Syntaxof *
+Groupns:Syntaxof
+---
+Signif. codes: 0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+(Intr) Gropns Syntxf
+Groupns -0.499
+Syntaxof -0.892 0.445
+Grpns:Syntx 0.370 -0.741 -0.443
+
+I have tried messing around with Mosaic but here I keep running into the
+error
+>Error: length(dim(observed)) == 2 is not TRUE
+
+which I suspect is due to one cell in the 2x2x2 crosstab of results below being
+lower than 2 (please correct me here if I'm mistaken):
+
+
+Group Syntax Cor InC
+nns	's 118 14
+nns	of 128 19
+ns	's 62 6
+ns	of 53 1
+
+I've tried using xtabs and formulae as the x argument for the mosaic function but neither seems to work.
+
+On a side note, how do I cope with cases where participants produced 0 counts to a cell?
+I understand Chi-square does not cope well with these. Should I leave them as is, or turn these
+into NAs, or eliminate as outliers?
+
+Thank you in advance for reading.
+
+Francesco
+
+From reitter-8DAjSxpRXgY at public.gmane.org  Fri Nov  8 20:21:37 2013
+From: reitter-8DAjSxpRXgY at public.gmane.org (David Reitter)
+Date: Fri, 08 Nov 2013 15:21:37 -0500
+Subject: lmer / bootMer - calculating p-values?
+Message-ID: <88EEE7FE-697C-42F2-AF0D-8D01DAA77D32@psu.edu>
+
+Hi all,
+
+The latest versions of the popular 'lme4' package no longer provide an MCMC sampling function to generate p-values and confidence intervals.  You may recall that this was problematic with any bot the most basic random effects structures anyway, and lme4 authors point to random effects with low variance as the culprit.  If you use languageR to do your MCMC sampling ("pvals.fnc"), you are affected.
+
+One of their suggestions is to use parametric bootstrapping via "bootMer". 
+
+I would like to run the code below by you.  Questions: shouldn't the "mySumm2" function just return the fixed effects as the statistic of interest?  (This was somewhat blindly taken from the bootMer documentation).   I then calculate the t value on the fixed effects models and read a p value from the t distribution.  I'm surprised there is no function provided - so, are there any caveats?
+
+Thanks,
+David
+
+
+
+# straight from the bootMer documentation
+mySumm2 <- function(.) {
+c(beta=fixef(.),sigma=sigma(.),sig01=unlist(VarCorr(.)))
+}
+
+# calculate prob for one-tailed t distribution from sample SAMP
+# assuming the effect is in the predicted direction
+dr.tfun = function (samp) {pt((mean(samp)-0)/(sd(samp)/sqrt(length(samp))), length(samp)-1, lower.tail=(mean(samp)<0))}
+
+# print P values [and more, without labels - fixme]
+dr.boot.print = function (boot) { # print prob
+    for (row in as.data.frame(boot)) {print(dr.tfun(row))}
+}
+
+# bootstrap an lmer or glmer model
+dr.bootstrap = function (model) {
+    # bootstrap, fixed nsim
+    bm = bootMer(model, mySumm2, nsim=20, .progress="txt")
+    dr.boot.print(bm);
+    return(bm)    
+}
+
+
+-- 
+Dr. David Reitter
+Assistant Professor of Information Sciences and Technology
+Penn State University
+http://www.david-reitter.com
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Mon Nov 11 07:47:10 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Mon, 11 Nov 2013 09:47:10 +0200
+Subject: Help with screening data before glmer
+Message-ID: <52808B7E.6050206@sabanciuniv.edu>
+
+I'm trying to find a suitable way of plotting the relationship
+between 2 fixed effect categorical IVs (Syntax and Semantics),
+2 random effect factors (ID and item) and a
+categorical DV (Correct). Syntax and Semantics have two levels
+each.
+
+The point is I would like to look
+at the distribution of the response (log-odds in this case),
+considering one fixed effect at a time, plotted for each participant
+or each item (in xyplot-type style). For example, I could look
+at the log-odds of correct responses by syntax for each participant
+or for each item, reason being I would like to look at potential
+skewness of data, outliers, awkward responses and not
+look at model fit (i.e. residuals).
+
+There seems to be quite a bit available if you have a continuous
+predictor http://www.ats.ucla.edu/stat/r/dae/melogit.htm
+but nothing for discrete ones.
+
+When plots based on frequency tables are brought in, they do not
+allow grouping variables (random factors) like ID and item.
+
+Any help is much appreciated.
+
+-- 
+Frank Romano
+
+Sabanci University
+website: http://sabanciuniv.academia.edu/FrancescoRomano
+
+From rlevy-XkckGZ689+c at public.gmane.org  Mon Nov 11 18:22:21 2013
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Mon, 11 Nov 2013 18:22:21 +0000
+Subject: Re: Help with screening data before glmer
+In-Reply-To: <52808B7E.6050206@sabanciuniv.edu>
+References: <52808B7E.6050206@sabanciuniv.edu>
+Message-ID: <7E469F25-F26F-45E6-833D-397912CFA541@ucsd.edu>
+
+Hi Francesco,
+
+I don’t quite understand what you’re looking for, but perhaps you might want to take a look at ggpairs() in the GGally package?
+
+Best
+
+Roger
+
+On Nov 10, 2013, at 11:47 PM, Francesco <fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org> wrote:
+
+> I'm trying to find a suitable way of plotting the relationship
+> between 2 fixed effect categorical IVs (Syntax and Semantics),
+> 2 random effect factors (ID and item) and a
+> categorical DV (Correct). Syntax and Semantics have two levels
+> each.
+> 
+> The point is I would like to look
+> at the distribution of the response (log-odds in this case),
+> considering one fixed effect at a time, plotted for each participant
+> or each item (in xyplot-type style). For example, I could look
+> at the log-odds of correct responses by syntax for each participant
+> or for each item, reason being I would like to look at potential
+> skewness of data, outliers, awkward responses and not
+> look at model fit (i.e. residuals).
+> 
+> There seems to be quite a bit available if you have a continuous
+> predictor http://www.ats.ucla.edu/stat/r/dae/melogit.htm
+> but nothing for discrete ones.
+> 
+> When plots based on frequency tables are brought in, they do not
+> allow grouping variables (random factors) like ID and item.
+> 
+> Any help is much appreciated.
+> 
+> -- 
+> Frank Romano
+> 
+> Sabanci University
+> website: http://sabanciuniv.academia.edu/FrancescoRomano
+>
+
+From mcoco-kQl0mEXrPEcmTMui1t/k3rVCufUGDwFn at public.gmane.org  Thu Nov 14 12:17:36 2013
+From: mcoco-kQl0mEXrPEcmTMui1t/k3rVCufUGDwFn at public.gmane.org (Moreno Coco)
+Date: Thu, 14 Nov 2013 12:17:36 +0000
+Subject: Re: lmer / bootMer - calculating p-values?
+In-Reply-To: <88EEE7FE-697C-42F2-AF0D-8D01DAA77D32-8DAjSxpRXgY@public.gmane.org>
+References: <88EEE7FE-697C-42F2-AF0D-8D01DAA77D32@psu.edu>
+Message-ID: <20131114121736.15877528x3focj0o@www.staffmail.ed.ac.uk>
+
+Hi David,
+
+I have also been looking into this issue very recently,
+as I am re-analyzing some time-course fixation data.
+
+(another hot-topic that still sparkles tons of controversy,
+but nobody really discuss).
+
+I have not found yet, a "solution" to the issue of extracting
+the p-values for the estimates of the fixed effect, as there
+really is no clear consensus on the usefulness of it, as well as,
+there is yet no technically stable solution to this issue.
+
+there is this post:
+
+http://stackoverflow.com/questions/18443127/r-bootstrapped-binary-mixed-model-logistic-regression-using-bootmer-of-the-ne
+
+where Ben Bolker (one of the lme4 developers) gives some
+ideas on how to perform bootstrapping, and gives a
+hint on how to extract the confidence intervals of
+parameter estimates (?confint.merMod).
+
+He also keeps a wiki where these issues are often discussed:
+
+http://glmm.wikidot.com/faq
+
+An interesting discussion by Douglas Bates and other people
+about this issue can be found in:
+
+http://rwiki.sciviews.org/doku.php?id=guides:lmer-tests
+
+I hope this helps, and if you do find a solution, please
+share it ... I will do the same if I find one :)
+
+Moreno
+
+Quoting David Reitter <reitter-8DAjSxpRXgY at public.gmane.org> on Fri, 8 Nov 2013 15:21:37 -0500:
+
+> Hi all,
+>
+> The latest versions of the popular 'lme4' package no longer provide  
+> an MCMC sampling function to generate p-values and confidence  
+> intervals.  You may recall that this was problematic with any bot  
+> the most basic random effects structures anyway, and lme4 authors  
+> point to random effects with low variance as the culprit.  If you  
+> use languageR to do your MCMC sampling ("pvals.fnc"), you are  
+> affected.
+>
+> One of their suggestions is to use parametric bootstrapping via "bootMer".
+>
+> I would like to run the code below by you.  Questions: shouldn't the  
+> "mySumm2" function just return the fixed effects as the statistic of  
+> interest?  (This was somewhat blindly taken from the bootMer  
+> documentation).   I then calculate the t value on the fixed effects  
+> models and read a p value from the t distribution.  I'm surprised  
+> there is no function provided - so, are there any caveats?
+>
+> Thanks,
+> David
+>
+>
+>
+> # straight from the bootMer documentation
+> mySumm2 <- function(.) {
+> c(beta=fixef(.),sigma=sigma(.),sig01=unlist(VarCorr(.)))
+> }
+>
+> # calculate prob for one-tailed t distribution from sample SAMP
+> # assuming the effect is in the predicted direction
+> dr.tfun = function (samp)  
+> {pt((mean(samp)-0)/(sd(samp)/sqrt(length(samp))), length(samp)-1,  
+> lower.tail=(mean(samp)<0))}
+>
+> # print P values [and more, without labels - fixme]
+> dr.boot.print = function (boot) { # print prob
+>     for (row in as.data.frame(boot)) {print(dr.tfun(row))}
+> }
+>
+> # bootstrap an lmer or glmer model
+> dr.bootstrap = function (model) {
+>     # bootstrap, fixed nsim
+>     bm = bootMer(model, mySumm2, nsim=20, .progress="txt")
+>     dr.boot.print(bm);
+>     return(bm)
+> }
+>
+>
+> --
+> Dr. David Reitter
+> Assistant Professor of Information Sciences and Technology
+> Penn State University
+> http://www.david-reitter.com
+>
+>
+>
+>
+>
+
+
+
+-- 
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+From baron-wN2NlrKQg8ScxI7pCafu4Q at public.gmane.org  Thu Nov 14 12:43:35 2013
+From: baron-wN2NlrKQg8ScxI7pCafu4Q at public.gmane.org (Jonathan Baron)
+Date: Thu, 14 Nov 2013 07:43:35 -0500
+Subject: Re: lmer / bootMer - calculating p-values?
+In-Reply-To: <20131114121736.15877528x3focj0o@www.staffmail.ed.ac.uk>
+References: <88EEE7FE-697C-42F2-AF0D-8D01DAA77D32@psu.edu> <20131114121736.15877528x3focj0o@www.staffmail.ed.ac.uk>
+Message-ID: <20131114124335.GA16064@psych.upenn.edu>
+
+I think you omitted the most help page I know, which is the help page
+on pvalues in the lme4 package itself:
+
+http://finzi.psych.upenn.edu/library/lme4/html/pvalues.html
+
+(That said, I did not check the stackoverflow page. The url is too
+big.)
+
+For me, where I used to use pvals.fnc(), I now use PBmodcomp() in the
+pbkrtest package.
+
+Jon
+
+On 11/14/13 12:17, Moreno Coco wrote:
+> Hi David,
+> 
+> I have also been looking into this issue very recently,
+> as I am re-analyzing some time-course fixation data.
+> 
+> (another hot-topic that still sparkles tons of controversy,
+> but nobody really discuss).
+> 
+> I have not found yet, a "solution" to the issue of extracting
+> the p-values for the estimates of the fixed effect, as there
+> really is no clear consensus on the usefulness of it, as well as,
+> there is yet no technically stable solution to this issue.
+> 
+> there is this post:
+> 
+> http://stackoverflow.com/questions/18443127/r-bootstrapped-binary-mixed-model-logisti
+> c-regression-using-bootmer-of-the-ne
+> 
+> where Ben Bolker (one of the lme4 developers) gives some
+> ideas on how to perform bootstrapping, and gives a
+> hint on how to extract the confidence intervals of
+> parameter estimates (?confint.merMod).
+> 
+> He also keeps a wiki where these issues are often discussed:
+> 
+> http://glmm.wikidot.com/faq
+> 
+> An interesting discussion by Douglas Bates and other people
+> about this issue can be found in:
+> 
+> http://rwiki.sciviews.org/doku.php?id=guides:lmer-tests
+> 
+> I hope this helps, and if you do find a solution, please
+> share it ... I will do the same if I find one :)
+> 
+> Moreno
+> 
+> Quoting David Reitter <reitter-8DAjSxpRXgY at public.gmane.org> on Fri, 8 Nov 2013 15:21:37 -0500:
+> 
+> > Hi all,
+> >
+> > The latest versions of the popular 'lme4' package no longer provide  
+> > an MCMC sampling function to generate p-values and confidence  
+> > intervals.  You may recall that this was problematic with any bot  
+> > the most basic random effects structures anyway, and lme4 authors  
+> > point to random effects with low variance as the culprit.  If you  
+> > use languageR to do your MCMC sampling ("pvals.fnc"), you are  
+> > affected.
+> >
+> > One of their suggestions is to use parametric bootstrapping via "bootMer".
+> >
+> > I would like to run the code below by you.  Questions: shouldn't the  
+> > "mySumm2" function just return the fixed effects as the statistic of  
+> > interest?  (This was somewhat blindly taken from the bootMer  
+> > documentation).   I then calculate the t value on the fixed effects  
+> > models and read a p value from the t distribution.  I'm surprised  
+> > there is no function provided - so, are there any caveats?
+> >
+> > Thanks,
+> > David
+> >
+> >
+> >
+> > # straight from the bootMer documentation
+> > mySumm2 <- function(.) {
+> > c(beta=fixef(.),sigma=sigma(.),sig01=unlist(VarCorr(.)))
+> > }
+> >
+> > # calculate prob for one-tailed t distribution from sample SAMP
+> > # assuming the effect is in the predicted direction
+> > dr.tfun = function (samp)  
+> > {pt((mean(samp)-0)/(sd(samp)/sqrt(length(samp))), length(samp)-1,  
+> > lower.tail=(mean(samp)<0))}
+> >
+> > # print P values [and more, without labels - fixme]
+> > dr.boot.print = function (boot) { # print prob
+> >     for (row in as.data.frame(boot)) {print(dr.tfun(row))}
+> > }
+> >
+> > # bootstrap an lmer or glmer model
+> > dr.bootstrap = function (model) {
+> >     # bootstrap, fixed nsim
+> >     bm = bootMer(model, mySumm2, nsim=20, .progress="txt")
+> >     dr.boot.print(bm);
+> >     return(bm)
+> > }
+> >
+> >
+> > --
+> > Dr. David Reitter
+> > Assistant Professor of Information Sciences and Technology
+> > Penn State University
+> > http://www.david-reitter.com
+> >
+> >
+> >
+> >
+> >
+> 
+> 
+> 
+> -- 
+> The University of Edinburgh is a charitable body, registered in
+> Scotland, with registration number SC005336.
+> 
+
+-- 
+Jonathan Baron, Professor of Psychology, University of Pennsylvania
+Home page: http://www.sas.upenn.edu/~baron
+Editor: Judgment and Decision Making (http://journal.sjdm.org)
+
+From reitter-8DAjSxpRXgY at public.gmane.org  Sat Nov 16 17:18:02 2013
+From: reitter-8DAjSxpRXgY at public.gmane.org (David Reitter)
+Date: Sat, 16 Nov 2013 12:18:02 -0500
+Subject: Multiple Faculty Jobs: Information Sciences and Technology / cognitive-computational
+Message-ID: <5CC9DBDC-115E-4C8C-A524-5E1681186D35@psu.edu>
+
+The College of Information Sciences and Technology at The Pennsylvania State University is a College that emphasizes a) systems-level thinking to approach global, societal problems, b) multiple methodologies in the pursuit of interdisciplinary research and design, and c)  active, collaborative learning to support transformative teaching. To learn more about our vision, mission, goals, structure, faculty and students, please go to http://ist.psu.edu.
+
+We are searching to fill multiple positions at the Assistant or Associate Professor level in our ranks of tenure-track faculty members, who will assist our college in attaining its goals in education, research and service to the community.
+
+The College has strengths in six key areas including: 1) Computational Informatics and Science; 2) Organizational Informatics; 3) Social Policy, Economics and Informatics; 4) Human-Computer Interaction; 5) Cognition and Networked Intelligent Systems and 6) Security, Privacy and Informatics.
+
+We seek applicants who show clear evidence that they will become or are leading scholars and premier teachers in their fields and are interested in being part of a vibrant, civil and diverse academic community.
+
+Although we welcome applications from a broad variety of areas that match the research interests in the college, we are particularly interested in applicants who would like to pursue research and teaching in the following areas: 1) Enterprise Architecture; 2) Biomedical/Health Informatics; 3) Computational Informatics; 4) Security & Risk Analysis.  We are interested in applicants who approach these areas from either a social, cognitive, or computational perspective or a combination of  these perspectives.
+
+more...:  http://www.ist.psu.edu/research/faculty/ist-faculty-search
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Tue Nov 19 15:30:13 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Tue, 19 Nov 2013 17:30:13 +0200
+Subject: Post-hoc comparison for incorrect responses in glmer
+Message-ID: <528B8405.9050805__30958.771336782$1384875139$gmane$org@sabanciuniv.edu>
+
+I'm trying to understand how to obtain a z and p value for pairwise 
+comparisons on probability of the non'default outcome of a binary 
+categorical variable.
+
+My data set includes a binary categorical DV (correct or incorrect). In 
+a nutshell, I'm looking at Chinese speakers of English's choice of  's 
+or /of /possessives when recalling a sentence that contained either of 
+the two possessive structures 's or /of/. This choice is, however, 
+moderated by the animacy of the elements participating in the possessive 
+construction. That is, the sentence to be recalled had either structure 
+AN_IN or IN_AN which makes for a second IV with two levels.
+
+The data obtained looks something like the below (my apologies for not 
+reorganising this according to correct vs incorrect for display purposes).
+
+
+Responses in AN_IN contexts
+
+Structure to be recalled
+
+	
+
+Use of 's
+
+	
+
+Use of 'of'
+
+	
+
+Incomplete
+
+	
+
+No recall
+
+	
+
+Total Cases
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% Total
+
+'s
+
+	
+
+70
+
+	
+
+65
+
+	
+
+9
+
+	
+
+7
+
+	
+
+20
+
+	
+
+18
+
+	
+
+9
+
+	
+
+8
+
+	
+
+108
+
+	
+
+100
+
+of
+
+	
+
+3
+
+	
+
+3
+
+	
+
+72
+
+	
+
+69
+
+	
+
+20
+
+	
+
+19
+
+	
+
+9
+
+	
+
+8
+
+	
+
+108
+
+	
+
+100
+
+Total
+
+	
+
+73
+
+	
+
+34
+
+	
+
+84
+
+	
+
+39
+
+	
+
+41
+
+	
+
+19
+
+	
+
+18
+
+	
+
+9
+
+	
+
+216
+
+	
+
+100
+
+
+
+Responses in IN_AN contexts
+
+Structure to be recalled
+
+	
+
+Use of 's
+
+	
+
+Use of 'of'
+
+	
+
+Incomplete
+
+	
+
+No recall
+
+	
+
+Total Cases
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% Total
+
+'s
+
+	
+
+68
+
+	
+
+63
+
+	
+
+16
+
+	
+
+15
+
+	
+
+16
+
+	
+
+15
+
+	
+
+8
+
+	
+
+7
+
+	
+
+108
+
+	
+
+100
+
+of
+
+	
+
+12
+
+	
+
+12
+
+	
+
+69
+
+	
+
+65
+
+	
+
+20
+
+	
+
+18
+
+	
+
+5
+
+	
+
+5
+
+	
+
+108
+
+	
+
+100
+
+Total
+
+	
+
+81
+
+	
+
+37
+
+	
+
+86
+
+	
+
+40
+
+	
+
+36
+
+	
+
+17
+
+	
+
+13
+
+	
+
+6
+
+	
+
+206
+
+	
+
+100
+
+
+What I'm trying to get to the bottom of is whether the proportion of 
+mismatches (incorrect response) when recalling /of/ and 's sentences for 
+one semantic combination (say IN_AN) is significantly higher or lower 
+than the other (AN_IN in top table). This means whether, in the IN_AN 
+contexts, counts of 12 and 16 for use of 's in /of/ contexts and use of 
+/of/ in 's contexts respectively are significantly higher than their 
+counterparts in the other table.
+
+If my understanding is correct, the model I have fit tells me there is a 
+significant effect for semantic context
+but the z and p value apply to the log-odds of obtaining a CORRECT 
+response. Right?
+
+
+Generalized linear mixed model fit by maximum likelihood ['glmerMod']
+
+Family: binomial ( logit )
+
+Formula: Correct2 ~ Semantics + (1 + Syntax | ID)
+
+Data: CodedQ3
+
+AICBIClogLikdeviance
+
+236.6061255.5098 -113.3030226.6061
+
+Random effects:
+
+Groups NameVariance Std.Dev. Corr
+
+ID(Intercept) 0.78430.8856
+
+Syntaxs4.04862.0121-0.80
+
+Number of obs: 324, groups: ID, 27
+
+Fixed effects:
+
+Estimate Std. Error z value Pr(>|z|)
+
+(Intercept)-3.02110.3735-8.088 6.07e-16 ***
+
+SemanticsIN_AN1.12490.41702.6980.00698 **
+
+---
+
+Signif. codes:0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Correlation of Fixed Effects:
+
+(Intr)
+
+SmntcsIN_AN -0.792
+
+
+
+Setting other considerations of model fit and collinearity aside for the 
+moment, if I want to obtain a z and p value for the difference between 
+proportions of incorrect responses by semantic context, how should I 
+proceed?
+
+In passing, could someone also point out how I would look at pairwise 
+comparisons once I factor in interactions, as if, for example, I had 
+included an interaction for Syntax in the model above.
+
+The comparisons would look like this:
+
+syntaxof:IN_AN vs. syntaxof:AN_IN
+syntax's:IN_AN vs syntax's:AN_IN
+
+->where 'correct' is the reference level for the DV;
+
+syntaxof:IN_AN vs. syntaxof:AN_IN
+syntax's:IN_AN vs syntax's:AN_IN
+
+->where 'incorrect' is the reference level of the DV.
+
+Any guidance is much appreciated.
+
+-- 
+Frank Romano
+
+Sabanci University
+website:http://sabanciuniv.academia.edu/FrancescoRomano
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Fri Nov 22 12:05:29 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Fri, 22 Nov 2013 14:05:29 +0200
+Subject: Post-hoc comparison for incorrect responses in glmer
+In-Reply-To: <528F4734.2040203@sabanciuniv.edu>
+References: <528F4734.2040203@sabanciuniv.edu>
+Message-ID: <528F4889.5090301@sabanciuniv.edu>
+
+
+I have reposted this as some tabular information got jumbled by the 
+ASCII/HTML difference.
+
+I'm trying to understand how to obtain a z and p value for pairwise 
+comparisons on probability of the non-default outcome of a binary 
+categorical variable.
+
+My data set includes a binary categorical DV (correct or incorrect). In 
+a nutshell, I'm looking at Chinese speakers of English's choice of  's 
+or /of /possessives when recalling a sentence that contained either of 
+the two possessive structures 's or /of/. This choice is, however, 
+moderated by the animacy of the elements participating in the possessive 
+construction. That is, the sentence to be recalled had either structure 
+AN_IN or IN_AN which makes for a second IV with two levels.
+
+The data obtained looks something like the below (my apologies for not 
+reorganising this according to correct vs incorrect for display purposes).
+
+
+Responses in AN_IN contexts
+>
+> Structure to be recalled
+>
+> 	
+>
+> Use of 's
+>
+> 	
+>
+> Use of 'of'
+>
+> 	
+>
+> Incomplete
+>
+> 	
+>
+> No recall
+>
+> 	
+>
+> Total Cases
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % of Total
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % of Total
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % of Total
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % of Total
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % Total
+>
+> 's
+>
+> 	
+>
+> 138
+>
+> 	
+>
+> 64
+>
+> 	
+>
+> 12
+>
+> 	
+>
+> 7
+>
+> 	
+>
+> 45
+>
+> 	
+>
+> 21
+>
+> 	
+>
+> 18
+>
+> 	
+>
+> 8
+>
+> 	
+>
+> 216
+>
+> 	
+>
+> 100
+>
+> of
+>
+> 	
+>
+> 15
+>
+> 	
+>
+> 10
+>
+> 	
+>
+> 128
+>
+> 	
+>
+> 67
+>
+> 	
+>
+> 30
+>
+> 	
+>
+> 15
+>
+> 	
+>
+> 12
+>
+> 	
+>
+> 7
+>
+> 	
+>
+> 189
+>
+> 	
+>
+> 100
+>
+> Total
+>
+> 	
+>
+> 157
+>
+> 	
+>
+> 38
+>
+> 	
+>
+> 142
+>
+> 	
+>
+> 35
+>
+> 	
+>
+> 75
+>
+> 	
+>
+> 18
+>
+> 	
+>
+> 31
+>
+> 	
+>
+> 9
+>
+> 	
+>
+> 405
+>
+> 	
+>
+> 100
+>
+
+
+Responses in IN_AN contexts
+
+> Structure to be recalled
+>
+> 	
+>
+> Use of 's
+>
+> 	
+>
+> Use of 'of'
+>
+> 	
+>
+> Incomplete
+>
+> 	
+>
+> No recall
+>
+> 	
+>
+> Total Cases
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % of Total
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % of Total
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % of Total
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % of Total
+>
+> 	
+>
+> Count
+>
+> 	
+>
+> % Total
+>
+> 's
+>
+> 	
+>
+> 68
+>
+> 	
+>
+> 63
+>
+> 	
+>
+> 16
+>
+> 	
+>
+> 15
+>
+> 	
+>
+> 16
+>
+> 	
+>
+> 15
+>
+> 	
+>
+> 8
+>
+> 	
+>
+> 7
+>
+> 	
+>
+> 108
+>
+> 	
+>
+> 100
+>
+> of
+>
+> 	
+>
+> 12
+>
+> 	
+>
+> 12
+>
+> 	
+>
+> 69
+>
+> 	
+>
+> 65
+>
+> 	
+>
+> 20
+>
+> 	
+>
+> 18
+>
+> 	
+>
+> 5
+>
+> 	
+>
+> 5
+>
+> 	
+>
+> 108
+>
+> 	
+>
+> 100
+>
+> Total
+>
+> 	
+>
+> 81
+>
+> 	
+>
+> 37
+>
+> 	
+>
+> 86
+>
+> 	
+>
+> 40
+>
+> 	
+>
+> 36
+>
+> 	
+>
+> 17
+>
+> 	
+>
+> 13
+>
+> 	
+>
+> 6
+>
+> 	
+>
+> 206
+>
+> 	
+>
+> 100
+>
+
+What I'm trying to get to the bottom of is whether the proportion of 
+mismatches (incorrect response) when recalling /of/ and 's sentences for 
+one semantic combination (say IN_AN) is significantly higher or lower 
+than the other (AN_IN in top table). This means whether, in the IN_AN 
+contexts, counts of 12 and 16 for use of 's in /of/ contexts and use of 
+/of/ in 's contexts respectively are significantly higher than their 
+counterparts in the other table.
+
+If my understanding is correct, the model I have fit tells me there is a 
+significant effect for semantic context
+but the z and p value apply to the log-odds of obtaining a CORRECT 
+response. Right?
+
+
+Generalized linear mixed model fit by maximum likelihood ['glmerMod']
+
+Family: binomial ( logit )
+
+Formula: Correct2 ~ Semantics + (1 + Syntax | ID)
+
+Data: CodedQ3
+
+AICBIClogLikdeviance
+
+236.6061255.5098 -113.3030226.6061
+
+Random effects:
+
+Groups NameVariance Std.Dev. Corr
+
+ID(Intercept) 0.78430.8856
+
+Syntaxs4.04862.0121-0.80
+
+Number of obs: 324, groups: ID, 27
+
+Fixed effects:
+
+Estimate Std. Error z value Pr(>|z|)
+
+(Intercept)-3.02110.3735-8.088 6.07e-16 ***
+
+SemanticsIN_AN1.12490.41702.6980.00698 **
+
+---
+
+Signif. codes:0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Correlation of Fixed Effects:
+
+(Intr)
+
+SmntcsIN_AN -0.792
+
+
+
+Setting other considerations of model fit and collinearity aside for the 
+moment, if I want to obtain a z and p value for the difference between 
+proportions of INCORRECT responses by semantic context, how should I 
+proceed?
+
+In passing, could someone also point out how I would look at pairwise 
+comparisons once I factor in interactions, as if, for example, I had 
+included an interaction for Syntax in the model above.
+
+The comparisons would look like this:
+
+syntaxof:IN_AN vs. syntaxof:AN_IN
+syntax's:IN_AN vs syntax's:AN_IN
+
+->where 'correct' is the reference level for the DV;
+
+syntaxof:IN_AN vs. syntaxof:AN_IN
+syntax's:IN_AN vs syntax's:AN_IN
+
+->where 'incorrect' is the reference level of the DV.
+
+Any guidance is much appreciated.
+
+-- 
+Frank Romano
+
+Sabanci University
+website:http://sabanciuniv.academia.edu/FrancescoRomano
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Sat Nov 23 11:23:09 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Sat, 23 Nov 2013 13:23:09 +0200
+Subject: Post-hoc comparison for incorrect responses in glmer
+Message-ID: <5290901D.4010208@sabanciuniv.edu>
+
+I have reposted this as some tabular information got jumbled by the
+ASCII/HTML difference.
+
+I'm trying to understand how to obtain a z and p value for pairwise
+comparisons on probability of the non-default outcome of a binary
+categorical variable.
+
+My data set includes a binary categorical DV (correct or incorrect). In
+a nutshell, I'm looking at Chinese speakers of English's choice of  's
+or /of /possessives when recalling a sentence that contained either of
+the two possessive structures 's or/of/. This choice is, however,
+moderated by the animacy of the elements participating in the possessive
+construction. That is, the sentence to be recalled had either structure
+AN_IN or IN_AN which makes for a second IV with two levels.
+
+The data obtained looks approximately like the below, values
+are not calculated exactly (my apologies for not
+reorganising this according to correct vs incorrect for display purposes).
+
+
+Responses in AN_IN contexts
+
+structure to be recalled    Use of 's              Use of 'of'
+
+			count    % of total    count  % of total
+'s			135         64		14       7
+
+'of' 			15	    10		120      63
+
+
+
+Responses in IN_AN contexts
+
+structure to be recalled    Use of 's              Use of 'of'
+
+			count    % of total    count  % of total
+'s			101         60		12       7
+
+'of' 			25	    10		150      62
+
+
+What I'm trying to get to the bottom of is whether the proportion of
+mismatches (incorrect response) when recalling/of/  and 's sentences for
+one semantic combination (say IN_AN) is significantly higher or lower
+than the other (AN_IN in top table). This means whether, in the IN_AN
+contexts, counts of 12 and 16 for use of 's in/of/  contexts and use of
+/of/  in 's contexts respectively are significantly higher than their
+counterparts in the other table.
+
+If my understanding is correct, the model I have fit tells me there is a
+significant effect for semantic context
+but the z and p value apply to the log-odds of obtaining a CORRECT
+response. Right?
+
+
+Generalized linear mixed model fit by maximum likelihood ['glmerMod']
+
+Family: binomial ( logit )
+
+Formula: Correct2 ~ Semantics + (1 + Syntax | ID)
+
+Data: CodedQ3
+
+AICBIClogLikdeviance
+
+236.6061255.5098 -113.3030226.6061
+
+Random effects:
+
+Groups NameVariance Std.Dev. Corr
+
+ID(Intercept) 0.78430.8856
+
+Syntaxs4.04862.0121-0.80
+
+Number of obs: 324, groups: ID, 27
+
+Fixed effects:
+
+Estimate Std. Error z value Pr(>|z|)
+
+(Intercept)-3.02110.3735-8.088 6.07e-16 ***
+
+SemanticsIN_AN1.12490.41702.6980.00698 **
+
+---
+
+Signif. codes:0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Correlation of Fixed Effects:
+
+(Intr)
+
+SmntcsIN_AN -0.792
+
+
+
+Setting other considerations of model fit and collinearity aside for the
+moment, if I want to obtain a z and p value for the difference between
+proportions of INCORRECT responses by semantic context, how should I
+proceed?
+
+In passing, could someone also point out how I would look at pairwise
+comparisons once I factor in interactions, as if, for example, I had
+included an interaction for Syntax in the model above.
+
+The comparisons would look like this:
+
+syntaxof:IN_AN vs. syntaxof:AN_IN
+syntax's:IN_AN vs syntax's:AN_IN
+
+->where 'correct' is the reference level for the DV;
+
+syntaxof:IN_AN vs. syntaxof:AN_IN
+syntax's:IN_AN vs syntax's:AN_IN
+
+->where 'incorrect' is the reference level of the DV.
+
+Any guidance is much appreciated.
+
+-- 
+Frank Romano
+
+Sabanci University
+website: http://sabanciuniv.academia.edu/FrancescoRomano
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Sat Nov 23 15:23:09 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Sat, 23 Nov 2013 17:23:09 +0200
+Subject: Post-hoc comparison for incorrect responses in glmer
+In-Reply-To: <5290901D.4010208@sabanciuniv.edu>
+References: <5290901D.4010208@sabanciuniv.edu>
+Message-ID: <5290C85D.2050202__44836.8572550409$1385220286$gmane$org@sabanciuniv.edu>
+
+
+I have reposted this as some tabular information got jumbled by the
+ASCII/HTML difference.
+
+My data set includes a binary categorical DV (correct or incorrect). In
+a nutshell, I'm looking at Chinese speakers of English's choice of  's
+or /of /possessives when recalling a sentence that contained either of
+the two possessive structures 's or/of/. This choice is, however,
+moderated by the animacy of the elements participating in the possessive
+construction. That is, the sentence to be recalled had either structure
+AN_IN or IN_AN which makes for a second IV with two levels.
+
+The data obtained looks approximately like the below, values
+are not calculated exactly (my apologies for not
+reorganising this according to correct vs incorrect for display purposes).
+
+
+Responses in AN_IN contexts
+
+structure to be recalled    Use of 's              Use of 'of'
+
+			count    % of total    count  % of total
+'s			135         64		14       7
+
+'of' 			15	    10		120      63
+
+
+
+Responses in IN_AN contexts
+
+structure to be recalled    Use of 's              Use of 'of'
+
+			count    % of total    count  % of total
+'s			101         60		12       7
+
+'of' 			25	    10		150      62
+
+
+I'm trying to understand how to obtain a z and p value for pairwise
+comparisons on probability of the non-default outcome of the binary
+categorical variable. What I'm trying to get to the bottom of is
+whether the proportion of mismatches (incorrect response) when
+recalling/of/  and 's sentences for one semantic combination (say IN_AN)
+is significantly higher or lower than the other (AN_IN in top table).
+This means whether, in the IN_AN
+contexts, counts of 15 and 14 for use of 's in/of/  contexts and use of
+/of/  in 's contexts respectively are significantly higher than their
+counterparts in the other table (25 and 12). How do I do this?
+
+If my understanding is correct, the model I have fit below only tells me there is a
+significant effect for semantic context
+but the z and p value apply to the log-odds of obtaining a CORRECT
+response, not an incorrect one. Right?
+
+
+Generalized linear mixed model fit by maximum likelihood ['glmerMod']
+
+Family: binomial ( logit )
+
+Formula: Correct2 ~ Semantics + (1 + Syntax | ID)
+
+Data: CodedQ3
+
+AICBIClogLikdeviance
+
+236.6061255.5098 -113.3030226.6061
+
+Random effects:
+
+Groups       Name    Variance Std.Dev. Corr
+
+ID(Intercept)        0.7843    0.8856
+
+Syntaxs              4.0486    2.0121  -0.80
+
+Number of obs: 324, groups: ID, 27
+
+Fixed effects:
+
+               Estimate   Std. Error    z value   Pr(>|z|)
+
+(Intercept)    -3.0211    0.3735       -8.088   6.07e-16 ***
+
+SemanticsIN_AN  1.1249    0.4170        2.698   0.00698 **
+
+---
+
+Signif. codes:0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Correlation of Fixed Effects:
+
+(Intr)
+
+SmntcsIN_AN -0.792
+
+
+
+Setting considerations of model fit and collinearity aside for the
+moment, if I want to obtain a z and p value for the difference between
+proportions of INCORRECT responses by semantic context, how should I
+proceed?
+
+In passing, could someone also point out how I would look at pairwise
+comparisons once I factor in interactions, as if, for example, I had
+included an interaction for Syntax in the model above.
+
+The comparisons would look like this:
+
+syntaxof:IN_AN vs. syntaxof:AN_IN
+syntax's:IN_AN vs syntax's:AN_IN
+
+->where 'correct' is the reference level for the DV;
+
+syntaxof:IN_AN vs. syntaxof:AN_IN
+syntax's:IN_AN vs syntax's:AN_IN
+
+->where 'incorrect' is the reference level of the DV.
+
+Any guidance is much appreciated.
+
+-- 
+Frank Romano
+
+Sabanci University
+website:http://sabanciuniv.academia.edu/FrancescoRomano
+
+From rlevy-XkckGZ689+c at public.gmane.org  Sun Nov 24 19:19:00 2013
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Sun, 24 Nov 2013 19:19:00 +0000
+Subject: Re: [R-sig-ME] Post-hoc comparison for incorrect responses in glmer
+In-Reply-To: <5290C85D.2050202@sabanciuniv.edu>
+References: <5290901D.4010208@sabanciuniv.edu> <5290C85D.2050202@sabanciuniv.edu>
+Message-ID: <25A150FC-C9A6-4949-88FD-179B4479E264@ucsd.edu>
+
+Dear Frank,
+
+First off, it is bad form to cross-post (simultaneously post your query to more than one newsgroup).  I’m responding only to r-lang.
+
+Anyway, based on the heart of your query:
+
+> What I'm trying to get to the bottom of is
+> whether the proportion of mismatches (incorrect response) when
+> recalling/of/  and 's sentences for one semantic combination (say IN_AN)
+> is significantly higher or lower than the other (AN_IN in top table).
+
+
+I can’t tell from your description whether you have multiple items, or whether the differences in semantic combination and syntactic presentation are between-speaker or within-speaker, or between- or within-items (if you have more than one item).  Assuming you have more than one item, and that both syntax and semantics vary within both speakers and items, I think you want to fit the model as follows:
+
+  lmer(Correct ~ Syntax * Semantics + (Syntax * Semantics | Speaker) + (Syntax * Semantics | Item), data=name.of.your.data.frame, family=“binomial”, contrasts=list(Syntax=contr.sum(2),Semantics=contr.sum(2))
+
+I believe the resulting model should give you a parameter estimate for the fixed effect of Semantics that more or less can be interpreted as the “main effect” of Semantics on correct response rate that you’re looking for.
+
+More generally, I suggest that you carefully read Baayen et al. (2008), Jaeger (2008), Quené and van den Bergh (2008), and Barr et al. (2013) to get a better understanding of all the issues involved in why this would be the correct model specification.
+
+Best
+
+Roger
+
+  
+
+On Nov 23, 2013, at 7:23 AM, Francesco <fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org> wrote:
+
+> 
+> I have reposted this as some tabular information got jumbled by the
+> ASCII/HTML difference.
+> 
+> My data set includes a binary categorical DV (correct or incorrect). In
+> a nutshell, I'm looking at Chinese speakers of English's choice of  's
+> or /of /possessives when recalling a sentence that contained either of
+> the two possessive structures 's or/of/. This choice is, however,
+> moderated by the animacy of the elements participating in the possessive
+> construction. That is, the sentence to be recalled had either structure
+> AN_IN or IN_AN which makes for a second IV with two levels.
+> 
+> The data obtained looks approximately like the below, values
+> are not calculated exactly (my apologies for not
+> reorganising this according to correct vs incorrect for display purposes).
+> 
+> 
+> Responses in AN_IN contexts
+> 
+> structure to be recalled    Use of 's              Use of 'of'
+> 
+> 			count    % of total    count  % of total
+> 's			135         64		14       7
+> 
+> 'of' 			15	    10		120      63
+> 
+> 
+> 
+> Responses in IN_AN contexts
+> 
+> structure to be recalled    Use of 's              Use of 'of'
+> 
+> 			count    % of total    count  % of total
+> 's			101         60		12       7
+> 
+> 'of' 			25	    10		150      62
+> 
+> 
+> I'm trying to understand how to obtain a z and p value for pairwise
+> comparisons on probability of the non-default outcome of the binary
+> categorical variable. What I'm trying to get to the bottom of is
+> whether the proportion of mismatches (incorrect response) when
+> recalling/of/  and 's sentences for one semantic combination (say IN_AN)
+> is significantly higher or lower than the other (AN_IN in top table).
+> This means whether, in the IN_AN
+> contexts, counts of 15 and 14 for use of 's in/of/  contexts and use of
+> /of/  in 's contexts respectively are significantly higher than their
+> counterparts in the other table (25 and 12). How do I do this?
+> 
+> If my understanding is correct, the model I have fit below only tells me there is a
+> significant effect for semantic context
+> but the z and p value apply to the log-odds of obtaining a CORRECT
+> response, not an incorrect one. Right?
+> 
+> 
+> Generalized linear mixed model fit by maximum likelihood ['glmerMod']
+> 
+> Family: binomial ( logit )
+> 
+> Formula: Correct2 ~ Semantics + (1 + Syntax | ID)
+> 
+> Data: CodedQ3
+> 
+> AICBIClogLikdeviance
+> 
+> 236.6061255.5098 -113.3030226.6061
+> 
+> Random effects:
+> 
+> Groups       Name    Variance Std.Dev. Corr
+> 
+> ID(Intercept)        0.7843    0.8856
+> 
+> Syntaxs              4.0486    2.0121  -0.80
+> 
+> Number of obs: 324, groups: ID, 27
+> 
+> Fixed effects:
+> 
+>               Estimate   Std. Error    z value   Pr(>|z|)
+> 
+> (Intercept)    -3.0211    0.3735       -8.088   6.07e-16 ***
+> 
+> SemanticsIN_AN  1.1249    0.4170        2.698   0.00698 **
+> 
+> ---
+> 
+> Signif. codes:0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+> 
+> Correlation of Fixed Effects:
+> 
+> (Intr)
+> 
+> SmntcsIN_AN -0.792
+> 
+> 
+> 
+> Setting considerations of model fit and collinearity aside for the
+> moment, if I want to obtain a z and p value for the difference between
+> proportions of INCORRECT responses by semantic context, how should I
+> proceed?
+> 
+> In passing, could someone also point out how I would look at pairwise
+> comparisons once I factor in interactions, as if, for example, I had
+> included an interaction for Syntax in the model above.
+> 
+> The comparisons would look like this:
+> 
+> syntaxof:IN_AN vs. syntaxof:AN_IN
+> syntax's:IN_AN vs syntax's:AN_IN
+> 
+> ->where 'correct' is the reference level for the DV;
+> 
+> syntaxof:IN_AN vs. syntaxof:AN_IN
+> syntax's:IN_AN vs syntax's:AN_IN
+> 
+> ->where 'incorrect' is the reference level of the DV.
+> 
+> Any guidance is much appreciated.
+> 
+> -- 
+> Frank Romano
+> 
+> Sabanci University
+> website:http://sabanciuniv.academia.edu/FrancescoRomano
+> 
+> 
+> 
+> 
+> 	[[alternative HTML version deleted]]
+> 
+> _______________________________________________
+> R-sig-mixed-models-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org mailing list
+> https://stat.ethz.ch/mailman/listinfo/r-sig-mixed-models
+

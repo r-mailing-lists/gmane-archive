@@ -1,0 +1,740 @@
+From landronimirc-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Jun 11 09:42:44 2009
+From: landronimirc-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Liviu Andronic)
+Date: Thu, 11 Jun 2009 11:42:44 +0200
+Subject: Zelig and nls?
+Message-ID: <68b1e2610906110242y34e92b9fn36b2c5e24d0335ee@mail.gmail.com>
+
+Dear all
+I was wondering whether Zelig has any facilities for Nonlinear Least
+Squares. On a quick check on the R search engines and Zelig's CRAN
+page it appears that it does not. But I might not be very familiar
+with Zelig and easily overlook the functionality.
+Thank you
+Liviu
+
+
+
+-- 
+Do you know how to read?
+http://www.alienetworks.com/srtest.cfm
+Do you know how to write?
+http://garbl.home.comcast.net/~garbl/stylemanual/e.htm#e-mail
+
+From king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org  Thu Jun 11 13:04:17 2009
+From: king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org (Gary King)
+Date: Thu, 11 Jun 2009 09:04:17 -0400
+Subject: Re: Zelig and nls?
+In-Reply-To: <68b1e2610906110242y34e92b9fn36b2c5e24d0335ee@mail.gmail.com>
+References: <68b1e2610906110242y34e92b9fn36b2c5e24d0335ee@mail.gmail.com>
+Message-ID: <4A3100D1.5090005@harvard.edu>
+
+
+
+
+  
+
+
+Zelig does use NLLS for some of its models, but
+it doesn't have a separate facility for you to write down an arbitrary
+functional form to optimize.  We think of zelig as one level of
+abstraction above that, including all the models however estimated and
+optimized.
+
+Gary
+
+---
+
+http://GKing.harvard.edu
+
+Twitter: @kinggary
+
+
+
+
+
+On 06/11/2009 05:42 AM, Liviu Andronic wrote:
+
+  Dear all
+I was wondering whether Zelig has any facilities for Nonlinear Least
+Squares. On a quick check on the R search engines and Zelig's CRAN
+page it appears that it does not. But I might not be very familiar
+with Zelig and easily overlook the functionality.
+Thank you
+Liviu
+
+From dbraman-oSyVjI/F2gyVc3sceRu5cw at public.gmane.org  Thu Jun 11 21:27:08 2009
+From: dbraman-oSyVjI/F2gyVc3sceRu5cw at public.gmane.org (Donald Braman)
+Date: Thu, 11 Jun 2009 17:27:08 -0400
+Subject: functions with Zelig
+Message-ID: <a6f585d20906111427r297ab68cu7dfbd450d2bf581b@mail.gmail.com>
+
+Hey folks, I have a question about passing values to Zelig inside a
+function. I'm wondering why I can't pass a value the way I normally would
+with a function.  Take the following example:
+
+
+
+# LET'S SAY I HAVE A SIMPLE MODEL
+
+
+z.out <- zelig(murder.bin ~ age + income + educ ,
+
+   model = "logit",
+
+   data = mi(miin1, miin2, miin3, miin4, miin5))
+
+summary(z.out)
+
+
+
+# THIS WORKS
+
+age.val <- 1
+
+income.val <- 1
+
+educ.val <- 1
+
+x.out <- setx(z.out, age = age.val, income = income.val, educ = educ.val)
+
+s.out <- sim(z.out, x = x.out)
+
+print(summary(s.out))
+
+
+# BUT THIS DOESN'T WORK
+
+my.function <- function(age.val=2, income.val=2, educ.val= 2) {
+
+print(c(tm,cv,rt))
+
+x.out <- setx(z.out, age = age.val, income = income.val, educ = educ.val)
+
+s.out <- sim(z.out, x = x.out)
+
+print(summary(s.out))
+
+}
+
+my.function()
+
+
+# AND THIS DOESN'T WORK
+
+my.function(age.val=3, income.val=3, educ.val=3)
+
+What am I doing wrong?
+
+From olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org  Fri Jun 12 14:30:22 2009
+From: olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org (Olivia Lau)
+Date: Fri, 12 Jun 2009 10:30:22 -0400
+Subject: Re: functions with Zelig
+In-Reply-To: <a6f585d20906111427r297ab68cu7dfbd450d2bf581b@mail.gmail.com>
+References: <a6f585d20906111427r297ab68cu7dfbd450d2bf581b@mail.gmail.com>
+Message-ID: <8167262d0906120730y1281cb7fkb2708bc02a3417ec@mail.gmail.com>
+
+Dear Donald,
+
+I don't think you're doing anything wrong, but there are limitations
+to what Zelig can do with mi() data.  To get around this limitation, I
+suggest:
+
+my.function <- function(z.out = z.out, age.val=2, income.val=2, educ.val= 2) {
+#   print(c(tm,cv,rt))
+   age.val <<- age.val
+   income.val <<- income.val
+   educ.val <<- educ.val
+   x.out <- setx(z.out, age = age.val, income = income.val, educ = educ.val)
+   s.out <- sim(z.out, x = x.out)
+   print(summary(s.out))
+}
+
+The technical explanation is a bit complicated, but here's an edited
+answer.  An "environment" in R is a set of objects and functions that
+are visible and accessible by other functions that processes.  The
+"global environment" is your R workspace, which generally consists of
+all the objects you see in ls() and all the exported functions in
+packages that you can see with search().  (In fact, each of the
+packages that you get back via search() is also an environment, and
+each function that you define is also its own environment.)
+
+Environments are self-contained -- that is, if you're working in one
+environment, you will not have access to objects in another
+environment, unless that object is in the search path.  In the case of
+setx() with MI, the search path jumps to the global environment and
+bypasses the environment defined by the function my.function().  Since
+age.val, etc are only defined in my.environment(), setx() with MI
+can't find these values.  In addition, I added z.out to the list of
+inputs to your function so that my.function() won't have to search for
+it.
+
+Using the <<- operator rather than the <- operator is not generally
+recommended because <<- overwrites values in the global environment
+from inside another function.  If you had age.val in the global
+environment, it would be overwritten by the value of age.val given in
+the function above.  In this case, this is what you want.
+
+Hope this helps.  Best,
+Olivia
+
+On Thu, Jun 11, 2009 at 5:27 PM, Donald Braman<dbraman-oSyVjI/F2gyVc3sceRu5cw at public.gmane.org> wrote:
+> Hey folks, I have a question about passing values to Zelig inside a
+> function. I'm wondering why I can't pass a value the way I normally would
+> with a function.  Take the following example:
+>
+> # LET'S SAY I HAVE A SIMPLE MODEL
+>
+> z.out <- zelig(murder.bin ~ age + income + educ ,
+>
+>    model = "logit",
+>
+>    data = mi(miin1, miin2, miin3, miin4, miin5))
+>
+> summary(z.out)
+>
+> # THIS WORKS
+>
+> age.val <- 1
+>
+> income.val <- 1
+>
+> educ.val <- 1
+>
+> x.out <- setx(z.out, age = age.val, income = income.val, educ = educ.val)
+>
+> s.out <- sim(z.out, x = x.out)
+>
+> print(summary(s.out))
+>
+> # BUT THIS DOESN'T WORK
+>
+> my.function <- function(age.val=2, income.val=2, educ.val= 2) {
+>
+> print(c(tm,cv,rt))
+>
+> x.out <- setx(z.out, age = age.val, income = income.val, educ = educ.val)
+>
+> s.out <- sim(z.out, x = x.out)
+>
+> print(summary(s.out))
+>
+> }
+>
+> my.function()
+>
+> # AND THIS DOESN'T WORK
+>
+> my.function(age.val=3, income.val=3, educ.val=3)
+>
+> What am I doing wrong?
+
+From dbraman-oSyVjI/F2gyVc3sceRu5cw at public.gmane.org  Fri Jun 12 14:37:03 2009
+From: dbraman-oSyVjI/F2gyVc3sceRu5cw at public.gmane.org (Donald Braman)
+Date: Fri, 12 Jun 2009 10:37:03 -0400
+Subject: Re: functions with Zelig
+In-Reply-To: <8167262d0906120730y1281cb7fkb2708bc02a3417ec@mail.gmail.com>
+References: <a6f585d20906111427r297ab68cu7dfbd450d2bf581b@mail.gmail.com> <8167262d0906120730y1281cb7fkb2708bc02a3417ec@mail.gmail.com>
+Message-ID: <a6f585d20906120737q6db9d146ied84bf8ac57e6665@mail.gmail.com>
+
+Thanks for the workaround & great explanation!
+
+
+On Fri, Jun 12, 2009 at 10:30 AM, Olivia Lau <olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org>wrote:
+
+> Dear Donald,
+>
+> I don't think you're doing anything wrong, but there are limitations
+> to what Zelig can do with mi() data.  To get around this limitation, I
+> suggest:
+>
+> my.function <- function(z.out = z.out, age.val=2, income.val=2, educ.val=
+> 2) {
+> #   print(c(tm,cv,rt))
+>    age.val <<- age.val
+>   income.val <<- income.val
+>   educ.val <<- educ.val
+>    x.out <- setx(z.out, age = age.val, income = income.val, educ =
+> educ.val)
+>   s.out <- sim(z.out, x = x.out)
+>   print(summary(s.out))
+> }
+>
+> The technical explanation is a bit complicated, but here's an edited
+> answer.  An "environment" in R is a set of objects and functions that
+> are visible and accessible by other functions that processes.  The
+> "global environment" is your R workspace, which generally consists of
+> all the objects you see in ls() and all the exported functions in
+> packages that you can see with search().  (In fact, each of the
+> packages that you get back via search() is also an environment, and
+> each function that you define is also its own environment.)
+>
+> Environments are self-contained -- that is, if you're working in one
+> environment, you will not have access to objects in another
+> environment, unless that object is in the search path.  In the case of
+> setx() with MI, the search path jumps to the global environment and
+> bypasses the environment defined by the function my.function().  Since
+> age.val, etc are only defined in my.environment(), setx() with MI
+> can't find these values.  In addition, I added z.out to the list of
+> inputs to your function so that my.function() won't have to search for
+> it.
+>
+> Using the <<- operator rather than the <- operator is not generally
+> recommended because <<- overwrites values in the global environment
+> from inside another function.  If you had age.val in the global
+> environment, it would be overwritten by the value of age.val given in
+> the function above.  In this case, this is what you want.
+>
+> Hope this helps.  Best,
+> Olivia
+>
+> On Thu, Jun 11, 2009 at 5:27 PM, Donald Braman<dbraman-oSyVjI/F2gyVc3sceRu5cw at public.gmane.org> wrote:
+> > Hey folks, I have a question about passing values to Zelig inside a
+> > function. I'm wondering why I can't pass a value the way I normally would
+> > with a function.  Take the following example:
+> >
+> > # LET'S SAY I HAVE A SIMPLE MODEL
+> >
+> > z.out <- zelig(murder.bin ~ age + income + educ ,
+> >
+> >    model = "logit",
+> >
+> >    data = mi(miin1, miin2, miin3, miin4, miin5))
+> >
+> > summary(z.out)
+> >
+> > # THIS WORKS
+> >
+> > age.val <- 1
+> >
+> > income.val <- 1
+> >
+> > educ.val <- 1
+> >
+> > x.out <- setx(z.out, age = age.val, income = income.val, educ = educ.val)
+> >
+> > s.out <- sim(z.out, x = x.out)
+> >
+> > print(summary(s.out))
+> >
+> > # BUT THIS DOESN'T WORK
+> >
+> > my.function <- function(age.val=2, income.val=2, educ.val= 2) {
+> >
+> > print(c(tm,cv,rt))
+> >
+> > x.out <- setx(z.out, age = age.val, income = income.val, educ = educ.val)
+> >
+> > s.out <- sim(z.out, x = x.out)
+> >
+> > print(summary(s.out))
+> >
+> > }
+> >
+> > my.function()
+> >
+> > # AND THIS DOESN'T WORK
+> >
+> > my.function(age.val=3, income.val=3, educ.val=3)
+> >
+> > What am I doing wrong?
+>
+> -
+> Zelig Mailing List, served by Harvard-MIT Data Center
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+>
+
+From presearchwork-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Jun 13 18:21:01 2009
+From: presearchwork-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Prashant)
+Date: Sat, 13 Jun 2009 13:21:01 -0500
+Subject: interpolation/extrapolation with zelig after matchit
+Message-ID: <75cdf68d0906131121q27c6aa7bp10299226d72e4aa4@mail.gmail.com>
+
+Hi,
+I'm new to Zelig. I was trying to figure out how Zelig simulates the
+counterfactuals for a treatment group (after already having run matchit to
+get treatment and control groups) to estimate the ATT. I think in basic
+terms it estimates the parameters of a model (that you specify) for the
+matched control group and then uses the estimated parameters and treatment
+group's covariates to estimate predicted/expected values--these are the
+counterfactuals for the treatment group.
+
+But here's my question (and it is probably due to a lack of conceptual
+understanding): Sometimes matching is in pairs (for example)--does the
+simulation also take account for this? That is, if persons A, B, C in the
+treatment group are matched to persons D, E, F respectively in the control
+group, does the simulation take into account that matching has grouped A &
+D, B & E, C & F? Or does the simulation just take the mass of the matched
+control group observations and estimate a model through it to create
+estimated parameters (to be used with the treatment group's covariates to
+create counterfactuals)?
+
+Sorry in advance if the question is not clear.
+
+best,
+Prashant
+
+From ivonefig-tN0yiSaanoteoWH0uzbU5w at public.gmane.org  Tue Jun 16 16:41:50 2009
+From: ivonefig-tN0yiSaanoteoWH0uzbU5w at public.gmane.org (Ivone Figueiredo)
+Date: Tue, 16 Jun 2009 17:41:50 +0100
+Subject: Mixed logit model
+Message-ID: <77F8997D10DF4656B2E3F8FC77025CF6@ipimar.pt>
+
+Dear Sirs
+
+I am trying to apply a mixed logit model and to learn how to do it I 
+
+ tried your vignette logit.mixed Unfortenatly I receive this error  message.
+
+Can you help me on how to pass this? Error in > checkSlotAssignment(object,
+name, value) : "terms" is not a slot in class "mer"
+
+Thanks in adavnce
+
+Regards
+
+ Ivone Figueiredo
+
+From falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Jun 16 17:21:12 2009
+From: falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Ferdinand)
+Date: Tue, 16 Jun 2009 13:21:12 -0400
+Subject: Re: Mixed logit model
+In-Reply-To: <77F8997D10DF4656B2E3F8FC77025CF6@ipimar.pt>
+References: <77F8997D10DF4656B2E3F8FC77025CF6@ipimar.pt>
+Message-ID: <4A37D488.7000502@iq.harvard.edu>
+
+Hi Ivone,
+
+I think this issue was fixed a while back. Can you please check the 
+version of Zelig you are running ?  Also, mixed.* models depend on 
+another package (lme4). What version do you have ? 
+?packageDescription should give you this information.
+
+thanks,
+Ferdi
+
+Ivone Figueiredo wrote:
+>
+> Dear Sirs
+>
+> I am trying to apply a mixed logit model and to learn how to do it I
+>
+>  tried your vignette logit.mixed Unfortenatly I receive this 
+> error  message.
+>
+> Can you help me on how to pass this? Error in > 
+> checkSlotAssignment(object, name, value) : "terms" is not a slot in 
+> class "mer"
+>
+> Thanks in adavnce
+>
+> Regards
+>
+>  Ivone Figueiredo
+>
+>  
+>  
+>
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Thu Jun 18 02:04:52 2009
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Wed, 17 Jun 2009 22:04:52 -0400
+Subject: Re: [zelig] interpolation/extrapolation with zelig after matchit
+In-Reply-To: <75cdf68d0906131121q27c6aa7bp10299226d72e4aa4@mail.gmail.com>
+References: <75cdf68d0906131121q27c6aa7bp10299226d72e4aa4@mail.gmail.com>
+Message-ID: <alpine.OSX.2.00.0906172203160.54139@pol-g88381xtxyl.Princeton.EDU>
+
+It's the latter.  You can think of matching in observational studies as a 
+way to have the treatment and control groups that have similar covariate 
+distributions.  From this perspective, it does not matter which units are 
+matched with each other.  What matters is the resulting treatment and 
+control goups that have good covariate balance.  Of course, if you do 
+subclassification, then the model will be estimated within each subclass.
+
+Kosuke
+
+-- 
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Sat, 13 Jun 2009, Prashant wrote:
+
+> Hi,
+> I'm new to Zelig. I was trying to figure out how Zelig simulates the
+> counterfactuals for a treatment group (after already having run matchit to
+> get treatment and control groups) to estimate the ATT. I think in basic
+> terms it estimates the parameters of a model (that you specify) for the
+> matched control group and then uses the estimated parameters and treatment
+> group's covariates to estimate predicted/expected values--these are the
+> counterfactuals for the treatment group.
+>
+> But here's my question (and it is probably due to a lack of conceptual
+> understanding): Sometimes matching is in pairs (for example)--does the
+> simulation also take account for this? That is, if persons A, B, C in the
+> treatment group are matched to persons D, E, F respectively in the control
+> group, does the simulation take into account that matching has grouped A &
+> D, B & E, C & F? Or does the simulation just take the mass of the matched
+> control group observations and estimate a model through it to create
+> estimated parameters (to be used with the treatment group's covariates to
+> create counterfactuals)?
+>
+> Sorry in advance if the question is not clear.
+>
+> best,
+> Prashant
+>
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Thu Jun 25 20:45:50 2009
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Thu, 25 Jun 2009 16:45:50 -0400
+Subject: Re: a question regarding R package "Zelig"
+Message-ID: <EF8DE0D1-74E3-4E56-A887-E74EAC7A9EB0@Princeton.Edu>
+
+Unfortunately we don't document specific algorithms. You might be able  
+to find the information in the original packages we wrap.
+
+Kosuke Imai
+Princeton University
+http://imai.princeton.edu
+
+Sent from my iPhone
+
+On Jun 24, 2009, at 6:01 PM, "Zhang, Hui"  
+<Hui_Zhang-NidqkC14WQHD0iAK1M3f4ze48wsgrGvP at public.gmane.org> wrote:
+
+> Dear Kosuke,
+>
+> Now I am trying to compare different available package for fitting  
+> longitudinal binary data using GLMM. I am just wondering which  
+> algorithm you used in Zelig but I am not able to find this  
+> information in zelig package and the website. Did you use either  
+> linearization or approximating the loglikelihood?
+>
+> Thank you very much!
+>
+> Hui
+>
+> -----Original Message-----
+> From: monkeykupo-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org [mailto:monkeykupo-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org] On Behalf  
+> Of Olivia Lau
+> Sent: Monday, March 30, 2009 10:03 PM
+> To: Kosuke Imai
+> Cc: Zhang, Hui; Gary King; Tu, Xin; zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org;  
+> Delia Bailey
+> Subject: Re: [zelig] RE: a question regarding R package "Zelig"
+>
+> Hi,
+>
+> There's a trade-off between N (total number of units) and M (number of
+> clusters).  These models are known to have some bias in situations
+> where the number of clusters M is small, or the number of units n_m in
+> each unit is large relative to the number of clusters.  In order to
+> show that the results are unbiased, try running 100 simulations with
+> 100 clusters, and 5 units in each cluster.  The mean of the
+> simulations should return the true parameters to the first decimal
+> place.  Additional precision can be achieved by increasing the number
+> of simulations.
+>
+> Best,
+> Olivia
+>
+> On Mon, Mar 30, 2009 at 10:27 PM, Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>  
+> wrote:
+>> Hi,
+>>
+>>  I'm not familiar with these kinds of models, but I wouldn't be  
+>> surprised if
+>> the convergence has not been achieved at n = 300.  It's also  
+>> possible that
+>> variance parameters have uncertainty estimation which has not been  
+>> taken
+>> into account (although I'm not 100 % sure about if this is indeed  
+>> the case,
+>> and I'm ccing to the contributor of this model to see if she has any
+>> insight). If this is the case, you might want to choose the bootstrap
+>> option.
+>>
+>> Kosuke
+>>
+>> --
+>> Department of Politics
+>> Princeton University
+>> http://imai.princeton.edu
+>>
+>> On Mon, 30 Mar 2009, Zhang, Hui wrote:
+>>
+>>> Dear Kosuke,
+>>>
+>>> Thank you so much for your response. After I update all the three,  
+>>> my R,
+>>> lme4 and Zelig packages, to the newest version, the problem  
+>>> disappeared.
+>>>
+>>>
+>>> Then I tested the Zelig package for binary data GLMM modeling.  
+>>> However,
+>>> I did not get the result as supposed.
+>>>
+>>> Basically, I generate the dataset from a GLMM model to and then  
+>>> test the
+>>> type I error using Zelig fitting. It did not give the correct number
+>>> even for large sample size.
+>>>
+>>> I attached both the simulation strategy and R code in this email.  
+>>> Do you
+>>> think that is because I did not use the the Package "Zelig"  
+>>> correctly or
+>>> it has deficit?
+>>>
+>>> Thank you so much!
+>>>
+>>> Hui
+>>>
+>>> -----Original Message-----
+>>> From: Kosuke Imai [mailto:kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org]
+>>> Sent: Sunday, March 29, 2009 9:34 PM
+>>> To: Zhang, Hui
+>>> Cc: Gary King; Delia Bailey; Tu, Xin; zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>> Subject: Re: a question regarding R package "Zelig"
+>>>
+>>> Can you try the latest version of Zelig and lme4 and do:
+>>>
+>>> demo(ls.mixed)
+>>>
+>>> It works for me and should work for you too... Note that you  
+>>> should do
+>>>
+>>> install.packages("Zelig", repos = "http://gking.harvard.edu")
+>>>
+>>> for Zelig.
+>>>
+>>> Thanks,
+>>> Kosuke
+>>>
+>>>
+>>
+>> -
+>> Zelig Mailing List, served by Harvard-MIT Data Center
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>>
+
+From wbullock-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Tue Jun 30 14:34:29 2009
+From: wbullock-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Will Bullock)
+Date: Tue, 30 Jun 2009 10:34:29 -0400
+Subject: Amelia + Zelig Integration: logit.mixed
+In-Reply-To: <56830f90906300721o3224e947h9604cf18ef5c2aa7@mail.gmail.com>
+References: <56830f90906300721o3224e947h9604cf18ef5c2aa7@mail.gmail.com>
+Message-ID: <56830f90906300734g63a95b46h51a6d316017de17f@mail.gmail.com>
+
+Hello,
+
+      It appears as though Zelig has trouble integrating multiple datasets
+when using a "logit.mixed" model within R. I'm hoping someone can verify the
+problem and possibly suggest a work-around.
+
+ I've uploaded a sample dataset at
+www.princeton.edu/~wbullock/sampleData.RData and here is a bit of code.
+
+ library(Amelia)
+ library(Zelig)
+ load("sampleData.RData")
+
+ X <- amelia(sampleData, idvars=c("st"), noms=c("female", "imports"),
+ords=c("age", "edu", "inc"))
+
+ fit.1 <- zelig(imports ~ age + edu + female,
+data=mi(X$imputations[[1]],X$imputations[[2]],X$imputations[[3]]), model =
+"logit")
+ summary(fit.1)
+
+ fit.2 <- zelig(imports ~ tag(1|age) + tag(1|edu) + tag(1|female),
+data=mi(X$imputations[[1]],X$imputations[[2]],X$imputations[[3]]), model =
+"logit.mixed")
+ summary(fit.2) #generates error
+ fit.2
+
+
+ The multiple imputation seems to work just fine, as does the first Zelig
+model using a standard logistic model.  But the second Zelig model does not
+properly integrate the datasets.  Instead it simply runs the model on each
+dataset separately.
+
+
+ Any thoughts or suggestions on the matter would be greatly appreciated.
+
+ Thank you,
+ --Will Bullock
+
+From olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org  Tue Jun 30 14:54:51 2009
+From: olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org (Olivia Lau)
+Date: Tue, 30 Jun 2009 10:54:51 -0400
+Subject: Re: Amelia + Zelig Integration: logit.mixed
+In-Reply-To: <56830f90906300734g63a95b46h51a6d316017de17f@mail.gmail.com>
+References: <56830f90906300721o3224e947h9604cf18ef5c2aa7@mail.gmail.com> <56830f90906300734g63a95b46h51a6d316017de17f@mail.gmail.com>
+Message-ID: <8167262d0906300754h5dacdca6r9cc68cf61d6f8f54@mail.gmail.com>
+
+Dear Will,
+
+This is a class problem / bug.  The summary function isn't recognizing
+that the output of zelig with MI and mixed models has a particular
+class, and that the zelig output should be integrated using the Rubin
+rules.
+
+In fact, zelig always runs the models separately on each MI data set,
+whether the model is a logit model or a logit.mixed model.  The model
+output is combined using the Rubin rules in the summary function.
+When simulations are drawn, for N simulations, N/M simulations are
+drawn from each of the M models generated from the M imputed data
+sets.
+
+I'll see what we can do about the bug for logit.mixed in summary.
+
+Best,
+Olivia
+
+On Tue, Jun 30, 2009 at 10:34 AM, Will Bullock<wbullock-uX/v2g6dJhCyum0STUha2w at public.gmane.org> wrote:
+> Hello,
+>
+>       It appears as though Zelig has trouble integrating multiple datasets
+> when using a "logit.mixed" model within R. I'm hoping someone can verify the
+> problem and possibly suggest a work-around.
+>
+>  I've uploaded a sample dataset at
+> www.princeton.edu/~wbullock/sampleData.RData and here is a bit of code.
+>
+>  library(Amelia)
+>  library(Zelig)
+>  load("sampleData.RData")
+>
+>  X <- amelia(sampleData, idvars=c("st"), noms=c("female", "imports"),
+> ords=c("age", "edu", "inc"))
+>
+>  fit.1 <- zelig(imports ~ age + edu + female,
+> data=mi(X$imputations[[1]],X$imputations[[2]],X$imputations[[3]]), model =
+> "logit")
+>  summary(fit.1)
+>
+>  fit.2 <- zelig(imports ~ tag(1|age) + tag(1|edu) + tag(1|female),
+> data=mi(X$imputations[[1]],X$imputations[[2]],X$imputations[[3]]), model =
+> "logit.mixed")
+>  summary(fit.2) #generates error
+>  fit.2
+>
+>
+>  The multiple imputation seems to work just fine, as does the first Zelig
+> model using a standard logistic model.  But the second Zelig model does not
+> properly integrate the datasets.  Instead it simply runs the model on each
+> dataset separately.
+>
+>
+>  Any thoughts or suggestions on the matter would be greatly appreciated.
+>
+>  Thank you,
+>  --Will Bullock
+>
+>
+

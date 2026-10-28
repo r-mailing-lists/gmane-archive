@@ -1,0 +1,316 @@
+From o.mannion at auckland.ac.nz  Sun Feb  7 20:48:22 2010
+From: o.mannion at auckland.ac.nz (o.mannion at auckland.ac.nz)
+Date: Mon, 08 Feb 2010 09:48:22 +1300
+Subject: Calling help() via parseAndEval
+Message-ID: <6085BF643DA19E43B24174695D9A63F526DAFE2517@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+
+If I make enter "help()" via input to the REPL, it will display the help window, but when I try and evaluate "help()" via a call to org.rosuda.REngine.parseAndEval nothing happens. Does this mean if I want the help window to display from my code I have to push it as a command into the REPL ?? Or is there anything way?
+
+Oliver Mannion
+Programmer
+COMPASS - Centre of Methods and Policy Application in the Social Sciences 
+www.compass.auckland.ac.nz 
+The University of Auckland, New Zealand
+
+Phone +(649) 373 7999 ext 89760
+
+From o.mannion at auckland.ac.nz  Sun Feb  7 20:40:27 2010
+From: o.mannion at auckland.ac.nz (o.mannion at auckland.ac.nz)
+Date: Mon, 08 Feb 2010 09:40:27 +1300
+Subject: Warnings suppressed when calling parseAndEval
+Message-ID: <6085BF643DA19E43B24174695D9A63F526DAFE2516@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+
+Hi,
+
+When I evaluate an R command via input to the REPL, I get the warnings displayed as REPL output (via RMainLoopCallbacks.rWriteConsole). However, if I evaluate the same command via a call to org.rosuda.REngine.parseAndEval no warnings are displayed as REPL output, or provided as Java exceptions. Is it meant to work this way, as it seems inconsistent. How can I get the warnings to issue via RMainLoopCallbacks.rWriteConsole ??
+
+The only solution I've come up when using org.rosuda.REngine.parseAndEval to evaluate a command with warnings I want to see, is to wrap it in a call to the following function:
+
+.evalAndShow <- function(expr) {
+	## Parse then evaluate a character vector (expr), returning AND showing the
+	## result if the result is visible. Modelled on the source function.
+	## Syntax errors will be produced by the parse function.
+	## Evaluation errors will be produced by the eval.with.vis function.
+	## Warnings are explicitly trapped and printed, because JRI suppresses
+	## their output to the console. Errors are not suppressed by JRI and
+	## output straight to the console.
+
+	localWarnings <- list()
+	
+	result <- withCallingHandlers(
+		.Internal(eval.with.vis(parse(text=expr), .GlobalEnv, baseenv())),
+		
+			warning = function(w) {
+				## trap warnings in localWarnings list				
+				localWarnings[[length(localWarnings)+1]] <<- w$call
+				names(localWarnings)[length(localWarnings)] <<- w$message
+				
+ 				## don't print warning to console
+				invokeRestart("muffleWarning")  
+				
+			})
+	
+	if (result$visible) {
+		## print result if visible
+		show(result$value)
+	}
+	
+	if (length(localWarnings) > 0) {
+		## explicitly print warnings if they exist
+		show(structure(localWarnings, class = "warnings"))
+	}
+	
+	## return value
+	result$value
+}
+
+Oliver Mannion
+Programmer
+COMPASS - Centre of Methods and Policy Application in the Social Sciences 
+www.compass.auckland.ac.nz 
+The University of Auckland, New Zealand
+
+Phone +(649) 373 7999 ext 89760
+
+From romain.francois at dbmail.com  Mon Feb  8 07:16:35 2010
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Mon, 08 Feb 2010 08:16:35 +0100
+Subject: Re: Calling help() via parseAndEval
+In-Reply-To: <6085BF643DA19E43B24174695D9A63F526DAFE2517@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+References: <6085BF643DA19E43B24174695D9A63F526DAFE2517@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+Message-ID: <4B6FBA53.7060301@dbmail.com>
+
+Hello,
+
+Opening the help window happens because the result of help() is 
+autoprinted when you use the REPL.
+
+ > result <- help( "rnorm" )
+ > class( result )
+[1] "help_files_with_topic" 
+ 
+
+
+So you can have a look at utils:::print.help_files_with_topic or just 
+manually print the result.
+
+Romain
+
+On 02/07/2010 09:48 PM, o.mannion at auckland.ac.nz wrote:
+>
+> If I make enter "help()" via input to the REPL, it will display the help window, but when I try and evaluate "help()" via a call to org.rosuda.REngine.parseAndEval nothing happens. Does this mean if I want the help window to display from my code I have to push it as a command into the REPL ?? Or is there anything way?
+>
+> Oliver Mannion
+> Programmer
+> COMPASS - Centre of Methods and Policy Application in the Social Sciences
+> www.compass.auckland.ac.nz
+> The University of Auckland, New Zealand
+>
+> Phone +(649) 373 7999 ext 89760
+
+
+-- 
+Romain Francois
+Professional R Enthusiast
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/MPYc : RProtoBuf: protocol buffers for R
+|- http://tr.im/KfKn : Rcpp 0.7.2
+`- http://tr.im/JOlc : External pointers with Rcpp
+
+From simon.urbanek at r-project.org  Mon Feb  8 16:55:25 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 08 Feb 2010 11:55:25 -0500
+Subject: Re: Warnings suppressed when calling parseAndEval
+In-Reply-To: <6085BF643DA19E43B24174695D9A63F526DAFE2516@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+References: <6085BF643DA19E43B24174695D9A63F526DAFE2516@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+Message-ID: <1B0933E9-A37E-4C4E-865A-3C217933D1CA@r-project.org>
+
+
+On Feb 7, 2010, at 3:40 PM, o.mannion at auckland.ac.nz wrote:
+
+> Hi,
+> 
+> When I evaluate an R command via input to the REPL, I get the warnings displayed as REPL output (via RMainLoopCallbacks.rWriteConsole). However, if I evaluate the same command via a call to org.rosuda.REngine.parseAndEval no warnings are displayed as REPL output, or provided as Java exceptions. Is it meant to work this way,
+
+
+Yes, please read about warnings in R (see ?warnings and warn option).
+
+Cheers,
+Simon
+
+
+> as it seems inconsistent. How can I get the warnings to issue via RMainLoopCallbacks.rWriteConsole ??
+> 
+
+
+
+> The only solution I've come up when using org.rosuda.REngine.parseAndEval to evaluate a command with warnings I want to see, is to wrap it in a call to the following function:
+> 
+> .evalAndShow <- function(expr) {
+> 	## Parse then evaluate a character vector (expr), returning AND showing the
+> 	## result if the result is visible. Modelled on the source function.
+> 	## Syntax errors will be produced by the parse function.
+> 	## Evaluation errors will be produced by the eval.with.vis function.
+> 	## Warnings are explicitly trapped and printed, because JRI suppresses
+> 	## their output to the console. Errors are not suppressed by JRI and
+> 	## output straight to the console.
+> 
+> 	localWarnings <- list()
+> 	
+> 	result <- withCallingHandlers(
+> 		.Internal(eval.with.vis(parse(text=expr), .GlobalEnv, baseenv())),
+> 		
+> 			warning = function(w) {
+> 				## trap warnings in localWarnings list				
+> 				localWarnings[[length(localWarnings)+1]] <<- w$call
+> 				names(localWarnings)[length(localWarnings)] <<- w$message
+> 				
+> 				## don't print warning to console
+> 				invokeRestart("muffleWarning")  
+> 				
+> 			})
+> 	
+> 	if (result$visible) {
+> 		## print result if visible
+> 		show(result$value)
+> 	}
+> 	
+> 	if (length(localWarnings) > 0) {
+> 		## explicitly print warnings if they exist
+> 		show(structure(localWarnings, class = "warnings"))
+> 	}
+> 	
+> 	## return value
+> 	result$value
+> }
+> 
+> Oliver Mannion
+> Programmer
+> COMPASS - Centre of Methods and Policy Application in the Social Sciences 
+> www.compass.auckland.ac.nz 
+> The University of Auckland, New Zealand
+> 
+> Phone +(649) 373 7999 ext 89760 
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From simon.urbanek at r-project.org  Mon Feb  8 17:00:14 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 08 Feb 2010 12:00:14 -0500
+Subject: Re: Calling help() via parseAndEval
+In-Reply-To: <6085BF643DA19E43B24174695D9A63F526DAFE2517@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+References: <6085BF643DA19E43B24174695D9A63F526DAFE2517@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+Message-ID: <766A2F81-6796-4ED8-AFD6-635B6CD4A31D@r-project.org>
+
+
+On Feb 7, 2010, at 3:48 PM, o.mannion at auckland.ac.nz wrote:
+
+> If I make enter "help()" via input to the REPL, it will display the help window, but when I try and evaluate "help()" via a call to org.rosuda.REngine.parseAndEval nothing happens. Does this mean if I want the help window to display from my code I have to push it as a command into the REPL ?? Or is there anything way?
+> 
+
+You should familiarize yourself with the basic concept in the first place. REPL stands for Read Evaluate Print Loop - please note the the print part of it. If you evaluate an expression, it's just the "E" part of REPL. So if you're not interested just in the help object itself, you probably want to evaluate "print(help())" instead. Also note that R does additional things and the top level, so it's in fact more than REPL (see previous reply).
+
+Cheers,
+Simon
+
+From o.mannion at auckland.ac.nz  Tue Feb  9 04:09:32 2010
+From: o.mannion at auckland.ac.nz (o.mannion at auckland.ac.nz)
+Date: Tue, 09 Feb 2010 17:09:32 +1300
+Subject: Re: Warnings suppressed when calling parseAndEval
+In-Reply-To: <1B0933E9-A37E-4C4E-865A-3C217933D1CA@r-project.org>
+References: <6085BF643DA19E43B24174695D9A63F526DAFE2516@artsmail4.ARTSNET.AUCKLAND.AC.NZ> <1B0933E9-A37E-4C4E-865A-3C217933D1CA@r-project.org>
+Message-ID: <6085BF643DA19E43B24174695D9A63F526DCC1DDF0@artsmail4.ARTSNET.AUCKLAND.AC.NZ>
+
+So as I understand it, errors are always printed from parseAndEval (the E part of the REPL) but warnings are not unless options(warn = 1) or options(warn = 2) is set first. 
+
+When options(warn = 0), ie: the default, the REPL is checking after each top level call to see if there are any warnings and printing them out, presumably by a call to warnings() and some other magic in order to detect most current warnings only. Hopefully I've duplicated this magic in the .evalAndShow function below.
+
+-----Original Message-----
+From: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+Sent: Tuesday, 9 February 2010 5:55 a.m.
+To: Oliver Mannion
+Cc: 'stats-rosuda-devel at listserv.uni-augsburg.de'
+Subject: Re: [stats-rosuda-devel] Warnings suppressed when calling parseAndEval
+
+
+On Feb 7, 2010, at 3:40 PM, o.mannion at auckland.ac.nz wrote:
+
+> Hi,
+> 
+> When I evaluate an R command via input to the REPL, I get the warnings displayed as REPL output (via RMainLoopCallbacks.rWriteConsole). However, if I evaluate the same command via a call to org.rosuda.REngine.parseAndEval no warnings are displayed as REPL output, or provided as Java exceptions. Is it meant to work this way,
+
+
+Yes, please read about warnings in R (see ?warnings and warn option).
+
+Cheers,
+Simon
+
+
+> as it seems inconsistent. How can I get the warnings to issue via RMainLoopCallbacks.rWriteConsole ??
+> 
+
+
+
+> The only solution I've come up when using org.rosuda.REngine.parseAndEval to evaluate a command with warnings I want to see, is to wrap it in a call to the following function:
+> 
+> .evalAndShow <- function(expr) {
+> 	## Parse then evaluate a character vector (expr), returning AND showing the
+> 	## result if the result is visible. Modelled on the source function.
+> 	## Syntax errors will be produced by the parse function.
+> 	## Evaluation errors will be produced by the eval.with.vis function.
+> 	## Warnings are explicitly trapped and printed, because JRI suppresses
+> 	## their output to the console. Errors are not suppressed by JRI and
+> 	## output straight to the console.
+> 
+> 	localWarnings <- list()
+> 	
+> 	result <- withCallingHandlers(
+> 		.Internal(eval.with.vis(parse(text=expr), .GlobalEnv, baseenv())),
+> 		
+> 			warning = function(w) {
+> 				## trap warnings in localWarnings list				
+> 				localWarnings[[length(localWarnings)+1]] <<- w$call
+> 				names(localWarnings)[length(localWarnings)] <<- w$message
+> 				
+> 				## don't print warning to console
+> 				invokeRestart("muffleWarning")  
+> 				
+> 			})
+> 	
+> 	if (result$visible) {
+> 		## print result if visible
+> 		show(result$value)
+> 	}
+> 	
+> 	if (length(localWarnings) > 0) {
+> 		## explicitly print warnings if they exist
+> 		show(structure(localWarnings, class = "warnings"))
+> 	}
+> 	
+> 	## return value
+> 	result$value
+> }
+> 
+> Oliver Mannion
+> Programmer
+> COMPASS - Centre of Methods and Policy Application in the Social Sciences 
+> www.compass.auckland.ac.nz 
+> The University of Auckland, New Zealand
+> 
+> Phone +(649) 373 7999 ext 89760 
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+

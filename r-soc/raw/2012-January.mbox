@@ -1,0 +1,299 @@
+From jean-michel.lebot-Ii7EaK/qxSAp87Tne+O/kA at public.gmane.org  Thu Jan 12 08:34:42 2012
+From: jean-michel.lebot-Ii7EaK/qxSAp87Tne+O/kA at public.gmane.org (Jean Michel Le Bot)
+Date: Thu, 12 Jan 2012 09:34:42 +0100
+Subject: =?utf-8?q?Calcul_imp=C3=B4t_selon_revenu_et_quotient_familial?=
+Message-ID: <4F0E9B22.3030408@univ-rennes2.fr>
+
+Bonjour
+Éternel débutant avec R, les discussions politiques actuelles sur le 
+quotient familial m'ont donné l'idée, en guise d'exercice, de tenter de 
+reproduire avec R des graphiques comme ceux-ci :
+http://fr.wikipedia.or/wiki/Fonction_affine_par_morceaux#Un_exemple_:_la_courbe_d.E2.80.99imposition
+http://fr.wikipedia.org/wiki/Imp%C3%B4t_progressif#Progressivit.C3.A9_par_tranches
+J'y suis assez bien parvenu avec le code suivant :
+x <- seq(5964,150000,1000) # x est le revenu ; on peut bien sûr aller de 
+100 en 100...
+# formule pour une part (barêmes 2011):
+fx <- ifelse(x >= 5964 & x < 11897, (x*0.055)-327.97,
+       ifelse(x >= 11897 & x < 26421,  (x*0.14)-1339.13,
+       ifelse(x >= 26421 & x < 70831, (x*0.3)-5566.33,
+       ifelse(x >= 70831, (x*0.4)-13357.63, NA))))
+taux <- fx/x*100
+et comme je voulais superposer sur un seul graphique les courbes 
+correspondant à différents quotients familiaux j'ai renouvelé les 
+calculs pour différents nombres de parts. Exemple:
+# formule pour deux parts:
+fx2 <- ifelse(x/2 >= 5964 & x/2 < 11897, (x*0.055)-(327.97*2),
+       ifelse(x/2 >= 11897 & x/2 < 26421,  (x*0.14)-(1339.13*2),
+       ifelse(x/2 >= 26421 & x/2 < 70831, (x*0.3)-(5566.33*2),
+       ifelse(x/2 >= 70831, (x*0.4)-(13357.63*2), NA))))
+#etc
+ensuite évidemment utilisation de plot() avec par(new=TRUE) ou matplot()
+Je peux aussi rassembler mes calculs dans un seul data frame avec 
+data.frame(x,fx,fx2...) et comparer en ligne l'impôt pour un même revenu 
+en utilisant l'indexation. Ça fonctionne, mais c'est peut-être un peu 
+basique.
+Question : pouvait-on mieux faire ?
+
+-- 
+J e a n  -  M i c h e l   L e  B o t
+Maître de conférences de sociologie
+Département AES
+Chercheur au LAS/LARES (Université Rennes 2)
+http://www.uhb.fr/sc_humaines/las/
+Tél. (33) 02 23 46 14 70
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://listes.cru.fr/sympa/info/r-soc
+
+From joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Jan 12 17:13:29 2012
+From: joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Joel GOMBIN)
+Date: Thu, 12 Jan 2012 18:13:29 +0100
+Subject: =?utf-8?q?Re=3A_Calcul_imp=C3=B4t_selon_revenu_et_quotient_familial?=
+In-Reply-To: <4F0E9B22.3030408@univ-rennes2.fr>
+References: <4F0E9B22.3030408@univ-rennes2.fr>
+Message-ID: <CA+o9Gp9zPej+t3Sc2B76n=5cV3PPvy8Rg8yShycwS=Q+cK5S4Q@mail.gmail.com>
+
+Bonjour,
+
+voici une proposition alternative de code :
+
+#on crée une fonction, pour simplifier les calculs par la suite
+taux <- function(revenu,parts) {
+  revenu/parts->n  #on calcule le quotient familial
+ taux<-ifelse(n < 5964,0,
+     ifelse(n >= 5964 & n < 11897, (n*0.055)-327.97,
+     ifelse(n >= 11897 & n < 26421,  (n*0.14)-1339.13,
+     ifelse(n >= 26421 & n < 70831, (n*0.3)-5566.33,
+     ifelse(n >= 70831, (n*0.41)-13357.63, NA)))))*parts/revenu*100
+  return(taux)
+}
+rep(seq(0,150000,100),times=9)->revenu
+rep(seq(1,5,0.5), each=1501)->parts
+data.frame(revenu,"parts"=as.factor(parts))->data #on regroupe les données
+dans un data.frame
+taux(data$revenu, parts)->data$taux
+library(ggplot2)
+qplot(revenu, taux, data=data, colour=parts, geom="line")  #l'utilisation
+de ggplot2 permet d'automatiser la représentation de plusieurs courbes en
+fonction du nombre de parts fiscales, avec des couleurs différentes.
+
+Le fond est sensiblement le même, je pense juste que créer une fonction
+prenant en compte le nombre de parts fiscales accélère un peu les choses.
+
+Bien cordialement,
+
+Joël
+
+
+2012/1/12 Jean Michel Le Bot <jean-michel.lebot-Ii7EaK/qxSAp87Tne+O/kA at public.gmane.org>
+
+> Bonjour
+> Éternel débutant avec R, les discussions politiques actuelles sur le
+> quotient familial m'ont donné l'idée, en guise d'exercice, de tenter de
+> reproduire avec R des graphiques comme ceux-ci :
+> http://fr.wikipedia.or/wiki/**Fonction_affine_par_morceaux#**
+> Un_exemple_:_la_courbe_d.E2.**80.99imposition<http://fr.wikipedia.or/wiki/Fonction_affine_par_morceaux#Un_exemple_:_la_courbe_d.E2.80.99imposition>
+> http://fr.wikipedia.org/wiki/**Imp%C3%B4t_progressif#**
+> Progressivit.C3.A9_par_**tranches<http://fr.wikipedia.org/wiki/Imp%C3%B4t_progressif#Progressivit.C3.A9_par_tranches>
+> J'y suis assez bien parvenu avec le code suivant :
+> x <- seq(5964,150000,1000) # x est le revenu ; on peut bien sûr aller de
+> 100 en 100...
+> # formule pour une part (barêmes 2011):
+> fx <- ifelse(x >= 5964 & x < 11897, (x*0.055)-327.97,
+>      ifelse(x >= 11897 & x < 26421,  (x*0.14)-1339.13,
+>      ifelse(x >= 26421 & x < 70831, (x*0.3)-5566.33,
+>      ifelse(x >= 70831, (x*0.4)-13357.63, NA))))
+> taux <- fx/x*100
+> et comme je voulais superposer sur un seul graphique les courbes
+> correspondant à différents quotients familiaux j'ai renouvelé les calculs
+> pour différents nombres de parts. Exemple:
+> # formule pour deux parts:
+> fx2 <- ifelse(x/2 >= 5964 & x/2 < 11897, (x*0.055)-(327.97*2),
+>      ifelse(x/2 >= 11897 & x/2 < 26421,  (x*0.14)-(1339.13*2),
+>      ifelse(x/2 >= 26421 & x/2 < 70831, (x*0.3)-(5566.33*2),
+>      ifelse(x/2 >= 70831, (x*0.4)-(13357.63*2), NA))))
+> #etc
+> ensuite évidemment utilisation de plot() avec par(new=TRUE) ou matplot()
+> Je peux aussi rassembler mes calculs dans un seul data frame avec
+> data.frame(x,fx,fx2...) et comparer en ligne l'impôt pour un même revenu en
+> utilisant l'indexation. Ça fonctionne, mais c'est peut-être un peu basique.
+> Question : pouvait-on mieux faire ?
+>
+> --
+> J e a n  -  M i c h e l   L e  B o t
+> Maître de conférences de sociologie
+> Département AES
+> Chercheur au LAS/LARES (Université Rennes 2)
+> http://www.uhb.fr/sc_humaines/**las/ <http://www.uhb.fr/sc_humaines/las/>
+> Tél. (33) 02 23 46 14 70
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://listes.cru.fr/sympa/info/r-soc
+>
+>
+>
+
+
+-- 
+Joël Gombin
+
+Doctorant en science politique / PhD candidate in political science
+CURAPP - Université de Picardie Jules Verne
+
+94, rue Gabriel de
+Mortillet<http://maps.google.fr/maps?q=94,+rue+Gabriel+de+Mortillet+80090+Amiens&hl=en&sll=46.75984,1.738281&sspn=13.461938,33.815918&vpsrc=0&hnear=94+Rue+Gabriel+de+Mortillet,+80090+Amiens,+Somme,+Picardie&t=m&z=16&iwloc=A>
+80090 Amiens<http://maps.google.fr/maps?q=94,+rue+Gabriel+de+Mortillet+80090+Amiens&hl=en&sll=46.75984,1.738281&sspn=13.461938,33.815918&vpsrc=0&hnear=94+Rue+Gabriel+de+Mortillet,+80090+Amiens,+Somme,+Picardie&t=m&z=16&iwloc=A>
+Tel : +33 (0)6 61 55 22 41
+www.joelgombin.fr
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://listes.cru.fr/sympa/info/r-soc
+
+From Didier.PLAT-BhoPxl9ykkA at public.gmane.org  Thu Jan 12 18:29:48 2012
+From: Didier.PLAT-BhoPxl9ykkA at public.gmane.org (PLAT didier)
+Date: Thu, 12 Jan 2012 19:29:48 +0100
+Subject: =?utf-8?q?RE=3A_Calcul_imp=C3=B4t_selon_revenu_et_quotient_familial?=
+In-Reply-To: <CA+o9Gp9zPej+t3Sc2B76n=5cV3PPvy8Rg8yShycwS=Q+cK5S4Q@mail.gmail.com>
+References: <4F0E9B22.3030408@univ-rennes2.fr> <CA+o9Gp9zPej+t3Sc2B76n=5cV3PPvy8Rg8yShycwS=Q+cK5S4Q@mail.gmail.com>
+Message-ID: <428997EC9359D545926E03AE429681C320EE97F383@si-mel01.entpe.net>
+
+Bonsoir,
+Une version un peu différente, pour séparer la définition des paramètres du calcul et le calcul lui-même :
+
+calcultauxreel<-function(revenu, parts, param, seuils)
+{
+qf<-revenu/parts
+impot<-findInterval(qf, seuils)
+ifelse (revenu!=0, 100*(qf*param[impot,1]-param[impot, 2])/revenu, 0)
+}
+
+#Définition de la structure de l'impôt
+param<-matrix(c(0, 0.055,0.14,0.3,0.41, 0, 327.97, 1339.13, 5566.33, 13357.63), nrow=5,
+              ncol=2, dimnames=list( NULL,c("tauxmarginal", "origine")))
+seuils<-c(-1, 5964, 11897, 26421,70831)
+
+revenu<-rep(seq(0,150000,100),times=9)
+parts<-rep(seq(1,5,0.5), each=1501)
+tauxreel<-calcultauxreel(revenu, parts, param, seuils)
+hh<-data.frame(revenu, "parts"=as.factor(parts), taux)
+library(ggplot2)
+qplot(revenu, taux, data=data, colour=parts, geom="line")
+
+Par contre, dans le graphe, il y a un message d'erreur (élimination de 9 lignes) que je ne sais pas interpréter, n'utilisant pas qplot...
+
+--
+Didier PLAT
+Laboratoire d'Economie des Transports
+(CNRS -ENTPE -Université Lumière)
+ENTPE-rue Maurice AUDIN-69518 VAULX-EN-VELIN CEDEX-FRANCE
+Tel +33 (0)4 72 04 70 47
+Fax +33 (0)4 72 04 70 92
+didier.plat-BhoPxl9ykkA at public.gmane.org
+http://www.entpe.fr/
+http://www.let.fr/
+
+De : r-soc-request-gEzMqofSdz4 at public.gmane.org [mailto:r-soc-request-gEzMqofSdz4 at public.gmane.org] De la part de Joel GOMBIN
+Envoyé : jeudi 12 janvier 2012 18:13
+À : jean-michel.lebot-Ii7EaK/qxSAp87Tne+O/kA at public.gmane.org
+Cc : r-soc-gEzMqofSdz4 at public.gmane.org
+Objet : Re: [R-soc] Calcul impôt selon revenu et quotient familial
+
+Bonjour,
+
+voici une proposition alternative de code :
+
+#on crée une fonction, pour simplifier les calculs par la suite
+taux <- function(revenu,parts) {
+  revenu/parts->n  #on calcule le quotient familial
+ taux<-ifelse(n < 5964,0,
+     ifelse(n >= 5964 & n < 11897, (n*0.055)-327.97,
+     ifelse(n >= 11897 & n < 26421,  (n*0.14)-1339.13,
+     ifelse(n >= 26421 & n < 70831, (n*0.3)-5566.33,
+     ifelse(n >= 70831, (n*0.41)-13357.63, NA)))))*parts/revenu*100
+  return(taux)
+}
+rep(seq(0,150000,100),times=9)->revenu
+rep(seq(1,5,0.5), each=1501)->parts
+data.frame(revenu,"parts"=as.factor(parts))->data #on regroupe les données dans un data.frame
+taux(data$revenu, parts)->data$taux
+library(ggplot2)
+qplot(revenu, taux, data=data, colour=parts, geom="line")  #l'utilisation de ggplot2 permet d'automatiser la représentation de plusieurs courbes en fonction du nombre de parts fiscales, avec des couleurs différentes.
+
+Le fond est sensiblement le même, je pense juste que créer une fonction prenant en compte le nombre de parts fiscales accélère un peu les choses.
+
+Bien cordialement,
+
+Joël
+
+
+2012/1/12 Jean Michel Le Bot <jean-michel.lebot-Ii7EaK/qxSAp87Tne+O/kA at public.gmane.org<mailto:jean-michel.lebot-Ii7EaK/qxSAp87Tne+O/kA at public.gmane.org>>
+Bonjour
+Éternel débutant avec R, les discussions politiques actuelles sur le quotient familial m'ont donné l'idée, en guise d'exercice, de tenter de reproduire avec R des graphiques comme ceux-ci :
+http://fr.wikipedia.or/wiki/Fonction_affine_par_morceaux#Un_exemple_:_la_courbe_d.E2.80.99imposition
+http://fr.wikipedia.org/wiki/Imp%C3%B4t_progressif#Progressivit.C3.A9_par_tranches
+J'y suis assez bien parvenu avec le code suivant :
+x <- seq(5964,150000,1000) # x est le revenu ; on peut bien sûr aller de 100 en 100...
+# formule pour une part (barêmes 2011):
+fx <- ifelse(x >= 5964 & x < 11897, (x*0.055)-327.97,
+     ifelse(x >= 11897 & x < 26421,  (x*0.14)-1339.13,
+     ifelse(x >= 26421 & x < 70831, (x*0.3)-5566.33,
+     ifelse(x >= 70831, (x*0.4)-13357.63, NA))))
+taux <- fx/x*100
+et comme je voulais superposer sur un seul graphique les courbes correspondant à différents quotients familiaux j'ai renouvelé les calculs pour différents nombres de parts. Exemple:
+# formule pour deux parts:
+fx2 <- ifelse(x/2 >= 5964 & x/2 < 11897, (x*0.055)-(327.97*2),
+     ifelse(x/2 >= 11897 & x/2 < 26421,  (x*0.14)-(1339.13*2),
+     ifelse(x/2 >= 26421 & x/2 < 70831, (x*0.3)-(5566.33*2),
+     ifelse(x/2 >= 70831, (x*0.4)-(13357.63*2), NA))))
+#etc
+ensuite évidemment utilisation de plot() avec par(new=TRUE) ou matplot()
+Je peux aussi rassembler mes calculs dans un seul data frame avec data.frame(x,fx,fx2...) et comparer en ligne l'impôt pour un même revenu en utilisant l'indexation. Ça fonctionne, mais c'est peut-être un peu basique.
+Question : pouvait-on mieux faire ?
+
+--
+J e a n  -  M i c h e l   L e  B o t
+Maître de conférences de sociologie
+Département AES
+Chercheur au LAS/LARES (Université Rennes 2)
+http://www.uhb.fr/sc_humaines/las/
+Tél. (33) 02 23 46 14 70<tel:%2833%29%2002%2023%2046%2014%2070>
+
+
+--
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://listes.cru.fr/sympa/info/r-soc
+
+
+
+
+--
+Joël Gombin
+
+Doctorant en science politique / PhD candidate in political science
+CURAPP - Université de Picardie Jules Verne
+
+94, rue Gabriel de Mortillet<http://maps.google.fr/maps?q=94,+rue+Gabriel+de+Mortillet+80090+Amiens&hl=en&sll=46.75984,1.738281&sspn=13.461938,33.815918&vpsrc=0&hnear=94+Rue+Gabriel+de+Mortillet,+80090+Amiens,+Somme,+Picardie&t=m&z=16&iwloc=A>
+80090 Amiens<http://maps.google.fr/maps?q=94,+rue+Gabriel+de+Mortillet+80090+Amiens&hl=en&sll=46.75984,1.738281&sspn=13.461938,33.815918&vpsrc=0&hnear=94+Rue+Gabriel+de+Mortillet,+80090+Amiens,+Somme,+Picardie&t=m&z=16&iwloc=A>
+Tel : +33 (0)6 61 55 22 41<tel:%2B33%20%280%296%2061%2055%2022%2041>
+www.joelgombin.fr<http://www.joelgombin.fr>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://listes.cru.fr/sympa/info/r-soc
+

@@ -1,0 +1,374 @@
+From maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org  Wed Sep  7 02:19:21 2011
+From: maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org (Francois Maurice)
+Date: Tue, 06 Sep 2011 19:19:21 -0700
+Subject: Problem in specifying a proxy variable in setx()
+Message-ID: <1315361961.55210.YahooMailNeo@web114618.mail.gq1.yahoo.com>
+
+Hi,
+ 
+I'm trying to do elegant coding, but I have trouble with setx(). I defined two objects, tx.var, wich contains the name of the treatment variable, and causal.model, which contains the model used in zelig() (see the code below). Everything works fine except in setx(). When I specify tx.var instead of TREAT, which is the name of the treatment variable, sim() produce zero effect. But when I specify TREAT, sim() produces a quantity. Is there something I can do to correct this ?
+ 
+tx.var <- c("TREAT")
+causal.model <- QASBAT ~ TREAT + T + T2 + T3 + tag(T | ID.factor)
+
+(some other codes here)
+ 
+z.out.1 <- zelig(formula= as.formula(causal.model), data=matched.1.mtch.long,   model="ls.mixed")
+x.out.0.1 <- setx(z.out.1, fn=NULL, tx.var=0)
+x.out.1.1 <- setx(z.out.1, fn=NULL, tx.var=1)
+s.out.1 <- sim(z.out.1, x=x.out.0.1, x1=x.out.1.1)
+
+Merci,
+
+François Maurice, B. Sc., A. Stat.
+Candidat à la maîtrise
+Département de sociologie
+Université de Montréal
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Wed Sep  7 02:46:00 2011
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Owen, Matt)
+Date: Tue, 06 Sep 2011 22:46:00 -0400
+Subject: RE: Problem in specifying a proxy variable in setx()
+In-Reply-To: <1315361961.55210.YahooMailNeo@web114618.mail.gq1.yahoo.com>
+References: <1315361961.55210.YahooMailNeo@web114618.mail.gq1.yahoo.com>
+Message-ID: <0259038B1AB5E646B0188D330F3C406A28E70A33@FASXCH02.fasmail.priv>
+
+The operation that you are attempting to do is:
+  x.out.0.1 <- setx(z.out.1, fn=NULL, TREAT=0)
+  x.out.1.1 <- setx(z.out.1, fn=NULL, TREAT=1)
+
+The reason why your statement does not work is more of an issue with programming in general. That is, when the function setx is evaluated, the statement:
+  tx.var = 0
+
+is being understood that you are setting a parameter (tx.var) to whatever is on the right-hand-side of the equal sign.
+
+To do what you are trying to do (in the same manner as you are trying to do it) requires something like:
+
+  call1 <- call2 <- call("setx", fn = NULL)
+  call1[[tx.var]] <- 0
+  call2[[tx.var]] <- 1
+  x.out.0.1 <- eval(call1)
+  x.out.1.1 <- eval(call2)
+
+Why this is the case has to do with how R interprets what you are writing in your script. That is, imagine the scenario where the formula (causal.model) was:
+  causal.model <- QASBAT ~ TREAT + T + T2 + T3 + tag(T | ID.factor) + tx.var
+
+Note that tx.var now is specified as an explanatory variable.
+
+In general, writing out:
+  x.out.0.1 <- setx(z.out.1, fn=NULL, TREAT=0)
+  x.out.1.1 <- setx(z.out.1, fn=NULL, TREAT=1)
+
+is typically the better option because of its readability.
+
+________________________________________
+From: owner-zelig_at_lists_gking_harvard_edu-N5R0mZC8nIPAPJtjfMQIUFV15Tx05bL6 at public.gmane.org [owner-zelig_at_lists_gking_harvard_edu-N5R0mZC8nIPAPJtjfMQIUFV15Tx05bL6 at public.gmane.org] On Behalf Of Francois Maurice [maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org]
+Sent: Tuesday, September 06, 2011 10:19 PM
+To: Zelig mailing list
+Subject: [zelig] Problem in specifying a proxy variable in setx()
+
+Hi,
+
+I'm trying to do elegant coding, but I have trouble with setx(). I defined two objects, tx.var, wich contains the name of the treatment variable, and causal.model, which contains the model used in zelig() (see the code below). Everything works fine except in setx(). When I specify tx.var instead of TREAT, which is the name of the treatment variable, sim() produce zero effect. But when I specify TREAT, sim() produces a quantity. Is there something I can do to correct this ?
+
+tx.var <- c("TREAT")
+causal.model <- QASBAT ~ TREAT + T + T2 + T3 + tag(T | ID.factor)
+(some other codes here)
+
+z.out.1 <- zelig(formula= as.formula(causal.model), data=matched.1.mtch.long,   model="ls.mixed")
+x.out.0.1 <- setx(z.out.1, fn=NULL, tx.var=0)
+x.out.1.1 <- setx(z.out.1, fn=NULL, tx.var=1)
+s.out.1 <- sim(z.out.1, x=x.out.0.1, x1=x.out.1.1)
+Merci,
+
+François Maurice, B. Sc., A. Stat.
+Candidat à la maîtrise
+Département de sociologie
+Université de Montréal
+
+From maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org  Wed Sep  7 19:56:49 2011
+From: maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org (Francois Maurice)
+Date: Wed, 07 Sep 2011 12:56:49 -0700
+Subject: =?utf-8?q?Re=EF=BF=BD=3A_Problem_in_specifying_a_proxy_variable_in_setx=28=29?=
+In-Reply-To: <0259038B1AB5E646B0188D330F3C406A28E70A33@FASXCH02.fasmail.priv>
+References: <1315361961.55210.YahooMailNeo@web114618.mail.gq1.yahoo.com> <0259038B1AB5E646B0188D330F3C406A28E70A33@FASXCH02.fasmail.priv>
+Message-ID: <1315425409.64769.YahooMailNeo@web114615.mail.gq1.yahoo.com>
+
+Thanks, it works well !
+ 
+But it seems to have a mistake. I have to had the object produce by zelig() in the call() function. So the code is this :
+ 
+  call1 <- call2 <- call("setx", z.out.1, fn = NULL)
+
+Merci,
+
+François Maurice, B. Sc., A. Stat.
+Candidat à la maîtrise
+Département de sociologie
+Université de Montréal
+
+De : "Owen, Matt" <mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>
+À : Francois Maurice <maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org>; Zelig mailing list <zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+Envoyé le : Mardi 6 Septembre 2011 22h46
+Objet : RE: [zelig] Problem in specifying a proxy variable in setx()
+
+The operation that you are attempting to do is:
+  x.out.0.1 <- setx(z.out.1, fn=NULL, TREAT=0)
+  x.out.1.1 <- setx(z.out.1, fn=NULL, TREAT=1)
+
+The reason why your statement does not work is more of an issue with programming in general. That is, when the function setx is evaluated, the statement:
+  tx.var = 0
+
+is being understood that you are setting a parameter (tx.var) to whatever is on the right-hand-side of the equal sign.
+
+To do what you are trying to do (in the same manner as you are trying to do it) requires something like:
+
+  call1 <- call2 <- call("setx", fn = NULL)
+  call1[[tx.var]] <- 0
+  call2[[tx.var]] <- 1
+  x.out.0.1 <- eval(call1)
+  x.out.1.1 <- eval(call2)
+
+Why this is the case has to do with how R interprets what you are writing in your script. That is, imagine the scenario where the formula (causal.model) was:
+  causal.model <- QASBAT ~ TREAT + T + T2 + T3 + tag(T | ID.factor) + tx.var
+
+Note that tx.var now is specified as an explanatory variable.
+
+In general, writing out:
+  x.out.0.1 <- setx(z.out.1, fn=NULL, TREAT=0)
+  x.out.1.1 <- setx(z.out.1, fn=NULL, TREAT=1)
+
+is typically the better option because of its readability.
+
+________________________________________
+From: owner-zelig_at_lists_gking_harvard_edu-N5R0mZC8nIPAPJtjfMQIUFV15Tx05bL6 at public.gmane.org [owner-zelig_at_lists_gking_harvard_edu-N5R0mZC8nIPAPJtjfMQIUFV15Tx05bL6 at public.gmane.org] On Behalf Of Francois Maurice [maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org]
+Sent: Tuesday, September 06, 2011 10:19 PM
+To: Zelig mailing list
+Subject: [zelig] Problem in specifying a proxy variable in setx()
+
+Hi,
+
+I'm trying to do elegant coding, but I have trouble with setx(). I defined two objects, tx.var, wich contains the name of the treatment variable, and causal.model, which contains the model used in zelig() (see the code below). Everything works fine except in setx(). When I specify tx.var instead of TREAT, which is the name of the treatment variable, sim() produce zero effect. But when I specify TREAT, sim() produces a quantity. Is there something I can do to correct this ?
+
+tx.var <- c("TREAT")
+causal.model <- QASBAT ~ TREAT + T + T2 + T3 + tag(T | ID.factor)
+(some other codes here)
+
+z.out.1 <- zelig(formula= as.formula(causal.model), data=matched.1.mtch.long,  model="ls.mixed")
+x.out.0.1 <- setx(z.out.1, fn=NULL, tx.var=0)
+x.out.1.1 <- setx(z.out.1, fn=NULL, tx.var=1)
+s.out.1 <- sim(z.out.1, x=x.out.0.1, x1=x.out.1.1)
+Merci,
+
+François Maurice, B. Sc., A. Stat.
+Candidat à la maîtrise
+Département de sociologie
+Université de Montréal
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Thu Sep 15 03:03:39 2011
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Thu, 15 Sep 2011 03:03:39 +0000
+Subject: Re: MatchIt Zelig and multiple imputation
+In-Reply-To: <1315951323.85160.YahooMailClassic@web29014.mail.ird.yahoo.com>
+References: <1315951323.85160.YahooMailClassic@web29014.mail.ird.yahoo.com>
+Message-ID: <169ED5FD-C7EE-46E6-B737-1D2E8AEF3EE6@princeton.edu>
+
+Unfortunately, I don't think we have an automated procedure for everything.  You would have to multiply impute the data, do matching on each imputed data set, and then combine it in zelig() using mi() function.  But this does not require any programming.  You can simply run the same matching procedure on each data set via matchit() and then feed the resulting multiple matched data sets into zelig(). 
+
+Good luck,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+
+On Sep 13, 2011, at 6:02 PM, Pingaul jb wrote:
+
+> Dear Professor,
+> I’m a post-doctoral student at Montreal University. I’m actually in Columbia, working and propensity scores with a colleague and using MatchIt and Zelig. First, congratulations for your packages that are very flexible.
+> 
+> My question is about multiple imputation and propensity scores with these softwares. From what I understand, combining both approaches would include:
+> 
+> 1/ Doing multiple imputation and testing which variables to include.
+> 
+> 2/ Propensity score analysis on each imputed data set and pooling the overall balance to check if it is ok (or on each data set?).
+> 
+> 3/ Calculation of the quantities of interest for each data set
+> 
+> 4/ Pooling the quantities across data sets.
+> 
+> I would like to know if there is a written syntax to perform the MatchIt analysis for all of the imputed data set without having to do it manually and check the overall balance. Also, in theory, the number of individuals retained after propensity score matching and the weights can be different for each imputed data set. So that we have to perform the final analysis on each one and then pool the data with a specific procedure to take into account the eventual varying Ns? I normally use Mice package for multiple imputation but it seems that Zelig handle Amelia. My colleague seems to do be able to do all that in stata, but I’m not sure how to make all the three R packages work together.
+> 
+> I would be very happy if you could indicate to me a reference or a place where I can find the syntax to do that (I’ve been using R for some times so I can use packages easily but I have no programming skills).  
+> 
+>  
+> Best Regards!
+> 
+> 
+> 
+> Jean-Baptiste
+>
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Wed Sep 21 12:47:38 2011
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Wed, 21 Sep 2011 08:47:38 -0400
+Subject: Re: Problem with bprobit
+In-Reply-To: <51600D3C92A67A40829DFDD5C57CFD8E0A9757DC@STAWINCOX10MBX2.staff.vuw.ac.nz>
+References: <51600D3C92A67A40829DFDD5C57CFD8E0A9757DC@STAWINCOX10MBX2.staff.vuw.ac.nz>
+Message-ID: <3787F0C1-F4EB-4005-A1F1-6C0A284B0C08@Princeton.Edu>
+
+It's possible that as it is implemented, the bprobit in R does not take an endogenous variable...
+
+Best,
+Kosuke
+
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+	
+
+On Sep 20, 2011, at 2:06 AM, Stefanie Schurer wrote:
+
+> Hi Kosuke,
+>  
+> I am a problem with Zelig’s bivariate probit model. I am trying to replicate a study by Carrasco 2001, JBES, which estimates jointly labour supply and fertility with a bivariate probit model. I can replicate her binary response results with R, but once using zelig’s  - bprobit – command I get 14 error messages and totally nonsensical results. The problem is that when estimating the exact same model with STATA’s – biprobit -- command, I am able to replicate Carrasco’s results. Is there any known bug in bprobit which I happen to be not aware of?
+>  
+> This is what I programmed (please note that this is a recursive model in which f = fertility is an endogenous RHS variable, and thus is separately modelled in the second equation, using an instrument for identification “dsex”).
+>  
+> Any help would be highly appreciated as I intend to teach this to my third year econometrics students next Thursday.
+>  
+> Cheers,
+> Stefi
+>  
+> ######
+>  
+> fml <- list(mu1 = dhw ~ f + ags26l + fxag26l + educ2 + educ3 + drace + age + income + dhwl, mu2 = f ~ ags26l +  educ2 + educ3 + drace  + age + income + dsex)
+> z.out <- zelig(fml, model = "blogit", data = mydata)
+> z.out
+>  
+> Below is the errors I get
+>  
+> Warning messages:
+> 1: glm.fit: algorithm did not converge
+> 2: In checkwz(wz, M = M, trace = trace, wzeps = control$wzepsilon) :
+>   805 elements replaced by 1.819e-12
+> 3: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 4: In checkwz(wz, M = M, trace = trace, wzeps = control$wzepsilon) :
+>   2064 elements replaced by 1.819e-12
+> 5: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 6: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 7: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 8: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 9: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 10: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 11: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 12: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 13: In tfun(mu = mu, y = y, w = w, res = FALSE, eta = eta,  ... :
+>   fitted values close to 0 or 1
+> 14: In eval(expr, envir, enclos) :
+>   iterations terminated because half-step sizes are very small
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Sat Sep 24 17:19:53 2011
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Sat, 24 Sep 2011 17:19:53 +0000
+Subject: Re: MatchIt Zelig and multiple imputation
+In-Reply-To: <1316447154.15010.YahooMailClassic@web29020.mail.ird.yahoo.com>
+References: <1316447154.15010.YahooMailClassic@web29020.mail.ird.yahoo.com>
+Message-ID: <E62B4B8F-2961-474C-9EC4-964812C73FFD@Princeton.EDU>
+
+The argument "weights" takes the name of the variable.  So, you should try something like:
+
+weights = "weights"
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Sep 19, 2011, at 11:45 AM, Pingaul jb wrote:
+
+> Dear professor,
+> Thanks for your answer! I finally built on MatchIt to write quick functions  to help in the matching with multiple imputation (equivalent to matchit, summary and match.data). I don't think they are very elegant but I send them to you anyway now that they are done (with a csv file with data as an example).
+> More importantly, I get an error warning with a syntax adapted from Ho et al. (2011) with MatchIt to calculate ATT. The syntax with the article is with method=”nearest” with no replacement. I tried with replacement. Therefore, it seems I need to introduce weights when estimating the model on the controls. But when I apply the resulting model on the treated I get a problem with different variables length for the weights. To make sure the control group is well matched I think I must introduce the weights anyway but I’m unsure how to do it. Under is my syntax with the lalonde data. 
+> library(MatchIt)
+> library(Zelig)
+> data(lalonde)
+> m.out0 <- matchit(treat ~ age + educ + black + hispan + nodegree + married + re74 + re75, method = "nearest",replace=T, data = lalonde)
+> datacontrol= match.data(m.out0, "control")
+> summary(m.out0)
+> datatreat=match.data(m.out0, "treat")
+> z.out1 <- zelig(re78 ~ age + educ + black + hispan + nodegree + married + re74 + re75, data = datacontrol,weights=datacontrol$weights, model = "ls")
+> x.out1 <- setx(z.out1, data = datatreat, cond = TRUE)
+> s.out1 <- sim(z.out1, x = x.out1)
+> 
+> 
+> Best regards,
+> 
+> Jean-Baptiste
+> 
+> --- En date de : Jeu 15.9.11, Kosuke Imai <kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org> a écrit :
+> 
+> De: Kosuke Imai <kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org>
+> Objet: Re: MatchIt Zelig and multiple imputation
+> À: "Pingaul jb" <pingaultjb-Qt13gs6zZMY at public.gmane.org>
+> Cc: "matchit" <matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>, "zelig-boHuZhbfW+ZhPhyd9dSzYg at public.gmane.orgvard.edu" <zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+> Date: Jeudi 15 septembre 2011, 5h03
+> 
+> Unfortunately, I don't think we have an automated procedure for everything.  You would have to multiply impute the data, do matching on each imputed data set, and then combine it in zelig() using mi() function.  But this does not require any programming.  You can simply run the same matching procedure on each data set via matchit() and then feed the resulting multiple matched data sets into zelig(). 
+> 
+> Good luck,
+> Kosuke
+> 
+> Department of Politics
+> Princeton University
+> http://imai.princeton.edu
+> 
+> 
+> On Sep 13, 2011, at 6:02 PM, Pingaul jb wrote:
+> 
+> > Dear Professor,
+> > I’m a post-doctoral student at Montreal University. I’m actually in Columbia, working and propensity scores with a colleague and using MatchIt and Zelig. First, congratulations for your packages that are very flexible.
+> > 
+> > My question is about multiple imputation and propensity scores with these softwares. From what I understand, combining both approaches would include:
+> > 
+> > 1/ Doing multiple imputation and testing which variables to include.
+> > 
+> > 2/ Propensity score analysis on each imputed data set and pooling the overall balance to check if it is ok (or on each data set?).
+> > 
+> > 3/ Calculation of the quantities of interest for each data set
+> > 
+> > 4/ Pooling the quantities across data sets.
+> > 
+> > I would like to know if there is a written syntax to perform the MatchIt analysis for all of the imputed data set without having to do it manually and check the overall balance. Also, in theory, the number of individuals retained after propensity score matching and the weights can be different for each imputed data set. So that we have to perform the final analysis on each one and then pool the data with a specific procedure to take into account the eventual varying Ns? I normally use Mice package for multiple imputation but it seems that Zelig handle Amelia. My colleague seems to do be able to do all that in stata, but I’m not sure how to make all the three R packages work together.
+> > 
+> > I would be very happy if you could indicate to me a reference or a place where I can find the syntax to do that (I’ve been using R for some times so I can use packages easily but I have no programming skills).  
+> > 
+> >  
+> > Best Regards!
+> > 
+> > 
+> > 
+> > Jean-Baptiste
+> > 
+> 
+> <MatchItMI.txt><DataExample.csv>
+

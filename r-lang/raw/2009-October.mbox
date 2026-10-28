@@ -1,0 +1,181 @@
+From graff-3s7WtUTddSA at public.gmane.org  Thu Oct  1 15:11:54 2009
+From: graff-3s7WtUTddSA at public.gmane.org (Peter Graff)
+Date: Thu, 01 Oct 2009 11:11:54 -0400
+Subject: Contrast coded mixed models: Interactions
+Message-ID: <4AC4C6BA.2030700@mit.edu>
+
+Dear R-Langs,
+
+I'm currently trying to analyze some experimental data with a contrast 
+coded mixed model. I have a 2 (levels:A,B) x 3 (levels:D,E,F) design 
+with unbalanced cell sizes. I am coding the following variables:
+
+AvB, DvE, EvF
+
+where sum(AvB)=0, sum(DvE)=0, sum(EvF)=0. Next I fit this model:
+
+lmer(DV~AvB*(DvE+EvF)+(1|Subj)+(1|Item))
+
+And here is the correlation matrix it outputs:
+
+Correlation of Fixed Effects:
+                  (Intr)   AvB    DvE     EvF  AvB:DvE
+AvB         -0.029                            
+DvE          0.010 -0.006                     
+EvF         -0.002 -0.001  *0.488  *            
+AvB:DvE -0.003  0.015 -0.039 -0.018       
+AvB:EvF -0.001 -0.002 -0.018 -0.044  *0.488 *
+
+The question I have is, how to get rid of the collinearity in red and 
+blue and whether it's even possible. And if it's not possible, in what 
+way will this affect the reliability of my result?
+
+Thanks so much in advance,
+
+Peter
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Thu Oct  1 17:27:04 2009
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Thu, 01 Oct 2009 13:27:04 -0400
+Subject: Re: Contrast coded mixed models: Interactions
+In-Reply-To: <4AC4C6BA.2030700-3s7WtUTddSA@public.gmane.org>
+References: <4AC4C6BA.2030700@mit.edu>
+Message-ID: <38dc9be90910011027y76572654r388269e52750a95a@mail.gmail.com>
+
+Hi Peter-ling,
+
+can you say a bit more about your data? How many data points each are there
+within A-D, A-E, A-F, B-D, B-E, and B-F? If I had to guess I would say you
+have either more or less data in D than in E or F (depending on how you
+contrast coded)? Is that the way your data is unbalanced? A vs B seems
+balanced and I would even guess that the distribution of D vs. E vs. F  is
+the same in A and B, but the distribution of D vs. E vs. F overall is
+unbalanced?
+
+Anyway, for certain distributions of data, you will find that contrast
+coding won't just solve the problem. If you play around with the following
+simulation, this becomes quite apparent:
+
+====================================================
+# number of subjects
+n_s = 20
+# number of items within subjects
+n_per_s = 16
+
+# let's create an unbalanced data set of the type that I suspect you have
+# (see above)
+AvB <- as.factor(rep(c(rep("a", 8), rep("b", 8)), n_s))
+DvEvF <- as.factor(rep(c("d","d","d", "d", "e", "e", "f", "f"), n_s * 2))
+# subjects
+s  <- sort(rep(seq(1:20), n_per_s))
+# subject effects
+rs <- rnorm(n_s,0,0.5)
+
+# clumsy way to encode fixed effects
+effect <- function(x) {
+    ifelse(x == "a", 2,
+     ifelse(x == "b", 1.2,
+      ifelse(x == "d", 0.5,
+       ifelse(x == "e", -1.5,
+        ifelse(x == "f", -0.3, NA)
+        )
+      )
+     )
+    )
+}
+# outcome is specified by effects of AvB and DvEvF (no interaction, but
+# feel free to add one) plus noise plus subject effects (also noise).
+y <- effect(AvB) + effect(DvEvF) + rnorm(n,0,0.2) + rs[s]
+
+library(lme4)
+
+# treatment coding
+contrasts(DvEvF) <- contr.treatment(3)
+lmer(y ~ AvB + DvEvF + (1 | s))
+
+# contrast (sum) coding
+contrasts(DvEvF) <- contr.sum(3)
+lmer(y ~ AvB + DvEvF + (1 | s))
+
+# or with interactions:
+contrasts(AvB) <- contr.sum(2)
+contrasts(DvEvF) <- contr.sum(3)
+lmer(y ~ AvB * DvEvF + (1 | s))
+
+# contrast coding as used by you
+# to see that the above contrast coding does the same as
+# what you do
+DvEvF <- factor(DvEvF, levels=c("e", "d", "f"))
+contrasts(DvEvF) <- contr.sum(3)
+lmer(y ~ AvB + DvEvF + (1 | s))
+====================================================
+
+this gives you something very similar to your pattern of fixed effect
+correlations. But play around with other parameters to get a feel.
+
+what can you do now? First, many people would consider a fixed correlation
+of < .5 to be reason for caution but not to disregard the results. In the
+corpus work I do, I usually try to keep fixed effect correlations much
+smaller, but I think folks find .5 acceptable, but maybe people can chime in
+and let you know whether I am off on that.
+
+any method that further reduced collinearity will require some decisions
+(e.g. what to residualize against what; PCA; or some alternative coding).
+For example, helmert coding works quite well for the pseudo data set
+mentioned above, if you hypothesis was that e < f < d (and you resort the
+factor levels accordingly). Fixed effect correlations would all be <0.26.
+
+HTH,
+Florian
+
+On Thu, Oct 1, 2009 at 11:11 AM, Peter Graff <graff-3s7WtUTddSA at public.gmane.org> wrote:
+
+>  Dear R-Langs,
+>
+> I'm currently trying to analyze some experimental data with a contrast
+> coded mixed model. I have a 2 (levels:A,B) x 3 (levels:D,E,F) design with
+> unbalanced cell sizes. I am coding the following variables:
+>
+> AvB, DvE, EvF
+>
+> where sum(AvB)=0, sum(DvE)=0, sum(EvF)=0. Next I fit this model:
+>
+> lmer(DV~AvB*(DvE+EvF)+(1|Subj)+(1|Item))
+>
+> And here is the correlation matrix it outputs:
+>
+> Correlation of Fixed Effects:
+>                   (Intr)   AvB    DvE     EvF  AvB:DvE
+> AvB         -0.029
+> DvE          0.010 -0.006
+> EvF         -0.002 -0.001  *0.488  *
+> AvB:DvE -0.003  0.015 -0.039 -0.018
+> AvB:EvF -0.001 -0.002 -0.018 -0.044  *0.488 *
+>
+> The question I have is, how to get rid of the collinearity in red and blue
+> and whether it's even possible. And if it's not possible, in what way will
+> this affect the reliability of my result?
+>
+> Thanks so much in advance,
+>
+> Peter
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+

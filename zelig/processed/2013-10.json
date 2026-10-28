@@ -1,0 +1,203 @@
+{
+  "list": "zelig",
+  "description": "",
+  "month": "2013-10",
+  "messages": [
+    {
+      "id": "msg-42d19c3ceb62",
+      "message_id": "<CAM+NV=0_K18wJXw=+XkZ=3DcSMJBdEX3MqCVNccCdbEeAGwyzw@mail.gmail.com>",
+      "from_name": "Rogério Barbosa",
+      "from_email_hash": "50275c3cc552dc33c52fbae3992aee82860b9c0755449bbcee8ae591f84e6c54",
+      "date": "2013-10-03T15:42:28Z",
+      "subject": "Re: plot.ci not working for Poisson GEE",
+      "subject_clean": "plot.ci not working for Poisson GEE",
+      "in_reply_to": "<564E4EF89CD7994693F47F815F8E43E803E2BA@HARVANDMBX02.fasmail.priv>",
+      "references": [
+        "<24CC7A5B-6B84-44CC-AAA6-0233FF6CDD03@utexas.edu>",
+        "<564E4EF89CD7994693F47F815F8E43E803E2BA@HARVANDMBX02.fasmail.priv>"
+      ],
+      "body_plain": "Hi James,\n\nI'm having the same problem with \"logit.survey\". Common logit works fine.\nAll my packages are updated (I'm using Zelig 4.2-2, ZeligChoice 0.8-1, R\n3.0.2 -- and dependencies are also updated: survey version is 3.29-5)\n\nThe error message is \"In simulation.matrix.sim(obj[[label]], which = which,\n ...\"\n\nIt occurs when one tries to plot simulation results for both x and x1 --\nand specifically when the quantity of interest is \"ev\"; the plot for \"fd\"\nworks fine as well.\n\n\nthanks,\nRogério\n\n\n\n\n\ndata(turnout)\n\nturnout$weight = log(1:nrow(turnout)) + 100\nage.range <- 18:95\n\n##############################\nz.out <- zelig(vote ~ race + educate + age + I(age^2) + income, model =\n\"logit\", data = turnout)\n\nx.low <- setx(z.out, educate = 12, age = age.range)\nx.high <- setx(z.out, educate = 16, age = age.range)\n\ns.out <- sim(z.out, x = x.low, x1 = x.high)\nplot.ci(s.out, qi=\"ev\", ylim=c(0,1)) #works fine\n\n\n##############################\n\nz.out <- zelig(vote ~ race + educate + age + I(age^2) + income, model =\n\"logit.survey\", weights=~weight, data = turnout)\n\nx.low <- setx(z.out, educate = 12, age = age.range)\nx.high <- setx(z.out, educate = 16, age = age.range)\n\ns.out <- sim(z.out, x = x.low, x1 = x.high)\nplot.ci(s.out, qi=\"ev\", ylim=c(0,1)) #doesn't work\n\n\n\nOn Mon, Sep 23, 2013 at 3:23 PM, Honaker, James <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>wrote:\n\n>  Laura,\n>\n>  Thanks for bringing this to our attention.  I've fixed this in the\n> current Beta (4.2-2).  You can install this as:\n>\n>   install.packages(\"Zelig\", repos=\"http://r.iq.harvard.edu\",\n> type=\"source\")\n>\n>  Then, the following (slight adaptation) to your example now runs nicely.\n>  (Note the graph looks a little confusing (but pretty) as there is little\n> difference in expected values of Y from the two chosen sets of covariates):\n>\n>\n>  library(Zelig)\n>\n>\n>  set.seed(1234)\n>\n>\n>  data(sanction)\n>\n> sanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))\n>\n> sorted.sanction <- sanction[order(sanction$cluster),]\n>\n>\n>  z.out <- zelig(num ~ target + coop, model = \"poisson.gee\", id =\n> \"cluster\", data = sorted.sanction, robust=TRUE, corstr=\"exchangeable\")\n>\n>\n>  coop.range<-seq(from=1, to=4, length=30)\n>\n>\n>  x.low  <- setx(z.out, target=1, coop=coop.range)\n>\n> x.high <- setx(z.out, target=3, coop=coop.range)\n>\n>\n>  s.out <- sim(z.out, x = x.low, x1 = x.high, num=5000)\n>\n> par(mfcol=c(1,2))\n>\n> plot.ci(s.out, qi=\"ev\", var=\"coop\", leg=3, ylim=c(0,150))\n>\n> plot.ci(s.out, qi=\"fd\", var=\"coop\", leg=2)\n>\n>\n>  Best,\n> James.\n>  --\n> James Honaker, Senior Research Scientist\n> //// Institute for Quantitative Social Science, Harvard University\n>   ------------------------------\n> *From:* zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [\n> zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org] on behalf of Laura Crothers [\n> crothers-0v3tJM2ovI83uPMLIKxrzw at public.gmane.org]\n> *Sent:* Saturday, September 21, 2013 5:28 PM\n> *To:* zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> *Subject:* [zelig] plot.ci not working for Poisson GEE\n>\n>  Hi Zelig list,\n>\n>  I've been having issues using plot.ci for a Poisson GEE. I originally\n> thought it was due to a unique issue with my dataset, but I've tried doing\n> the same with the poisson GEE example from the Zelig documentation, and get\n> the same error:\n>\n>   Warning messages:\n>  1: In simulation.matrix.sim(obj[[label]], which = which, exact.match =\n> FALSE) :\n>    The \"which\" parameter does not exist. Valid titles are:\n>      \"Expected Values (for x): E(Y|X)\", \"Expected Values (for x1):\n> E(Y|X1)\", \"First Differences: E(Y|X1) - E(Y|X)\"\n>\n>  The code that I'm using is:\n>\n>   data(sanction)\n>  sanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))\n>  sorted.sanction <- sanction[order(sanction$cluster),]\n>\n>  z.out <- zelig(num ~ target + coop, model = \"poisson.gee\", id = \"cluster\",\n> data = sorted.sanction, robust=TRUE, corstr=\"exchangeable\")\n>  summary(z.out)\n>\n>  coop.range<-1:4\n>  x.low <- setx(z.out, target=2, coop=coop.range)\n>  x.high <- setx(z.out, target=2, coop=coop.range)\n>\n>  s.out <- sim(z.out, x = x.low, x1 = x.high)\n>  plot.ci(s.out, var=\"coop\", ylim=c(1, 150))\n>\n>   Any insights into what might be going wrong?\n>\n>  Cheers,\n> Laura\n>\n>    Laura R. Crothers\n>  University of Texas at Austin\n> Section of Integrative Biology\n> 1 University Station, C0990\n> Austin, TX 78712\n>\n>\n> -\n> --\n> Zelig Mailing List, served by HUIT\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options:\n> http://lists.gking.harvard.edu/mailman/listinfo/zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n> Zelig mailing list\n> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>\n> To unsubscribe from this list or get other information:\n>\n> https://lists.gking.harvard.edu/mailman/listinfo/zelig\n>\n\n-------------- next part --------------",
+      "body_snippet": "Hi James,\n\nI'm having the same problem with \"logit.survey\". Common logit works fine.\nAll my packages are updated (I'm using Zelig 4.2-2, ZeligChoice 0.8-1, R\n3.0.2 -- and dependencies are also updated",
+      "thread_id": "thread-42d19c3ceb62",
+      "thread_depth": 0,
+      "month": "2013-10"
+    },
+    {
+      "id": "msg-1c4be528b1e7",
+      "message_id": "<564E4EF89CD7994693F47F815F8E43E8040A01@HARVANDMBX02.fasmail.priv>",
+      "from_name": "Honaker, James",
+      "from_email_hash": "5ac5a38bbb5f77295990260f4bd7badc2d320f4d4bdaf2a8ba8d482f163c443d",
+      "date": "2013-10-03T17:03:11Z",
+      "subject": "Re: plot.ci not working for Poisson GEE",
+      "subject_clean": "plot.ci not working for Poisson GEE",
+      "in_reply_to": "<CAM+NV=0_K18wJXw=+XkZ=3DcSMJBdEX3MqCVNccCdbEeAGwyzw@mail.gmail.com>",
+      "references": [
+        "<24CC7A5B-6B84-44CC-AAA6-0233FF6CDD03@utexas.edu>",
+        "<564E4EF89CD7994693F47F815F8E43E803E2BA@HARVANDMBX02.fasmail.priv>",
+        "<CAM+NV=0_K18wJXw=+XkZ=3DcSMJBdEX3MqCVNccCdbEeAGwyzw@mail.gmail.com>"
+      ],
+      "body_plain": "Rogério,\n\nI've now fixed this in the Zelig 4.2-2 Beta.  I believe I've also rooted out any other instance of this general issue in the Zelig base package, and will look in the added modules shortly.  You can install this as:\n\n\ninstall.packages(\"Zelig\", repos=\"http://r.iq.harvard.edu\", type=\"source\")\n\nThanks for pointing this out, and for the useful code example,\nJames.\n\n--\nJames Honaker, Senior Research Scientist\n//// Institute for Quantitative Social Science, Harvard University\n________________________________\nFrom: Rogério Barbosa [antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]\nSent: Thursday, October 03, 2013 11:42 AM\nTo: Honaker, James\nCc: Laura Crothers; zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\nSubject: Re: [zelig] plot.ci not working for Poisson GEE\n\nHi James,\n\nI'm having the same problem with \"logit.survey\". Common logit works fine. All my packages are updated (I'm using Zelig 4.2-2, ZeligChoice 0.8-1, R 3.0.2 -- and dependencies are also updated: survey version is 3.29-5)\n\nThe error message is \"In simulation.matrix.sim(obj[[label]], which = which,  ...\"\n\nIt occurs when one tries to plot simulation results for both x and x1 -- and specifically when the quantity of interest is \"ev\"; the plot for \"fd\" works fine as well.\n\n\nthanks,\nRogério\n\n\n\n\n\ndata(turnout)\n\nturnout$weight = log(1:nrow(turnout)) + 100\nage.range <- 18:95\n\n##############################\nz.out <- zelig(vote ~ race + educate + age + I(age^2) + income, model = \"logit\", data = turnout)\n\nx.low <- setx(z.out, educate = 12, age = age.range)\nx.high <- setx(z.out, educate = 16, age = age.range)\n\ns.out <- sim(z.out, x = x.low, x1 = x.high)\nplot.ci<http://plot.ci>(s.out, qi=\"ev\", ylim=c(0,1)) #works fine\n\n\n##############################\n\nz.out <- zelig(vote ~ race + educate + age + I(age^2) + income, model = \"logit.survey\", weights=~weight, data = turnout)\n\nx.low <- setx(z.out, educate = 12, age = age.range)\nx.high <- setx(z.out, educate = 16, age = age.range)\n\ns.out <- sim(z.out, x = x.low, x1 = x.high)\nplot.ci<http://plot.ci>(s.out, qi=\"ev\", ylim=c(0,1)) #doesn't work\n\n\n\nOn Mon, Sep 23, 2013 at 3:23 PM, Honaker, James <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org<mailto:jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>> wrote:\nLaura,\n\nThanks for bringing this to our attention.  I've fixed this in the current Beta (4.2-2).  You can install this as:\n\n\ninstall.packages(\"Zelig\", repos=\"http://r.iq.harvard.edu\", type=\"source\")\n\nThen, the following (slight adaptation) to your example now runs nicely.  (Note the graph looks a little confusing (but pretty) as there is little difference in expected values of Y from the two chosen sets of covariates):\n\n\nlibrary(Zelig)\n\n\nset.seed(1234)\n\n\ndata(sanction)\n\nsanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))\n\nsorted.sanction <- sanction[order(sanction$cluster),]\n\n\nz.out <- zelig(num ~ target + coop, model = \"poisson.gee\", id = \"cluster\", data = sorted.sanction, robust=TRUE, corstr=\"exchangeable\")\n\n\ncoop.range<-seq(from=1, to=4, length=30)\n\n\nx.low  <- setx(z.out, target=1, coop=coop.range)\n\nx.high <- setx(z.out, target=3, coop=coop.range)\n\n\ns.out <- sim(z.out, x = x.low, x1 = x.high, num=5000)\n\npar(mfcol=c(1,2))\n\nplot.ci<http://plot.ci>(s.out, qi=\"ev\", var=\"coop\", leg=3, ylim=c(0,150))\n\nplot.ci<http://plot.ci>(s.out, qi=\"fd\", var=\"coop\", leg=2)\n\n\nBest,\nJames.\n--\nJames Honaker, Senior Research Scientist\n//// Institute for Quantitative Social Science, Harvard University\n________________________________\nFrom: zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org<mailto:zelig-bounces-boHuZhbfW+af0DUV/oxz1A at public.gmane.orgg.harvard.edu> [zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org<mailto:zelig-bounces at lists.gking.harvard.edu>] on behalf of Laura Crothers [crothers-0v3tJM2ovI83uPMLIKxrzw at public.gmane.org<mailto:crothers-0v3tJM2ovI83uPMLIKxrzw at public.gmane.org>]\nSent: Saturday, September 21, 2013 5:28 PM\nTo: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org<mailto:zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>\nSubject: [zelig] plot.ci<http://plot.ci> not working for Poisson GEE\n\nHi Zelig list,\n\nI've been having issues using plot.ci<http://plot.ci> for a Poisson GEE. I originally thought it was due to a unique issue with my dataset, but I've tried doing the same with the poisson GEE example from the Zelig documentation, and get the same error:\n\nWarning messages:\n1: In simulation.matrix.sim(obj[[label]], which = which, exact.match = FALSE) :\n  The \"which\" parameter does not exist. Valid titles are:\n    \"Expected Values (for x): E(Y|X)\", \"Expected Values (for x1): E(Y|X1)\", \"First Differences: E(Y|X1) - E(Y|X)\"\n\nThe code that I'm using is:\n\ndata(sanction)\nsanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))\nsorted.sanction <- sanction[order(sanction$cluster),]\n\nz.out <- zelig(num ~ target + coop, model = \"poisson.gee\", id = \"cluster\", data = sorted.sanction, robust=TRUE, corstr=\"exchangeable\")\nsummary(z.out)\n\ncoop.range<-1:4\nx.low <- setx(z.out, target=2, coop=coop.range)\nx.high <- setx(z.out, target=2, coop=coop.range)\n\ns.out <- sim(z.out, x = x.low, x1 = x.high)\nplot.ci<http://plot.ci>(s.out, var=\"coop\", ylim=c(1, 150))\n\nAny insights into what might be going wrong?\n\nCheers,\nLaura\n\nLaura R. Crothers\nUniversity of Texas at Austin\nSection of Integrative Biology\n1 University Station, C0990\nAustin, TX 78712\n\n\n-\n--\nZelig Mailing List, served by HUIT\nSend messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org<mailto:zelig-boHuZhbfW+Y6DHxCPSz5rPd9D2ou9A/h at public.gmane.orgrd.edu>\n[un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig\nZelig program information: http://gking.harvard.edu/zelig/\nZelig mailing list\nZelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org<mailto:Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>\n\nTo unsubscribe from this list or get other information:\n\nhttps://lists.gking.harvard.edu/mailman/listinfo/zelig\n\n-------------- next part --------------",
+      "body_snippet": "Rogério,\n\nI've now fixed this in the Zelig 4.2-2 Beta.  I believe I've also rooted out any other instance of this general issue in the Zelig base package, and will look in the added modules shortly.  ",
+      "thread_id": "thread-42d19c3ceb62",
+      "thread_depth": 1,
+      "month": "2013-10"
+    },
+    {
+      "id": "msg-4c6db9a35a63",
+      "message_id": "<CAM+NV=2mK=riLc0EudCD_m10faV=0CamZV2ej0viV1XaYYdghA@mail.gmail.com>",
+      "from_name": "Rogério Barbosa",
+      "from_email_hash": "50275c3cc552dc33c52fbae3992aee82860b9c0755449bbcee8ae591f84e6c54",
+      "date": "2013-10-03T17:36:56Z",
+      "subject": "Re: plot.ci not working for Poisson GEE",
+      "subject_clean": "plot.ci not working for Poisson GEE",
+      "in_reply_to": "<564E4EF89CD7994693F47F815F8E43E8040A01@HARVANDMBX02.fasmail.priv>",
+      "references": [
+        "<24CC7A5B-6B84-44CC-AAA6-0233FF6CDD03@utexas.edu>",
+        "<564E4EF89CD7994693F47F815F8E43E803E2BA@HARVANDMBX02.fasmail.priv>",
+        "<CAM+NV=0_K18wJXw=+XkZ=3DcSMJBdEX3MqCVNccCdbEeAGwyzw@mail.gmail.com>",
+        "<564E4EF89CD7994693F47F815F8E43E8040A01@HARVANDMBX02.fasmail.priv>"
+      ],
+      "body_plain": "Thanks, James!\n\nbest,\nRogério\n\n\nOn Thu, Oct 3, 2013 at 2:03 PM, Honaker, James <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>wrote:\n\n>  Rogério,\n>\n>  I've now fixed this in the Zelig 4.2-2 Beta.  I believe I've also rooted\n> out any other instance of this general issue in the Zelig base package, and\n> will look in the added modules shortly.  You can install this as:\n>\n>   install.packages(\"Zelig\", repos=\"http://r.iq.harvard.edu\",\n> type=\"source\")\n>\n>  Thanks for pointing this out, and for the useful code example,\n> James.\n>\n>  --\n> James Honaker, Senior Research Scientist\n> //// Institute for Quantitative Social Science, Harvard University\n>   ------------------------------\n> *From:* Rogério Barbosa [antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]\n> *Sent:* Thursday, October 03, 2013 11:42 AM\n> *To:* Honaker, James\n> *Cc:* Laura Crothers; zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> *Subject:* Re: [zelig] plot.ci not working for Poisson GEE\n>\n>   Hi James,\n>\n>  I'm having the same problem with \"logit.survey\". Common logit works\n> fine. All my packages are updated (I'm using Zelig 4.2-2, ZeligChoice\n> 0.8-1, R 3.0.2 -- and dependencies are also updated: survey version is\n> 3.29-5)\n>\n>  The error message is \"In simulation.matrix.sim(obj[[label]], which =\n> which,  ...\"\n>\n>  It occurs when one tries to plot simulation results for both x and x1 --\n> and specifically when the quantity of interest is \"ev\"; the plot for \"fd\"\n> works fine as well.\n>\n>\n>  thanks,\n> Rogério\n>\n>\n>\n>\n>\n>  data(turnout)\n>\n>  turnout$weight = log(1:nrow(turnout)) + 100\n> age.range <- 18:95\n>\n>  ##############################\n> z.out <- zelig(vote ~ race + educate + age + I(age^2) + income, model =\n> \"logit\", data = turnout)\n>\n>  x.low <- setx(z.out, educate = 12, age = age.range)\n> x.high <- setx(z.out, educate = 16, age = age.range)\n>\n>  s.out <- sim(z.out, x = x.low, x1 = x.high)\n> plot.ci(s.out, qi=\"ev\", ylim=c(0,1)) #works fine\n>\n>\n>  ##############################\n>\n>  z.out <- zelig(vote ~ race + educate + age + I(age^2) + income, model =\n> \"logit.survey\", weights=~weight, data = turnout)\n>\n>  x.low <- setx(z.out, educate = 12, age = age.range)\n> x.high <- setx(z.out, educate = 16, age = age.range)\n>\n>  s.out <- sim(z.out, x = x.low, x1 = x.high)\n> plot.ci(s.out, qi=\"ev\", ylim=c(0,1)) #doesn't work\n>\n>\n>\n> On Mon, Sep 23, 2013 at 3:23 PM, Honaker, James <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>wrote:\n>\n>>  Laura,\n>>\n>>  Thanks for bringing this to our attention.  I've fixed this in the\n>> current Beta (4.2-2).  You can install this as:\n>>\n>>  install.packages(\"Zelig\", repos=\"http://r.iq.harvard.edu\",\n>> type=\"source\")\n>>\n>>  Then, the following (slight adaptation) to your example now runs\n>> nicely.  (Note the graph looks a little confusing (but pretty) as there is\n>> little difference in expected values of Y from the two chosen sets of\n>> covariates):\n>>\n>>\n>>  library(Zelig)\n>>\n>>\n>>  set.seed(1234)\n>>\n>>\n>>  data(sanction)\n>>\n>> sanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))\n>>\n>> sorted.sanction <- sanction[order(sanction$cluster),]\n>>\n>>\n>>  z.out <- zelig(num ~ target + coop, model = \"poisson.gee\", id =\n>> \"cluster\", data = sorted.sanction, robust=TRUE, corstr=\"exchangeable\")\n>>\n>>\n>>  coop.range<-seq(from=1, to=4, length=30)\n>>\n>>\n>>  x.low  <- setx(z.out, target=1, coop=coop.range)\n>>\n>> x.high <- setx(z.out, target=3, coop=coop.range)\n>>\n>>\n>>  s.out <- sim(z.out, x = x.low, x1 = x.high, num=5000)\n>>\n>> par(mfcol=c(1,2))\n>>\n>> plot.ci(s.out, qi=\"ev\", var=\"coop\", leg=3, ylim=c(0,150))\n>>\n>> plot.ci(s.out, qi=\"fd\", var=\"coop\", leg=2)\n>>\n>>\n>>  Best,\n>> James.\n>>  --\n>> James Honaker, Senior Research Scientist\n>> //// Institute for Quantitative Social Science, Harvard University\n>>   ------------------------------\n>> *From:* zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [\n>> zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org] on behalf of Laura Crothers [\n>> crothers-0v3tJM2ovI83uPMLIKxrzw at public.gmane.org]\n>> *Sent:* Saturday, September 21, 2013 5:28 PM\n>> *To:* zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>> *Subject:* [zelig] plot.ci not working for Poisson GEE\n>>\n>>   Hi Zelig list,\n>>\n>>  I've been having issues using plot.ci for a Poisson GEE. I originally\n>> thought it was due to a unique issue with my dataset, but I've tried doing\n>> the same with the poisson GEE example from the Zelig documentation, and get\n>> the same error:\n>>\n>>   Warning messages:\n>>  1: In simulation.matrix.sim(obj[[label]], which = which, exact.match =\n>> FALSE) :\n>>    The \"which\" parameter does not exist. Valid titles are:\n>>      \"Expected Values (for x): E(Y|X)\", \"Expected Values (for x1):\n>> E(Y|X1)\", \"First Differences: E(Y|X1) - E(Y|X)\"\n>>\n>>  The code that I'm using is:\n>>\n>>   data(sanction)\n>>  sanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))\n>>  sorted.sanction <- sanction[order(sanction$cluster),]\n>>\n>>  z.out <- zelig(num ~ target + coop, model = \"poisson.gee\", id =\n>> \"cluster\", data = sorted.sanction, robust=TRUE, corstr=\"exchangeable\")\n>>  summary(z.out)\n>>\n>>  coop.range<-1:4\n>>  x.low <- setx(z.out, target=2, coop=coop.range)\n>>  x.high <- setx(z.out, target=2, coop=coop.range)\n>>\n>>  s.out <- sim(z.out, x = x.low, x1 = x.high)\n>>  plot.ci(s.out, var=\"coop\", ylim=c(1, 150))\n>>\n>>   Any insights into what might be going wrong?\n>>\n>>  Cheers,\n>> Laura\n>>\n>>   Laura R. Crothers\n>> University of Texas at Austin\n>> Section of Integrative Biology\n>> 1 University Station, C0990\n>> Austin, TX 78712\n>>\n>>\n>> -\n>> --\n>> Zelig Mailing List, served by HUIT\n>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>> [un]subscribe Options:\n>> http://lists.gking.harvard.edu/mailman/listinfo/zelig\n>> Zelig program information: http://gking.harvard.edu/zelig/\n>> Zelig mailing list\n>> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>>\n>> To unsubscribe from this list or get other information:\n>>\n>> https://lists.gking.harvard.edu/mailman/listinfo/zelig\n>>\n>\n>\n\n-------------- next part --------------",
+      "body_snippet": "Thanks, James!\n\nbest,\nRogério\n\n\nOn Thu, Oct 3, 2013 at 2:03 PM, Honaker, James <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>wrote:\n\n>  Rogério,\n>\n>  I've now fixed this in the Zelig 4.2-2 Beta",
+      "thread_id": "thread-42d19c3ceb62",
+      "thread_depth": 2,
+      "month": "2013-10"
+    },
+    {
+      "id": "msg-e500eb28b5a9",
+      "message_id": "<CAM+NV=1CYT6e6Lu0np3pWiC9+qihR00mURi=NUKoo6xEfCxmyw@mail.gmail.com>",
+      "from_name": "Rogério Barbosa",
+      "from_email_hash": "50275c3cc552dc33c52fbae3992aee82860b9c0755449bbcee8ae591f84e6c54",
+      "date": "2013-10-09T22:30:39Z",
+      "subject": "Re: question on Zelig and \"robust\"",
+      "subject_clean": "question on Zelig and \"robust\"",
+      "in_reply_to": "<0654226D-6355-40F2-BF76-0E1B3CCE1282@Princeton.Edu>",
+      "references": [
+        "<CAHLX9MA0RubJcZmaw6TqtDskH0YewZkVjNLeEyPiRZCzo8Z=6A@mail.gmail.com>",
+        "<0654226D-6355-40F2-BF76-0E1B3CCE1282@Princeton.Edu>"
+      ],
+      "body_plain": "Hi Kosuke,\n\nHas this problem with robust errors already been corrected? I'm using R\n3.0.2 and Zelig 4.2-0. I was trying to calculate robust errors in a simple\nlinear model... but using robust=TRUE lead me to the same result as if I\nwas not using it...\n\nbest,\nRogério\n\n\n\n\n\n\n\nOn Sat, Sep 7, 2013 at 4:32 PM, Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org> wrote:\n\n>  Can you try to roll back to 3.5?\n>\n>    Best,\n>  Kosuke\n>\n>  Department of Politics\n> Princeton University\n> http://imai.princeton.edu\n>\n>  On Sep 5, 2013, at 10:11 AM, Eva Bernauer <eva.bernauer-F4SpVhQLQb4JuJQ2pkvNbQ at public.gmane.org>\n> wrote:\n>\n>  Dear Kosuke Imai,\n>\n> may I ask you a question on Zelig? (My mail to Matt Owen somehow could not\n> be delivered).\n>\n> I found that the logit and the relogit model in zelig do not appropriately\n> run\n> with robust standard errors. In fact, the results do not change when\n> robust=TRUE. As you might know, this issue has already been discussed in\n> the Zelig forum.\n>\n> Is there any solution to the problem?\n> I would be very glad, if you could tell me, as such a fix would faciliate\n> everything so much!\n> Best,\n> Eva\n>\n>\n>\n> -\n> --\n> Zelig Mailing List, served by HUIT\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options:\n> http://lists.gking.harvard.edu/mailman/listinfo/zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n> Zelig mailing list\n> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>\n> To unsubscribe from this list or get other information:\n>\n> https://lists.gking.harvard.edu/mailman/listinfo/zelig\n>\n\n-------------- next part --------------",
+      "body_snippet": "Hi Kosuke,\n\nHas this problem with robust errors already been corrected? I'm using R\n3.0.2 and Zelig 4.2-0. I was trying to calculate robust errors in a simple\nlinear model... but using robust=TRUE lea",
+      "thread_id": "thread-e500eb28b5a9",
+      "thread_depth": 0,
+      "month": "2013-10"
+    },
+    {
+      "id": "msg-6570ed4bb03d",
+      "message_id": "<CADiBLeC69dbiBbhNuTVowh6MLPt9H8NbtCnHM29nOY_ho-6YLw@mail.gmail.com>",
+      "from_name": "Mike Dylan",
+      "from_email_hash": "2728bba6c38ec6800208f376c8117f5f6d697672994b45c8b85f05ceea019452",
+      "date": "2013-10-23T15:23:11Z",
+      "subject": "Zelig simulation",
+      "subject_clean": "Zelig simulation",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Zelig package is what I have been looking for a long time. I slight problem\nis that I dont  understand how sim() is run. I read through the docs and I\nthink it is written for graduate students. We can run the numbers but at\nthe end we need to be able to explain the results to the audience.\n\nCan somebody explain with an example, how does sim() work?\n\n\"Zelig simulates parameters from classical *maximum likelihood* models\nusing asymptotic normal approximation to the log-likelihood. This is the\nsame assumption as used for frequentist hypothesis testing (which is of\ncourse equivalent to the asymptotic approximation of a Bayesian posterior\nwith improper uniform priors). See King, Tomz, and Wittenberg\n(2000)<http://gking.harvard.edu/files/abs/making-abs.shtml>.\nFor *Bayesian models*, Zelig simulates quantities of interest from the\nposterior density, whenever possible. For *robust Bayesian models*,\nsimulations are drawn from the identified class of Bayesian posteriors.\"\n\nRegards,\n\nMike\n\n-------------- next part --------------",
+      "body_snippet": "Zelig package is what I have been looking for a long time. I slight problem\nis that I dont  understand how sim() is run. I read through the docs and I\nthink it is written for graduate students. We can",
+      "thread_id": "thread-6570ed4bb03d",
+      "thread_depth": 0,
+      "month": "2013-10"
+    },
+    {
+      "id": "msg-6f8f3b343a1d",
+      "message_id": "<CA+DoHyVCg0ptH0qQ+kEOa3yMkzvcCurc6TLCKT--B6x+dVRDgg@mail.gmail.com>",
+      "from_name": "Gabi Huiber",
+      "from_email_hash": "caa64f746d60b45ca40e11ff0155ca16363c9acd5e0ec10bd09fba5d16c2af42",
+      "date": "2013-10-23T15:38:18Z",
+      "subject": "Re: Zelig simulation",
+      "subject_clean": "Zelig simulation",
+      "in_reply_to": "<CADiBLeC69dbiBbhNuTVowh6MLPt9H8NbtCnHM29nOY_ho-6YLw@mail.gmail.com>",
+      "references": [
+        "<CADiBLeC69dbiBbhNuTVowh6MLPt9H8NbtCnHM29nOY_ho-6YLw@mail.gmail.com>"
+      ],
+      "body_plain": "Yes. The paper by King, Tomz and Wittenberg cited in your excerpted quote\nexplains simulation of MLE parameters in plain language, with examples. The\npaper describes the simulation process step by step in two cases: when you\nwant expected values and when you want predicted values. Sounds to me like\nit's exactly what you need.\n\nGabi\n\n\nOn Wed, Oct 23, 2013 at 11:23 AM, Mike Dylan <seancacti101-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n\n> Zelig package is what I have been looking for a long time. I slight\n> problem is that I dont  understand how sim() is run. I read through the\n> docs and I think it is written for graduate students. We can run the\n> numbers but at the end we need to be able to explain the results to the\n> audience.\n>\n> Can somebody explain with an example, how does sim() work?\n>\n> \"Zelig simulates parameters from classical *maximum likelihood* models\n> using asymptotic normal approximation to the log-likelihood. This is the\n> same assumption as used for frequentist hypothesis testing (which is of\n> course equivalent to the asymptotic approximation of a Bayesian posterior\n> with improper uniform priors). See King, Tomz, and Wittenberg (2000)<http://gking.harvard.edu/files/abs/making-abs.shtml>.\n> For *Bayesian models*, Zelig simulates quantities of interest from the\n> posterior density, whenever possible. For *robust Bayesian models*,\n> simulations are drawn from the identified class of Bayesian posteriors.\"\n>\n> Regards,\n>\n> Mike\n>\n> -\n> --\n> Zelig Mailing List, served by HUIT\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options:\n> http://lists.gking.harvard.edu/mailman/listinfo/zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n> Zelig mailing list\n> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>\n> To unsubscribe from this list or get other information:\n>\n> https://lists.gking.harvard.edu/mailman/listinfo/zelig\n>\n\n-------------- next part --------------",
+      "body_snippet": "Yes. The paper by King, Tomz and Wittenberg cited in your excerpted quote\nexplains simulation of MLE parameters in plain language, with examples. The\npaper describes the simulation process step by ste",
+      "thread_id": "thread-6570ed4bb03d",
+      "thread_depth": 1,
+      "month": "2013-10"
+    },
+    {
+      "id": "msg-951a9f2a319e",
+      "message_id": "<CADiBLeAF8ug_efPjBbF9-rkmjpP0+gqDzB3FpR7W_QAyzWKVVA@mail.gmail.com>",
+      "from_name": "Mike Dylan",
+      "from_email_hash": "2728bba6c38ec6800208f376c8117f5f6d697672994b45c8b85f05ceea019452",
+      "date": "2013-10-30T21:22:43Z",
+      "subject": "need to extract the qi values",
+      "subject_clean": "need to extract the qi values",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "hi,\n\nI need to extract qi values from s.out to bring the results to another app.\nWhen I do this s.out$qi, I get all null values. Any idea what might be\nwrong?\n\nRegards,\n\nSean\n\n-------------- next part --------------",
+      "body_snippet": "hi,\n\nI need to extract qi values from s.out to bring the results to another app.\nWhen I do this s.out$qi, I get all null values. Any idea what might be\nwrong?\n\nRegards,\n\nSean\n\n-------------- next part",
+      "thread_id": "thread-951a9f2a319e",
+      "thread_depth": 0,
+      "month": "2013-10"
+    },
+    {
+      "id": "msg-f32d525e11c0",
+      "message_id": "<564E4EF89CD7994693F47F815F8E43E859F155F5@HARVANDMBX01.fasmail.priv>",
+      "from_name": "Honaker, James",
+      "from_email_hash": "5ac5a38bbb5f77295990260f4bd7badc2d320f4d4bdaf2a8ba8d482f163c443d",
+      "date": "2013-10-31T00:45:44Z",
+      "subject": "Re: need to extract the qi values",
+      "subject_clean": "need to extract the qi values",
+      "in_reply_to": "<CADiBLeAF8ug_efPjBbF9-rkmjpP0+gqDzB3FpR7W_QAyzWKVVA@mail.gmail.com>",
+      "references": [
+        "<CADiBLeAF8ug_efPjBbF9-rkmjpP0+gqDzB3FpR7W_QAyzWKVVA@mail.gmail.com>"
+      ],
+      "body_plain": "Hi Sean,\n\nTry the command:\n\nattr(s.out$qi, \"names\")\n\nto get a list of the names of the quantities of interest available from your particular sim() object.  It will, depending on the specific model and setx() call, give you something like:\n\n> attr(s.out$qi,\"names\")\n[1] \"ev1\" \"ev2\" \"pv1\" \"pv2\" \"fd\"  \"rr\"\n\nThen you can access each quantity of interest, either by name or position.  For example, if you wanted the first differences, you could get them as:\n\nmyFirstDifferences<-s.out$qi$ev2\n\nYou can also reference them by position, if needed.  For example:\n\n>  myQIs<- s.out$qi[5]\nor:\n>  myQIs<-s.out$qi[\"fd\"]\nor:\n>  myQIs<- s.out$qi[1:length(s.out$qi)]\n>  is.list(myQIs)\n[1] TRUE\n\nJames.\n\n--\nJames Honaker, Senior Research Scientist\n//// Institute for Quantitative Social Science, Harvard University\n________________________________\nFrom: zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [zelig-bounces-boHuZhbfW+Y6DHxCPSz5rA at public.gmane.orgard.edu] on behalf of Mike Dylan [seancacti101-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]\nSent: Wednesday, October 30, 2013 5:22 PM\nTo: Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\nSubject: [zelig] need to extract the qi values\n\nhi,\n\nI need to extract qi values from s.out to bring the results to another app. When I do this s.out$qi, I get all null values. Any idea what might be wrong?\n\nRegards,\n\nSean\n\n-------------- next part --------------",
+      "body_snippet": "Hi Sean,\n\nTry the command:\n\nattr(s.out$qi, \"names\")\n\nto get a list of the names of the quantities of interest available from your particular sim() object.  It will, depending on the specific model and",
+      "thread_id": "thread-951a9f2a319e",
+      "thread_depth": 1,
+      "month": "2013-10"
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-42d19c3ceb62",
+      "subject": "plot.ci not working for Poisson GEE",
+      "message_count": 3,
+      "participants": [
+        "Honaker, James",
+        "Rogério Barbosa"
+      ],
+      "started": "2013-10-03T15:42:28Z",
+      "last_reply": "2013-10-03T17:36:56Z",
+      "root_message_id": "msg-42d19c3ceb62"
+    },
+    {
+      "id": "thread-e500eb28b5a9",
+      "subject": "question on Zelig and \"robust\"",
+      "message_count": 1,
+      "participants": [
+        "Rogério Barbosa"
+      ],
+      "started": "2013-10-09T22:30:39Z",
+      "last_reply": "2013-10-09T22:30:39Z",
+      "root_message_id": "msg-e500eb28b5a9"
+    },
+    {
+      "id": "thread-6570ed4bb03d",
+      "subject": "Zelig simulation",
+      "message_count": 2,
+      "participants": [
+        "Gabi Huiber",
+        "Mike Dylan"
+      ],
+      "started": "2013-10-23T15:23:11Z",
+      "last_reply": "2013-10-23T15:38:18Z",
+      "root_message_id": "msg-6570ed4bb03d"
+    },
+    {
+      "id": "thread-951a9f2a319e",
+      "subject": "need to extract the qi values",
+      "message_count": 2,
+      "participants": [
+        "Honaker, James",
+        "Mike Dylan"
+      ],
+      "started": "2013-10-30T21:22:43Z",
+      "last_reply": "2013-10-31T00:45:44Z",
+      "root_message_id": "msg-951a9f2a319e"
+    }
+  ]
+}

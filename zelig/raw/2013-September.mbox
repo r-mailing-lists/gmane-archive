@@ -1,0 +1,180 @@
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Sat Sep  7 19:32:22 2013
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Sat, 07 Sep 2013 19:32:22 +0000
+Subject: Re: question on Zelig and "robust"
+In-Reply-To: <CAHLX9MA0RubJcZmaw6TqtDskH0YewZkVjNLeEyPiRZCzo8Z=6A@mail.gmail.com>
+References: <CAHLX9MA0RubJcZmaw6TqtDskH0YewZkVjNLeEyPiRZCzo8Z=6A@mail.gmail.com>
+Message-ID: <0654226D-6355-40F2-BF76-0E1B3CCE1282@Princeton.Edu>
+
+Can you try to roll back to 3.5?
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Sep 5, 2013, at 10:11 AM, Eva Bernauer <eva.bernauer-F4SpVhQLQb4JuJQ2pkvNbQ at public.gmane.org<mailto:eva.bernauer-F4SpVhQLQb4JuJQ2pkvNbQ at public.gmane.org>> wrote:
+
+Dear Kosuke Imai,
+
+may I ask you a question on Zelig? (My mail to Matt Owen somehow could not be delivered).
+
+I found that the logit and the relogit model in zelig do not appropriately run
+with robust standard errors. In fact, the results do not change when robust=TRUE. As you might know, this issue has already been discussed in the Zelig forum.
+
+Is there any solution to the problem?
+I would be very glad, if you could tell me, as such a fix would faciliate everything so much!
+Best,
+Eva
+
+-------------- next part --------------
+
+
+From crothers-0v3tJM2ovI83uPMLIKxrzw at public.gmane.org  Sat Sep 21 21:28:56 2013
+From: crothers-0v3tJM2ovI83uPMLIKxrzw at public.gmane.org (Laura Crothers)
+Date: Sat, 21 Sep 2013 16:28:56 -0500
+Subject: plot.ci not working for Poisson GEE
+Message-ID: <24CC7A5B-6B84-44CC-AAA6-0233FF6CDD03@utexas.edu>
+
+Hi Zelig list,
+
+I've been having issues using plot.ci for a Poisson GEE. I originally thought it was due to a unique issue with my dataset, but I've tried doing the same with the poisson GEE example from the Zelig documentation, and get the same error:
+
+Warning messages:
+1: In simulation.matrix.sim(obj[[label]], which = which, exact.match = FALSE) :
+  The "which" parameter does not exist. Valid titles are:
+    "Expected Values (for x): E(Y|X)", "Expected Values (for x1): E(Y|X1)", "First Differences: E(Y|X1) - E(Y|X)"
+
+The code that I'm using is:
+
+data(sanction)
+sanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))
+sorted.sanction <- sanction[order(sanction$cluster),]
+
+z.out <- zelig(num ~ target + coop, model = "poisson.gee", id = "cluster", data = sorted.sanction, robust=TRUE, corstr="exchangeable")
+summary(z.out)
+
+coop.range<-1:4 
+x.low <- setx(z.out, target=2, coop=coop.range)
+x.high <- setx(z.out, target=2, coop=coop.range)
+
+s.out <- sim(z.out, x = x.low, x1 = x.high)
+plot.ci(s.out, var="coop", ylim=c(1, 150))
+
+Any insights into what might be going wrong?
+
+Cheers,
+Laura
+
+Laura R. Crothers
+University of Texas at Austin
+Section of Integrative Biology
+1 University Station, C0990
+Austin, TX 78712
+
+-------------- next part --------------
+
+
+From jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Mon Sep 23 18:23:34 2013
+From: jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Honaker, James)
+Date: Mon, 23 Sep 2013 18:23:34 +0000
+Subject: Re: plot.ci not working for Poisson GEE
+In-Reply-To: <24CC7A5B-6B84-44CC-AAA6-0233FF6CDD03@utexas.edu>
+References: <24CC7A5B-6B84-44CC-AAA6-0233FF6CDD03@utexas.edu>
+Message-ID: <564E4EF89CD7994693F47F815F8E43E803E2BA@HARVANDMBX02.fasmail.priv>
+
+Laura,
+
+Thanks for bringing this to our attention.  I've fixed this in the current Beta (4.2-2).  You can install this as:
+
+
+install.packages("Zelig", repos="http://r.iq.harvard.edu", type="source")
+
+Then, the following (slight adaptation) to your example now runs nicely.  (Note the graph looks a little confusing (but pretty) as there is little difference in expected values of Y from the two chosen sets of covariates):
+
+
+library(Zelig)
+
+
+set.seed(1234)
+
+
+data(sanction)
+
+sanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))
+
+sorted.sanction <- sanction[order(sanction$cluster),]
+
+
+z.out <- zelig(num ~ target + coop, model = "poisson.gee", id = "cluster", data = sorted.sanction, robust=TRUE, corstr="exchangeable")
+
+
+coop.range<-seq(from=1, to=4, length=30)
+
+
+x.low  <- setx(z.out, target=1, coop=coop.range)
+
+x.high <- setx(z.out, target=3, coop=coop.range)
+
+
+s.out <- sim(z.out, x = x.low, x1 = x.high, num=5000)
+
+par(mfcol=c(1,2))
+
+plot.ci(s.out, qi="ev", var="coop", leg=3, ylim=c(0,150))
+
+plot.ci(s.out, qi="fd", var="coop", leg=2)
+
+
+Best,
+James.
+--
+James Honaker, Senior Research Scientist
+//// Institute for Quantitative Social Science, Harvard University
+________________________________
+From: zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [zelig-bounces-boHuZhbfW+Y6DHxCPSz5rA at public.gmane.orgard.edu] on behalf of Laura Crothers [crothers-0v3tJM2ovI83uPMLIKxrzw at public.gmane.org]
+Sent: Saturday, September 21, 2013 5:28 PM
+To: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subject: [zelig] plot.ci not working for Poisson GEE
+
+Hi Zelig list,
+
+I've been having issues using plot.ci for a Poisson GEE. I originally thought it was due to a unique issue with my dataset, but I've tried doing the same with the poisson GEE example from the Zelig documentation, and get the same error:
+
+Warning messages:
+1: In simulation.matrix.sim(obj[[label]], which = which, exact.match = FALSE) :
+  The "which" parameter does not exist. Valid titles are:
+    "Expected Values (for x): E(Y|X)", "Expected Values (for x1): E(Y|X1)", "First Differences: E(Y|X1) - E(Y|X)"
+
+The code that I'm using is:
+
+data(sanction)
+sanction$cluster <- c(rep(c(1:15),5),rep(c(16),3))
+sorted.sanction <- sanction[order(sanction$cluster),]
+
+z.out <- zelig(num ~ target + coop, model = "poisson.gee", id = "cluster", data = sorted.sanction, robust=TRUE, corstr="exchangeable")
+summary(z.out)
+
+coop.range<-1:4
+x.low <- setx(z.out, target=2, coop=coop.range)
+x.high <- setx(z.out, target=2, coop=coop.range)
+
+s.out <- sim(z.out, x = x.low, x1 = x.high)
+plot.ci(s.out, var="coop", ylim=c(1, 150))
+
+Any insights into what might be going wrong?
+
+Cheers,
+Laura
+
+Laura R. Crothers
+University of Texas at Austin
+Section of Integrative Biology
+1 University Station, C0990
+Austin, TX 78712
+
+-------------- next part --------------
+
+

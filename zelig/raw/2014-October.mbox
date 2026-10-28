@@ -1,0 +1,340 @@
+From jboylan-hnhdhkBXzx8 at public.gmane.org  Sat Oct 11 00:00:49 2014
+From: jboylan-hnhdhkBXzx8 at public.gmane.org (Jennifer Boylan)
+Date: Fri, 10 Oct 2014 20:00:49 -0400
+Subject: adding a covariate to ei.RxC models
+Message-ID: <CALtmstLTSznyh90mOhk1HV7ueKvc=qsRkzQae95G28pVFBraJQ@mail.gmail.com>
+
+Hi Zelig Helplist,
+
+I've am looking to add a covariate to several ei.RxC models I have run. But
+I've run into several problems. I think I may be issuing a command
+incorrectly...
+
+When I added a covariate to my model, my output changed slightly. But then
+I realized that no matter the covariate I was using, the output was the
+same each time (i.e. the output was the same regardless of the covariate
+used...)! In another model, when I added a covariate, the output didn't
+change at all. And I was remembering to set the covariate to its mean.
+
+The identity columns I am using are numbers of individuals, as opposed to
+percents. So I was thinking that the problem was I was using a covariate
+that was a decimaled percent. I replaced with the whole number equivalent
+and the same result occurred.
+
+I'm attaching a picture of the end of my dataset to this email. You'll see
+that the ethnic categories I'm using, such as Mo and Sisala, are reported
+in whole population numbers. The covariate I am attempting to use is
+percentage of urban residents in a particular district. 'urban' is listed
+as a decimaled proportion, but I also tried 'urban2' which is a whole
+population number (i.e. the district pop total * urban).
+
+
+Below is some sample code:
+
+STATA <- read.dta(file.choose())
+#using 2012registrationtoEstimates
+View(STATA)
+
+set.seed(7)
+
+z.out <- zelig(cbind(registeredvoters, nonregistered) ~ agona + ahafo +
+ahanta + akuapem + akwamu + akyem + aowin + asante + asen + boron + chokosi
++ denkyira + evalue + fante + kwahu + nzema + sefwi + wasa + bawle +
+otherakan + dangme + ga + otherga + ewe + guan1 + guan2 + guan3 + guan4 +
+guan5 + guan6 + guan7 + guan8 + otherguan + bimoba + kokomba + basare +
+pilapila + salfalba + kotokoli + chamba + othergurma + builsa + dagarte +
+wali + dagomba + kusasi + mamprusi + namnam + nankansi + nanumba + mosi +
+othermole + kasena + mo + sisala + vagala + othergrusi1 + othergrusi2 +
+busanga + wangara + othermande + otherinside + otheroutside, COVAR =
+~urban2, model = "ei.RxC", data = STATA)
+
+x.out <- setx(z.out)
+
+s.out <- sim(z.out, num = 100)
+
+var7 <- summary(s.out)
+
+dataframe=as.data.frame(var7$qi.stats)
+
+write.dta(dataframe, "2012regisURBANnew.dta")
+
+regis2012URB <- read.table(file.choose(), header=TRUE)
+View(regis2012URB)
+
+stargazer(regis2012URB[ , ], style="apsr", rownames=FALSE, summary=FALSE)
+
+
+Thanks very much,
+
+Jennifer
+
+-- 
+PhD Candidate
+Department of Political Science
+University of Florida
+PO Box 117325
+Gainesville, FL 32611-7325
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: Covariate Question.png
+Type: image/png
+Size: 16393 bytes
+
+-------------- next part --------------
+
+
+From tsikerdekis-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Oct 19 19:41:20 2014
+From: tsikerdekis-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Michael Tsikerdekis)
+Date: Sun, 19 Oct 2014 15:41:20 -0400
+Subject: Bayesian regression and importance of predictors
+Message-ID: <CAMXvyzbFYUhMCuFf91rR3bTKsS5yEm7pcQLbJqt4tXk85BnO6w@mail.gmail.com>
+
+Hi everyone,
+
+I am running a logit.bayes model and I get the results that closely
+resemble regular logistic regression. I need to determine the importance of
+predictors.
+
+I want to try and determine which coefficients are more "powerful." I have
+ordered variables, numeric as well as binary as predictors. I attempted to
+standardize these using the rescale function from arm package but still the
+process fails for ordered variables (coefficients do not seem to be
+standardized). In general standardizing variables to obtain beta
+coefficients may not be the most efficient way to determine the importance
+of variables.
+
+Another way to do this is to use an model information value or similar
+value. For example, DIC (or R^2 in traditional regression). I know that
+rjags does report DIC but I would have to build the models manually there.
+
+Is there a way to include DIC for zelig bayesian models?
+
+If anyone has an alternative way to determine the importance of predictors
+when predictors are on different scales, I would love to hear about it.
+
+Thanks,
+Michael
+
+-------------- next part --------------
+
+
+From dave.kane-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 21 12:50:53 2014
+From: dave.kane-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (David Kane)
+Date: Tue, 21 Oct 2014 08:50:53 -0400
+Subject: Bug in Zelig scoping?
+Message-ID: <CAG6L79noZAQ_pYjbZgAkxaH=Hs8-+5QVc1MJ0whNQD4N-qoD8A@mail.gmail.com>
+
+I *believe* that there is a bug in Zelig's scoping. This exists on the cran
+version (from where it bit me) but also in the development version.
+
+> packageVersion("Zelig")
+[1] "5.0.2"
+>
+
+Interactively, the Zelig demo works fine:
+
+> data(cars)
+> x <- cars
+> zelig(dist ~ speed, data = x, model = "ls")
+How to cite this model in Zelig:
+  Kosuke Imai, Gary King, and Olivia Lau. 2007.
+...
+>
+
+Note that assigning cars to x and then passing x as the argument to data is
+needed to demonstrate the bug. The problem comes when we wrap this code
+within a function.
+
+> rm(list = ls())
+> test_function <- function(){data(cars); x <- cars; zelig(dist ~ speed,
+data = x, model = "ls")}
+> test_function()
+Error in callSuper(formula = formula, data = data, ..., weights = NULL,  :
+  object 'x' not found
+How to cite this model in Zelig:
+  Kosuke Imai, Gary King, and Olivia Lau. 2007.
+...
+>
+
+It is the Error above that is the problem. (Strangely, the code still seems
+to work in the development version after issuing that Error message. In the
+CRAN version, it does not.)
+
+Note that you need to keep your workplace clean to see this clearly. See
+the rm(list = ls()) above. If you don't issue this command (after doing the
+interactive code), you don't get any error:
+
+> rm(list = ls())
+> data(cars)
+> x <- cars
+> zelig(dist ~ speed, data = x, model = "ls")
+How to cite this model in Zelig:
+  Kosuke Imai, Gary King, and Olivia Lau. 2007.
+...
+> test_function <- function(){data(cars); x <- cars; zelig(dist ~ speed,
+data = x, model = "ls")}
+> test_function()
+How to cite this model in Zelig:
+  Kosuke Imai, Gary King, and Olivia Lau. 2007.
+...
+>
+
+No Error because Zelig finds x in the global environment. Of course, it
+should be using the local x.
+
+My colleague thinks that, in the CRAN version, this snippet of code is
+wrong:
+
+divided.data <- eval(call("multi.dataset", substitute(data)))
+
+But I am not enough of an R guru to determine the cause of the bug.
+
+Thanks,
+
+Dave Kane
+
+-------------- next part --------------
+
+
+From cchoirat-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Oct 29 15:25:03 2014
+From: cchoirat-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Christine Choirat)
+Date: Wed, 29 Oct 2014 11:25:03 -0400
+Subject: Re: Bug in Zelig scoping?
+In-Reply-To: <CAG6L79noZAQ_pYjbZgAkxaH=Hs8-+5QVc1MJ0whNQD4N-qoD8A@mail.gmail.com>
+References: <CAG6L79noZAQ_pYjbZgAkxaH=Hs8-+5QVc1MJ0whNQD4N-qoD8A@mail.gmail.com>
+Message-ID: <CABfftS2hJEExw3oANYKJz=+vTzpwNFcPNqSLp2B0oho7p+GubQ@mail.gmail.com>
+
+Hi David:
+
+More on Zelig 4 scoping rules can be found here:
+https://lists.gking.harvard.edu/pipermail/zelig/2013-May/001190.html.
+
+In Zelig 5, the error was coming from a flag not set to silent in
+“wrappers.R” and was not affecting further code execution. So
+
+mf <- try(eval(mf, environment()))
+
+is now
+
+mf <- try(eval(mf, environment()), silent = TRUE)
+
+Running your example, we get:
+
+rm(list = ls())
+test_function <- function() {
+  data(cars)
+  x <- cars
+  zelig(dist ~ speed, data = x, model = "ls", cite = FALSE)}
+test_function()
+
+## Model:
+## $by
+## [1] 1
+##
+##
+## Call:
+## stats::lm(formula = formula, data = .)
+##
+## Coefficients:
+## (Intercept)        speed
+##     -17.579        3.932
+##
+## Next step: Use 'setx' method
+
+(https://github.com/IQSS/Zelig/issues/49)
+
+Best regards,
+Christine
+
+
+On Tue, Oct 21, 2014 at 8:50 AM, David Kane <dave.kane-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> I *believe* that there is a bug in Zelig's scoping. This exists on the
+> cran version (from where it bit me) but also in the development version.
+>
+> > packageVersion("Zelig")
+> [1] "5.0.2"
+> >
+>
+> Interactively, the Zelig demo works fine:
+>
+> > data(cars)
+> > x <- cars
+> > zelig(dist ~ speed, data = x, model = "ls")
+> How to cite this model in Zelig:
+>   Kosuke Imai, Gary King, and Olivia Lau. 2007.
+> ...
+> >
+>
+> Note that assigning cars to x and then passing x as the argument to data
+> is needed to demonstrate the bug. The problem comes when we wrap this code
+> within a function.
+>
+> > rm(list = ls())
+> > test_function <- function(){data(cars); x <- cars; zelig(dist ~ speed,
+> data = x, model = "ls")}
+> > test_function()
+> Error in callSuper(formula = formula, data = data, ..., weights = NULL,  :
+>   object 'x' not found
+> How to cite this model in Zelig:
+>   Kosuke Imai, Gary King, and Olivia Lau. 2007.
+> ...
+> >
+>
+> It is the Error above that is the problem. (Strangely, the code still
+> seems to work in the development version after issuing that Error message.
+> In the CRAN version, it does not.)
+>
+> Note that you need to keep your workplace clean to see this clearly. See
+> the rm(list = ls()) above. If you don't issue this command (after doing the
+> interactive code), you don't get any error:
+>
+> > rm(list = ls())
+> > data(cars)
+> > x <- cars
+> > zelig(dist ~ speed, data = x, model = "ls")
+> How to cite this model in Zelig:
+>   Kosuke Imai, Gary King, and Olivia Lau. 2007.
+> ...
+> > test_function <- function(){data(cars); x <- cars; zelig(dist ~ speed,
+> data = x, model = "ls")}
+> > test_function()
+> How to cite this model in Zelig:
+>   Kosuke Imai, Gary King, and Olivia Lau. 2007.
+> ...
+> >
+>
+> No Error because Zelig finds x in the global environment. Of course, it
+> should be using the local x.
+>
+> My colleague thinks that, in the CRAN version, this snippet of code is
+> wrong:
+>
+> divided.data <- eval(call("multi.dataset", substitute(data)))
+>
+> But I am not enough of an R guru to determine the cause of the bug.
+>
+> Thanks,
+>
+> Dave Kane
+>
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+
+-------------- next part --------------
+
+

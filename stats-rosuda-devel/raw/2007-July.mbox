@@ -1,0 +1,1857 @@
+From urbanek at research.att.com  Mon Jul  2 14:40:01 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Mon, 02 Jul 2007 16:40:01 +0200
+Subject: Re: rjava method call
+In-Reply-To: <B3701EA8F6A67048B5B22233839B84B50A283B03@groamrexm01.amer.pfizer.com>
+References: <B3701EA8F6A67048B5B22233839B84B50A283B03@groamrexm01.amer.pfizer.com>
+Message-ID: <E1017148-C098-4DD2-ABF8-76C6261BF7EA@research.att.com>
+
+Ron,
+
+without actual JAR files to determine the correct signatures it is  
+not possible to give you the 'correct' answer. In general, the  
+strategy is to use .jmethods to find the correct argument types and  
+return type and then use .jcast if necessary (i.e. if the parameter  
+type is a superclass of the object). Looking at your attempt the only  
+immediately visible mistake is the use of dots instead of slashes in  
+the return type specification (i.e. public org.foo.Bar blah(); method  
+is to be called as .jcall(o, "Lorg/foo/Bar;", "blah")).
+
+Cheers,
+Simon
+
+
+On Jun 29, 2007, at 9:50 PM, Menner, Ronald L wrote:
+
+> Hi,
+>
+> Using rjava_4_4_17 on windows R-2.3.1 and having some issues  
+> replicating
+> the example Java code in R see code snippets below.
+>
+> The issue is replicating this java method call  'IGridService  
+> service =
+> GridServiceFactory.getService(configuration);' using the rjava .jcall
+>
+> Seems to be a catch (I can't figure out) when passing an object
+> (configuration) that is part of a class that implements an Interface -
+> com.pfizer.common.grid.BasicSystemConfiguration implements
+> com.pfizer.common.configuration.ISystemConfiguration
+>
+>
+>
+> Java code example:
+> --------------------------------------------
+>   BasicSystemConfiguration configuration = new
+> BasicSystemConfiguration();
+>
+> 	configuration.setEnvEntry( "LSF_SSH_HOST", "nllnx015c2" );
+> 	configuration.setEnvEntry( "LSF_SSH_PORT", "22" );
+> 	configuration.setEnvEntry( "LSF_GRID_PROFILE_FILE",
+> /home/epharm/profile.prod" );
+>
+> 	IJobDefinition definition = new JobDefinition();
+>
+> 	definition.setCommandLine("sleep 12");
+> 	definition.setWorkingDirectory("/home/epharm");
+> 	definition.setStderr("mystderr");
+>
+> 	IGridService service =
+> GridServiceFactory.getService(configuration);
+>
+> 	Credentials cred = getCredentials();//Need to supply username
+> and password
+> 		
+> 	String id = service.createAndRunJob(definition, cred);
+> ---------------------------------------------
+>
+>
+> R script replicate:
+> ------------------------------
+> .jinit(classpath="c:/grid/lsf-grid-sdk.jar;c:/grid/Ganymed.jar;c:/ 
+> grid/O
+> swego-1.3.4.jar;c:/grid/commons-logging.jar")
+>
+> ###### Create new BasicSystemConfiguration object
+>
+> baseconfig <- .jnew( "com/pfizer/common/grid/ 
+> BasicSystemConfiguration")
+>
+> 	.jcall(baseconfig,,"setEnvEntry","LSF_SSH_HOST", "nllnx015c2")
+> 	.jcall(baseconfig,,"setEnvEntry","LSF_SSH_PORT", "22" )
+> 	.jcall(baseconfig,,"setEnvEntry","LSF_GRID_PROFILE_FILE",
+> "/home/epharm/profile.prod" )
+>
+> 	
+> ##### Create new IJObDefinition object
+>
+> IJobDefinition <- .jnew("com/pfizer/common/grid/JobDefinition")
+>
+> 	.jcall(IJobDefinition,,"setCommandLine","sleep 12")
+> 	.jcall(IJobDefinition,,"setWorkingDirectory","/home/epharm")
+> 	.jcall(IJobDefinition,,"setStderr","mystderr")
+>
+>
+> ##### Setup the service variable as type IGridService
+>
+>
+> Ifactory <- .jnew("com/pfizer/common/grid/GridServiceFactory")
+>
+> 	
+> service <-
+> .jcall 
+> (Ifactory,"Lcom.pfizer.common.grid.IGridService;","getService",bas
+> econfig)
+> -----------------------------
+>
+>
+> Thanks
+>
+> Ron
+>
+> Ronald L Menner
+> Keane, Inc
+> Development Informatics - Medical Technologies
+> Business Analyst- Global Statistics
+> Phone: 860-732-0408  Cell:   860-501-1169
+> email:  ronald.l.menner at pfizer.com
+> aim:   mennerrl
+> Room: 1215, 194 Howard ST. New London, CT 06320
+>
+>
+> ----------------------------------------------------------------------
+> LEGAL NOTICE
+> Unless expressly stated otherwise, this message is confidential and  
+> may be privileged.  It is intended for the addressee(s) only.   
+> Access to this E-mail by anyone else is unauthorized.  If you are  
+> not an addressee, any disclosure or copying of the contents of this  
+> E-mail or any action taken (or not taken) in reliance on it is  
+> unauthorized and may be unlawful.  If you are not an addressee,  
+> please inform the sender immediately.
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From urbanek at research.att.com  Mon Jul  2 14:39:55 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Mon, 02 Jul 2007 16:39:55 +0200
+Subject: Re: JRI documentation and JGR sources
+In-Reply-To: <4683985E.8060201@iver.es>
+References: <4683985E.8060201@iver.es>
+Message-ID: <6252A6D3-2273-417A-AA11-2FC2F53EEF96@research.att.com>
+
+Cesar,
+
+On Jun 28, 2007, at 1:15 PM, Cesar Martinez Izquierdo wrote:
+
+> Hi, I want to use JRI to interface with some R packages from Java.
+> However, I'm new in both R and JRI, and I'm a bit lost, so I would
+> appreciate some documentation or code examples about how to perform  
+> the
+> following tasks from JRI:
+>
+> - After performing an algorithm or method in R, how to know the  
+> type of
+> the returned object, and how to transform it to standard Java objects.
+>
+
+The transformation is done automatically. Usually it is clear from  
+the R code what the result type is, so there is no need for special  
+handling.
+
+If you really want to access the type information directly, it is  
+possible. Depending on the version of the Java interface used, you  
+can use is..() methods to check the type and as..() methods to coerce  
+to different types (new interface) or use the getType() method (old  
+interface).
+
+
+> - How to inject data into R from Java in an efficient way. I want  
+> to use gstat R-package, and I want to inject in R the maps that my  
+> Java application has in memory (so I don't want to load the maps  
+> from files with R).
+>
+
+That depends entirely on your application (and again the API you  
+use). For the new API  you just use the corresponding REXPxxx  
+constructors, for the old API you can either use high-level assign  
+methods or you construct arbitrarily complex objects using rni...  
+methods.
+
+The examples for all tasks above are in the "examples" directory of JRI.
+
+
+> I thought that probably JGR could be the best documentation for  
+> such tasks, but I haven't been very successful compiling its code,  
+> I think I'm not able to get the right versions:
+>
+> - I've downloaded sources of JavaGD 0.4-3 and rJava 0.5-0, and they
+> correctly compile in my Eclipse workpsace.
+> - I've downloaded JGR 1.4 sources from
+> http://rosuda.org/JGR/1.4/JGRsrc-1.4.tar.gz,
+
+Those are the release sources. You have to decide which version you  
+pull, you cannot mix different versions of JRI and JGR (see below).
+
+
+> and added iplots.jar
+> (1.0-7). However, I get an error in JGR.java as RMainLoopCallbacks has
+> changed in JRI. Where could I get the proper version of JGR sources?
+> I tryied with SVN (svn co svn://svn.rforge.net/JGR/trunk JGR) but I
+> could only download the R sources (not the Java sources).
+>
+
+The release versions of all above packages are on CRAN. You should  
+get them either from CRAN (release versions) or from www.RForge.net  
+(development versions). Combining release and development versions  
+doesn't work.
+
+As of the JGR sources, you can check them out from the RForge SVN at / 
+org/trunk/rosuda/JGR
+
+Cheers,
+Simon
+
+From cesar.martinez at iver.es  Tue Jul  3 11:20:30 2007
+From: cesar.martinez at iver.es (Cesar Martinez Izquierdo)
+Date: Tue, 03 Jul 2007 13:20:30 +0200
+Subject: Re: JRI documentation and JGR sources
+In-Reply-To: <6252A6D3-2273-417A-AA11-2FC2F53EEF96@research.att.com>
+References: <4683985E.8060201@iver.es> <6252A6D3-2273-417A-AA11-2FC2F53EEF96@research.att.com>
+Message-ID: <468A30FE.3040203@iver.es>
+
+Simon Urbanek escribió:
+> On Jun 28, 2007, at 1:15 PM, Cesar Martinez Izquierdo wrote:
+>> - After performing an algorithm or method in R, how to know the type of
+>> the returned object, and how to transform it to standard Java objects.
+>>
+> 
+> The transformation is done automatically. Usually it is clear from the R 
+> code what the result type is, so there is no need for special handling.
+> 
+> If you really want to access the type information directly, it is 
+> possible. Depending on the version of the Java interface used, you can 
+> use is..() methods to check the type and as..() methods to coerce to 
+> different types (new interface) or use the getType() method (old 
+> interface).
+
+I don't really understand how this automatic transformation works.
+I have successfully performed a kriging using gstat R-package (using its 
+example data and its tutorial):
+
+Rengine re=new Rengine(rArgs, false, new TextConsole(this));
+if (!re.waitForR()) {
+	System.out.println("Cannot load R");
+	return;
+}
+re.eval("library('gstat')");
+re.eval("data(meuse)",false);
+re.eval("coordinates(meuse) = ~x+y");
+re.eval("data(meuse.grid)");
+re.eval("coordinates(meuse.grid) = ~x+y");
+re.eval("gridded(meuse.grid) = TRUE");
+REX expr = re.eval("zinc.idw = krige(zinc ~ 1, meuse, meuse.grid)");
+
+Now I would expect to be able to access the kriging's result from the 
+"expr" object, but I haven't been able to achieve it (I made lots of 
+tests with the different REXP and rni methdos).
+
+However, I've finally managed to get the result using:
+REXP exp2 = re.eval("zinc.idw$var1.pred");
+double[] idwresult = exp.asDoubleArray();
+
+Using these two lines, I successfully got the kriging's result.
+
+
+> The release versions of all above packages are on CRAN. You should get 
+> them either from CRAN (release versions) or from www.RForge.net 
+> (development versions). Combining release and development versions 
+> doesn't work.
+> 
+> As of the JGR sources, you can check them out from the RForge SVN at 
+> /org/trunk/rosuda/JGR
+
+OK, I will try again, thank you very much for the information.
+
+Now I also have some questions about JRI and threads, but I'll ask them 
+in a separate message.
+
+Best regards,
+
+  César
+
+-- 
+César Martínez Izquierdo
+gvSIG development team
+http://www.gvsig.gva.es
+
+IVER T.I.
+C/ Salamanca 50
+46005 Valencia - Spain
+http://www.iver.es
+
+From cesar.martinez at iver.es  Tue Jul  3 11:35:37 2007
+From: cesar.martinez at iver.es (Cesar Martinez Izquierdo)
+Date: Tue, 03 Jul 2007 13:35:37 +0200
+Subject: JRI, R instances and threads
+Message-ID: <468A3489.7030507@iver.es>
+
+Hi again, here there is the question I promised about JRI and threads.
+
+I'd like to integrate R in our Java application, so that R expressions 
+can be evaluated from any tools.
+The idea would be that any tool/plugin in our application can get an 
+REngine with a clean R environment, in which R expressions can be 
+evaluated. These tools/plugins may run in parallel, in different 
+threads, so several R engines may be requested at the same time.
+
+As I told in a previous message, I'm new with JRI and also new with R, 
+so I don't know anything about R threads, but I've read:
+"JRI is a Java/R Interface, which allows to run R inside Java 
+applications as a single thread." (from the JRI website).
+Does it mean that is not possible to run several independent Rengines at 
+the same time?
+What will happen if I create several Rengine objets? Will they create 
+several threads in the same R instance? Will they create different R 
+instance? Will they have unpredictable behaviour?
+
+Thanks for your attention, regards,
+
+-- 
+César Martínez Izquierdo
+Equipo de desarrollo gvSIG
+http://www.gvsig.gva.es
+
+IVER T.I.
+C/ Salamanca 50
+46005 Valencia - Spain
+http://www.iver.es
+
+From urbanek at research.att.com  Tue Jul  3 21:46:29 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Tue, 03 Jul 2007 23:46:29 +0200
+Subject: Re: JRI documentation and JGR sources
+In-Reply-To: <468A30FE.3040203@iver.es>
+References: <4683985E.8060201@iver.es> <6252A6D3-2273-417A-AA11-2FC2F53EEF96@research.att.com> <468A30FE.3040203@iver.es>
+Message-ID: <F763BE31-EF65-4F89-B55E-4A1F0AE8A424@research.att.com>
+
+
+On Jul 3, 2007, at 1:20 PM, Cesar Martinez Izquierdo wrote:
+
+> Simon Urbanek escribió:
+>> On Jun 28, 2007, at 1:15 PM, Cesar Martinez Izquierdo wrote:
+>>> - After performing an algorithm or method in R, how to know the  
+>>> type of
+>>> the returned object, and how to transform it to standard Java  
+>>> objects.
+>>>
+>>
+>> The transformation is done automatically. Usually it is clear from  
+>> the R
+>> code what the result type is, so there is no need for special  
+>> handling.
+>>
+>> If you really want to access the type information directly, it is
+>> possible. Depending on the version of the Java interface used, you  
+>> can
+>> use is..() methods to check the type and as..() methods to coerce to
+>> different types (new interface) or use the getType() method (old
+>> interface).
+>
+> I don't really understand how this automatic transformation works.
+
+Every time you do an "eval" (with convert-true which is the default)  
+the result is completely converted into Java objects (with the  
+exception of esoteric types like environments, external pointers etc.).
+
+
+> I have successfully performed a kriging using gstat R-package  
+> (using its
+> example data and its tutorial):
+>
+> Rengine re=new Rengine(rArgs, false, new TextConsole(this));
+> if (!re.waitForR()) {
+> 	System.out.println("Cannot load R");
+> 	return;
+> }
+> re.eval("library('gstat')");
+> re.eval("data(meuse)",false);
+> re.eval("coordinates(meuse) = ~x+y");
+> re.eval("data(meuse.grid)");
+> re.eval("coordinates(meuse.grid) = ~x+y");
+> re.eval("gridded(meuse.grid) = TRUE");
+
+Are you sure you want to retrieve and convert all those results?  
+You're discarding the Java objects anyway, so a lot of time is spent  
+in conversion which you don't use anyway. You may consider using  
+convert=false or even better just evaluate one expression of the form  
+REXP x = re.eval("{library(...); ... zind.idw = krige(..)}")
+
+
+> REX expr = re.eval("zinc.idw = krige(zinc ~ 1, meuse, meuse.grid)");
+>
+> Now I would expect to be able to access the kriging's result from  
+> the "expr" object, but I haven't been able to achieve it (I made  
+> lots of tests with the different REXP and rni methdos).
+>
+
+Sure, you can as they are all converted at this point. Note that the  
+result is an S4 object, so all slots are attributes, so your example  
+below would look somewhat like:
+
+double[] idwresult = expr.getAttribute("data").asVector().at 
+("var1.pred").asDoubleArray();
+
+(see str(zinc.idw) in R for details)
+
+However, the above will really copy everything into Java, but since  
+you want only a small part of it, you should consider fetching the  
+relevant parts instead, it is more efficient.
+
+Cheers,
+Simon
+
+
+> However, I've finally managed to get the result using:
+> REXP exp2 = re.eval("zinc.idw$var1.pred");
+> double[] idwresult = exp.asDoubleArray();
+> Using these two lines, I successfully got the kriging's result.
+>
+>
+>> The release versions of all above packages are on CRAN. You should  
+>> get
+>> them either from CRAN (release versions) or from www.RForge.net
+>> (development versions). Combining release and development versions
+>> doesn't work.
+>>
+>> As of the JGR sources, you can check them out from the RForge SVN at
+>> /org/trunk/rosuda/JGR
+>
+> OK, I will try again, thank you very much for the information.
+>
+> Now I also have some questions about JRI and threads, but I'll ask  
+> them
+> in a separate message.
+>
+> Best regards,
+>
+>   César
+>
+> -- 
+> César Martínez Izquierdo
+> gvSIG development team
+> http://www.gvsig.gva.es
+>
+> IVER T.I.
+> C/ Salamanca 50
+> 46005 Valencia - Spain
+> http://www.iver.es
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Wed Jul  4 06:43:38 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 04 Jul 2007 08:43:38 +0200
+Subject: Re: JRI, R instances and threads
+In-Reply-To: <468A3489.7030507@iver.es>
+References: <468A3489.7030507@iver.es>
+Message-ID: <013804F0-69ED-4792-A48F-EE9C2C7041CE@r-project.org>
+
+On Jul 3, 2007, at 1:35 PM, Cesar Martinez Izquierdo wrote:
+
+> Hi again, here there is the question I promised about JRI and threads.
+>
+> I'd like to integrate R in our Java application, so that R  
+> expressions can be evaluated from any tools.
+> The idea would be that any tool/plugin in our application can get  
+> an REngine with a clean R environment, in which R expressions can  
+> be evaluated. These tools/plugins may run in parallel, in different  
+> threads, so several R engines may be requested at the same time.
+>
+> As I told in a previous message, I'm new with JRI and also new with  
+> R, so I don't know anything about R threads, but I've read:"JRI is  
+> a Java/R Interface, which allows to run R inside Java applications  
+> as a single thread." (from the JRI website).
+> Does it mean that is not possible to run several independent  
+> Rengines at the same time?
+
+Yes. R is not thread-safe, so there is no way to run multiple R  
+instances in the same process. If you want a distributed client/ 
+server approach, have a look at Rserve
+http://www.rforge.net/Rserve/
+it supports multiple parallel R processes and the client API is very  
+similar to the of JRI (in fact the new API is identical so you can  
+use either backend).
+
+
+> What will happen if I create several Rengine objets? Will they  
+> create several threads in the same R instance? Will they create  
+> different R instance? Will they have unpredictable behaviour?
+>
+
+They'll crash and/or behave erratically...
+
+Cheers,
+Simon
+
+From cesar.martinez at iver.es  Wed Jul  4 08:34:51 2007
+From: cesar.martinez at iver.es (Cesar Martinez Izquierdo)
+Date: Wed, 04 Jul 2007 10:34:51 +0200
+Subject: Re: JRI documentation and JGR sources
+In-Reply-To: <F763BE31-EF65-4F89-B55E-4A1F0AE8A424@research.att.com>
+References: <4683985E.8060201@iver.es> <6252A6D3-2273-417A-AA11-2FC2F53EEF96@research.att.com> <468A30FE.3040203@iver.es> <F763BE31-EF65-4F89-B55E-4A1F0AE8A424@research.att.com>
+Message-ID: <468B5BAB.6000508@iver.es>
+
+Simon Urbanek escribió:
+
+[SNIP]
+
+> Are you sure you want to retrieve and convert all those results? You're 
+> discarding the Java objects anyway, so a lot of time is spent in 
+> conversion which you don't use anyway. You may consider using 
+> convert=false or even better just evaluate one expression of the form 
+> REXP x = re.eval("{library(...); ... zind.idw = krige(..)}")
+
+[SNIP]
+
+> Sure, you can as they are all converted at this point. Note that the 
+> result is an S4 object, so all slots are attributes, so your example 
+> below would look somewhat like:
+> 
+> double[] idwresult = 
+> expr.getAttribute("data").asVector().at("var1.pred").asDoubleArray();
+> 
+> (see str(zinc.idw) in R for details)
+> 
+> However, the above will really copy everything into Java, but since you 
+> want only a small part of it, you should consider fetching the relevant 
+> parts instead, it is more efficient.
+> 
+> Cheers,
+> Simon
+> 
+
+Thank you very much Simon, your explanations were very very helpful.
+
+-- 
+César Martínez Izquierdo
+Equipo de desarrollo gvSIG
+http://www.gvsig.gva.es
+
+IVER T.I.
+C/ Salamanca 50
+46005 Valencia - Spain
+http://www.iver.es
+
+From ronald.l.menner at pfizer.com  Thu Jul  5 15:17:47 2007
+From: ronald.l.menner at pfizer.com (Menner, Ronald L)
+Date: Thu, 05 Jul 2007 11:17:47 -0400
+Subject: Re: rjava method call
+In-Reply-To: <E1017148-C098-4DD2-ABF8-76C6261BF7EA@research.att.com>
+References: <E1017148-C098-4DD2-ABF8-76C6261BF7EA@research.att.com>
+Message-ID: <B3701EA8F6A67048B5B22233839B84B50A380CCF@groamrexm01.amer.pfizer.com>
+
+Simon,
+
+I have changed the dots to "/" and also tried to cast the parameter
+passed to the method.;
+
+service <-
+.jcall(Ifactory,"Lcom/pfizer/common/grid/IGridService;","getService",.jc
+ast(baseconfig,"com/pfizer/common/configuration/ISystemConfiguration"))
+
+And am receiving this error:
+-------
+Error in .jcall(Ifactory, "Lcom/pfizer/common/grid/IGridService;",
+"getService",  : 
+        RcallMethod: method not found
+In addition: Warning message:
+Unable to find the basic String class
+---------
+
+The method signatures of "Ifactory" are below and I am attempting to use
+the method listed in [2]:
+
+> .jmethods(Ifactory)
+ [1] "public static com.pfizer.common.grid.IGridService
+com.pfizer.common.grid.GridServiceFactory.getService(com.pfizer.common.c
+onfiguration.ISystemConfiguration,com.pfizer.common.util.ReadMostlyObjec
+tCache) throws com.pfizer.common.exception.ApplicationException"
+ [2] "public static com.pfizer.common.grid.IGridService
+com.pfizer.common.grid.GridServiceFactory.getService(com.pfizer.common.c
+onfiguration.ISystemConfiguration) throws
+com.pfizer.common.exception.ApplicationException"
+
+ [3] "public native int java.lang.Object.hashCode()"
+
+ [4] "public final native java.lang.Class java.lang.Object.getClass()"
+
+ [5] "public final void java.lang.Object.wait(long,int) throws
+java.lang.InterruptedException"
+
+ [6] "public final void java.lang.Object.wait() throws
+java.lang.InterruptedException"
+
+ [7] "public final native void java.lang.Object.wait(long) throws
+java.lang.InterruptedException"
+
+ [8] "public boolean java.lang.Object.equals(java.lang.Object)"
+
+ [9] "public final native void java.lang.Object.notify()"
+
+[10] "public final native void java.lang.Object.notifyAll()"
+
+[11] "public java.lang.String java.lang.Object.toString()"
+
+>
+
+
+
+-----Original Message-----
+From: Simon Urbanek [mailto:urbanek at research.att.com] 
+Sent: Monday, July 02, 2007 10:40 AM
+To: Menner, Ronald L
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: Re: [stats-rosuda-devel] rjava method call
+
+Ron,
+
+without actual JAR files to determine the correct signatures it is  
+not possible to give you the 'correct' answer. In general, the  
+strategy is to use .jmethods to find the correct argument types and  
+return type and then use .jcast if necessary (i.e. if the parameter  
+type is a superclass of the object). Looking at your attempt the only  
+immediately visible mistake is the use of dots instead of slashes in  
+the return type specification (i.e. public org.foo.Bar blah(); method  
+is to be called as .jcall(o, "Lorg/foo/Bar;", "blah")).
+
+Cheers,
+Simon
+
+
+On Jun 29, 2007, at 9:50 PM, Menner, Ronald L wrote:
+
+> Hi,
+>
+> Using rjava_4_4_17 on windows R-2.3.1 and having some issues  
+> replicating
+> the example Java code in R see code snippets below.
+>
+> The issue is replicating this java method call  'IGridService  
+> service =
+> GridServiceFactory.getService(configuration);' using the rjava .jcall
+>
+> Seems to be a catch (I can't figure out) when passing an object
+> (configuration) that is part of a class that implements an Interface -
+> com.pfizer.common.grid.BasicSystemConfiguration implements
+> com.pfizer.common.configuration.ISystemConfiguration
+>
+>
+>
+> Java code example:
+> --------------------------------------------
+>   BasicSystemConfiguration configuration = new
+> BasicSystemConfiguration();
+>
+> 	configuration.setEnvEntry( "LSF_SSH_HOST", "nllnx015c2" );
+> 	configuration.setEnvEntry( "LSF_SSH_PORT", "22" );
+> 	configuration.setEnvEntry( "LSF_GRID_PROFILE_FILE",
+> /home/epharm/profile.prod" );
+>
+> 	IJobDefinition definition = new JobDefinition();
+>
+> 	definition.setCommandLine("sleep 12");
+> 	definition.setWorkingDirectory("/home/epharm");
+> 	definition.setStderr("mystderr");
+>
+> 	IGridService service =
+> GridServiceFactory.getService(configuration);
+>
+> 	Credentials cred = getCredentials();//Need to supply username
+> and password
+> 		
+> 	String id = service.createAndRunJob(definition, cred);
+> ---------------------------------------------
+>
+>
+> R script replicate:
+> ------------------------------
+> .jinit(classpath="c:/grid/lsf-grid-sdk.jar;c:/grid/Ganymed.jar;c:/ 
+> grid/O
+> swego-1.3.4.jar;c:/grid/commons-logging.jar")
+>
+> ###### Create new BasicSystemConfiguration object
+>
+> baseconfig <- .jnew( "com/pfizer/common/grid/ 
+> BasicSystemConfiguration")
+>
+> 	.jcall(baseconfig,,"setEnvEntry","LSF_SSH_HOST", "nllnx015c2")
+> 	.jcall(baseconfig,,"setEnvEntry","LSF_SSH_PORT", "22" )
+> 	.jcall(baseconfig,,"setEnvEntry","LSF_GRID_PROFILE_FILE",
+> "/home/epharm/profile.prod" )
+>
+> 	
+> ##### Create new IJObDefinition object
+>
+> IJobDefinition <- .jnew("com/pfizer/common/grid/JobDefinition")
+>
+> 	.jcall(IJobDefinition,,"setCommandLine","sleep 12")
+> 	.jcall(IJobDefinition,,"setWorkingDirectory","/home/epharm")
+> 	.jcall(IJobDefinition,,"setStderr","mystderr")
+>
+>
+> ##### Setup the service variable as type IGridService
+>
+>
+> Ifactory <- .jnew("com/pfizer/common/grid/GridServiceFactory")
+>
+> 	
+> service <-
+> .jcall 
+> (Ifactory,"Lcom.pfizer.common.grid.IGridService;","getService",bas
+> econfig)
+> -----------------------------
+>
+>
+> Thanks
+>
+> Ron
+>
+> Ronald L Menner
+> Keane, Inc
+> Development Informatics - Medical Technologies
+> Business Analyst- Global Statistics
+> Phone: 860-732-0408  Cell:   860-501-1169
+> email:  ronald.l.menner at pfizer.com
+> aim:   mennerrl
+> Room: 1215, 194 Howard ST. New London, CT 06320
+>
+>
+> ----------------------------------------------------------------------
+> LEGAL NOTICE
+> Unless expressly stated otherwise, this message is confidential and  
+> may be privileged.  It is intended for the addressee(s) only.   
+> Access to this E-mail by anyone else is unauthorized.  If you are  
+> not an addressee, any disclosure or copying of the contents of this  
+> E-mail or any action taken (or not taken) in reliance on it is  
+> unauthorized and may be unlawful.  If you are not an addressee,  
+> please inform the sender immediately.
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From felwert at uni-bremen.de  Mon Jul  9 18:13:54 2007
+From: felwert at uni-bremen.de (Frederik Elwert)
+Date: Mon, 09 Jul 2007 18:13:54 +0000
+Subject: Problems with .JGRprefsrc on Windows
+Message-ID: <1184004834.6641.27.camel@FredDesk>
+
+Hello!
+
+I recently installed JGR on a Windows machine running R 2.5.1. I noticed
+two small annoyances that seem to be related to the default .JGRprefsrc:
+      * The WorkingDirectory entry contained unmasked backslashes as
+        path delimiters. R complained about an "unknown escape sequence"
+        or something. The delimiter should either be doubled backslashes
+        or simple slashes.
+      * The package grDevices isn't loaded per default. This lead to
+        some problems with missing colors()-function when plotting
+        networks with the network package. Maybe that's a problem with
+        that specific package, but on my Linux machine grDevices gets
+        loaded by default and I find this very convenient.
+
+At least the first one should be corrected, I think. I'm not sure about
+the second one. Maybe I was just used to having that package at hand
+automatically.
+
+Cheers,
+Frederik
+
+From okhmatovskaia at gmail.com  Wed Jul 11 14:37:51 2007
+From: okhmatovskaia at gmail.com (Anya Okhmatovskaia)
+Date: Wed, 11 Jul 2007 10:37:51 -0400
+Subject: JRI: restarting R engine
+Message-ID: <86a432770707110737i274797e4n522994caa492275b@mail.gmail.com>
+
+I am experimenting with using multiple instances of R in a single java
+application. I know I cannot run more than one at the same time, but I
+assumed I should be able to stop and restart R engine consecutively. It
+doesn't seem to be working though.
+Here is a simple piece of code (directly adopted from the examples) I am
+using for testing:
+
+    // ...
+    System.out.println("Creating Rengine ...");
+    Rengine re=new Rengine(null, false, null);
+    System.out.println("Rengine created, waiting for R");
+    if (!re.waitForR()) {
+            System.out.println("Cannot load R");
+            return;
+    }
+    try {
+        re.eval("a <- sqrt(36)");
+        re.eval("b <- log(100)");
+        System.out.println ("a = " + re.eval("a"));
+        System.out.println("b = " + re.eval("b"));
+        System.out.println("a + b = " + re.eval("a + b"));
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+    re.end();
+
+    // ... and repeat the whole thing again:
+
+    System.out.println("Creating Rengine ...");
+    re=new Rengine(null, false, null);
+    System.out.println("Rengine created, waiting for R");
+    if (!re.waitForR()) {
+            System.out.println("Cannot load R");
+            return;
+    }
+    try {
+        re.eval("a <- sqrt(36)");
+        re.eval("b <- log(100)");
+        System.out.println("a = " + re.eval("a"));
+        System.out.println("b = " + re.eval("b"));
+        System.out.println("a + b = " + re.eval("a + b"));
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+    re.end();
+
+The second time around my application exits silently when Rengine
+constructor is called. What actually happens, and how can I make it work?
+
+Thanks,
+Anya
+
+-------------- next part --------------
+
+
+From ronald.l.menner at pfizer.com  Wed Jul 11 15:33:08 2007
+From: ronald.l.menner at pfizer.com (Menner, Ronald L)
+Date: Wed, 11 Jul 2007 11:33:08 -0400
+Subject: Re: rjava method call
+Message-ID: <B3701EA8F6A67048B5B22233839B84B50A455EB5@groamrexm01.amer.pfizer.com>
+
+I have changed the dots to "/" and also tried to cast the parameter
+passed to the method.;
+
+ 
+
+service <-
+.jcall(Ifactory,"Lcom/pfizer/common/grid/IGridService;","getService",.jc
+ast(baseconfig,"com/pfizer/common/configuration/ISystemConfiguration"))
+
+ 
+
+And am receiving this error:
+
+-------
+
+Error in .jcall(Ifactory, "Lcom/pfizer/common/grid/IGridService;",
+"getService",  : 
+
+        RcallMethod: method not found
+
+In addition: Warning message:
+
+Unable to find the basic String class
+
+---------
+
+ 
+
+The method signatures of "Ifactory" are below and I am attempting to use
+the method listed in [2]:
+
+ 
+
+> .jmethods(Ifactory)
+
+ [1] "public static com.pfizer.common.grid.IGridService
+com.pfizer.common.grid.GridServiceFactory.getService(com.pfizer.common.c
+onfiguration.ISystemConfiguration,com.pfizer.common.util.ReadMostlyObjec
+tCache) throws com.pfizer.common.exception.ApplicationException"
+
+ [2] "public static com.pfizer.common.grid.IGridService
+com.pfizer.common.grid.GridServiceFactory.getService(com.pfizer.common.c
+onfiguration.ISystemConfiguration) throws
+com.pfizer.common.exception.ApplicationException"
+
+
+ [3] "public native int java.lang.Object.hashCode()"
+
+
+ [4] "public final native java.lang.Class java.lang.Object.getClass()"
+
+
+ [5] "public final void java.lang.Object.wait(long,int) throws
+java.lang.InterruptedException"
+
+
+ [6] "public final void java.lang.Object.wait() throws
+java.lang.InterruptedException"
+
+
+ [7] "public final native void java.lang.Object.wait(long) throws
+java.lang.InterruptedException"
+
+
+ [8] "public boolean java.lang.Object.equals(java.lang.Object)"
+
+
+ [9] "public final native void java.lang.Object.notify()"
+
+
+[10] "public final native void java.lang.Object.notifyAll()"
+
+
+[11] "public java.lang.String java.lang.Object.toString()"
+
+
+> 
+
+ 
+
+ 
+
+ 
+
+-----Original Message-----
+
+From: Simon Urbanek [mailto:urbanek at research.att.com] 
+
+Sent: Monday, July 02, 2007 10:40 AM
+
+To: Menner, Ronald L
+
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+
+Subject: Re: [stats-rosuda-devel] rjava method call
+
+ 
+
+Ron,
+
+ 
+
+without actual JAR files to determine the correct signatures it is  
+
+not possible to give you the 'correct' answer. In general, the  
+
+strategy is to use .jmethods to find the correct argument types and  
+
+return type and then use .jcast if necessary (i.e. if the parameter  
+
+type is a superclass of the object). Looking at your attempt the only  
+
+immediately visible mistake is the use of dots instead of slashes in  
+
+the return type specification (i.e. public org.foo.Bar blah(); method  
+
+is to be called as .jcall(o, "Lorg/foo/Bar;", "blah")).
+
+ 
+
+Cheers,
+
+Simon
+
+ 
+
+ 
+
+On Jun 29, 2007, at 9:50 PM, Menner, Ronald L wrote:
+
+ 
+
+> Hi,
+
+> 
+
+> Using rjava_4_4_17 on windows R-2.3.1 and having some issues  
+
+> replicating
+
+> the example Java code in R see code snippets below.
+
+> 
+
+> The issue is replicating this java method call  'IGridService  
+
+> service =
+
+> GridServiceFactory.getService(configuration);' using the rjava .jcall
+
+> 
+
+> Seems to be a catch (I can't figure out) when passing an object
+
+> (configuration) that is part of a class that implements an Interface -
+
+> com.pfizer.common.grid.BasicSystemConfiguration implements
+
+> com.pfizer.common.configuration.ISystemConfiguration
+
+> 
+
+> 
+
+> 
+
+> Java code example:
+
+> --------------------------------------------
+
+>   BasicSystemConfiguration configuration = new
+
+> BasicSystemConfiguration();
+
+> 
+
+>     configuration.setEnvEntry( "LSF_SSH_HOST", "nllnx015c2" );
+
+>     configuration.setEnvEntry( "LSF_SSH_PORT", "22" );
+
+>     configuration.setEnvEntry( "LSF_GRID_PROFILE_FILE",
+
+> /home/epharm/profile.prod" );
+
+> 
+
+>     IJobDefinition definition = new JobDefinition();
+
+> 
+
+>     definition.setCommandLine("sleep 12");
+
+>     definition.setWorkingDirectory("/home/epharm");
+
+>     definition.setStderr("mystderr");
+
+> 
+
+>     IGridService service =
+
+> GridServiceFactory.getService(configuration);
+
+> 
+
+>     Credentials cred = getCredentials();//Need to supply username
+
+> and password
+
+>           
+
+>     String id = service.createAndRunJob(definition, cred);
+
+> ---------------------------------------------
+
+> 
+
+> 
+
+> R script replicate:
+
+> ------------------------------
+
+> .jinit(classpath="c:/grid/lsf-grid-sdk.jar;c:/grid/Ganymed.jar;c:/ 
+
+> grid/O
+
+> swego-1.3.4.jar;c:/grid/commons-logging.jar")
+
+> 
+
+> ###### Create new BasicSystemConfiguration object
+
+> 
+
+> baseconfig <- .jnew( "com/pfizer/common/grid/ 
+
+> BasicSystemConfiguration")
+
+> 
+
+>     .jcall(baseconfig,,"setEnvEntry","LSF_SSH_HOST", "nllnx015c2")
+
+>     .jcall(baseconfig,,"setEnvEntry","LSF_SSH_PORT", "22" )
+
+>     .jcall(baseconfig,,"setEnvEntry","LSF_GRID_PROFILE_FILE",
+
+> "/home/epharm/profile.prod" )
+
+> 
+
+>     
+
+> ##### Create new IJObDefinition object
+
+> 
+
+> IJobDefinition <- .jnew("com/pfizer/common/grid/JobDefinition")
+
+> 
+
+>     .jcall(IJobDefinition,,"setCommandLine","sleep 12")
+
+>     .jcall(IJobDefinition,,"setWorkingDirectory","/home/epharm")
+
+>     .jcall(IJobDefinition,,"setStderr","mystderr")
+
+> 
+
+> 
+
+> ##### Setup the service variable as type IGridService
+
+> 
+
+> 
+
+> Ifactory <- .jnew("com/pfizer/common/grid/GridServiceFactory")
+
+> 
+
+>     
+
+> service <-
+
+> .jcall 
+
+> (Ifactory,"Lcom.pfizer.common.grid.IGridService;","getService",bas
+
+> econfig)
+
+> -----------------------------
+
+> 
+
+> 
+
+> Thanks
+
+> 
+
+> Ron
+
+> 
+
+> Ronald L Menner
+
+> Keane, Inc
+
+> Development Informatics - Medical Technologies
+
+> Business Analyst- Global Statistics
+
+> Phone: 860-732-0408  Cell:   860-501-1169
+
+> email:  ronald.l.menner at pfizer.com
+
+> aim:   mennerrl
+
+> Room: 1215, 194 Howard ST. New London, CT 06320
+
+> 
+
+> 
+
+> ----------------------------------------------------------------------
+
+> LEGAL NOTICE
+
+> Unless expressly stated otherwise, this message is confidential and  
+
+> may be privileged.  It is intended for the addressee(s) only.   
+
+> Access to this E-mail by anyone else is unauthorized.  If you are  
+
+> not an addressee, any disclosure or copying of the contents of this  
+
+> E-mail or any action taken (or not taken) in reliance on it is  
+
+> unauthorized and may be unlawful.  If you are not an addressee,  
+
+> please inform the sender immediately.
+
+> 
+
+> _______________________________________________
+
+> stats-rosuda-devel mailing list
+
+> stats-rosuda-devel at listserv.uni-augsburg.de
+
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+-------------- next part --------------
+
+
+From chrysopa at gmail.com  Sat Jul 14 11:39:45 2007
+From: chrysopa at gmail.com (Ronaldo Reis Junior)
+Date: Sat, 14 Jul 2007 08:39:45 -0300
+Subject: problem with rJava
+Message-ID: <200707140839.45511.chrysopa@gmail.com>
+
+Hi,
+
+I try to update my JGR and I have this error on rJava compilation:
+
+hecking for an ANSI C-conforming const... yes
+checking whether time.h and sys/time.h may both be included... yes
+configure: checking whether gcc-4.2 -std=gnu99 supports static inline...
+yes
+checking whether JNI programs can be compiled... configure: error: Cannot 
+compile a simple JNI program. See config.log for details.
+ERROR: configuration failed for package 'rJava'
+** Removing '/usr/local/lib/R/site-library/rJava'
+** Restoring previous '/usr/local/lib/R/site-library/rJava'
+
+Only rJava make this error, all of other is OK. rJava-4.x work
+
+What is the problem?
+
+Thanks
+Ronaldo
+-- 
+Small change can often be found under seat cushions.
+		-- One of Lazarus Long's most penetrating insights
+--
+> Prof. Ronaldo Reis Júnior
+|  .''`. UNIMONTES/Depto. Biologia Geral/Lab. de Ecologia
+| : :'  : Campus Universitário Prof. Darcy Ribeiro, Vila Mauricéia
+| `. `'` CP: 126, CEP: 39401-089, Montes Claros - MG - Brasil
+|   `- Fone: (38) 3229-8187 | ronaldo.reis at unimontes.br | chrysopa at gmail.com
+| http://www.ppgcb.unimontes.br/ | ICQ#: 5692561 | LinuxUser#: 205366
+
+From gfiske at whrc.org  Wed Jul 18 17:48:16 2007
+From: gfiske at whrc.org (Greg Fiske)
+Date: Wed, 18 Jul 2007 13:48:16 -0400
+Subject: JGR slow start on Windows
+Message-ID: <002d01c7c963$d21e60e0$765b22a0$@org>
+
+Greetings,
+
+I'm running JGR 1.4-16 on Windows XP.  The Console takes 4-5
+minutes to start.  Anybody have any thoughts about why this takes
+so long to start?
+
+Thanks, in advance,
+
+Greg
+
+Gregory Fiske
+Research Associate
+GIS and Remote Sensing Laboratory
+The Woods Hole Research Center
+149 Woods Hole Road
+Falmouth, Massachusetts 02540
+508-540-9900
+http://www.whrc.org
+gfiske at whrc.org
+
+From felwert at uni-bremen.de  Fri Jul 20 08:14:23 2007
+From: felwert at uni-bremen.de
+Date: Fri, 20 Jul 2007 10:14:23 +0200
+Subject: Re: JGR slow start on Windows
+In-Reply-To: <002d01c7c963$d21e60e0$765b22a0$@org>
+References: <002d01c7c963$d21e60e0$765b22a0$@org>
+Message-ID: <20070720101423.dduj3se42jsoc8k0@webmail.uni-bremen.de>
+
+Zitat von Greg Fiske <gfiske at whrc.org>:
+
+> I'm running JGR 1.4-16 on Windows XP.  The Console takes 4-5
+> minutes to start.  Anybody have any thoughts about why this takes
+> so long to start?
+
+I experienced the same, so I'd be interested in a solution as well. If  
+I can provide any further information, I'd be glad to give it to you.
+
+I noticed something else, but this is probably unrelated: On Windows,  
+rgl is painfully slow when started from JGR. Starting directly from R,  
+it runs nice.
+On Linux, rgl runs fine from JGR. So this seems to be Windows-related, too.
+
+Cheers,
+Frederik
+
+From joe.degisi at telus.net  Sun Jul 22 03:28:13 2007
+From: joe.degisi at telus.net (Joe De Gisi)
+Date: Sat, 21 Jul 2007 20:28:13 -0700
+Subject: JGR and Windows Vista
+Message-ID: <46A2CECD.9080802@telus.net>
+
+I note, viweing the message archives, only one post concerning the 
+operability of JGR under Windows Vista.  It was unclear whether the 
+author of the post succeeded in getting JGR to run in this newish 
+Windows OS.
+
+Having tried (and failed) to run JGR under Vista, using both the latest 
+R, JGR and Java versions, as well as older JGR, R and Java versions, I 
+am soliciting reports of any experiences other users may have with JGR 
+and Vista.  For me, regardless of versions, the JGR launcher starts the 
+console, loads the required packages, but then fails with a message from 
+Vista saying "Java (TM) 2 Platform Standard Edition binary has stopped 
+working".  I would appreciate hearing of any other experiences.
+
+Joe
+
+From simon.urbanek at r-project.org  Wed Jul 25 14:34:17 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 25 Jul 2007 10:34:17 -0400
+Subject: Re: JRI: restarting R engine
+In-Reply-To: <86a432770707110737i274797e4n522994caa492275b@mail.gmail.com>
+References: <86a432770707110737i274797e4n522994caa492275b@mail.gmail.com>
+Message-ID: <ACB69C6D-0C12-4BF7-A034-CC2CA71A987E@r-project.org>
+
+Anya,
+
+On Jul 11, 2007, at 10:37 AM, Anya Okhmatovskaia wrote:
+
+> I am experimenting with using multiple instances of R in a single  
+> java application. I know I cannot run more than one at the same  
+> time, but I assumed I should be able to stop and restart R engine  
+> consecutively. It doesn't seem to be working though.
+
+That is true, unfortunately, because R doesn't support stopping and  
+re-starting. Calling re.end() doesn't do what you think it does - it  
+simply stops the thread that monitors R (depending on how you use the  
+event loop), but R is still initialized and 'live'.
+
+FWIW I don't see why you would want to re-start R. It is safe to just  
+keep R running as it is idle if you're not using it, so it is much  
+easier to simply accept commands sequentially and just wipe the  
+global environment between calls if necessary (you could also save  
+options and pars if those are relevant). If you want multiple  
+parallel instances spawned very quickly, consider using Rserve instead.
+
+Cheers,
+Simon
+
+From urbanek at research.att.com  Wed Jul 25 14:27:06 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Wed, 25 Jul 2007 10:27:06 -0400
+Subject: Re: rjava method call
+In-Reply-To: <B3701EA8F6A67048B5B22233839B84B50A380CCF@groamrexm01.amer.pfizer.com>
+References: <B3701EA8F6A67048B5B22233839B84B50A380CCF@groamrexm01.amer.pfizer.com>
+Message-ID: <6118B2D7-8766-425F-8AFD-7A4DF3F89468@research.att.com>
+
+Ron,
+
+On Jul 5, 2007, at 11:17 AM, Menner, Ronald L wrote:
+
+> I have changed the dots to "/" and also tried to cast the parameter
+> passed to the method.;
+>
+> service <-
+> .jcall(Ifactory,"Lcom/pfizer/common/grid/ 
+> IGridService;","getService",.jc
+> ast(baseconfig,"com/pfizer/common/configuration/ 
+> ISystemConfiguration"))
+>
+
+What is Ifactory? Calling a static method from a non-static context  
+is not supported, so Ifactory should be "com/pfizer/common/grid/ 
+GridServiceFactory". This may change for rJava 0.5 but only if the  
+static method is the sole match.
+
+Cheers,
+Simon
+
+
+> And am receiving this error:
+> -------
+> Error in .jcall(Ifactory, "Lcom/pfizer/common/grid/IGridService;",
+> "getService",  :
+>         RcallMethod: method not found
+> In addition: Warning message:
+> Unable to find the basic String class
+> ---------
+>
+> The method signatures of "Ifactory" are below and I am attempting  
+> to use
+> the method listed in [2]:
+>
+>> .jmethods(Ifactory)
+>  [1] "public static com.pfizer.common.grid.IGridService
+> com.pfizer.common.grid.GridServiceFactory.getService 
+> (com.pfizer.common.c
+> onfiguration.ISystemConfiguration,com.pfizer.common.util.ReadMostlyObj 
+> ec
+> tCache) throws com.pfizer.common.exception.ApplicationException"
+>  [2] "public static com.pfizer.common.grid.IGridService
+> com.pfizer.common.grid.GridServiceFactory.getService 
+> (com.pfizer.common.c
+> onfiguration.ISystemConfiguration) throws
+> com.pfizer.common.exception.ApplicationException"
+>
+>  [3] "public native int java.lang.Object.hashCode()"
+>
+>  [4] "public final native java.lang.Class java.lang.Object.getClass()"
+>
+>  [5] "public final void java.lang.Object.wait(long,int) throws
+> java.lang.InterruptedException"
+>
+>  [6] "public final void java.lang.Object.wait() throws
+> java.lang.InterruptedException"
+>
+>  [7] "public final native void java.lang.Object.wait(long) throws
+> java.lang.InterruptedException"
+>
+>  [8] "public boolean java.lang.Object.equals(java.lang.Object)"
+>
+>  [9] "public final native void java.lang.Object.notify()"
+>
+> [10] "public final native void java.lang.Object.notifyAll()"
+>
+> [11] "public java.lang.String java.lang.Object.toString()"
+>
+>>
+>
+>
+>
+> -----Original Message-----
+> From: Simon Urbanek [mailto:urbanek at research.att.com]
+> Sent: Monday, July 02, 2007 10:40 AM
+> To: Menner, Ronald L
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: Re: [stats-rosuda-devel] rjava method call
+>
+> Ron,
+>
+> without actual JAR files to determine the correct signatures it is
+> not possible to give you the 'correct' answer. In general, the
+> strategy is to use .jmethods to find the correct argument types and
+> return type and then use .jcast if necessary (i.e. if the parameter
+> type is a superclass of the object). Looking at your attempt the only
+> immediately visible mistake is the use of dots instead of slashes in
+> the return type specification (i.e. public org.foo.Bar blah(); method
+> is to be called as .jcall(o, "Lorg/foo/Bar;", "blah")).
+>
+> Cheers,
+> Simon
+>
+>
+> On Jun 29, 2007, at 9:50 PM, Menner, Ronald L wrote:
+>
+>> Hi,
+>>
+>> Using rjava_4_4_17 on windows R-2.3.1 and having some issues
+>> replicating
+>> the example Java code in R see code snippets below.
+>>
+>> The issue is replicating this java method call  'IGridService
+>> service =
+>> GridServiceFactory.getService(configuration);' using the rjava .jcall
+>>
+>> Seems to be a catch (I can't figure out) when passing an object
+>> (configuration) that is part of a class that implements an  
+>> Interface -
+>> com.pfizer.common.grid.BasicSystemConfiguration implements
+>> com.pfizer.common.configuration.ISystemConfiguration
+>>
+>>
+>>
+>> Java code example:
+>> --------------------------------------------
+>>   BasicSystemConfiguration configuration = new
+>> BasicSystemConfiguration();
+>>
+>> 	configuration.setEnvEntry( "LSF_SSH_HOST", "nllnx015c2" );
+>> 	configuration.setEnvEntry( "LSF_SSH_PORT", "22" );
+>> 	configuration.setEnvEntry( "LSF_GRID_PROFILE_FILE",
+>> /home/epharm/profile.prod" );
+>>
+>> 	IJobDefinition definition = new JobDefinition();
+>>
+>> 	definition.setCommandLine("sleep 12");
+>> 	definition.setWorkingDirectory("/home/epharm");
+>> 	definition.setStderr("mystderr");
+>>
+>> 	IGridService service =
+>> GridServiceFactory.getService(configuration);
+>>
+>> 	Credentials cred = getCredentials();//Need to supply username
+>> and password
+>> 		
+>> 	String id = service.createAndRunJob(definition, cred);
+>> ---------------------------------------------
+>>
+>>
+>> R script replicate:
+>> ------------------------------
+>> .jinit(classpath="c:/grid/lsf-grid-sdk.jar;c:/grid/Ganymed.jar;c:/
+>> grid/O
+>> swego-1.3.4.jar;c:/grid/commons-logging.jar")
+>>
+>> ###### Create new BasicSystemConfiguration object
+>>
+>> baseconfig <- .jnew( "com/pfizer/common/grid/
+>> BasicSystemConfiguration")
+>>
+>> 	.jcall(baseconfig,,"setEnvEntry","LSF_SSH_HOST", "nllnx015c2")
+>> 	.jcall(baseconfig,,"setEnvEntry","LSF_SSH_PORT", "22" )
+>> 	.jcall(baseconfig,,"setEnvEntry","LSF_GRID_PROFILE_FILE",
+>> "/home/epharm/profile.prod" )
+>>
+>> 	
+>> ##### Create new IJObDefinition object
+>>
+>> IJobDefinition <- .jnew("com/pfizer/common/grid/JobDefinition")
+>>
+>> 	.jcall(IJobDefinition,,"setCommandLine","sleep 12")
+>> 	.jcall(IJobDefinition,,"setWorkingDirectory","/home/epharm")
+>> 	.jcall(IJobDefinition,,"setStderr","mystderr")
+>>
+>>
+>> ##### Setup the service variable as type IGridService
+>>
+>>
+>> Ifactory <- .jnew("com/pfizer/common/grid/GridServiceFactory")
+>>
+>> 	
+>> service <-
+>> .jcall
+>> (Ifactory,"Lcom.pfizer.common.grid.IGridService;","getService",bas
+>> econfig)
+>> -----------------------------
+>>
+>>
+>> Thanks
+>>
+>> Ron
+>>
+>> Ronald L Menner
+>> Keane, Inc
+>> Development Informatics - Medical Technologies
+>> Business Analyst- Global Statistics
+>> Phone: 860-732-0408  Cell:   860-501-1169
+>> email:  ronald.l.menner at pfizer.com
+>> aim:   mennerrl
+>> Room: 1215, 194 Howard ST. New London, CT 06320
+>>
+>>
+>> --------------------------------------------------------------------- 
+>> -
+>> LEGAL NOTICE
+>> Unless expressly stated otherwise, this message is confidential and
+>> may be privileged.  It is intended for the addressee(s) only.
+>> Access to this E-mail by anyone else is unauthorized.  If you are
+>> not an addressee, any disclosure or copying of the contents of this
+>> E-mail or any action taken (or not taken) in reliance on it is
+>> unauthorized and may be unlawful.  If you are not an addressee,
+>> please inform the sender immediately.
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Wed Jul 25 14:40:26 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 25 Jul 2007 10:40:26 -0400
+Subject: Re: JGR and Windows Vista
+In-Reply-To: <46A2CECD.9080802@telus.net>
+References: <46A2CECD.9080802@telus.net>
+Message-ID: <A6170E33-532E-4AF8-868F-DB5BB66F8C61@r-project.org>
+
+Joe,
+
+unfortunately no one donated a Vista license to me (yet :P), so I  
+cannot test or reproduce this :(. Is there any kind of debugging  
+output that Vista leaves behind? Also please try to run JGR in debug  
+mode (with --debug parameter).
+
+Cheers,
+Simon
+
+
+On Jul 21, 2007, at 11:28 PM, Joe De Gisi wrote:
+
+> I note, viweing the message archives, only one post concerning the
+> operability of JGR under Windows Vista.  It was unclear whether the
+> author of the post succeeded in getting JGR to run in this newish
+> Windows OS.
+>
+> Having tried (and failed) to run JGR under Vista, using both the  
+> latest
+> R, JGR and Java versions, as well as older JGR, R and Java versions, I
+> am soliciting reports of any experiences other users may have with JGR
+> and Vista.  For me, regardless of versions, the JGR launcher starts  
+> the
+> console, loads the required packages, but then fails with a message  
+> from
+> Vista saying "Java (TM) 2 Platform Standard Edition binary has stopped
+> working".  I would appreciate hearing of any other experiences.
+>
+> Joe
+>
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Wed Jul 25 14:37:54 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 25 Jul 2007 10:37:54 -0400
+Subject: Re: JGR slow start on Windows
+In-Reply-To: <002d01c7c963$d21e60e0$765b22a0$@org>
+References: <002d01c7c963$d21e60e0$765b22a0$@org>
+Message-ID: <3D33355B-364F-406F-AF83-3987E19535D6@r-project.org>
+
+Greg,
+
+On Jul 18, 2007, at 1:48 PM, Greg Fiske wrote:
+
+> I'm running JGR 1.4-16 on Windows XP.  The Console takes 4-5  
+> minutes to start.  Anybody have any thoughts about why this takes  
+> so long to start?
+>
+
+Note really. You may want to search the list archives for this - I  
+believe this was related to some specific Java versions. I cannot  
+reproduce it in my setup, so please provide us with exact details  
+about your system, Java and R packages used.
+
+Cheers,
+Simon
+
+From simon.urbanek at r-project.org  Wed Jul 25 14:36:19 2007
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 25 Jul 2007 10:36:19 -0400
+Subject: Re: problem with rJava
+In-Reply-To: <200707140839.45511.chrysopa@gmail.com>
+References: <200707140839.45511.chrysopa@gmail.com>
+Message-ID: <842A62DB-979E-44BE-ADD5-6471D9DD1D1D@r-project.org>
+
+
+On Jul 14, 2007, at 7:39 AM, Ronaldo Reis Junior wrote:
+
+> I try to update my JGR and I have this error on rJava compilation:
+>
+> hecking for an ANSI C-conforming const... yes
+> checking whether time.h and sys/time.h may both be included... yes
+> configure: checking whether gcc-4.2 -std=gnu99 supports static  
+> inline...
+> yes
+> checking whether JNI programs can be compiled... configure: error:  
+> Cannot
+> compile a simple JNI program. See config.log for details.
+> ERROR: configuration failed for package 'rJava'
+> ** Removing '/usr/local/lib/R/site-library/rJava'
+> ** Restoring previous '/usr/local/lib/R/site-library/rJava'
+>
+> Only rJava make this error, all of other is OK. rJava-4.x work
+>
+> What is the problem?
+>
+
+I wouldn't know - did you have a look and config.log as the output  
+suggests? Also please specify at least the basic details when asking  
+for help such as the versions used, your system and Java setup ...
+
+Cheers,
+Simon
+
+From joe.degisi at telus.net  Wed Jul 25 17:12:01 2007
+From: joe.degisi at telus.net (Joe De Gisi)
+Date: Wed, 25 Jul 2007 10:12:01 -0700
+Subject: Re: JGR and Windows Vista
+In-Reply-To: <A6170E33-532E-4AF8-868F-DB5BB66F8C61@r-project.org>
+References: <46A2CECD.9080802@telus.net> <A6170E33-532E-4AF8-868F-DB5BB66F8C61@r-project.org>
+Message-ID: <46A78461.5050009@telus.net>
+
+Simon, thanks for your reply. 
+
+The author of the April post about JGR and Vista supplied me a solution, 
+which (though we agree is inelegant) is sufficient for my needs.  Vista 
+can run other operating systems within virtual machines, so I created a 
+virtual machine, installed the OS under which I previously ran JGR, 
+installed into it all the necessary components, and seemingly can run 
+JGR as well as ever in the virtual machine. Performance is probably 
+slower than it should be, but my needs are not that computationally 
+intensive or extensive.
+
+Vista does log debugging output, which says (obviously) that  javaw.exe 
+is what crashes.  Some other technical info is in the error log though 
+many of the parameters are blank.
+
+I'm not sure how to run JGR in debug mode, in Vista.  I started it from 
+a Run window, using the command "path\JGR-1.4-6.exe --debug" which led 
+to the same result already observed, that being that Java crashes after 
+the R console shows apparently successful loading of all the packages 
+which JGR uses.  I then started R and loaded JGR from the R console but 
+couldn't figure out how to run it from there in the --debug mode.  R (or 
+JGR) just kept telling me that in Windows, JGR should be started using 
+the aforementioned launcher.
+
+At any rate, most anyone who needs to use JGR within Vista will likely 
+be able to use the virtual machine approach, at worst.  Those who 
+require higher performance are likely using a non-Microsoft environment 
+anyway.  You have provided the community with a set of tools which I use 
+most gratefully, and in return I'd be happy to report the results of any 
+further steps in Vista you might suggest, though I suspect my low 
+competence in the various environments (Vista, Java, R) would make this 
+tedious for you.
+
+Cheers,
+Joe
+
+
+
+Simon Urbanek wrote:
+> Joe,
+>
+> unfortunately no one donated a Vista license to me (yet :P), so I 
+> cannot test or reproduce this :(. Is there any kind of debugging 
+> output that Vista leaves behind? Also please try to run JGR in debug 
+> mode (with --debug parameter).
+>
+> Cheers,
+> Simon
+>
+>
+
+From felwert at uni-bremen.de  Thu Jul 26 08:04:56 2007
+From: felwert at uni-bremen.de
+Date: Thu, 26 Jul 2007 10:04:56 +0200
+Subject: Re: JGR slow start on Windows
+In-Reply-To: <3D33355B-364F-406F-AF83-3987E19535D6@r-project.org>
+References: <002d01c7c963$d21e60e0$765b22a0$@org> <3D33355B-364F-406F-AF83-3987E19535D6@r-project.org>
+Message-ID: <20070726100456.9xyhz94fksc8080k@webmail.uni-bremen.de>
+
+Zitat von Simon Urbanek <simon.urbanek at r-project.org>:
+> On Jul 18, 2007, at 1:48 PM, Greg Fiske wrote:
+>
+>> I'm running JGR 1.4-16 on Windows XP.  The Console takes 4-5
+>> minutes to start.  Anybody have any thoughts about why this takes
+>> so long to start?
+>>
+>
+> Note really. You may want to search the list archives for this - I
+> believe this was related to some specific Java versions. I cannot
+> reproduce it in my setup, so please provide us with exact details
+> about your system, Java and R packages used.
+
+I experienced this with:
+
+R version 2.5.1 (2007-06-27)
+i386-pc-mingw32
+
+locale:
+LC_COLLATE=German_Germany.1252;LC_CTYPE=German_Germany.1252;LC_MONETARY=German_Germany.1252;LC_NUMERIC=C;LC_TIME=German_Germany.1252
+
+attached base packages:
+[1] "graphics" "stats"    "datasets" "utils"    "methods"  "base"
+
+other attached packages:
+      JGR   iplots   JavaGD    rJava
+"1.4-17"  "1.0-7"  "0.4-2" "0.4-16"
+
+Java version is 6 Update 1 (according to Sun's test site).
+
+With Java 6 Update 2 it seems to start a bit faster (although it's  
+still not really fast.
+
+I hope this information helps.
+
+Cheers,
+Frederik
+
+From khaghans at gmail.com  Mon Jul 30 03:42:42 2007
+From: khaghans at gmail.com (=?utf-8?b?6auY5bOw?=)
+Date: Mon, 30 Jul 2007 11:42:42 +0800
+Subject: does JGR work with R-2.6.0?
+Message-ID: <998fedf20707292042y1bdd361bm6721166d9aaf5fb2@mail.gmail.com>
+
+Hi, all
+Recently I update R to 2.6.0 but JGR fails to work. It reports that
+jri.dllis missing.
+The current version of  JGR in my system is 1.4.17, rJava is 0.4-16.
+Is it possible to use JGR with development version of R?
+Any suggestion is welcome
+
+Feng
+
+-------------- next part --------------
+
+
+From jalockli at uwaterloo.ca  Tue Jul 31 18:27:41 2007
+From: jalockli at uwaterloo.ca (Jason Locklin)
+Date: Tue, 31 Jul 2007 14:27:41 -0400
+Subject: JGR 100%CPU and Upgrade on Fedora
+Message-ID: <200707311427.41948.jalockli@uwaterloo.ca>
+
+I installed JGR on Fedora 7 with sun java version "1.6.0_02"
+
+Whenever it is running, it consumes 100% of one of my CPU's, all the time. 
+
+I upgraded JGR using the JGR(update=TRUE) command from within R (attached 
+below are the problems with the upgrade).
+
+Now, when I start JGR, it (Java) still sits at 100% CPU. However If I click 
+the help>about menu, and then close it, then CPU drops down to 0% after that. 
+No other operation seems to cause this drop, and nothing seems to restart the 
+CPU "leak". Maybe it has something to do with the splash screen at the start? 
+
+
+============================
+JGR Upgrade:
+Installed Sun JDK, ran "R CMD javareconf", and entered "JGR(update=TRUE)" from 
+within R.
+
+Afterwords, running library(JGR) & JGR() (or running the run script) causes a 
+java command help list (the list that comes up when you type java at the 
+command line without any arguments)
+
+The fix is to change the last line of the run script to be similar to the run 
+script from JGR 1.4, ie, the last line:
+"${JAVA}" -Djava.library.path=".:
+${LD_LIBRARY_PATH}" -classpath "/usr/lib/R/library/rJava/java/boot" -Drjava.path="/usr/lib/R/library/rJava" -Drjava.class.path="/usr/lib/R/library/rJava/jri/JRI.jar:/usr/lib/R/library/iplots/java/iplots.jar:/usr/lib/R/library/JGR/java/JGR.jar" -Dmain.class=org.rosuda.JGR.JGR 
+$*
+
+becomes:
+"${JAVA}" -Djava.library.path=".:
+${LD_LIBRARY_PATH}" -classpath "/usr/lib/R/library/rJava/jri/JRI.jar:/usr/lib/R/library/iplots/java/iplots.jar:/usr/lib/R/library/JGR/java/JGR.jar" 
+org.rosuda.JGR.JGR $*
+
+the run script also had to be made executable (chmod 755). Then JGR can be 
+started by running the script (/usr/lib/R/library/JGR/scripts/run).
+
+
+
+--
+Hope this is helpfull,
+Jason Locklin
+University of Waterloo
+http://science.uwaterloo.ca/~jalockli
+
+GPG\PGP public key: http://science.uwaterloo.ca/~jalockli/pubkey.asc
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 189 bytes
+
+-------------- next part --------------
+
+

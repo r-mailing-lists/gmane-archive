@@ -1,0 +1,797 @@
+From jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Sat Jun  1 03:25:56 2013
+From: jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Honaker, James)
+Date: Sat, 01 Jun 2013 03:25:56 +0000
+Subject: Re: can't invoke data object inside a function
+In-Reply-To: <FE8F2D70-CFBD-46A4-A7F2-DEA0D60B5560@gmail.com>
+References: <FE8F2D70-CFBD-46A4-A7F2-DEA0D60B5560@gmail.com>
+Message-ID: <564E4EF89CD7994693F47F815F8E43E8020EE1@HARVANDMBX01.fasmail.priv>
+
+Cesar,
+
+This is the same issue with environment dependence as in this thread earlier this month:
+https://lists.gking.harvard.edu/pipermail/zelig/2013-May/001189.html
+
+In the slightly long run, the solution is that we will move from S4 to Reference Classes (R5) over the summer.  In the meantime, two solutions were suggested in that thread.  I can not get  Rogério's do.call() solution to work with the main zelig() function as I'm probably not creating the argument list quite right, (the thread was about the setx() function, but same underlying issue), but finding the dataset by scope does work, even if unsatisfying.
+
+Let me know if you work out a better solution for the present.
+
+Best,
+James
+
+--
+James Honaker, Senior Research Scientist
+//// Institute for Quantitative Social Science, Harvard University
+________________________________
+From: zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [zelig-bounces-boHuZhbfW+Y6DHxCPSz5rA at public.gmane.orgard.edu] on behalf of Cesar Zucco [cesar.zucco-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+Sent: Wednesday, May 15, 2013 3:28 PM
+To: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subject: [zelig] can't invoke data object inside a function
+
+Hello list,
+
+Is there any known issue using Zelig (4.1-3) commands  inside a function and invoking data.frame that is only defined inside that function? This worked in the previous versions of Zelig, and works with non-zelig commands. Here's a barebones example:
+
+my.function <- function(the.data){
+lcl.data <- subset(the.data,select=c(dv,iv))
+reg <- lm(dv~ iv,data=lcl.data) #this works fine
+zelig.reg <- zelig(dv~ iv,data=lcl.data,model="ls") #this gives error
+}
+
+The lm regression works, but no zelig model seems to be able to use the lcl.data. I get the same error message triggered by invoking a data.frame that does not exist:
+
+Error in multi.dataset(lcl.data) : object 'lcl.data' not found
+
+cz
+
+Cesar Zucco Jr.
+Assistant Professor
+Political Science Department
+Rutgers, The State University of New Jersey
+http://fas-polisci.rutgers.edu/zucco/
+
+-------------- next part --------------
+
+
+From antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Jun  1 06:13:07 2013
+From: antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (=?utf-8?q?Rog=C3=A9rio_Barbosa?=)
+Date: Sat, 01 Jun 2013 03:13:07 -0300
+Subject: Re: can't invoke data object inside a function
+In-Reply-To: <564E4EF89CD7994693F47F815F8E43E8020EE1@HARVANDMBX01.fasmail.priv>
+References: <FE8F2D70-CFBD-46A4-A7F2-DEA0D60B5560@gmail.com> <564E4EF89CD7994693F47F815F8E43E8020EE1@HARVANDMBX01.fasmail.priv>
+Message-ID: <CAM+NV=0q6TbWv_dZLe7=MHp-X_30PRNuKpqreYLg7XHk8=i1kg@mail.gmail.com>
+
+Hi Cesar and James,
+
+I've came up with a simple idea that worked this problem out, at least for
+Cesar's purpose -- I think...
+
+As Zelig cannot have access to objects created inside a function, one way
+to deal with it is (1) to use the function for creating the desired data
+frame in the global environment and then use; (2) then you call this object
+from Zelig; (3) finally you can delete it, if you want -- and in the end it
+is like it never existed in the globalenv.
+
+Here it is an example:
+
+###
+
+rm(list=ls())
+
+#require(Zelig)
+
+data(mexico)
+
+my.function <- function(the.data){
+
+    lcl.data <<- subset(the.data,select=c(1,2)) #creating a temporary
+object in the global environment
+
+    zelig.reg <- zelig(lcl.data[,1]~ lcl.data[,2],data=lcl.data,model="ls")
+#running zelig using that object
+
+    rm(lcl.data, envir=.GlobalEnv) #removing it...
+
+    return(zelig.reg)
+
+  }
+
+my.function(mexico)
+
+It worked fine for me. Is it what you wanted?
+
+Best,
+Rogerio J. Barbosa
+ On Sat, Jun 1, 2013 at 12:25 AM, Honaker, James <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>wrote:
+
+>  Cesar,
+>
+>  This is the same issue with environment dependence as in this thread
+> earlier this month:
+> https://lists.gking.harvard.edu/pipermail/zelig/2013-May/001189.html
+>
+>  In the slightly long run, the solution is that we will move from S4 to
+> Reference Classes (R5) over the summer.  In the meantime, two solutions
+> were suggested in that thread.  I can not get  Rogério's do.call() solution
+> to work with the main zelig() function as I'm probably not creating the
+> argument list quite right, (the thread was about the setx() function, but
+> same underlying issue), but finding the dataset by scope does work, even if
+> unsatisfying.
+>
+>  Let me know if you work out a better solution for the present.
+>
+>  Best,
+> James
+>
+>  --
+> James Honaker, Senior Research Scientist
+> //// Institute for Quantitative Social Science, Harvard University
+>   ------------------------------
+> *From:* zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [
+> zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org] on behalf of Cesar Zucco [
+> cesar.zucco-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+> *Sent:* Wednesday, May 15, 2013 3:28 PM
+> *To:* zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> *Subject:* [zelig] can't invoke data object inside a function
+>
+>   Hello list,
+>
+>  Is there any known issue using Zelig (4.1-3) commands  inside a function
+> and invoking data.frame that is only defined inside that function? This
+> worked in the previous versions of Zelig, and works with non-zelig
+> commands. Here's a barebones example:
+>
+>  my.function <- function(the.data){
+>  lcl.data <- subset(the.data,select=c(dv,iv))
+>  reg <- lm(dv~ iv,data=lcl.data) #this works fine
+>  zelig.reg <- zelig(dv~ iv,data=lcl.data,model="ls") #this gives error
+>  }
+>
+>  The lm regression works, but no zelig model seems to be able to use the
+> lcl.data. I get the same error message triggered by invoking a data.frame
+> that does not exist:
+>
+>  Error in multi.dataset(lcl.data) : object 'lcl.data' not found
+>
+>  cz
+>
+>  Cesar Zucco Jr.
+> Assistant Professor
+> Political Science Department
+> Rutgers, The State University of New Jersey
+> http://fas-polisci.rutgers.edu/zucco/
+>
+>
+>
+>
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+
+-------------- next part --------------
+
+
+From antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Jun  1 06:23:53 2013
+From: antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (=?utf-8?q?Rog=C3=A9rio_Barbosa?=)
+Date: Sat, 01 Jun 2013 03:23:53 -0300
+Subject: Re: can't invoke data object inside a function
+In-Reply-To: <CAM+NV=0q6TbWv_dZLe7=MHp-X_30PRNuKpqreYLg7XHk8=i1kg@mail.gmail.com>
+References: <FE8F2D70-CFBD-46A4-A7F2-DEA0D60B5560@gmail.com> <564E4EF89CD7994693F47F815F8E43E8020EE1@HARVANDMBX01.fasmail.priv> <CAM+NV=0q6TbWv_dZLe7=MHp-X_30PRNuKpqreYLg7XHk8=i1kg@mail.gmail.com>
+Message-ID: <CAM+NV=1Z6rcbnXvDD-zy1U4EMHVRF=WvRrZqWF_edSHUdC1WTA@mail.gmail.com>
+
+By the way, I tried my old do.call solution and in fact it didn't worked. I
+think the problem is that "zelig" always points to the global environment
+(and there is no way to specify a customized env). Using do.call arguments
+wouldn't change the fact that "lcl.data" just exists inside the function.
+
+It seems "setx" doesn't have this issue.
+
+but I'm just guessing...
+Em 01/06/2013 03:13, "Rogério Barbosa" <antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> escreveu:
+
+> Hi Cesar and James,
+>
+> I've came up with a simple idea that worked this problem out, at least for
+> Cesar's purpose -- I think...
+>
+> As Zelig cannot have access to objects created inside a function, one way
+> to deal with it is (1) to use the function for creating the desired data
+> frame in the global environment and then use; (2) then you call this object
+> from Zelig; (3) finally you can delete it, if you want -- and in the end it
+> is like it never existed in the globalenv.
+>
+> Here it is an example:
+>
+> ###
+>
+> rm(list=ls())
+>
+> #require(Zelig)
+>
+> data(mexico)
+>
+> my.function <- function(the.data){
+>
+>     lcl.data <<- subset(the.data,select=c(1,2)) #creating a temporary
+> object in the global environment
+>
+>     zelig.reg <- zelig(lcl.data[,1]~
+> lcl.data[,2],data=lcl.data,model="ls") #running zelig using that object
+>
+>     rm(lcl.data, envir=.GlobalEnv) #removing it...
+>
+>     return(zelig.reg)
+>
+>   }
+>
+> my.function(mexico)
+>
+> It worked fine for me. Is it what you wanted?
+>
+> Best,
+> Rogerio J. Barbosa
+>  On Sat, Jun 1, 2013 at 12:25 AM, Honaker, James <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>wrote:
+>
+>>  Cesar,
+>>
+>>  This is the same issue with environment dependence as in this thread
+>> earlier this month:
+>> https://lists.gking.harvard.edu/pipermail/zelig/2013-May/001189.html
+>>
+>>  In the slightly long run, the solution is that we will move from S4 to
+>> Reference Classes (R5) over the summer.  In the meantime, two solutions
+>> were suggested in that thread.  I can not get  Rogério's do.call() solution
+>> to work with the main zelig() function as I'm probably not creating the
+>> argument list quite right, (the thread was about the setx() function, but
+>> same underlying issue), but finding the dataset by scope does work, even if
+>> unsatisfying.
+>>
+>>  Let me know if you work out a better solution for the present.
+>>
+>>  Best,
+>> James
+>>
+>>  --
+>> James Honaker, Senior Research Scientist
+>> //// Institute for Quantitative Social Science, Harvard University
+>>   ------------------------------
+>> *From:* zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [
+>> zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org] on behalf of Cesar Zucco [
+>> cesar.zucco-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+>> *Sent:* Wednesday, May 15, 2013 3:28 PM
+>> *To:* zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> *Subject:* [zelig] can't invoke data object inside a function
+>>
+>>   Hello list,
+>>
+>>  Is there any known issue using Zelig (4.1-3) commands  inside a
+>> function and invoking data.frame that is only defined inside that
+>> function? This worked in the previous versions of Zelig, and works with
+>> non-zelig commands. Here's a barebones example:
+>>
+>>  my.function <- function(the.data){
+>>  lcl.data <- subset(the.data,select=c(dv,iv))
+>>  reg <- lm(dv~ iv,data=lcl.data) #this works fine
+>>  zelig.reg <- zelig(dv~ iv,data=lcl.data,model="ls") #this gives error
+>>  }
+>>
+>>  The lm regression works, but no zelig model seems to be able to use the
+>> lcl.data. I get the same error message triggered by invoking a data.frame
+>> that does not exist:
+>>
+>>  Error in multi.dataset(lcl.data) : object 'lcl.data' not found
+>>
+>>  cz
+>>
+>>  Cesar Zucco Jr.
+>> Assistant Professor
+>> Political Science Department
+>> Rutgers, The State University of New Jersey
+>> http://fas-polisci.rutgers.edu/zucco/
+>>
+>>
+>>
+>>
+>>
+>> -
+>> --
+>> Zelig Mailing List, served by HUIT
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options:
+>> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>> Zelig mailing list
+>> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>
+>> To unsubscribe from this list or get other information:
+>>
+>> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>>
+>
+>
+
+-------------- next part --------------
+
+
+From ashaver-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Mon Jun  3 08:09:19 2013
+From: ashaver-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Andrew C. Shaver)
+Date: Mon, 03 Jun 2013 08:09:19 +0000
+Subject: Heteroskedasticity-consistent standard errors using the 2SLS model?
+Message-ID: <908401771FA6A946A26C2A4389279545171CBD9E@CSGMBX201W.pu.win.princeton.edu>
+
+Good Morning,
+
+Am struggling to use Zelig to generate heteroskedasticity-consistent standard errors using the 2SLS model function. Any quick remedies? Code that I am presently using:
+
+fml <- list(mu1 = Y ~ X + as.factor(Q) +A + B + C, mu2 = X ~ Z + as.factor(Q) +A + B + C, “inst” = ~ Z + as.factor(Q) +A + B + C)
+z.out<-zelig(formula=fml, model="twosls", data=x)
+summary(z.out).
+
+Thanks very much in advance for any hints!
+
+Very best,
+
+Andrew
+
+-------------- next part --------------
+
+
+From cesar.zucco-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Jun  3 14:12:19 2013
+From: cesar.zucco-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Cesar Zucco)
+Date: Mon, 03 Jun 2013 10:12:19 -0400
+Subject: Re: can't invoke data object inside a function
+In-Reply-To: <mailman.1.1370102402.18116.zelig@lists.gking.harvard.edu>
+References: <mailman.1.1370102402.18116.zelig@lists.gking.harvard.edu>
+Message-ID: <BC4B0915-E489-4B51-B744-A3955FCBC733@gmail.com>
+
+Rogerio and James,
+
+The solution is a pretty nifty one. Creating (and then deleting) an object in the global environment does, indeed, solve the problem.  I hadn't been introduced to  "<<-", so I was looking for a  solution that would make Zelig search the local environment. 
+
+Now, while I the developers side of the issue, as a user I cannot see how this could become a permanent feature of Zelig commands, especially given that other R functions do not behave this same way. The way I dealt with the issue was simply to switch to glm(), and either hand-code or use erer's maBina() for quantities of interest.
+
+cz
+
+
+On Jun 1, 2013, at 12:00 PM, zelig-request-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org wrote:
+
+> Send Zelig mailing list submissions to
+> 	zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To subscribe or unsubscribe via the World Wide Web, visit
+> 	https://lists.gking.harvard.edu/mailman/listinfo/zelig
+> or, via email, send a message with subject or body 'help' to
+> 	zelig-request-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> You can reach the person managing the list at
+> 	zelig-owner-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> When replying, please edit your Subject line so it is more specific
+> than "Re: Contents of Zelig digest..."
+> 
+> 
+> Today's Topics:
+> 
+>   1. Re: can't invoke data object inside a function (Rog?rio Barbosa)
+> 
+> 
+> ----------------------------------------------------------------------
+> 
+> Message: 1
+> Date: Sat, 1 Jun 2013 03:23:53 -0300
+> From: Rog?rio Barbosa <antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> To: "Honaker, James" <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>,
+> 	"zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+> Subject: Re: [zelig] can't invoke data object inside a function
+> Message-ID:
+> 	<CAM+NV=1Z6rcbnXvDD-zy1U4EMHVRF=WvRrZqWF_edSHUdC1WTA-JsoAwUIsXosN+BqQ9rBEUg at public.gmane.org>
+> Content-Type: text/plain; charset="iso-8859-1"
+> 
+> By the way, I tried my old do.call solution and in fact it didn't worked. I
+> think the problem is that "zelig" always points to the global environment
+> (and there is no way to specify a customized env). Using do.call arguments
+> wouldn't change the fact that "lcl.data" just exists inside the function.
+> 
+> It seems "setx" doesn't have this issue.
+> 
+> but I'm just guessing...
+> Em 01/06/2013 03:13, "Rog?rio Barbosa" <antrologos-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> escreveu:
+> 
+>> Hi Cesar and James,
+>> 
+>> I've came up with a simple idea that worked this problem out, at least for
+>> Cesar's purpose -- I think...
+>> 
+>> As Zelig cannot have access to objects created inside a function, one way
+>> to deal with it is (1) to use the function for creating the desired data
+>> frame in the global environment and then use; (2) then you call this object
+>> from Zelig; (3) finally you can delete it, if you want -- and in the end it
+>> is like it never existed in the globalenv.
+>> 
+>> Here it is an example:
+>> 
+>> ###
+>> 
+>> rm(list=ls())
+>> 
+>> #require(Zelig)
+>> 
+>> data(mexico)
+>> 
+>> my.function <- function(the.data){
+>> 
+>>    lcl.data <<- subset(the.data,select=c(1,2)) #creating a temporary
+>> object in the global environment
+>> 
+>>    zelig.reg <- zelig(lcl.data[,1]~
+>> lcl.data[,2],data=lcl.data,model="ls") #running zelig using that object
+>> 
+>>    rm(lcl.data, envir=.GlobalEnv) #removing it...
+>> 
+>>    return(zelig.reg)
+>> 
+>>  }
+>> 
+>> my.function(mexico)
+>> 
+>> It worked fine for me. Is it what you wanted?
+>> 
+>> Best,
+>> Rogerio J. Barbosa
+>> On Sat, Jun 1, 2013 at 12:25 AM, Honaker, James <jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org>wrote:
+>> 
+>>> Cesar,
+>>> 
+>>> This is the same issue with environment dependence as in this thread
+>>> earlier this month:
+>>> https://lists.gking.harvard.edu/pipermail/zelig/2013-May/001189.html
+>>> 
+>>> In the slightly long run, the solution is that we will move from S4 to
+>>> Reference Classes (R5) over the summer.  In the meantime, two solutions
+>>> were suggested in that thread.  I can not get  Rog?rio's do.call() solution
+>>> to work with the main zelig() function as I'm probably not creating the
+>>> argument list quite right, (the thread was about the setx() function, but
+>>> same underlying issue), but finding the dataset by scope does work, even if
+>>> unsatisfying.
+>>> 
+>>> Let me know if you work out a better solution for the present.
+>>> 
+>>> Best,
+>>> James
+>>> 
+>>> --
+>>> James Honaker, Senior Research Scientist
+>>> //// Institute for Quantitative Social Science, Harvard University
+>>>  ------------------------------
+>>> *From:* zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [
+>>> zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org] on behalf of Cesar Zucco [
+>>> cesar.zucco-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+>>> *Sent:* Wednesday, May 15, 2013 3:28 PM
+>>> *To:* zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>> *Subject:* [zelig] can't invoke data object inside a function
+>>> 
+>>>  Hello list,
+>>> 
+>>> Is there any known issue using Zelig (4.1-3) commands  inside a
+>>> function and invoking data.frame that is only defined inside that
+>>> function? This worked in the previous versions of Zelig, and works with
+>>> non-zelig commands. Here's a barebones example:
+>>> 
+>>> my.function <- function(the.data){
+>>> lcl.data <- subset(the.data,select=c(dv,iv))
+>>> reg <- lm(dv~ iv,data=lcl.data) #this works fine
+>>> zelig.reg <- zelig(dv~ iv,data=lcl.data,model="ls") #this gives error
+>>> }
+>>> 
+>>> The lm regression works, but no zelig model seems to be able to use the
+>>> lcl.data. I get the same error message triggered by invoking a data.frame
+>>> that does not exist:
+>>> 
+>>> Error in multi.dataset(lcl.data) : object 'lcl.data' not found
+>>> 
+>>> cz
+>>> 
+>>> Cesar Zucco Jr.
+>>> Assistant Professor
+>>> Political Science Department
+>>> Rutgers, The State University of New Jersey
+>>> http://fas-polisci.rutgers.edu/zucco/
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> -
+>>> --
+>>> Zelig Mailing List, served by HUIT
+>>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>> [un]subscribe Options:
+>>> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+>>> Zelig program information: http://gking.harvard.edu/zelig/
+>>> Zelig mailing list
+>>> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>> 
+>>> To unsubscribe from this list or get other information:
+>>> 
+>>> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>>> 
+>> 
+>> 
+> -------------- next part --------------
+> An HTML attachment was scrubbed...
+> URL: <http://lists.gking.harvard.edu/pipermail/zelig/attachments/20130601/5aa4388d/attachment-0001.html>
+> 
+> ------------------------------
+> 
+> _______________________________________________
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+> 
+> End of Zelig Digest, Vol 115, Issue 2
+> *************************************
+
+From Rod.Alence-M99eiNmdnlFWaveUIWBRJg at public.gmane.org  Wed Jun  5 15:21:31 2013
+From: Rod.Alence-M99eiNmdnlFWaveUIWBRJg at public.gmane.org (Rod Alence)
+Date: Wed, 05 Jun 2013 15:21:31 +0000
+Subject: can't get robust std errs for linear regression
+Message-ID: <66BD50DA7DED8E458BC9B7B8315DFE6F30A356CF@Elpis.ds.WITS.AC.ZA>
+
+Hi,
+
+It doesn't seem like "robust=TRUE" is working for linear regression (ls).  The standard errors are coming out exactly the same as with "robust=FALSE".
+
+I am on R 3.0.0 and Zelig 4.1-3 (and have tried on Linux and Windows).
+
+Has anyone else had this problem?
+
+Here's a reproducible example:
+
+## "Robust" estimation not working
+require(Zelig)
+df <- data.frame(y=c(rnorm(n=100, mean=0, sd=1), rnorm(n=100, mean=10, sd=10)),
+                 x=c(rep(1, 100), rep(2,100)))
+z.robustT <- zelig(y ~ x, data=df, model="ls", robust=TRUE)
+z.robustF <- zelig(y ~ x, data=df, model="ls", robust=FALSE)
+# Standard errors are the same:
+summary(z.robustT)
+summary(z.robustF)
+
+## Alternative
+require(sandwich)
+require(lmtest)
+lm.robustF <- lm(y ~ x, data=df) 
+summary(lm.robustF)             #matches z.robustF
+vcovMat    <- vcovHC(lm.robustF)
+lm.robustT <- coeftest(lm.robustF, vcov.=vcovMat) 
+lm.robustT                      #same coef, different se
+
+##########
+
+Rod
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%;"> 
+<tr>
+<td align="left" style="text-align:justify;"><font face="arial,sans-serif" size="1" color="#999999"><span style="font-size:11px;">This communication is intended for the addressee only. It is confidential. If you have received this communication in error, please notify us immediately and destroy the original message. You may not copy or disseminate this communication without the permission of the University. Only authorised signatories are competent to enter into agreements on behalf of the University and recipients are thus advised that the content of this message may not be legally binding on the University and may contain the personal views and opinions of the author, which are not necessarily the views and opinions of The University of the Witwatersrand, Johannesburg. All agreements bet
+ ween the University and outsiders are subject to South African Law unless the University agrees in writing to the contrary. </span></font></td>
+</tr>
+</table
+
+From dhuh-lfcS8c3Mqgg at public.gmane.org  Thu Jun  6 00:13:49 2013
+From: dhuh-lfcS8c3Mqgg at public.gmane.org (David Huh)
+Date: Wed, 05 Jun 2013 17:13:49 -0700
+Subject: extracting the vcov matrix from an MI analysis
+Message-ID: <000001ce624a$b822bf70$28683e50$@uw.edu>
+
+In following the recent threads, it appears the MI functionality is an area
+of active development in Zelig.
+
+ 
+
+Currently, I'm trying to figure out is how to extract a *combined*
+variance-covariance matrix from an analysis using MI datasets, for
+post-estimation purposes. Is this possible?  The generic extractor vcov()
+doesn't seem to work in this particular case.
+
+ 
+
+Appreciate any suggestions,
+
+ 
+
+-          David  
+
+ 
+
+ 
+
+ 
+
+David Huh, PhD
+
+Postdoctoral Fellow
+
+Center for the Study of Health and Risk Behaviors (CSHRB)
+
+Psychiatry and Behavioral Sciences | University of Washington
+
+1100 NE 45th Street, Suite 300
+
+Seattle, WA 98105
+
+ 
+
+website:  <http://staff.washington.edu/dhuh>
+http://staff.washington.edu/dhuh
+
+ <mailto:dhuh-lfcS8c3Mqgg at public.gmane.org> dhuh-lfcS8c3Mqgg at public.gmane.org | tel: 206.616.1997 | cell: 206.552.9848 |
+fax: 206.616.1705
+
+-------------- next part --------------
+
+
+From jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Mon Jun 17 15:37:10 2013
+From: jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Honaker, James)
+Date: Mon, 17 Jun 2013 15:37:10 +0000
+Subject: Re: assistance with predictions for logit.mixed
+In-Reply-To: <CAMd8ARAwOrxHkKpJcYzeoJP25uQHNkgfBWUhU10H-Fi-QTQ3yw@mail.gmail.com>
+References: <CAMd8ARAwOrxHkKpJcYzeoJP25uQHNkgfBWUhU10H-Fi-QTQ3yw@mail.gmail.com>
+Message-ID: <564E4EF89CD7994693F47F815F8E43E8028764@HARVANDMBX02.fasmail.priv>
+
+Karl,
+
+Apologies for the delay, but we are just now getting to the ZeligMultilevel module.  I fixed the issue that you raised, and your code example now runs using the current Beta versions of Zelig and ZeligMultilevel.  To install these, install the packages as follows:
+
+
+install.packages("Zelig", type = "source", repos = "http://r.iq.harvard.edu/")
+
+install.packages("ZeligMultilevel", type = "source", repos = "http://r.iq.harvard.edu/")
+
+
+Best,
+James
+
+
+--
+James Honaker, Senior Research Scientist
+//// Institute for Quantitative Social Science, Harvard University
+________________________________
+From: zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [zelig-bounces-boHuZhbfW+Y6DHxCPSz5rA at public.gmane.orgard.edu] on behalf of Karl Kosciuch [kosciuch-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+Sent: Thursday, March 21, 2013 10:48 PM
+To: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subject: [zelig] assistance with predictions for logit.mixed
+
+Hello - I was happy to find the Zelig package as I had been looking for code for implementing a generalized linear mixed model.  I'm having some issues obtaining predicted probabilities from my rather simple logit.mixed regression.  I am using logit.mixed with avoidance behavior as the binomial response variable, height as the predictor (ranging from 150 to 1500m), and year as a random effect (there are 3 years).   The model runs fine, but I encounter an error starting with x.out.  I've looked at the package documentation to try to solve the error, and have been unsuccessful.  I'd like to produce one figure showing with the predicted probability on the y-axis and height on the x-axis.  I'd like to show the regression line with the 95% CI for the predicted probabilities.  I've been successful at coding this analysis and figure for a fixed effects logistic regression, but not so much for the mixed effects logistic regression.
+Thank you
+
+
+
+library(Zelig)
+library(ZeligMultilevel)
+avd$year <- factor(avd$year)
+z.out <- zelig(avoid ~ height + tag(1|year), data = avd, model = "logit.mixed")
+summary(z.out)
+x.out <-setx(z.out, fn = NULL)
+s.out <- sim(z.out, x = x.out)
+summary(s.out)
+
+Error in array(x, c(length(x), 1L), if (!is.null(names(x))) list(names(x),  :
+  'data' must be of a vector type
+> summary(s.out)
+Error in summary(s.out) :
+  error in evaluating the argument 'object' in selecting a method for function 'summary': Error: object 's.out' not found
+
+
+
+
+
+
+--
+Karl Kosciuch
+kosciuch-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org<mailto:kosciuch-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+
+-------------- next part --------------
+
+
+From jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Mon Jun 17 16:52:25 2013
+From: jhonaker-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Honaker, James)
+Date: Mon, 17 Jun 2013 16:52:25 +0000
+Subject: Re: logit.mixed error
+In-Reply-To: <9630D152-A978-41B5-A4B6-FDF329333AE2@iq.harvard.edu>
+References: <CADAtM_AmYaRg3_8dPcPrW9MP3hHbuXZBimwZUStMFMyN032Pwg@mail.gmail.com> <E913194F-F019-4D01-87B1-637798C4BAE2@iq.harvard.edu> <loom.20130128T130650-717@post.gmane.org> <9630D152-A978-41B5-A4B6-FDF329333AE2@iq.harvard.edu>
+Message-ID: <564E4EF89CD7994693F47F815F8E43E80287E1@HARVANDMBX02.fasmail.priv>
+
+Yphtach and Lucy,
+
+This issue you identified in logit.mixed is now fixed in the Beta versions.  Sorry for the delay as we have just now gotten to the ZeligMultilevel module.  Below is a slight modification of the example that Yphtach proposed, which now works.  Note that the code is installing from the r.iq repository to get the current Betas.  (Lucy, if your issue was different, and you still have any issues, feel free to let me know on or off list).
+
+
+
+# Yphtach's example:
+
+
+install.packages("Zelig", type = "source", repos = "http://r.iq.harvard.edu/")
+
+install.packages("ZeligMultilevel", type = "source", repos = "http://r.iq.harvard.edu/")
+
+
+library(Zelig)
+
+library(ZeligMultilevel)
+
+
+d <- expand.grid(y=rbinom(10,1,.33),x=rnorm(10,1),t=1:4)
+
+z.out <- zelig(y~x+tag(1|t),data=d,model="logit.mixed")
+
+x.out<-setx(z.out)
+
+s.out<-sim(z.out, x=x.out)
+
+plot(s.out)
+
+
+James.
+--
+James Honaker, Senior Research Scientist
+//// Institute for Quantitative Social Science, Harvard University
+________________________________
+From: zelig-bounces-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org [zelig-bounces-boHuZhbfW+Y6DHxCPSz5rA at public.gmane.orgard.edu] on behalf of Owen, Matthew [mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org]
+Sent: Monday, January 28, 2013 10:03 AM
+To: Lucy Barnes
+Cc: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subject: Re: [zelig] logit.mixed error
+
+Hi Lucy - Do you have an example script showing the bug? If so, you can share it by pasting here:
+  https://gist.github.com/
+
+Additionally, all the source code for the mixed/multilevel models is available on GitHub:
+  https://github.com/iqss/ZeligMultilevel
+
+- Matt
+
+On Jan 28, 2013, at 7:14 AM, Lucy Barnes wrote:
+
+Dear Matt,
+
+I'm having the same problem with sim() using logit.mixed, and was wondering
+whether you have an idea as to when this issue might be resolved, so that I can
+plan accordingly for some analyses we're running under a deadline.
+
+Alternatively (or, in addition) is there a good reference as a place to start if
+I were to code up a version the sim() process for our implementation myself?
+
+Thanks,
+Lucy
+
+
+
+-
+--
+Zelig Mailing List, served by HUIT
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org<mailto:zelig-boHuZhbfW+Y6DHxCPSz5rPd9D2ou9A/h at public.gmane.orgrd.edu>
+[un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+Zelig mailing list
+Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org<mailto:Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+-------------- next part --------------
+
+

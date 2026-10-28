@@ -1,0 +1,4847 @@
+From romain.francois at dbmail.com  Thu Jul  2 09:03:51 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Thu, 02 Jul 2009 11:03:51 +0200
+Subject: REXPEnvironment.objectNames
+Message-ID: <4A4C77F7.3040603@dbmail.com>
+
+Hello,
+
+Here is below a method "objectNames" for the REXPEnvironment class to 
+grab the names of the symbols that are in the environment.
+
+     /**
+      * @return the names of the objects in this environment
+      */
+     public String[] objectNames( boolean all) throws REngineException {
+         String cmd = "ls(" ;
+         if( all ){
+             cmd  = cmd + "all.names = TRUE" ;
+         }
+         cmd = cmd + ")";
+         String[] names = eng.parseAndEval( "ls()", this, true 
+).asStrings() ;
+         return names;
+     }
+
+A collateral issue is that the JRIEngine pretends it does not know about 
+the REXPEnvironment class:
+
+/** special, global references */
+     public REXPReference globalEnv, emptyEnv, baseEnv, nullValueRef;
+
+where the three first should be REXPEnvironment I think.
+
+and (probably a more serious problem):
+
+BeanShell> r.getClass()
+class org.rosuda.REngine.JRI.JRIEngine
+BeanShell> env = r.parseAndEval( "globalenv()" )
+BeanShell> env == null
+
+Romain
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/qzSl : using ImageJ from R: the RImageJ package
+|- http://tr.im/qzSJ : with semantics for java objects in rJava
+`- http://tr.im/qzTs : Better completion popups
+
+From simon.urbanek at r-project.org  Thu Jul  2 16:58:38 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 02 Jul 2009 12:58:38 -0400
+Subject: Re: REXPEnvironment.objectNames
+In-Reply-To: <4A4C77F7.3040603@dbmail.com>
+References: <4A4C77F7.3040603@dbmail.com>
+Message-ID: <72A012BC-AA5A-4C5C-85EF-A45470CACF25@r-project.org>
+
+Hi Romain,
+
+thanks for your considerations.
+
+On Jul 2, 2009, at 5:03 , Romain Francois wrote:
+
+> Hello,
+>
+> Here is below a method "objectNames" for the REXPEnvironment class to
+> grab the names of the symbols that are in the environment.
+>
+>     /**
+>      * @return the names of the objects in this environment
+>      */
+>     public String[] objectNames( boolean all) throws  
+> REngineException {
+>         String cmd = "ls(" ;
+>         if( all ){
+>             cmd  = cmd + "all.names = TRUE" ;
+>         }
+>         cmd = cmd + ")";
+>         String[] names = eng.parseAndEval( "ls()", this, true
+> ).asStrings() ;
+>         return names;
+>     }
+>
+
+What you're doing there is more like  
+getNamesOfObjectsInGlobalEnvironment() and that's very specialized  
+(and trivially just "ls()"), so not necessarily worth a wrapper.  
+Admittedly environment support is currently incomplete (mostly because  
+it is not supported by Rserve), but in JRI the canonical way is to use  
+rniListEnv() which works on any environment object. This just needs to  
+be exposed at the REngine [and later possibly at REXPEnvironment] level.
+
+
+> A collateral issue is that the JRIEngine pretends it does not know  
+> about
+> the REXPEnvironment class:
+>
+> /** special, global references */
+>     public REXPReference globalEnv, emptyEnv, baseEnv, nullValueRef;
+>
+> where the three first should be REXPEnvironment I think.
+>
+
+Nope for several reasons. First, those are all references to special R  
+objects - and that's the whole point of those constants, so you can  
+use them when passing objects to R. Second, there is no native  
+representation of environments in Java (and they have pass-by- 
+reference semantics), so you can only represent them as a reference.  
+The REXPEnvironment is kind of placeholder for now - it should  
+probably just wrap around a reference at some point and route the  
+accessor methods accordingly (not high on the ToDo list, because it's  
+not supported by Rserve anyway).
+
+
+> and (probably a more serious problem):
+>
+> BeanShell> r.getClass()
+> class org.rosuda.REngine.JRI.JRIEngine
+> BeanShell> env = r.parseAndEval( "globalenv()" )
+> BeanShell> env == null
+>
+
+See above.
+
+Cheers,
+Simon
+
+PS: I'll be off to useR! / DSC so expect delays in the next two weeks.
+
+From romain.francois at dbmail.com  Thu Jul  2 19:07:21 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Thu, 02 Jul 2009 21:07:21 +0200
+Subject: Re: REXPEnvironment.objectNames
+In-Reply-To: <72A012BC-AA5A-4C5C-85EF-A45470CACF25@r-project.org>
+References: <4A4C77F7.3040603@dbmail.com> <72A012BC-AA5A-4C5C-85EF-A45470CACF25@r-project.org>
+Message-ID: <4A4D0569.3070703@dbmail.com>
+
+On 07/02/2009 06:58 PM, Simon Urbanek wrote:
+>
+> Hi Romain,
+>
+> thanks for your considerations.
+>
+> On Jul 2, 2009, at 5:03 , Romain Francois wrote:
+>
+>> Hello,
+>>
+>> Here is below a method "objectNames" for the REXPEnvironment class to
+>> grab the names of the symbols that are in the environment.
+>>
+>> /**
+>> * @return the names of the objects in this environment
+>> */
+>> public String[] objectNames( boolean all) throws REngineException {
+>> String cmd = "ls(" ;
+>> if( all ){
+>> cmd = cmd + "all.names = TRUE" ;
+>> }
+>> cmd = cmd + ")";
+>> String[] names = eng.parseAndEval( "ls()", this, true
+>> ).asStrings() ;
+>> return names;
+>> }
+>>
+>
+> What you're doing there is more like
+> getNamesOfObjectsInGlobalEnvironment() and that's very specialized (and
+> trivially just "ls()"), so not necessarily worth a wrapper. Admittedly
+> environment support is currently incomplete (mostly because it is not
+> supported by Rserve), but in JRI the canonical way is to use
+> rniListEnv() which works on any environment object. This just needs to
+> be exposed at the REngine [and later possibly at REXPEnvironment] level.
+
+Sorry. I only tested it with the global env and assumed a wrong conclusion.
+
+
+>> A collateral issue is that the JRIEngine pretends it does not know about
+>> the REXPEnvironment class:
+>>
+>> /** special, global references */
+>> public REXPReference globalEnv, emptyEnv, baseEnv, nullValueRef;
+>>
+>> where the three first should be REXPEnvironment I think.
+>>
+>
+> Nope for several reasons. First, those are all references to special R
+> objects - and that's the whole point of those constants, so you can use
+> them when passing objects to R.
+
+You could also make them as a REXPEnvironment when the engine initiates 
+and systematically test ENVSXP against these when resolving them.
+
+> Second, there is no native
+> representation of environments in Java (and they have pass-by-reference
+> semantics), so you can only represent them as a reference. The
+> REXPEnvironment is kind of placeholder for now - it should probably just
+> wrap around a reference at some point and route the accessor methods
+> accordingly
+
+yes. Is this not what REXPEnvironment does. We could just have it so 
+that resolving the reference to an environment makes a REXPEnvironment.
+
+> (not high on the ToDo list, because it's not supported by
+> Rserve anyway).
+>
+ >>
+>> and (probably a more serious problem):
+>>
+>> BeanShell> r.getClass()
+>> class org.rosuda.REngine.JRI.JRIEngine
+>> BeanShell> env = r.parseAndEval( "globalenv()" )
+>> BeanShell> env == null
+>
+>
+> See above.
+>
+ >
+> Cheers,
+> Simon
+>
+> PS: I'll be off to useR! / DSC so expect delays in the next two weeks.
+
+Me too. I hope we'll have a chance to chat.
+
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/qzSl : using ImageJ from R: the RImageJ package
+|- http://tr.im/qzSJ : with semantics for java objects in rJava
+`- http://tr.im/qzTs : Better completion popups
+
+From romain.francois at dbmail.com  Fri Jul  3 11:38:28 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Fri, 03 Jul 2009 13:38:28 +0200
+Subject: S4
+Message-ID: <4A4DEDB4.5020400@dbmail.com>
+
+Hi,
+
+I am getting trouble with S4 objects :
+
+R> setClass( "foo", representation( foo = "numeric", bar = "character" ) )
+[1] "foo"
+R> x <- new( "foo", foo = 1.0, bar = "foobar" )
+R> x
+An object of class “foo”
+Slot "foo":
+[1] 1
+
+Slot "bar":
+[1] "foobar"
+
+BeanShell> r.get( "x", r.globalEnv, true ) == null
+true
+
+BeanShell> r.getRni().eval( "x" )
+[NULL ]
+
+BeanShell> rni.rniExpType( rni.rniEval( rni.rniParse( "x", 1 ), 
+rni.rniSpecialObject( rni.SO_GlobalEnv ) ) )
+25
+
+BeanShell> org.rosuda.JRI.REXP.S4SXP
+25
+
+BeanShell> org.rosuda.JRI.REXP.xtName( rni.rniExpType( rni.rniEval( 
+rni.rniParse( "x", 1 ), rni.rniSpecialObject( rni.SO_GlobalEnv ) ) ) )
+<unknown 25>
+
+R> inspect( x )
+@0xa42318c 25 S4SXP [OBJ,MARK,NAM(2),GP(0x10),S4,ATT]
+ATTRIB:
+@0xa423138 02 LISTSXP [MARK]
+@0xaafb1c8 14 REALSXP [MARK,NAM(2)] (len=1, tl=393216)
+TAG:
+@0xa0e78d8 01 SYMSXP [MARK] "foo"
+@0xaafbeb8 16 STRSXP [MARK,NAM(2)] (len=1, tl=255)
+Error in inspect(x) :
+VECTOR_ELT() can only be applied to a 'list', not a 'character'
+
+I could work on a patch. From a previous conversation I am not sure I 
+should if this is right to assume that S4SXP means "this is an S4 object".
+
+R> version
+_
+platform i686-pc-linux-gnu
+arch i686
+os linux-gnu
+system i686, linux-gnu
+status Under development (unstable)
+major 2
+minor 10.0
+year 2009
+month 06
+day 28
+svn rev 48863
+language R
+version.string R version 2.10.0 Under development (unstable) (2009-06-28 
+r48863)
+
+Romain
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/qJ8V : RGG#153: stars network
+|- http://tr.im/qzSl : using ImageJ from R: the RImageJ package
+`- http://tr.im/qzSJ : with semantics for java objects in rJava
+
+From romain.francois at dbmail.com  Fri Jul  3 11:53:53 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Fri, 03 Jul 2009 13:53:53 +0200
+Subject: Re: S4
+In-Reply-To: <4A4DEDB4.5020400@dbmail.com>
+References: <4A4DEDB4.5020400@dbmail.com>
+Message-ID: <4A4DF151.1020607@dbmail.com>
+
+On 07/03/2009 01:38 PM, Romain Francois wrote:
+> [...]
+> I could work on a patch. From a previous conversation I am not sure I 
+> should if this is right to assume that S4SXP means "this is an S4 
+> object".
+>
+In current R-devel, there is:
+
+TYPEOF(x) == S4SXP
+
+but also:
+
+IS_S4_OBJECT(v)
+
+The isS4 function in R :
+
+R> isS4
+function(object)
+     .Call("R_isS4Object", object, PACKAGE = "base")
+<environment: namespace:base>
+
+goes down to IS_S4_OBJECT
+
+#define IS_S4_OBJECT(x) ((x)->sxpinfo.gp & S4_OBJECT_MASK)
+
+so it seems like the way to go about check that an object is an instance 
+of S4 or not.
+
+Romain
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/qJ8V : RGG#153: stars network
+|- http://tr.im/qzSl : using ImageJ from R: the RImageJ package
+`- http://tr.im/qzSJ : with semantics for java objects in rJava
+
+From okhmatovskaia at gmail.com  Fri Jul  3 21:33:45 2009
+From: okhmatovskaia at gmail.com (Anya Okhmatovskaia)
+Date: Fri, 03 Jul 2009 17:33:45 -0400
+Subject: EXCEPTION_ACCESS_VIOLATION when using JRI
+Message-ID: <86a432770907031433w1f0a10feg88a471312344667d@mail.gmail.com>
+
+Hi all,
+
+I am having the problem previously described on this list by Michaela
+Guendel on 25 Oct 2008, but to my knowledge unresolved.
+When using the new REngine-based java client with JRI instead of Rserve, I
+am having my jvm crash with EXCEPTION_ACCESS_VIOLATION error. I enclosed a
+short example file intended to reproduce this error. Additional details:
+
+- The JRI examples compile and run fine
+- The JRIEngine example compiles with one small correction (a call to
+close()), but otherwise runs fine too.
+- I have not observed this error with JRI alone, only with JRIEngine: I
+tried the problematic eval call to HoltWinters() hardcoded in one of JRI
+tests and using a TestConsole - both ways no error.
+- Following Simon's suggestions, I am not doing any fancy setup, just
+setting up R_HOME, adding jri.dll to java library path and adding the needed
+jars.
+
+Any help on this will be greatly appreciated. Below is a sample code that
+produces an error.
+Please let me know if anyone has dealt with this problem before.
+
+Anya
+==================================================================
+
+import org.rosuda.REngine.REngine;
+import org.rosuda.REngine.JRI.JRIEngine;
+
+public class MyRtest {
+    public static void main(String[] args) {
+        try {
+            REngine eng =
+REngine.engineForClass("org.rosuda.REngine.JRI.JRIEngine");
+            System.out.println("R Version: " +
+eng.parseAndEval("R.version.string").asString());
+
+            // This generates EXCEPTION_ACCESS_VIOLATION:
+            eng.parseAndEval("HoltWinters(co2)");
+
+
+            // Had to cast eng to specific implementation in order to
+compile,
+            // because close() method was commented out in REngine.java (by
+mistake?)
+            ((JRIEngine)eng).close();
+            System.out.println("Done.");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Fri Jul  3 22:51:50 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 03 Jul 2009 18:51:50 -0400
+Subject: Re: EXCEPTION_ACCESS_VIOLATION when using JRI
+In-Reply-To: <86a432770907031433w1f0a10feg88a471312344667d@mail.gmail.com>
+References: <86a432770907031433w1f0a10feg88a471312344667d@mail.gmail.com>
+Message-ID: <D0C9B521-E2F4-4B1D-A481-347046860258@r-project.org>
+
+Anya,
+
+On Jul 3, 2009, at 5:33 PM, Anya Okhmatovskaia wrote:
+
+> I am having the problem previously described on this list by  
+> Michaela Guendel on 25 Oct 2008, but to my knowledge unresolved.
+> When using the new REngine-based java client with JRI instead of  
+> Rserve, I am having my jvm crash with EXCEPTION_ACCESS_VIOLATION  
+> error. I enclosed a short example file intended to reproduce this  
+> error.
+
+Thanks for the reproducible example, it was very helpful. I have fixed  
+the crash (rniExpType can now be called with 0 pointers returning  
+NULLSXP), although I may need to dig deeper to see where that 0  
+pointer came from.
+
+Thanks,
+Simon
+
+
+> Additional details:
+>
+> - The JRI examples compile and run fine
+> - The JRIEngine example compiles with one small correction (a call  
+> to close()), but otherwise runs fine too.
+> - I have not observed this error with JRI alone, only with  
+> JRIEngine: I tried the problematic eval call to HoltWinters()  
+> hardcoded in one of JRI tests and using a TestConsole - both ways no  
+> error.
+> - Following Simon's suggestions, I am not doing any fancy setup,  
+> just setting up R_HOME, adding jri.dll to java library path and  
+> adding the needed jars.
+>
+> Any help on this will be greatly appreciated. Below is a sample code  
+> that produces an error.
+> Please let me know if anyone has dealt with this problem before.
+>
+> Anya
+> ==================================================================
+>
+> import org.rosuda.REngine.REngine;
+> import org.rosuda.REngine.JRI.JRIEngine;
+>
+> public class MyRtest {
+>     public static void main(String[] args) {
+>         try {
+>             REngine eng = REngine.engineForClass 
+> ("org.rosuda.REngine.JRI.JRIEngine");
+>             System.out.println("R Version: " + eng.parseAndEval 
+> ("R.version.string").asString());
+>
+>             // This generates EXCEPTION_ACCESS_VIOLATION:
+>             eng.parseAndEval("HoltWinters(co2)");
+>
+>
+>             // Had to cast eng to specific implementation in order  
+> to compile,
+>             // because close() method was commented out in  
+> REngine.java (by mistake?)
+>             ((JRIEngine)eng).close();
+>             System.out.println("Done.");
+>
+>         } catch (Exception e) {
+>             e.printStackTrace();
+>         }
+>     }
+> }
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Fri Jul  3 23:04:33 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 03 Jul 2009 19:04:33 -0400
+Subject: Re: S4
+In-Reply-To: <4A4DEDB4.5020400@dbmail.com>
+References: <4A4DEDB4.5020400@dbmail.com>
+Message-ID: <E1B7D26C-3544-441A-8852-22A3712919EC@r-project.org>
+
+
+On Jul 3, 2009, at 7:38 AM, Romain Francois wrote:
+
+> Hi,
+>
+> I am getting trouble with S4 objects :
+>
+> R> setClass( "foo", representation( foo = "numeric", bar =  
+> "character" ) )
+> [1] "foo"
+> R> x <- new( "foo", foo = 1.0, bar = "foobar" )
+> R> x
+> An object of class “foo”
+> Slot "foo":
+> [1] 1
+>
+> Slot "bar":
+> [1] "foobar"
+>
+> BeanShell> r.get( "x", r.globalEnv, true ) == null
+> true
+>
+
+Thanks - S4SEXP was not supported in JRIEngine, I've added it now.
+
+Cheers,
+Simon
+
+From ggrothendieck at gmail.com  Sat Jul  4 00:37:29 2009
+From: ggrothendieck at gmail.com (Gabor Grothendieck)
+Date: Fri, 03 Jul 2009 20:37:29 -0400
+Subject: RJDBC and quoting of column names
+Message-ID: <971536df0907031737q6eb9a633id125c34d7254d44d@mail.gmail.com>
+
+Consider the following code using the H2 database where we
+are using the built in BOD data frame.  Note that the column
+names come out in upper case.  I have inserted a print
+statement into dbWriteTable and you can see the sql
+statement that dbWriteTable generates.  Shouldn't
+that sql statement have double quotes around the
+column names?  I did specify identifier.quote= in
+the JDBC call.
+
+> library(RJDBC)
+> # '"' is single quote, double quote, single quote
+> drv <- JDBC("org.h2.Driver", "C:\\Program Files\\H2\\bin\\h2.jar", identifier.quote = '"')
+> con <- dbConnect(drv, "jdbc:h2:mem:", "sa", "")
+> dbWriteTable(con, "b", BOD)
+[1] "CREATE TABLE b (Time DOUBLE PRECISION,demand DOUBLE PRECISION)"
+[1] TRUE
+> dbGetQuery(con, "select * from b")
+  TIME DEMAND
+1    1    8.3
+2    2   10.3
+3    3   19.0
+4    4   16.0
+5    5   15.6
+6    7   19.8
+
+From simon.urbanek at r-project.org  Sat Jul  4 18:01:52 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sat, 04 Jul 2009 14:01:52 -0400
+Subject: Re: RJDBC and quoting of column names
+In-Reply-To: <971536df0907031737q6eb9a633id125c34d7254d44d@mail.gmail.com>
+References: <971536df0907031737q6eb9a633id125c34d7254d44d@mail.gmail.com>
+Message-ID: <E5018519-2985-49AB-AA30-F70016334FED@r-project.org>
+
+
+On Jul 3, 2009, at 8:37 PM, Gabor Grothendieck wrote:
+
+> Consider the following code using the H2 database where we are using  
+> the built in BOD data frame.  Note that the column names come out in  
+> upper case.
+
+SQL is by definition case-agnostic, so that is to be expected... (Some  
+DBMS break that rule at their own risk ...).
+
+
+>  I have inserted a print statement into dbWriteTable and you can see  
+> the sql statement that dbWriteTable generates.  Shouldn't that sql  
+> statement have double quotes around the column names?
+
+The logic in RJDBC is that if an identifier is of the form  
+<letter><letter/number/_> then it won't be quoted. At least in  
+standard SQL it should make no difference. (However, your post made me  
+think about this -- and in the cases of keywords the current logic may  
+not be sufficient ...).
+
+Cheers,
+Simon
+
+
+
+>  I did specify identifier.quote= in
+> the JDBC call.
+>
+>> library(RJDBC)
+>> # '"' is single quote, double quote, single quote
+>> drv <- JDBC("org.h2.Driver", "C:\\Program Files\\H2\\bin\\h2.jar",  
+>> identifier.quote = '"')
+>> con <- dbConnect(drv, "jdbc:h2:mem:", "sa", "")
+>> dbWriteTable(con, "b", BOD)
+> [1] "CREATE TABLE b (Time DOUBLE PRECISION,demand DOUBLE PRECISION)"
+> [1] TRUE
+>> dbGetQuery(con, "select * from b")
+>  TIME DEMAND
+> 1    1    8.3
+> 2    2   10.3
+> 3    3   19.0
+> 4    4   16.0
+> 5    5   15.6
+> 6    7   19.8
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+From wdmccoy at geo.umass.edu  Sat Jul  4 19:38:36 2009
+From: wdmccoy at geo.umass.edu (William McCoy)
+Date: Sat, 04 Jul 2009 15:38:36 -0400
+Subject: Re: selections on Linux (Fedora 10)
+In-Reply-To: <D5B95568-C52D-4E56-8F04-7EECD0EBB8D7@theusRus.de>
+References: <4A3FFE53.5010205@geo.umass.edu> <D5B95568-C52D-4E56-8F04-7EECD0EBB8D7@theusRus.de>
+Message-ID: <4A4FAFBC.9070408@geo.umass.edu>
+
+Martin,
+
+Thanks for your response concerning this.  I hadn't realized that there
+was so much variation in the mapping of the key modifiers across
+platforms.  As I indicated, I originally assumed the difference was in
+the Java implementation and I wound up installing three or four
+different Java versions over the last few months trying to solve the 
+problem.  I now see that the solution of using Shift-Win-Alt for 
+modifying selections works in all recent Java versions that I have tried 
+on this computer (running the Gnome interface under Fedora 10 Linux).
+
+Over the last couple of weeks I have been very busy using Mondrian while
+finishing up a manuscript for publication and I haven't had much time to
+explore the keymapping on my Fedora Linux computer.  I have found that
+by default, the computer runs xmodmap at startup and makes some
+assignments to the Shift, Alt, and Win keys.  I can see how that is
+done, but I don't know what codes should be assigned to make the
+Shift-Alt combination work as desired in Mondrian.
+
+If someone knows what keycodes to assign, I would be happy to know.
+However, I am not asking you or anyone else to spend any time on my
+behalf in sorting out this issue right now.  It is quite easy for me to
+use the Shift-Win-Alt combination for modifying selections and I have
+become used to it now.  If I get some time later this summer, I will 
+look further into the issue and let you know what I find.
+
+By the way, I now see a serious typo in my original message that may
+have confused some readers.  As you figured out, in my first sentence I 
+meant to say that "I have been frustrated that when using selections I 
+could _not_ augment my current selection using the SHIFT-ALT key 
+combination."
+
+Thanks very much for the great software.  I use it all the time now when 
+exploring new datasets.
+
+Bill
+
+
+Martin Theus wrote:
+> Bill,
+> 
+> thanks for sharing this info! Unfortunately I do not have a
+> Linux installation to test on. My experience in the early days
+> of JAVA (1.0, 1.1, ...) was horrible regarding the key modifiers
+> and getting the mapping fixed across the platforms was terrible.
+> 
+> The mapping on specific Linux distros is something I have never
+> tested so I would expect problems - but luckily you found a
+> workaround for your set-up.
+> 
+> Best
+> 
+> Martin
+> 
+> PS: As far as I know, Linux and/or X11 allows to modify the
+> key mappings to "whatever" you want to - so maybe that would
+> be another way to fix mapping problems ...
+> 
+> 
+> Am 22. Jun 2009 um 23:57 Uhr schrieb William McCoy:
+> 
+>> I have been using Mondrian for many months and have been frustrated that
+>> when using selections I could augment my current selection using the
+>> SHIFT-ALT key combination.  The ALT key works as it should to show the
+>> cursor coordinates in scatterplots and the SHIFT key works as it should
+>> as an XOR modifier when modifiying a selection.  But SHIFT-ALT does
+>> nothing and no mouse action report is given in the terminal window when
+>> I use it.  I have tried this with the openjdk that comes with Fedora 10
+>> and I have installed the latest Sun Java jre (1.6.0 rev 14), but it
+>> makes no difference.  I am using a Dell XPS 410, but I have had the same
+>> experience on my other computers running Fedora 10.
+>>
+>> When I was struggling with this again today, I was once again trying
+>> some different key combinations and I discovered that the intended
+>> behavior of SHIFT-ALT does work if I also hold down the "Windows" key on
+>> my keyboard!  What I call the "Windows" key is the key with the Windows
+>> logo in the lower left part of my Dell keyboard between the CTRL and ALT
+>> keys.  So if I hold down all three keys, SHIFT-Windows-ALT and use the
+>> left mouse button I can modify selections with AND or OR (whichever I
+>> have chosen in the Mondrian Options menu).
+>>
+>> I have no idea why this works, but I am glad to gain this functionality
+>> and I want to report it in case it helps others.
+>>
+>>
+>> Bill
+>>
+>> -- 
+>> William D. McCoy
+>> Geosciences
+>> University of Massachusetts
+>> Amherst, MA 01003
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+
+-- 
+William D. McCoy
+Geosciences
+University of Massachusetts
+Amherst, MA 01003
+
+From simon.urbanek at r-project.org  Sat Jul  4 21:04:45 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sat, 04 Jul 2009 17:04:45 -0400
+Subject: Re: selections on Linux (Fedora 10)
+In-Reply-To: <4A4FAFBC.9070408@geo.umass.edu>
+References: <4A3FFE53.5010205@geo.umass.edu> <D5B95568-C52D-4E56-8F04-7EECD0EBB8D7@theusRus.de> <4A4FAFBC.9070408@geo.umass.edu>
+Message-ID: <DF33EAAC-7C5D-4706-B69D-0CD3098F9484@r-project.org>
+
+Bill,
+
+  just FWIW this is usually not only about key mappings, but mainly  
+about the window manager you're using. I would not be surprised if it  
+simply hogs the modifier combination for its own purposes so it  
+doesn't get passed to the application (Mondrian in this case). It's a  
+common problem on Linux where there are no rules, so you never know  
+what you get. (This may or may not apply to your case - it's just an  
+observation I made when testing various platforms).
+
+Cheers,
+Simon
+
+
+On Jul 4, 2009, at 15:38 , William McCoy wrote:
+
+> Martin,
+>
+> Thanks for your response concerning this.  I hadn't realized that  
+> there
+> was so much variation in the mapping of the key modifiers across
+> platforms.  As I indicated, I originally assumed the difference was in
+> the Java implementation and I wound up installing three or four
+> different Java versions over the last few months trying to solve the
+> problem.  I now see that the solution of using Shift-Win-Alt for
+> modifying selections works in all recent Java versions that I have  
+> tried
+> on this computer (running the Gnome interface under Fedora 10 Linux).
+>
+> Over the last couple of weeks I have been very busy using Mondrian  
+> while
+> finishing up a manuscript for publication and I haven't had much  
+> time to
+> explore the keymapping on my Fedora Linux computer.  I have found that
+> by default, the computer runs xmodmap at startup and makes some
+> assignments to the Shift, Alt, and Win keys.  I can see how that is
+> done, but I don't know what codes should be assigned to make the
+> Shift-Alt combination work as desired in Mondrian.
+>
+> If someone knows what keycodes to assign, I would be happy to know.
+> However, I am not asking you or anyone else to spend any time on my
+> behalf in sorting out this issue right now.  It is quite easy for me  
+> to
+> use the Shift-Win-Alt combination for modifying selections and I have
+> become used to it now.  If I get some time later this summer, I will
+> look further into the issue and let you know what I find.
+>
+> By the way, I now see a serious typo in my original message that may
+> have confused some readers.  As you figured out, in my first  
+> sentence I
+> meant to say that "I have been frustrated that when using selections I
+> could _not_ augment my current selection using the SHIFT-ALT key
+> combination."
+>
+> Thanks very much for the great software.  I use it all the time now  
+> when
+> exploring new datasets.
+>
+> Bill
+>
+>
+> Martin Theus wrote:
+>> Bill,
+>>
+>> thanks for sharing this info! Unfortunately I do not have a
+>> Linux installation to test on. My experience in the early days
+>> of JAVA (1.0, 1.1, ...) was horrible regarding the key modifiers
+>> and getting the mapping fixed across the platforms was terrible.
+>>
+>> The mapping on specific Linux distros is something I have never
+>> tested so I would expect problems - but luckily you found a
+>> workaround for your set-up.
+>>
+>> Best
+>>
+>> Martin
+>>
+>> PS: As far as I know, Linux and/or X11 allows to modify the
+>> key mappings to "whatever" you want to - so maybe that would
+>> be another way to fix mapping problems ...
+>>
+>>
+>> Am 22. Jun 2009 um 23:57 Uhr schrieb William McCoy:
+>>
+>>> I have been using Mondrian for many months and have been  
+>>> frustrated that
+>>> when using selections I could augment my current selection using the
+>>> SHIFT-ALT key combination.  The ALT key works as it should to show  
+>>> the
+>>> cursor coordinates in scatterplots and the SHIFT key works as it  
+>>> should
+>>> as an XOR modifier when modifiying a selection.  But SHIFT-ALT does
+>>> nothing and no mouse action report is given in the terminal window  
+>>> when
+>>> I use it.  I have tried this with the openjdk that comes with  
+>>> Fedora 10
+>>> and I have installed the latest Sun Java jre (1.6.0 rev 14), but it
+>>> makes no difference.  I am using a Dell XPS 410, but I have had  
+>>> the same
+>>> experience on my other computers running Fedora 10.
+>>>
+>>> When I was struggling with this again today, I was once again trying
+>>> some different key combinations and I discovered that the intended
+>>> behavior of SHIFT-ALT does work if I also hold down the "Windows"  
+>>> key on
+>>> my keyboard!  What I call the "Windows" key is the key with the  
+>>> Windows
+>>> logo in the lower left part of my Dell keyboard between the CTRL  
+>>> and ALT
+>>> keys.  So if I hold down all three keys, SHIFT-Windows-ALT and use  
+>>> the
+>>> left mouse button I can modify selections with AND or OR  
+>>> (whichever I
+>>> have chosen in the Mondrian Options menu).
+>>>
+>>> I have no idea why this works, but I am glad to gain this  
+>>> functionality
+>>> and I want to report it in case it helps others.
+>>>
+>>>
+>>> Bill
+>>>
+>>> -- 
+>>> William D. McCoy
+>>> Geosciences
+>>> University of Massachusetts
+>>> Amherst, MA 01003
+>>>
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda- 
+>>> devel
+>>
+>
+> -- 
+> William D. McCoy
+> Geosciences
+> University of Massachusetts
+> Amherst, MA 01003
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+From ggrothendieck at gmail.com  Sun Jul  5 00:01:27 2009
+From: ggrothendieck at gmail.com (Gabor Grothendieck)
+Date: Sat, 04 Jul 2009 20:01:27 -0400
+Subject: Re: RJDBC and quoting of column names
+In-Reply-To: <E5018519-2985-49AB-AA30-F70016334FED@r-project.org>
+References: <971536df0907031737q6eb9a633id125c34d7254d44d@mail.gmail.com> <E5018519-2985-49AB-AA30-F70016334FED@r-project.org>
+Message-ID: <971536df0907041701t5b178522sb6f1a53093c7e8b9@mail.gmail.com>
+
+But this isn't SQL written by the user; its SQL written by dbWriteTable and
+the generated CREATE statement could quote the column names.
+
+Also note that most commonly used SQL databases do allow quoting of
+identifiers in which case they are treated in a case sensitive manner.
+
+What is the use of the quote.identifier= argument in JDBC if they are not
+quoted?
+
+On Sat, Jul 4, 2009 at 2:01 PM, Simon
+Urbanek<simon.urbanek at r-project.org> wrote:
+>
+> On Jul 3, 2009, at 8:37 PM, Gabor Grothendieck wrote:
+>
+>> Consider the following code using the H2 database where we are using the
+>> built in BOD data frame.  Note that the column names come out in upper case.
+>
+> SQL is by definition case-agnostic, so that is to be expected... (Some DBMS
+> break that rule at their own risk ...).
+>
+>
+>>  I have inserted a print statement into dbWriteTable and you can see the
+>> sql statement that dbWriteTable generates.  Shouldn't that sql statement
+>> have double quotes around the column names?
+>
+> The logic in RJDBC is that if an identifier is of the form
+> <letter><letter/number/_> then it won't be quoted. At least in standard SQL
+> it should make no difference. (However, your post made me think about this
+> -- and in the cases of keywords the current logic may not be sufficient
+> ...).
+>
+> Cheers,
+> Simon
+>
+>
+>
+>>  I did specify identifier.quote= in
+>> the JDBC call.
+>>
+>>> library(RJDBC)
+>>> # '"' is single quote, double quote, single quote
+>>> drv <- JDBC("org.h2.Driver", "C:\\Program Files\\H2\\bin\\h2.jar",
+>>> identifier.quote = '"')
+>>> con <- dbConnect(drv, "jdbc:h2:mem:", "sa", "")
+>>> dbWriteTable(con, "b", BOD)
+>>
+>> [1] "CREATE TABLE b (Time DOUBLE PRECISION,demand DOUBLE PRECISION)"
+>> [1] TRUE
+>>>
+>>> dbGetQuery(con, "select * from b")
+>>
+>>  TIME DEMAND
+>> 1    1    8.3
+>> 2    2   10.3
+>> 3    3   19.0
+>> 4    4   16.0
+>> 5    5   15.6
+>> 6    7   19.8
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>
+>>
+>
+>
+
+From ggrothendieck at gmail.com  Sun Jul  5 00:50:15 2009
+From: ggrothendieck at gmail.com (Gabor Grothendieck)
+Date: Sat, 04 Jul 2009 20:50:15 -0400
+Subject: Re: RJDBC and quoting of column names
+In-Reply-To: <971536df0907041701t5b178522sb6f1a53093c7e8b9@mail.gmail.com>
+References: <971536df0907031737q6eb9a633id125c34d7254d44d@mail.gmail.com> <E5018519-2985-49AB-AA30-F70016334FED@r-project.org> <971536df0907041701t5b178522sb6f1a53093c7e8b9@mail.gmail.com>
+Message-ID: <971536df0907041750g7ffe631bi30e54139ebfaa1d4@mail.gmail.com>
+
+Just in case the motivation isn't clear consider this sqldf
+statement using the CRAN version of sqldf package which
+uses RSQLite/sqlite.  BOD is a built in data frame that comes
+with R.  Note that the column names are
+produced in a case sensitive manner (Time__1 is due to the
+fact that Time is an SQL keyword).
+
+But after that we run the development
+version using RJDBC/H2 and note how the column
+names become capitalized after we switched databases.
+
+> library(sqldf)
+> sqldf("select * from BOD")
+  Time__1 demand
+1       1    8.3
+2       2   10.3
+3       3   19.0
+4       4   16.0
+5       5   15.6
+6       7   19.8
+
+> # following is from development code (not on CRAN)
+> library(H2)
+> library(sqldf)
+> sqldf("select * from BOD") # uses RJDBC/H2
+  TIME DEMAND
+1    1    8.3
+2    2   10.3
+3    3   19.0
+4    4   16.0
+5    5   15.6
+6    7   19.8
+
+
+On Sat, Jul 4, 2009 at 8:01 PM, Gabor
+Grothendieck<ggrothendieck at gmail.com> wrote:
+> But this isn't SQL written by the user; its SQL written by dbWriteTable and
+> the generated CREATE statement could quote the column names.
+>
+> Also note that most commonly used SQL databases do allow quoting of
+> identifiers in which case they are treated in a case sensitive manner.
+>
+> What is the use of the quote.identifier= argument in JDBC if they are not
+> quoted?
+>
+> On Sat, Jul 4, 2009 at 2:01 PM, Simon
+> Urbanek<simon.urbanek at r-project.org> wrote:
+>>
+>> On Jul 3, 2009, at 8:37 PM, Gabor Grothendieck wrote:
+>>
+>>> Consider the following code using the H2 database where we are using the
+>>> built in BOD data frame.  Note that the column names come out in upper case.
+>>
+>> SQL is by definition case-agnostic, so that is to be expected... (Some DBMS
+>> break that rule at their own risk ...).
+>>
+>>
+>>>  I have inserted a print statement into dbWriteTable and you can see the
+>>> sql statement that dbWriteTable generates.  Shouldn't that sql statement
+>>> have double quotes around the column names?
+>>
+>> The logic in RJDBC is that if an identifier is of the form
+>> <letter><letter/number/_> then it won't be quoted. At least in standard SQL
+>> it should make no difference. (However, your post made me think about this
+>> -- and in the cases of keywords the current logic may not be sufficient
+>> ...).
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>
+>>>  I did specify identifier.quote= in
+>>> the JDBC call.
+>>>
+>>>> library(RJDBC)
+>>>> # '"' is single quote, double quote, single quote
+>>>> drv <- JDBC("org.h2.Driver", "C:\\Program Files\\H2\\bin\\h2.jar",
+>>>> identifier.quote = '"')
+>>>> con <- dbConnect(drv, "jdbc:h2:mem:", "sa", "")
+>>>> dbWriteTable(con, "b", BOD)
+>>>
+>>> [1] "CREATE TABLE b (Time DOUBLE PRECISION,demand DOUBLE PRECISION)"
+>>> [1] TRUE
+>>>>
+>>>> dbGetQuery(con, "select * from b")
+>>>
+>>>  TIME DEMAND
+>>> 1    1    8.3
+>>> 2    2   10.3
+>>> 3    3   19.0
+>>> 4    4   16.0
+>>> 5    5   15.6
+>>> 6    7   19.8
+>>>
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>>
+>>>
+>>
+>>
+>
+
+From wdmccoy at geo.umass.edu  Sun Jul  5 01:41:34 2009
+From: wdmccoy at geo.umass.edu (William McCoy)
+Date: Sat, 04 Jul 2009 21:41:34 -0400
+Subject: Re: selections on Linux (Fedora 10)
+In-Reply-To: <DF33EAAC-7C5D-4706-B69D-0CD3098F9484@r-project.org>
+References: <4A3FFE53.5010205@geo.umass.edu> <D5B95568-C52D-4E56-8F04-7EECD0EBB8D7@theusRus.de> <4A4FAFBC.9070408@geo.umass.edu> <DF33EAAC-7C5D-4706-B69D-0CD3098F9484@r-project.org>
+Message-ID: <4A5004CE.90509@geo.umass.edu>
+
+Simon,
+
+Yes, you are right:  Shift-Alt works as expected when I use either 
+fluxbox or the KDE window manager.  It seems the Shift-Win-Alt 
+combination is only necessary with the Gnome window manager in its 
+default configuration, which is what I have been using recently.  Gnome 
+comes with a keyboard utility that I had played with a week or so ago in 
+order to try to get Shift-Alt to modify selections.  Presumably it's 
+possible to fix using that utility, but none of the built-in choices I 
+tried seemed to work.  I had also noticed when searching online for a 
+solution that there seemed to be a lot of complaints about Gnome's 
+default keyboard setup.
+
+I had thought that the call to xmodmap during startup had made the 
+changes, but that seems not to be the case because the xmodmap settings 
+are the same when I am using fluxbox.  So, I think you are right; Gnome 
+seems to be hogging the Shift-Alt combination for itself, at least under 
+the default configuration.
+
+Thanks for your help.
+
+Bill
+
+
+Simon Urbanek wrote:
+> Bill,
+> 
+>  just FWIW this is usually not only about key mappings, but mainly about 
+> the window manager you're using. I would not be surprised if it simply 
+> hogs the modifier combination for its own purposes so it doesn't get 
+> passed to the application (Mondrian in this case). It's a common problem 
+> on Linux where there are no rules, so you never know what you get. (This 
+> may or may not apply to your case - it's just an observation I made when 
+> testing various platforms).
+> 
+> Cheers,
+> Simon
+> 
+> 
+> On Jul 4, 2009, at 15:38 , William McCoy wrote:
+> 
+>> Martin,
+>>
+>> Thanks for your response concerning this.  I hadn't realized that there
+>> was so much variation in the mapping of the key modifiers across
+>> platforms.  As I indicated, I originally assumed the difference was in
+>> the Java implementation and I wound up installing three or four
+>> different Java versions over the last few months trying to solve the
+>> problem.  I now see that the solution of using Shift-Win-Alt for
+>> modifying selections works in all recent Java versions that I have tried
+>> on this computer (running the Gnome interface under Fedora 10 Linux).
+>>
+>> Over the last couple of weeks I have been very busy using Mondrian while
+>> finishing up a manuscript for publication and I haven't had much time to
+>> explore the keymapping on my Fedora Linux computer.  I have found that
+>> by default, the computer runs xmodmap at startup and makes some
+>> assignments to the Shift, Alt, and Win keys.  I can see how that is
+>> done, but I don't know what codes should be assigned to make the
+>> Shift-Alt combination work as desired in Mondrian.
+>>
+>> If someone knows what keycodes to assign, I would be happy to know.
+>> However, I am not asking you or anyone else to spend any time on my
+>> behalf in sorting out this issue right now.  It is quite easy for me to
+>> use the Shift-Win-Alt combination for modifying selections and I have
+>> become used to it now.  If I get some time later this summer, I will
+>> look further into the issue and let you know what I find.
+>>
+>> By the way, I now see a serious typo in my original message that may
+>> have confused some readers.  As you figured out, in my first sentence I
+>> meant to say that "I have been frustrated that when using selections I
+>> could _not_ augment my current selection using the SHIFT-ALT key
+>> combination."
+>>
+>> Thanks very much for the great software.  I use it all the time now when
+>> exploring new datasets.
+>>
+>> Bill
+>>
+>>
+>> Martin Theus wrote:
+>>> Bill,
+>>>
+>>> thanks for sharing this info! Unfortunately I do not have a
+>>> Linux installation to test on. My experience in the early days
+>>> of JAVA (1.0, 1.1, ...) was horrible regarding the key modifiers
+>>> and getting the mapping fixed across the platforms was terrible.
+>>>
+>>> The mapping on specific Linux distros is something I have never
+>>> tested so I would expect problems - but luckily you found a
+>>> workaround for your set-up.
+>>>
+>>> Best
+>>>
+>>> Martin
+>>>
+>>> PS: As far as I know, Linux and/or X11 allows to modify the
+>>> key mappings to "whatever" you want to - so maybe that would
+>>> be another way to fix mapping problems ...
+>>>
+>>>
+>>> Am 22. Jun 2009 um 23:57 Uhr schrieb William McCoy:
+>>>
+>>>> I have been using Mondrian for many months and have been frustrated 
+>>>> that
+>>>> when using selections I could augment my current selection using the
+>>>> SHIFT-ALT key combination.  The ALT key works as it should to show the
+>>>> cursor coordinates in scatterplots and the SHIFT key works as it should
+>>>> as an XOR modifier when modifiying a selection.  But SHIFT-ALT does
+>>>> nothing and no mouse action report is given in the terminal window when
+>>>> I use it.  I have tried this with the openjdk that comes with Fedora 10
+>>>> and I have installed the latest Sun Java jre (1.6.0 rev 14), but it
+>>>> makes no difference.  I am using a Dell XPS 410, but I have had the 
+>>>> same
+>>>> experience on my other computers running Fedora 10.
+>>>>
+>>>> When I was struggling with this again today, I was once again trying
+>>>> some different key combinations and I discovered that the intended
+>>>> behavior of SHIFT-ALT does work if I also hold down the "Windows" 
+>>>> key on
+>>>> my keyboard!  What I call the "Windows" key is the key with the Windows
+>>>> logo in the lower left part of my Dell keyboard between the CTRL and 
+>>>> ALT
+>>>> keys.  So if I hold down all three keys, SHIFT-Windows-ALT and use the
+>>>> left mouse button I can modify selections with AND or OR (whichever I
+>>>> have chosen in the Mondrian Options menu).
+>>>>
+>>>> I have no idea why this works, but I am glad to gain this functionality
+>>>> and I want to report it in case it helps others.
+>>>>
+>>>>
+>>>> Bill
+>>>>
+>>>> -- 
+>>>> William D. McCoy
+>>>> Geosciences
+>>>> University of Massachusetts
+>>>> Amherst, MA 01003
+>>>>
+>>>> _______________________________________________
+>>>> stats-rosuda-devel mailing list
+>>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>>
+>>
+>> -- 
+>> William D. McCoy
+>> Geosciences
+>> University of Massachusetts
+>> Amherst, MA 01003
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>
+>>
+> 
+
+-- 
+William D. McCoy
+Geosciences
+University of Massachusetts
+Amherst, MA 01003
+
+From romain.francois at dbmail.com  Sun Jul  5 10:27:17 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Sun, 05 Jul 2009 12:27:17 +0200
+Subject: [JRIEngine] list of environments
+Message-ID: <4A508005.30903@dbmail.com>
+
+Hello,
+
+I am interested at getting a list of environments (something like what 
+sys.frames() gives) back into java, so I anticipated to get this as a 
+list of REXPReferences:
+
+R> env1 <- new.env()
+R> env2 <- new.env()
+R> envs <- list( env1, env2 )
+
+BeanShell> envs = r.get( "envs", r.globalEnv, true )
+org.rosuda.REngine.REXPGenericVector@17e4cec[2]
+BeanShell> envs.asList()
+RList[null, null]{2}
+
+Romain
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/qJ8V : RGG#153: stars network
+|- http://tr.im/qzSl : using ImageJ from R: the RImageJ package
+`- http://tr.im/qzSJ : with semantics for java objects in rJava
+
+From simon.urbanek at r-project.org  Sun Jul  5 13:15:31 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sun, 05 Jul 2009 09:15:31 -0400
+Subject: Re: RJDBC and quoting of column names
+In-Reply-To: <971536df0907041701t5b178522sb6f1a53093c7e8b9@mail.gmail.com>
+References: <971536df0907031737q6eb9a633id125c34d7254d44d@mail.gmail.com> <E5018519-2985-49AB-AA30-F70016334FED@r-project.org> <971536df0907041701t5b178522sb6f1a53093c7e8b9@mail.gmail.com>
+Message-ID: <75E2B918-9BC5-4DD3-8AB3-C4B2B5AA72B5@r-project.org>
+
+
+On Jul 4, 2009, at 8:01 PM, Gabor Grothendieck wrote:
+
+> But this isn't SQL written by the user; its SQL written by  
+> dbWriteTable and
+> the generated CREATE statement could quote the column names.
+>
+> Also note that most commonly used SQL databases do allow quoting of
+> identifiers in which case they are treated in a case sensitive manner.
+>
+> What is the use of the quote.identifier= argument in JDBC if they  
+> are not
+> quoted?
+>
+
+So it can be used on identifiers that require quoting  (see my  
+previous e-mail) ...
+
+Cheers,
+S
+
+
+> On Sat, Jul 4, 2009 at 2:01 PM, Simon
+> Urbanek<simon.urbanek at r-project.org> wrote:
+>>
+>> On Jul 3, 2009, at 8:37 PM, Gabor Grothendieck wrote:
+>>
+>>> Consider the following code using the H2 database where we are  
+>>> using the
+>>> built in BOD data frame.  Note that the column names come out in  
+>>> upper case.
+>>
+>> SQL is by definition case-agnostic, so that is to be expected...  
+>> (Some DBMS
+>> break that rule at their own risk ...).
+>>
+>>
+>>>  I have inserted a print statement into dbWriteTable and you can  
+>>> see the
+>>> sql statement that dbWriteTable generates.  Shouldn't that sql  
+>>> statement
+>>> have double quotes around the column names?
+>>
+>> The logic in RJDBC is that if an identifier is of the form
+>> <letter><letter/number/_> then it won't be quoted. At least in  
+>> standard SQL
+>> it should make no difference. (However, your post made me think  
+>> about this
+>> -- and in the cases of keywords the current logic may not be  
+>> sufficient
+>> ...).
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>
+>>>  I did specify identifier.quote= in
+>>> the JDBC call.
+>>>
+>>>> library(RJDBC)
+>>>> # '"' is single quote, double quote, single quote
+>>>> drv <- JDBC("org.h2.Driver", "C:\\Program Files\\H2\\bin\\h2.jar",
+>>>> identifier.quote = '"')
+>>>> con <- dbConnect(drv, "jdbc:h2:mem:", "sa", "")
+>>>> dbWriteTable(con, "b", BOD)
+>>>
+>>> [1] "CREATE TABLE b (Time DOUBLE PRECISION,demand DOUBLE PRECISION)"
+>>> [1] TRUE
+>>>>
+>>>> dbGetQuery(con, "select * from b")
+>>>
+>>>  TIME DEMAND
+>>> 1    1    8.3
+>>> 2    2   10.3
+>>> 3    3   19.0
+>>> 4    4   16.0
+>>> 5    5   15.6
+>>> 6    7   19.8
+>>>
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda- 
+>>> devel
+>>>
+>>>
+>>
+>>
+>
+>
+
+From ggrothendieck at gmail.com  Sun Jul  5 13:34:30 2009
+From: ggrothendieck at gmail.com (Gabor Grothendieck)
+Date: Sun, 05 Jul 2009 09:34:30 -0400
+Subject: Re: RJDBC and quoting of column names
+In-Reply-To: <75E2B918-9BC5-4DD3-8AB3-C4B2B5AA72B5@r-project.org>
+References: <971536df0907031737q6eb9a633id125c34d7254d44d@mail.gmail.com> <E5018519-2985-49AB-AA30-F70016334FED@r-project.org> <971536df0907041701t5b178522sb6f1a53093c7e8b9@mail.gmail.com> <75E2B918-9BC5-4DD3-8AB3-C4B2B5AA72B5@r-project.org>
+Message-ID: <971536df0907050634t52b2d8f8w4ca66eb808b8aa1@mail.gmail.com>
+
+Can you clarify.  My understanding is that in this case the
+column names require quoting and I did specify quote.identifier
+but didn't get any quotes with the result that I got upper case
+column names using H2/JDBC.
+
+The same dbWriteTable statement with RSQLite gives mixed
+case column names.
+
+There seems to be no way to get mixed case column names
+with dbWriteTable here.
+
+On Sun, Jul 5, 2009 at 9:15 AM, Simon
+Urbanek<simon.urbanek at r-project.org> wrote:
+>
+> On Jul 4, 2009, at 8:01 PM, Gabor Grothendieck wrote:
+>
+>> But this isn't SQL written by the user; its SQL written by dbWriteTable
+>> and
+>> the generated CREATE statement could quote the column names.
+>>
+>> Also note that most commonly used SQL databases do allow quoting of
+>> identifiers in which case they are treated in a case sensitive manner.
+>>
+>> What is the use of the quote.identifier= argument in JDBC if they are not
+>> quoted?
+>>
+>
+> So it can be used on identifiers that require quoting  (see my previous
+> e-mail) ...
+>
+> Cheers,
+> S
+>
+>
+>> On Sat, Jul 4, 2009 at 2:01 PM, Simon
+>> Urbanek<simon.urbanek at r-project.org> wrote:
+>>>
+>>> On Jul 3, 2009, at 8:37 PM, Gabor Grothendieck wrote:
+>>>
+>>>> Consider the following code using the H2 database where we are using the
+>>>> built in BOD data frame.  Note that the column names come out in upper
+>>>> case.
+>>>
+>>> SQL is by definition case-agnostic, so that is to be expected... (Some
+>>> DBMS
+>>> break that rule at their own risk ...).
+>>>
+>>>
+>>>>  I have inserted a print statement into dbWriteTable and you can see the
+>>>> sql statement that dbWriteTable generates.  Shouldn't that sql statement
+>>>> have double quotes around the column names?
+>>>
+>>> The logic in RJDBC is that if an identifier is of the form
+>>> <letter><letter/number/_> then it won't be quoted. At least in standard
+>>> SQL
+>>> it should make no difference. (However, your post made me think about
+>>> this
+>>> -- and in the cases of keywords the current logic may not be sufficient
+>>> ...).
+>>>
+>>> Cheers,
+>>> Simon
+>>>
+>>>
+>>>
+>>>>  I did specify identifier.quote= in
+>>>> the JDBC call.
+>>>>
+>>>>> library(RJDBC)
+>>>>> # '"' is single quote, double quote, single quote
+>>>>> drv <- JDBC("org.h2.Driver", "C:\\Program Files\\H2\\bin\\h2.jar",
+>>>>> identifier.quote = '"')
+>>>>> con <- dbConnect(drv, "jdbc:h2:mem:", "sa", "")
+>>>>> dbWriteTable(con, "b", BOD)
+>>>>
+>>>> [1] "CREATE TABLE b (Time DOUBLE PRECISION,demand DOUBLE PRECISION)"
+>>>> [1] TRUE
+>>>>>
+>>>>> dbGetQuery(con, "select * from b")
+>>>>
+>>>>  TIME DEMAND
+>>>> 1    1    8.3
+>>>> 2    2   10.3
+>>>> 3    3   19.0
+>>>> 4    4   16.0
+>>>> 5    5   15.6
+>>>> 6    7   19.8
+>>>>
+>>>> _______________________________________________
+>>>> stats-rosuda-devel mailing list
+>>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>>>
+>>>>
+>>>
+>>>
+>>
+>>
+>
+>
+
+From simon.urbanek at r-project.org  Sun Jul  5 14:54:01 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sun, 05 Jul 2009 10:54:01 -0400
+Subject: Re: [JRIEngine] list of environments
+In-Reply-To: <4A508005.30903@dbmail.com>
+References: <4A508005.30903@dbmail.com>
+Message-ID: <3B838831-2039-4556-8ED2-F6C1C49B226B@r-project.org>
+
+
+On Jul 5, 2009, at 6:27 AM, Romain Francois wrote:
+
+> Hello,
+>
+> I am interested at getting a list of environments (something like what
+> sys.frames() gives) back into java, so I anticipated to get this as a
+> list of REXPReferences:
+>
+> R> env1 <- new.env()
+> R> env2 <- new.env()
+> R> envs <- list( env1, env2 )
+>
+> BeanShell> envs = r.get( "envs", r.globalEnv, true )
+> org.rosuda.REngine.REXPGenericVector@17e4cec[2]
+> BeanShell> envs.asList()
+> RList[null, null]{2}
+>
+
+ok, ok, environments are now supported in JRIEngine.
+
+Cheers,
+S
+
+From Gregor.Gorjanc at bfro.uni-lj.si  Wed Jul  8 21:15:02 2009
+From: Gregor.Gorjanc at bfro.uni-lj.si (Gorjanc Gregor)
+Date: Wed, 08 Jul 2009 23:15:02 +0200
+Subject: JGR crashes when loading a package
+Message-ID: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F84@REGULUS.bfro.uni-lj.si>
+
+Hi,
+
+I have done a fresh install of JGR on Windows XP machine with
+R 2.9.1 and JRE 1.6.0_13. I tried to load the package pedigreemm
+(latest CRAN version) and "kaboom" the JGR crashes down without
+any warning. I tried to load the dep. packages Matrix and lme4 and
+it seems that lme4 package is causing the problem. Bellow is the
+content of a log file automatically generated by JGR.
+
+Any hints how this could be avoided / fixed? Is the problem with JGR
+or the package - I did not notice such problems with "pure" R.
+
+Tnx, Gregor
+
+#
+# An unexpected error has been detected by Java Runtime Environment:
+#
+#  EXCEPTION_ACCESS_VIOLATION (0xc0000005) at pc=0x6c7af558, pid=4088, tid=3500
+#
+# Java VM: Java HotSpot(TM) Client VM (11.3-b02 mixed mode, sharing windows-x86)
+# Problematic frame:
+# C  [R.dll+0xaf558]
+#
+# If you would like to submit a bug report, please visit:
+#   http://java.sun.com/webapps/bugreport/crash.jsp
+# The crash happened outside the Java Virtual Machine in native code.
+# See problematic frame for where to report the bug.
+#
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x03c5d400):  JavaThread "Thread-5" [_thread_in_native, id=3500, stack(0x03730000,0x03780000)]
+
+siginfo: ExceptionCode=0xc0000005, reading address 0x00000013
+
+Registers:
+EAX=0x04aee64c, EBX=0x0000000f, ECX=0x04a591f4, EDX=0x040661bc
+ESP=0x03778ae0, EBP=0x03778af8, ESI=0x00000014, EDI=0x04a592b8
+EIP=0x6c7af558, EFLAGS=0x00010206
+
+Top of Stack: (sp=0x03778ae0)
+0x03778ae0:   00000001 04a591f4 04a59264 04a59264
+0x03778af0:   039824a0 00000000 03778b28 6c780175
+0x03778b00:   00000014 04a592b8 04a59264 6c768b21
+0x03778b10:   039a27f4 0398d7e8 04a591f4 0398d804
+0x03778b20:   00000000 0406814c 03778c08 6c77f487
+0x03778b30:   0406814c 0398d804 04068130 04a592b8
+0x03778b40:   039824a0 039824a0 039824a0 00000001
+0x03778b50:   00000054 000000c7 00000000 00000000 
+
+Instructions: (pc=0x6c7af558)
+0x6c7af548:   f0 89 f2 89 d8 e8 4e fe ff ff 8b 1b 85 db 74 14
+0x6c7af558:   8b 43 04 85 c0 74 0d 85 f0 74 ef 39 7b 68 74 de 
+
+
+Stack: [0x03730000,0x03780000],  sp=0x03778ae0,  free space=290k
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
+C  [R.dll+0xaf558]
+C  [R.dll+0x80175]
+C  [R.dll+0x7f487]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x8235d]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x8119b]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x8235d]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x83d61]
+C  [R.dll+0x7f27f]
+C  [R.dll+0x7f622]
+C  [R.dll+0x83d61]
+C  [R.dll+0x7f27f]
+C  [R.dll+0x7f622]
+C  [R.dll+0x83d61]
+C  [R.dll+0x7f27f]
+C  [R.dll+0x7f622]
+C  [R.dll+0x83d61]
+C  [R.dll+0x7f27f]
+C  [R.dll+0x7f622]
+C  [R.dll+0x7fe98]
+C  [R.dll+0x8004b]
+C  [R.dll+0x7f487]
+C  [R.dll+0x83d61]
+C  [R.dll+0x7f27f]
+C  [R.dll+0x7f622]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x8235d]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x7f487]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x8235d]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x82bae]
+C  [R.dll+0x7f3a5]
+C  [R.dll+0x16bc92]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+C  [R.dll+0x7f487]
+C  [R.dll+0x809af]
+C  [R.dll+0x7f487]
+...<more frames>...
+
+Java frames: (J=compiled Java code, j=interpreted, Vv=VM code)
+j  org.rosuda.JRI.Rengine.rniRunMainLoop()V+0
+j  org.rosuda.JRI.Rengine.run()V+59
+v  ~StubRoutines::call_stub
+
+---------------  P R O C E S S  ---------------
+
+Java Threads: ( => current thread )
+=>0x03c5d400 JavaThread "Thread-5" [_thread_in_native, id=3500, stack(0x03730000,0x03780000)]
+  0x03c4f400 JavaThread "Thread-4" [_thread_blocked, id=5300, stack(0x038d0000,0x03920000)]
+  0x0314ac00 JavaThread "TimerQueue" daemon [_thread_blocked, id=616, stack(0x03880000,0x038d0000)]
+  0x02c67c00 JavaThread "AWT-EventQueue-0" [_thread_blocked, id=2924, stack(0x036c0000,0x03710000)]
+  0x02d2a000 JavaThread "AWT-Windows" daemon [_thread_in_native, id=3476, stack(0x03360000,0x033b0000)]
+  0x02ce2000 JavaThread "AWT-Shutdown" [_thread_blocked, id=4040, stack(0x03310000,0x03360000)]
+  0x02ce1000 JavaThread "Java2D Disposer" daemon [_thread_blocked, id=5492, stack(0x032c0000,0x03310000)]
+  0x02cab800 JavaThread "Low Memory Detector" daemon [_thread_blocked, id=4100, stack(0x02f20000,0x02f70000)]
+  0x02ca5400 JavaThread "CompilerThread0" daemon [_thread_blocked, id=4500, stack(0x02ed0000,0x02f20000)]
+  0x02ca3c00 JavaThread "Attach Listener" daemon [_thread_blocked, id=4308, stack(0x02e80000,0x02ed0000)]
+  0x02ca2800 JavaThread "Signal Dispatcher" daemon [_thread_blocked, id=1012, stack(0x02e30000,0x02e80000)]
+  0x02c60c00 JavaThread "Finalizer" daemon [_thread_blocked, id=5116, stack(0x02de0000,0x02e30000)]
+  0x02c5f800 JavaThread "Reference Handler" daemon [_thread_blocked, id=4724, stack(0x02d90000,0x02de0000)]
+  0x003f7000 JavaThread "main" [_thread_blocked, id=2572, stack(0x008d0000,0x00920000)]
+
+Other Threads:
+  0x02c5dc00 VMThread [stack: 0x02d40000,0x02d90000] [id=5780]
+  0x02cad400 WatcherThread [stack: 0x02f70000,0x02fc0000] [id=5860]
+
+VM state:not at safepoint (normal execution)
+
+VM Mutex/Monitor currently owned by a thread: None
+
+Heap
+ def new generation   total 960K, used 805K [0x069d0000, 0x06ad0000, 0x09130000)
+  eden space 896K,  82% used [0x069d0000, 0x06a89600, 0x06ab0000)
+  from space 64K, 100% used [0x06ac0000, 0x06ad0000, 0x06ad0000)
+  to   space 64K,   0% used [0x06ab0000, 0x06ab0000, 0x06ac0000)
+ tenured generation   total 7036K, used 4485K [0x09130000, 0x0980f000, 0x269d0000)
+   the space 7036K,  63% used [0x09130000, 0x09591628, 0x09591800, 0x0980f000)
+ compacting perm gen  total 12288K, used 2827K [0x269d0000, 0x275d0000, 0x2a9d0000)
+   the space 12288K,  23% used [0x269d0000, 0x26c92c60, 0x26c92e00, 0x275d0000)
+    ro space 8192K,  63% used [0x2a9d0000, 0x2aee8810, 0x2aee8a00, 0x2b1d0000)
+    rw space 12288K,  53% used [0x2b1d0000, 0x2b83d300, 0x2b83d400, 0x2bdd0000)
+
+Dynamic libraries:
+0x00400000 - 0x00424000 	C:\PROGRA~1\Java\jre6\bin\javaw.exe
+0x7c900000 - 0x7c9b2000 	C:\WINDOWS\system32\ntdll.dll
+0x7c800000 - 0x7c8f6000 	C:\WINDOWS\system32\kernel32.dll
+0x77dd0000 - 0x77e6b000 	C:\WINDOWS\system32\ADVAPI32.dll
+0x77e70000 - 0x77f02000 	C:\WINDOWS\system32\RPCRT4.dll
+0x77fe0000 - 0x77ff1000 	C:\WINDOWS\system32\Secur32.dll
+0x7e410000 - 0x7e4a1000 	C:\WINDOWS\system32\USER32.dll
+0x77f10000 - 0x77f59000 	C:\WINDOWS\system32\GDI32.dll
+0x76390000 - 0x763ad000 	C:\WINDOWS\system32\IMM32.DLL
+0x7c340000 - 0x7c396000 	C:\PROGRA~1\Java\jre6\bin\msvcr71.dll
+0x6d800000 - 0x6da56000 	C:\PROGRA~1\Java\jre6\bin\client\jvm.dll
+0x76b40000 - 0x76b6d000 	C:\WINDOWS\system32\WINMM.dll
+0x6d290000 - 0x6d298000 	C:\PROGRA~1\Java\jre6\bin\hpi.dll
+0x76bf0000 - 0x76bfb000 	C:\WINDOWS\system32\PSAPI.DLL
+0x6d7b0000 - 0x6d7bc000 	C:\PROGRA~1\Java\jre6\bin\verify.dll
+0x6d330000 - 0x6d34f000 	C:\PROGRA~1\Java\jre6\bin\java.dll
+0x6d7f0000 - 0x6d7ff000 	C:\PROGRA~1\Java\jre6\bin\zip.dll
+0x6d000000 - 0x6d14a000 	C:\Program Files\Java\jre6\bin\awt.dll
+0x73000000 - 0x73026000 	C:\WINDOWS\system32\WINSPOOL.DRV
+0x77c10000 - 0x77c68000 	C:\WINDOWS\system32\msvcrt.dll
+0x774e0000 - 0x7761d000 	C:\WINDOWS\system32\ole32.dll
+0x773d0000 - 0x774d3000 	C:\WINDOWS\WinSxS\x86_Microsoft.Windows.Common-Controls_6595b64144ccf1df_6.0.2600.5512_x-ww_35d4ce83\comctl32.dll
+0x77f60000 - 0x77fd6000 	C:\WINDOWS\system32\SHLWAPI.dll
+0x5ad70000 - 0x5ada8000 	C:\WINDOWS\system32\uxtheme.dll
+0x74720000 - 0x7476c000 	C:\WINDOWS\system32\MSCTF.dll
+0x033f0000 - 0x033fe000 	C:\Program Files\SetPoint\lgscroll.dll
+0x7c3a0000 - 0x7c41b000 	C:\WINDOWS\system32\MSVCP71.dll
+0x77690000 - 0x776b1000 	C:\WINDOWS\system32\NTMARTA.DLL
+0x71bf0000 - 0x71c03000 	C:\WINDOWS\system32\SAMLIB.dll
+0x76f60000 - 0x76f8c000 	C:\WINDOWS\system32\WLDAP32.dll
+0x755c0000 - 0x755ee000 	C:\WINDOWS\system32\msctfime.ime
+0x7c9c0000 - 0x7d1d7000 	C:\WINDOWS\system32\shell32.dll
+0x6d230000 - 0x6d284000 	C:\Program Files\Java\jre6\bin\fontmanager.dll
+0x6d610000 - 0x6d623000 	C:\Program Files\Java\jre6\bin\net.dll
+0x71ab0000 - 0x71ac7000 	C:\WINDOWS\system32\WS2_32.dll
+0x71aa0000 - 0x71aa8000 	C:\WINDOWS\system32\WS2HELP.dll
+0x6d630000 - 0x6d639000 	C:\Program Files\Java\jre6\bin\nio.dll
+0x6d450000 - 0x6d474000 	C:\Program Files\Java\jre6\bin\jpeg.dll
+0x03710000 - 0x0371d000 	C:\Programs\BSplayer\mmkeybsupp.dll
+0x62d80000 - 0x62d8f000 	C:\Programs\R\R-2.9.1\library\rJava\jri\jri.dll
+0x6c700000 - 0x6ca16000 	C:\Programs\R\R-2.9.1\bin\R.dll
+0x6b000000 - 0x6b031000 	C:\Programs\R\R-2.9.1\bin\Rblas.dll
+0x77c00000 - 0x77c08000 	C:\WINDOWS\system32\VERSION.dll
+0x641c0000 - 0x641cd000 	C:\Programs\R\R-2.9.1\bin\Riconv.dll
+0x63540000 - 0x6359a000 	C:\Programs\R\R-2.9.1\bin\Rgraphapp.dll
+0x763b0000 - 0x763f9000 	C:\WINDOWS\system32\COMDLG32.DLL
+0x6f8c0000 - 0x6f8dc000 	C:\Programs\R\R-2.9.1\bin\Rzlib.dll
+0x64a40000 - 0x64a50000 	C:\Programs\R\R-2.9.1\library\methods\libs\methods.dll
+0x6fc80000 - 0x6fcba000 	C:\Programs\R\R-2.9.1\library\grDevices\libs\grDevices.dll
+0x71100000 - 0x71162000 	C:\Programs\R\R-2.9.1\library\stats\libs\stats.dll
+0x6a5c0000 - 0x6a5d0000 	C:\Programs\R\R-2.9.1\library\rJava\libs\WinRegistry.dll
+0x64080000 - 0x64094000 	C:\Programs\R\R-2.9.1\library\rJava\libs\rJava.dll
+0x04c90000 - 0x04ca0000 	C:\Programs\R\R-2.9.1\library\JavaGD\libs\WinRegistry.dll
+0x61b00000 - 0x61b12000 	C:\Programs\R\R-2.9.1\library\JavaGD\libs\JavaGD.dll
+0x03780000 - 0x0378f000 	C:\Program Files\WIDCOMM\Bluetooth Software\btkeyind.dll
+0x04f80000 - 0x04f9a000 	C:\Program Files\Dell\QuickSet\dadkeyb.dll
+0x04fc0000 - 0x04fda000 	C:\WINDOWS\system32\hccutils.DLL
+0x77120000 - 0x771ab000 	C:\WINDOWS\system32\OLEAUT32.dll
+0x6ea80000 - 0x6ea9f000 	C:\Programs\R\R-2.9.1\library\grid\libs\grid.dll
+0x6dfc0000 - 0x6dfc9000 	C:\Programs\R\R-2.9.1\library\lattice\libs\lattice.dll
+
+VM Arguments:
+jvm_args: -Drjava.class.path=C:\Programs\R\R-29~1.1\library\rJava\jri\JRI.jar;C:\Programs\R\R-29~1.1\library\iplots\java\iplots.jar;C:\Programs\R\R-29~1.1\library\JGR\java\JGR.jar;C:\Programs\R\R-29~1.1\etc\classes;C:\Programs\R\R-29~1.1\etc\classes.jar -Xmx512m -Drjava.path=C:\Programs\R\R-29~1.1\library\rJava -Dmain.class=org.rosuda.JGR.JGR -Djgr.load.pkgs=yes -Djgr.loader.ver=1.61 
+java_command: RJavaClassLoader
+Launcher Type: SUN_STANDARD
+
+Environment Variables:
+CLASSPATH=.;C:\Program Files\Java\jre6\lib\ext\QTJava.zip
+PATH=C:\Program Files\Java\jre6\bin\client;C:\Program Files\Java\jre6\bin\client;C:\Program Files\Java\jre6\bin;C:\Programs\R\R-2.9.1\bin;C:\Programs\R\R-29~1.1\library\rJava\jri;C:/Programs/R/R-2.8.1/bin;C:\Programs\MiKTeX-2.7\miktex\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\Program Files\Executive Software\Diskeeper\;C:\Program Files\CVSNT\;C:\Programs\HTML_Help_Workshop;C:\Program Files\QuickTime\QTSystem\;C:\Programs\Graphviz2.21\bin;C:\Programs\tth;C:\Programs\VCE;C:\Programs\PEST;C:\Programs\tm;C:\Programs\mizstal\bin;C:\Programs\Oracle\instantclient;c:\Programs\ILOG\OPL62\bin\x86_win32;PYTHON;PYTHON\Scripts;C:\Programs\TortoiseSVN\bin;C:\Program Files\Java\jre6\bin\client;C:\Program Files\Java\jre6/bin/client
+USERNAME=GGorjan
+OS=Windows_NT
+PROCESSOR_IDENTIFIER=x86 Family 6 Model 15 Stepping 2, GenuineIntel
+
+
+
+---------------  S Y S T E M  ---------------
+
+OS: Windows XP Build 2600 Service Pack 3
+
+CPU:total 2 (2 cores per cpu, 1 threads per core) family 6 model 15 stepping 2, cmov, cx8, fxsr, mmx, sse, sse2, sse3, ssse3
+
+Memory: 4k page, physical 2087288k(888996k free), swap 4025664k(2775924k free)
+
+vm_info: Java HotSpot(TM) Client VM (11.3-b02) for windows-x86 JRE (1.6.0_13-b03), built on Mar  9 2009 01:15:24 by "java_re" with MS VC++ 7.1
+
+time: Wed Jul 08 23:09:19 2009
+elapsed time: 8 seconds
+
+From landronimirc at gmail.com  Thu Jul  9 09:12:07 2009
+From: landronimirc at gmail.com (Liviu Andronic)
+Date: Thu, 09 Jul 2009 11:12:07 +0200
+Subject: Re: JGR crashes when loading a package
+In-Reply-To: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F84@REGULUS.bfro.uni-lj.si>
+References: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F84@REGULUS.bfro.uni-lj.si>
+Message-ID: <68b1e2610907090212g7ab9a916y5d800117715caca3@mail.gmail.com>
+
+Hello,
+
+On 7/8/09, Gorjanc Gregor <Gregor.Gorjanc at bfro.uni-lj.si> wrote:
+>  Any hints how this could be avoided / fixed? Is the problem with JGR
+>  or the package - I did not notice such problems with "pure" R.
+>
+Perhaps an instance that is not clear, and might help: did you load
+the package using JGR's menus, or via the command-line with a
+require(pedigreemm)? If you tried only one, also try the alternative.
+Liviu
+
+From Gregor.Gorjanc at bfro.uni-lj.si  Thu Jul  9 09:31:50 2009
+From: Gregor.Gorjanc at bfro.uni-lj.si (Gorjanc Gregor)
+Date: Thu, 09 Jul 2009 11:31:50 +0200
+Subject: Re: JGR crashes when loading a package
+In-Reply-To: <68b1e2610907090212g7ab9a916y5d800117715caca3@mail.gmail.com>
+References: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F84@REGULUS.bfro.uni-lj.si> <68b1e2610907090212g7ab9a916y5d800117715caca3@mail.gmail.com>
+Message-ID: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F88@REGULUS.bfro.uni-lj.si>
+
+> Perhaps an instance that is not clear, and might help: did you load
+> the package using JGR's menus, or via the command-line with a
+> require(pedigreemm)? If you tried only one, also try the alternative.
+
+The same effect, with both approaches - command line using library(lme4) or
+via the JGR menu.
+
+Regards, gg
+
+From landronimirc at gmail.com  Thu Jul  9 14:29:10 2009
+From: landronimirc at gmail.com (Liviu Andronic)
+Date: Thu, 09 Jul 2009 16:29:10 +0200
+Subject: Re: JGR crashes when loading a package
+In-Reply-To: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F88@REGULUS.bfro.uni-lj.si>
+References: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F84@REGULUS.bfro.uni-lj.si> <68b1e2610907090212g7ab9a916y5d800117715caca3@mail.gmail.com> <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F88@REGULUS.bfro.uni-lj.si>
+Message-ID: <68b1e2610907090729g4714f8bg670cad5fb1aab71e@mail.gmail.com>
+
+On Thu, Jul 9, 2009 at 11:31 AM, Gorjanc
+Gregor<Gregor.Gorjanc at bfro.uni-lj.si> wrote:
+> The same effect, with both approaches - command line using library(lme4) or
+> via the JGR menu.
+>
+A different idea: let R load it at start-up, via your Rprofile.site in
+R's /etc. If the file is missing, create it and add a line similar to
+"library(lme4)".
+Liviu
+
+
+
+-- 
+Do you know how to read?
+http://www.alienetworks.com/srtest.cfm
+Do you know how to write?
+http://garbl.home.comcast.net/~garbl/stylemanual/e.htm#e-mail
+
+From Gregor.Gorjanc at bfro.uni-lj.si  Thu Jul  9 18:24:02 2009
+From: Gregor.Gorjanc at bfro.uni-lj.si (Gorjanc Gregor)
+Date: Thu, 09 Jul 2009 20:24:02 +0200
+Subject: Re: JGR crashes when loading a package
+In-Reply-To: <68b1e2610907090729g4714f8bg670cad5fb1aab71e@mail.gmail.com>
+References: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F84@REGULUS.bfro.uni-lj.si> <68b1e2610907090212g7ab9a916y5d800117715caca3@mail.gmail.com> <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F88@REGULUS.bfro.uni-lj.si> <68b1e2610907090729g4714f8bg670cad5fb1aab71e@mail.gmail.com>
+Message-ID: <F189E18BBAA8B6479F618B9044CF4E9C9A4BC18F92@REGULUS.bfro.uni-lj.si>
+
+> A different idea: let R load it at start-up, via your Rprofile.site in
+> R's /etc. If the file is missing, create it and add a line similar to
+> "library(lme4)".
+> Liviu
+
+I used ~/.Rprofile file (on Windows XP!) and when I started JGR
+(via JGR.exe) the lme4 was sucessfully loaded before "JGR packages"
+and JGR did not crash! What is the moral of this story? What is the
+problem? The lme4 package or JGR?
+
+gg
+
+From saptarshi.guha at gmail.com  Thu Jul  9 19:52:32 2009
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Thu, 09 Jul 2009 12:52:32 -0700
+Subject: Hbase and rJava
+Message-ID: <1e7471d50907091252w5d47fea0w4237f0a375b3a709@mail.gmail.com>
+
+Hello,
+Has anyone had any experience with Hbase and rJava? I tried the
+following (including the advice previously posted on this list
+regarding classLoaders)
+e.g
+
+## Code begins
+library(rJava)
+if(Sys.getenv("HBASE_HOME")=="") stop("Missing HBASE_HOME environment variable")
+if(Sys.getenv("HBASE_CONF_DIR")=="") stop("Missing HBASE_CONF_DIR
+environment variable")
+
+cp <- c(list.files(paste(Sys.getenv("HBASE_HOME"),"/lib",sep=""),pattern="jar$",full=T),
+        list.files(Sys.getenv("HBASE_HOME"),pattern="jar$",full=T),
+        Sys.getenv("HBASE_CONF_DIR")
+        )
+.jinit()
+.jaddClassPath(cp)
+ cfg <- .jnew("org/apache/hadoop/hbase/HBaseConfiguration")
+.jcall(cfg,"V","setClassLoader",.jcast(.jclassLoader(),"java/lang/ClassLoader"))
+ .jcall("org/apache/hadoop/hbase/client/HBaseAdmin","V","checkHBaseAvailable",cfg)
+ .jcheck()
+Exception in thread "main" java.lang.RuntimeException: Socket Factory
+class not found: java.lang.ClassNotFoundException:
+org.apache.hadoop.net.StandardSocketFactory
+	at org.apache.hadoop.net.NetUtils.getSocketFactoryFromProperty(NetUtils.java:111)
+	at org.apache.hadoop.net.NetUtils.getDefaultSocketFactory(NetUtils.java:91)
+
+## Code ends
+Yet,
+.jnew("org/apache/hadoop/net/StandardSocketFactory") works returns a
+java object.
+So what could be the problem here?
+
+Any help would be appreciated.
+Regards
+Saptarshi
+
+From okhmatovskaia at gmail.com  Mon Jul 13 17:50:36 2009
+From: okhmatovskaia at gmail.com (Anya Okhmatovskaia)
+Date: Mon, 13 Jul 2009 13:50:36 -0400
+Subject: small differences in results between Rserve and local R
+Message-ID: <86a432770907131050o2f9c2f09pe2a5c395854142b4@mail.gmail.com>
+
+Hi,
+
+To test some of my code I am comparing the results of the calculations done
+using Rserve with what plain R returns from the same function calls on the
+same data. I am observing minor differences in around 8-10th digit. Is this
+normal behavior? Where might these errors come from and is there a way to
+eliminate them?
+The R versions are the same on my machine and on the server running Rserve.
+
+Example:
+reng.parseAndEval("hw <- HoltWinters(data, alpha=0.5, beta=0.05,
+gamma=0.05)");
+double beta = reng.parseAndEval("hw$beta").asDouble();
+// beta equals to 0.05000000074505806
+
+Anya
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Mon Jul 13 21:38:02 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 13 Jul 2009 23:38:02 +0200
+Subject: Re: small differences in results between Rserve and local R
+In-Reply-To: <86a432770907131050o2f9c2f09pe2a5c395854142b4@mail.gmail.com>
+References: <86a432770907131050o2f9c2f09pe2a5c395854142b4@mail.gmail.com>
+Message-ID: <F509B652-A2B1-4A22-B853-FEEADE53D9BF@r-project.org>
+
+
+On Jul 13, 2009, at 7:50 PM, Anya Okhmatovskaia wrote:
+
+> Hi,
+>
+> To test some of my code I am comparing the results of the  
+> calculations done using Rserve with what plain R returns from the  
+> same function calls on the same data. I am observing minor  
+> differences in around 8-10th digit. Is this normal behavior?
+
+Yes, please read R FAQ 7.31 (0.05 is not exactly representable and for  
+most machines .Machine$double.eps ^ 0.5 ~ 1.5e-8).
+
+Cheers,
+Simon
+
+
+> Where might these errors come from and is there a way to eliminate  
+> them?
+> The R versions are the same on my machine and on the server running  
+> Rserve.
+>
+> Example:
+> reng.parseAndEval("hw <- HoltWinters(data, alpha=0.5, beta=0.05,  
+> gamma=0.05)");
+> double beta = reng.parseAndEval("hw$beta").asDouble();
+> // beta equals to 0.05000000074505806
+>
+> Anya
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Wed Jul 15 08:50:29 2009
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Wed, 15 Jul 2009 01:50:29 -0700
+Subject: Rserve Jri client - bug in RList construction?
+Message-ID: <1e7471d50907150150t5bb58e74la74edd63a0641139@mail.gmail.com>
+
+Hello,
+
+In the latest Rserve client, i created an RList using the  RList(size,
+true) constructor.
+I then proceeded to add elements, i.e
+for(i in 1:n) rlistobj.add(Obj)
+
+and then seperatley added names
+
+for(i in 1:n) rlistObj.setKeyAt(i,name(i))
+
+
+However, the first n are valid, the the names vector is double the
+size of the list.The extra being null.
+This is because in RList.java
+	public void setKeyAt(int i, String value) {
+		if (i < 0) return;
+		if (names==null)
+			names = new Vector();
+		if (names.size() < size()) names.setSize(size());
+		if (i < size()) names.add(i, value);
+	}
+
+names.add(i,value) /inserts/ at position i, but does not replace it.
+
+I changed the 'add' to 'set' and all works now.
+
+Hope this helps
+Regards
+Saptarshi
+
+From bernd_bischl at gmx.net  Wed Jul 15 15:44:55 2009
+From: bernd_bischl at gmx.net (Bernd Bischl)
+Date: Wed, 15 Jul 2009 17:44:55 +0200
+Subject: REngine bug in RLogical NAs
+Message-ID: <4A5DF977.1030400@gmx.net>
+
+Hi Simon,
+
+could you please check whether theres a bug with the NA encoding in 
+REngine's RLogical.
+I am using R 2.9.1 with a recent rJava / JRI and a current svn version 
+of REngine / JRIEngine.
+
+Minimal example:
+
+REngine re = new JRIEngine();
+REXPLogical rexp = (REXPLogical) re.parseAndEval("c(TRUE, FALSE, NA, 
+TRUE, NA)");
+
+byte[] xs = rexp.asBytes();
+for (int i=0; i<xs.length; i++) System.out.println(xs[i]);
+
+/* returns
+1
+0
+2
+1
+2
+I think the internal coding for NA is supposed to be -128 (judging from 
+the src) not 2
+*/
+
+boolean[] ys = rexp.isNA();
+for (int i=0; i<ys.length; i++) System.out.println(ys[i]);
+
+/* returns wrongly
+false
+false
+false
+false
+false
+*/
+
+System.out.println(REXPLogical.isNA(xs[2]));
+// also wrong: false
+
+Regards,
+
+Bernd
+
+From prseye at gmail.com  Thu Jul 16 03:18:08 2009
+From: prseye at gmail.com (Paul Sanfilippo)
+Date: Thu, 16 Jul 2009 13:18:08 +1000
+Subject: (no subject)
+Message-ID: <08FFA33F-D1A0-4C7A-B039-ED120D622E06@gmail.com>
+
+Hi,
+
+This is probably a very simple thing, but is there a way to set text  
+to wrap in the command line of JGR. It's a little annoying scrolling  
+across for long strings.
+
+Thanks a lot,
+
+Paul
+
+From landronimirc at gmail.com  Thu Jul 16 08:06:13 2009
+From: landronimirc at gmail.com (Liviu Andronic)
+Date: Thu, 16 Jul 2009 10:06:13 +0200
+Subject: Re: (no subject)
+In-Reply-To: <08FFA33F-D1A0-4C7A-B039-ED120D622E06@gmail.com>
+References: <08FFA33F-D1A0-4C7A-B039-ED120D622E06@gmail.com>
+Message-ID: <68b1e2610907160106m5eb69043t3512162bdebe2bf@mail.gmail.com>
+
+Hello,
+
+On Thu, Jul 16, 2009 at 5:18 AM, Paul Sanfilippo<prseye at gmail.com> wrote:
+> This is probably a very simple thing, but is there a way to set text
+> to wrap in the command line of JGR. It's a little annoying scrolling
+> across for long strings.
+>
+You are perhaps looking for <ctrl>+enter. It will allow you to
+manually break lines, and to write and execute multiple lines in one
+go (after everything is set, hit <enter>).
+Liviu
+
+From simon.urbanek at r-project.org  Thu Jul 16 14:53:49 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 16 Jul 2009 10:53:49 -0400
+Subject: Re: REngine bug in RLogical NAs
+In-Reply-To: <4A5DF977.1030400@gmx.net>
+References: <4A5DF977.1030400@gmx.net>
+Message-ID: <3198CFC9-8E53-496A-B259-43A002FEF424@r-project.org>
+
+
+On Jul 15, 2009, at 11:44 , Bernd Bischl wrote:
+
+> Hi Simon,
+>
+> could you please check whether theres a bug with the NA encoding in
+> REngine's RLogical.
+
+Thanks, fixed.
+
+> I am using R 2.9.1 with a recent rJava / JRI and a current svn version
+> of REngine / JRIEngine.
+>
+> Minimal example:
+>
+> REngine re = new JRIEngine();
+> REXPLogical rexp = (REXPLogical) re.parseAndEval("c(TRUE, FALSE, NA,
+> TRUE, NA)");
+>
+> byte[] xs = rexp.asBytes();
+> for (int i=0; i<xs.length; i++) System.out.println(xs[i]);
+>
+> /* returns
+> 1
+> 0
+> 2
+> 1
+> 2
+> I think the internal coding for NA is supposed to be -128 (judging  
+> from
+> the src) not 2
+> */
+>
+
+It's a bit hairy - R uses 0/1/2 but I was trying to be smart in  
+REXPLogical and interpret non-zero values as TRUE except for the  
+special NA value. We could mimic  R more closely by using 2 for  
+REXPLogical.NA - it may be a bit safer, but the more general  
+interpretation of values by REXPLogical makes is more dangerous. One  
+option is still to set REXPLogical.NA = 2 so always use the constants  
+instead of the raw values asa this may change.
+
+Cheers,
+Simon
+
+
+> boolean[] ys = rexp.isNA();
+> for (int i=0; i<ys.length; i++) System.out.println(ys[i]);
+>
+> /* returns wrongly
+> false
+> false
+> false
+> false
+> false
+> */
+>
+> System.out.println(REXPLogical.isNA(xs[2]));
+> // also wrong: false
+>
+> Regards,
+>
+> Bernd
+>
+>
+>
+>
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+From simon.urbanek at r-project.org  Thu Jul 16 18:17:47 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 16 Jul 2009 14:17:47 -0400
+Subject: Re: Rserve Jri client - bug in RList construction?
+In-Reply-To: <1e7471d50907150150t5bb58e74la74edd63a0641139@mail.gmail.com>
+References: <1e7471d50907150150t5bb58e74la74edd63a0641139@mail.gmail.com>
+Message-ID: <C9A032C0-E1DE-45F7-993E-73C1903B199F@r-project.org>
+
+Thanks, fixed.
+Simon
+
+On Jul 15, 2009, at 4:50 , Saptarshi Guha wrote:
+
+> Hello,
+>
+> In the latest Rserve client, i created an RList using the  RList(size,
+> true) constructor.
+> I then proceeded to add elements, i.e
+> for(i in 1:n) rlistobj.add(Obj)
+>
+> and then seperatley added names
+>
+> for(i in 1:n) rlistObj.setKeyAt(i,name(i))
+>
+>
+> However, the first n are valid, the the names vector is double the
+> size of the list.The extra being null.
+> This is because in RList.java
+> 	public void setKeyAt(int i, String value) {
+> 		if (i < 0) return;
+> 		if (names==null)
+> 			names = new Vector();
+> 		if (names.size() < size()) names.setSize(size());
+> 		if (i < size()) names.add(i, value);
+> 	}
+>
+> names.add(i,value) /inserts/ at position i, but does not replace it.
+>
+> I changed the 'add' to 'set' and all works now.
+>
+> Hope this helps
+> Regards
+> Saptarshi
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+From bernd_bischl at gmx.net  Fri Jul 17 10:25:43 2009
+From: bernd_bischl at gmx.net (Bernd Bischl)
+Date: Fri, 17 Jul 2009 12:25:43 +0200
+Subject: Re: REngine bug in RLogical NAs
+In-Reply-To: <3198CFC9-8E53-496A-B259-43A002FEF424@r-project.org>
+References: <4A5DF977.1030400@gmx.net> <3198CFC9-8E53-496A-B259-43A002FEF424@r-project.org>
+Message-ID: <4A6051A7.3010807@gmx.net>
+
+Simon Urbanek wrote:
+>
+> On Jul 15, 2009, at 11:44 , Bernd Bischl wrote:
+>
+>> Hi Simon,
+>>
+>> could you please check whether theres a bug with the NA encoding in
+>> REngine's RLogical.
+>
+> Thanks, fixed.
+Thank you, tests go thru.
+>> [Snip]
+>
+> It's a bit hairy - R uses 0/1/2 but I was trying to be smart in 
+> REXPLogical and interpret non-zero values as TRUE except for the 
+> special NA value. We could mimic  R more closely by using 2 for 
+> REXPLogical.NA - it may be a bit safer, but the more general 
+> interpretation of values by REXPLogical makes is more dangerous. One 
+> option is still to set REXPLogical.NA = 2 so always use the constants 
+> instead of the raw values asa this may change.
+>
+At the moment I don't really care as long as it works :)
+
+I have too other issues, but I put them into different mail.
+
+Bernd
+
+From romain.francois at dbmail.com  Mon Jul 20 12:51:06 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Mon, 20 Jul 2009 14:51:06 +0200
+Subject: (JRIEngine) nested calls created on the java side
+Message-ID: <4A64683A.7090608@dbmail.com>
+
+Hello,
+
+I am trying to create calls from the java side and evaluate them, to do 
+something like this:
+
+R>eval( call( "sum", call( "rnorm" , 10L ) ) )
+[1] 1.797284
+
+... but create the call from java.
+
+import org.rosuda.REngine.* ;
+
+rnorm_call = new REXPLanguage( new RList( new REXP[]{
+     new REXPSymbol( "rnorm" ),
+     new REXPInteger( 10 )
+} ) );
+
+sum_call = new REXPLanguage( new RList( new REXP[]{
+     new REXPSymbol( "sum" ),
+     rnorm_call
+} ) );
+
+If I assign the call to some R object and then evaluate it, it works fine:
+
+BeanShell> r.assign( "sum_call" , sum_call, r.globalEnv ) ;
+BeanShell> r.parseAndEval( "eval( sum_call )", r.globalEnv, true ) ;
+org.rosuda.REngine.REXPDouble@1a70b8[1]
+
+... but I would prefer not to create a variable, and directly eval the 
+expression, like this :
+
+BeanShell> r.eval( sum_call, r.globalEnv, true ) ;
+org.rosuda.REngine.REXPMismatchException: attempt to access 
+org.rosuda.REngine.REXPReference as reference (expression)
+     at org.rosuda.REngine.JRI.JRIEngine.eval(JRIEngine.java:145)
+     at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+     at 
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+[...]
+
+fair enough I suppose because the expression does not exist in the R 
+side, so I try to create the reference:
+
+BeanShell> r.eval( r.createReference(sum_call), r.globalEnv, true )
+org.rosuda.REngine.REXPDouble@c28cb7[1]
+
+This now works. The first question is this, could/should eval try to 
+create the reference itself, in case where the "what" is a REXPLanguage 
+? I can submit a patch if this makes sense.
+
+The next question is this, if I change the example so that a reference 
+for the "rnorm" call is first created and then used in the "sum" call:
+
+rnorm_call = new REXPLanguage( new RList( new REXP[]{
+     new REXPSymbol( "rnorm" ),
+     new REXPInteger( 10 )
+} ) );
+
+rnorm_call_ref = r.createReference( rnorm_call ) ;
+
+sum_call = new REXPLanguage( new RList( new REXP[]{
+     new REXPSymbol( "sum" ),
+     rnorm_call_ref
+} ) );
+
+r.assign( "sum_call", sum_call, r.globalEnv )
+
+I get this in the R side:
+
+R> sum_call
+sum(list(rnorm, 10L))
+
+so it seems that the rnorm call becomes a simple list instead of a 
+language object. I've not been able to track down where this happens yet.
+
+The same seems to happen if the "rnorm" call is made by R:
+
+sum_call = new REXPLanguage( new RList( new REXP[]{
+     new REXPSymbol( "sum" ),
+     r.parseAndEval( "call( 'rnorm', 10L)", r.globalEnv, false )
+} ) );
+r.assign( "sum_call", sum_call, r.globalEnv )
+
+R> sum_call
+sum(list(rnorm, 10L))
+
+If I push the "sum_call" to a reference, resolve the reference, and 
+extract the second element, I get a REXPGenericVector where I would 
+expect a REXPLanguage:
+
+BeanShell> r.createReference(sum_call).resolve().asList().at(1)
+org.rosuda.REngine.REXPGenericVector@161daed[2]
+
+BeanShell> sum_call.asList().at(1).resolve()
+org.rosuda.REngine.REXPLanguage@148b3b8[2]
+
+Romain
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/rw0p : useR! slides
+|- http://tr.im/rw0b : RGG#154: demo of atomic functions
+`- http://tr.im/qJ8V : RGG#153: stars network
+
+From romain.francois at dbmail.com  Mon Jul 20 13:22:54 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Mon, 20 Jul 2009 15:22:54 +0200
+Subject: Re: (JRIEngine) nested calls created on the java side
+In-Reply-To: <4A64683A.7090608@dbmail.com>
+References: <4A64683A.7090608@dbmail.com>
+Message-ID: <4A646FAE.4000403@dbmail.com>
+
+
+Further research ...
+
+I think the attached patch fixes the second problem, in short the method 
+createReferencePointer now first checks if the value it is given already 
+is a reference and return the appropriate pointer in that case. This 
+seems to fix it.
+
+BeanShell> sum_call = new REXPLanguage( new RList( new REXP[]{
+	new REXPSymbol( "sum" ),
+	r.parseAndEval( "call( 'rnorm', 10L)", r.globalEnv, false )
+} ) );
+r.eval( r.createReference(sum_call), r.globalEnv, true )
+
+org.rosuda.REngine.REXPDouble@7d798[1]
+
+
+Whether the createReference is redundant is still an open question
+
+Romain
+
+On 07/20/2009 02:51 PM, Romain Francois wrote:
+> Hello,
+>
+> I am trying to create calls from the java side and evaluate them, to do
+> something like this:
+>
+> R>eval( call( "sum", call( "rnorm" , 10L ) ) )
+> [1] 1.797284
+>
+> ... but create the call from java.
+>
+> import org.rosuda.REngine.* ;
+>
+> rnorm_call = new REXPLanguage( new RList( new REXP[]{
+>       new REXPSymbol( "rnorm" ),
+>       new REXPInteger( 10 )
+> } ) );
+>
+> sum_call = new REXPLanguage( new RList( new REXP[]{
+>       new REXPSymbol( "sum" ),
+>       rnorm_call
+> } ) );
+>
+> If I assign the call to some R object and then evaluate it, it works fine:
+>
+> BeanShell>  r.assign( "sum_call" , sum_call, r.globalEnv ) ;
+> BeanShell>  r.parseAndEval( "eval( sum_call )", r.globalEnv, true ) ;
+> org.rosuda.REngine.REXPDouble@1a70b8[1]
+>
+> ... but I would prefer not to create a variable, and directly eval the
+> expression, like this :
+>
+> BeanShell>  r.eval( sum_call, r.globalEnv, true ) ;
+> org.rosuda.REngine.REXPMismatchException: attempt to access
+> org.rosuda.REngine.REXPReference as reference (expression)
+>       at org.rosuda.REngine.JRI.JRIEngine.eval(JRIEngine.java:145)
+>       at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+>       at
+> sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+> [...]
+>
+> fair enough I suppose because the expression does not exist in the R
+> side, so I try to create the reference:
+>
+> BeanShell>  r.eval( r.createReference(sum_call), r.globalEnv, true )
+> org.rosuda.REngine.REXPDouble@c28cb7[1]
+>
+> This now works. The first question is this, could/should eval try to
+> create the reference itself, in case where the "what" is a REXPLanguage
+> ? I can submit a patch if this makes sense.
+>
+> The next question is this, if I change the example so that a reference
+> for the "rnorm" call is first created and then used in the "sum" call:
+>
+> rnorm_call = new REXPLanguage( new RList( new REXP[]{
+>       new REXPSymbol( "rnorm" ),
+>       new REXPInteger( 10 )
+> } ) );
+>
+> rnorm_call_ref = r.createReference( rnorm_call ) ;
+>
+> sum_call = new REXPLanguage( new RList( new REXP[]{
+>       new REXPSymbol( "sum" ),
+>       rnorm_call_ref
+> } ) );
+>
+> r.assign( "sum_call", sum_call, r.globalEnv )
+>
+> I get this in the R side:
+>
+> R>  sum_call
+> sum(list(rnorm, 10L))
+>
+> so it seems that the rnorm call becomes a simple list instead of a
+> language object. I've not been able to track down where this happens yet.
+>
+> The same seems to happen if the "rnorm" call is made by R:
+>
+> sum_call = new REXPLanguage( new RList( new REXP[]{
+>       new REXPSymbol( "sum" ),
+>       r.parseAndEval( "call( 'rnorm', 10L)", r.globalEnv, false )
+> } ) );
+> r.assign( "sum_call", sum_call, r.globalEnv )
+>
+> R>  sum_call
+> sum(list(rnorm, 10L))
+>
+> If I push the "sum_call" to a reference, resolve the reference, and
+> extract the second element, I get a REXPGenericVector where I would
+> expect a REXPLanguage:
+>
+> BeanShell>  r.createReference(sum_call).resolve().asList().at(1)
+> org.rosuda.REngine.REXPGenericVector@161daed[2]
+>
+> BeanShell>  sum_call.asList().at(1).resolve()
+> org.rosuda.REngine.REXPLanguage@148b3b8[2]
+>
+> Romain
+>
+
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/rw0p : useR! slides
+|- http://tr.im/rw0b : RGG#154: demo of atomic functions
+`- http://tr.im/qJ8V : RGG#153: stars network
+
+-------------- next part --------------
+Index: JRIEngine.java
+===================================================================
+--- JRIEngine.java	(revision 3142)
++++ JRIEngine.java	(working copy)
+@@ -345,6 +345,10 @@
+ 	}
+ 	
+ 	long createReferencePointer(REXP value) throws REngineException, REXPMismatchException {
++		/* first check if the value already is a reference and return the pointer in that case */
++		if( value.isReference() ){
++			return ((Long)((REXPReference)value).getHandle()).longValue() ;
++		}
+ 		boolean obtainedLock = rniMutex.safeLock();
+ 		int upp = 0;
+ 		try {
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Jul 21 02:41:26 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 20 Jul 2009 22:41:26 -0400
+Subject: Re: (JRIEngine) nested calls created on the java side
+In-Reply-To: <4A646FAE.4000403@dbmail.com>
+References: <4A64683A.7090608@dbmail.com> <4A646FAE.4000403@dbmail.com>
+Message-ID: <E7C68D37-58FA-42D6-B4AF-80F800F8469F@r-project.org>
+
+
+On Jul 20, 2009, at 9:22 AM, Romain Francois wrote:
+
+>
+> Further research ...
+>
+> I think the attached patch fixes the second problem, in short the  
+> method createReferencePointer now first checks if the value it is  
+> given already is a reference and return the appropriate pointer in  
+> that case. This seems to fix it.
+>
+> BeanShell> sum_call = new REXPLanguage( new RList( new REXP[]{
+> 	new REXPSymbol( "sum" ),
+> 	r.parseAndEval( "call( 'rnorm', 10L)", r.globalEnv, false )
+> } ) );
+> r.eval( r.createReference(sum_call), r.globalEnv, true )
+>
+> org.rosuda.REngine.REXPDouble@7d798[1]
+>
+>
+> Whether the createReference is redundant is still an open question
+>
+
+Thanks, I have incorporated a variant of your patch and allowed non- 
+references in eval and all your examples work for me. Can you check  
+it, please? I don't get the list(..) behavior in Java - it works  
+correctly for me...
+
+Thanks,
+Simon
+
+
+> Romain
+>
+> On 07/20/2009 02:51 PM, Romain Francois wrote:
+>> Hello,
+>>
+>> I am trying to create calls from the java side and evaluate them,  
+>> to do
+>> something like this:
+>>
+>> R>eval( call( "sum", call( "rnorm" , 10L ) ) )
+>> [1] 1.797284
+>>
+>> ... but create the call from java.
+>>
+>> import org.rosuda.REngine.* ;
+>>
+>> rnorm_call = new REXPLanguage( new RList( new REXP[]{
+>>      new REXPSymbol( "rnorm" ),
+>>      new REXPInteger( 10 )
+>> } ) );
+>>
+>> sum_call = new REXPLanguage( new RList( new REXP[]{
+>>      new REXPSymbol( "sum" ),
+>>      rnorm_call
+>> } ) );
+>>
+>> If I assign the call to some R object and then evaluate it, it  
+>> works fine:
+>>
+>> BeanShell>  r.assign( "sum_call" , sum_call, r.globalEnv ) ;
+>> BeanShell>  r.parseAndEval( "eval( sum_call )", r.globalEnv, true ) ;
+>> org.rosuda.REngine.REXPDouble@1a70b8[1]
+>>
+>> ... but I would prefer not to create a variable, and directly eval  
+>> the
+>> expression, like this :
+>>
+>> BeanShell>  r.eval( sum_call, r.globalEnv, true ) ;
+>> org.rosuda.REngine.REXPMismatchException: attempt to access
+>> org.rosuda.REngine.REXPReference as reference (expression)
+>>      at org.rosuda.REngine.JRI.JRIEngine.eval(JRIEngine.java:145)
+>>      at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+>>      at
+>> sun.reflect.NativeMethodAccessorImpl.invoke 
+>> (NativeMethodAccessorImpl.java:39)
+>> [...]
+>>
+>> fair enough I suppose because the expression does not exist in the R
+>> side, so I try to create the reference:
+>>
+>> BeanShell>  r.eval( r.createReference(sum_call), r.globalEnv, true )
+>> org.rosuda.REngine.REXPDouble@c28cb7[1]
+>>
+>> This now works. The first question is this, could/should eval try to
+>> create the reference itself, in case where the "what" is a  
+>> REXPLanguage
+>> ? I can submit a patch if this makes sense.
+>>
+>> The next question is this, if I change the example so that a  
+>> reference
+>> for the "rnorm" call is first created and then used in the "sum"  
+>> call:
+>>
+>> rnorm_call = new REXPLanguage( new RList( new REXP[]{
+>>      new REXPSymbol( "rnorm" ),
+>>      new REXPInteger( 10 )
+>> } ) );
+>>
+>> rnorm_call_ref = r.createReference( rnorm_call ) ;
+>>
+>> sum_call = new REXPLanguage( new RList( new REXP[]{
+>>      new REXPSymbol( "sum" ),
+>>      rnorm_call_ref
+>> } ) );
+>>
+>> r.assign( "sum_call", sum_call, r.globalEnv )
+>>
+>> I get this in the R side:
+>>
+>> R>  sum_call
+>> sum(list(rnorm, 10L))
+>>
+>> so it seems that the rnorm call becomes a simple list instead of a
+>> language object. I've not been able to track down where this  
+>> happens yet.
+>>
+>> The same seems to happen if the "rnorm" call is made by R:
+>>
+>> sum_call = new REXPLanguage( new RList( new REXP[]{
+>>      new REXPSymbol( "sum" ),
+>>      r.parseAndEval( "call( 'rnorm', 10L)", r.globalEnv, false )
+>> } ) );
+>> r.assign( "sum_call", sum_call, r.globalEnv )
+>>
+>> R>  sum_call
+>> sum(list(rnorm, 10L))
+>>
+>> If I push the "sum_call" to a reference, resolve the reference, and
+>> extract the second element, I get a REXPGenericVector where I would
+>> expect a REXPLanguage:
+>>
+>> BeanShell>  r.createReference(sum_call).resolve().asList().at(1)
+>> org.rosuda.REngine.REXPGenericVector@161daed[2]
+>>
+>> BeanShell>  sum_call.asList().at(1).resolve()
+>> org.rosuda.REngine.REXPLanguage@148b3b8[2]
+>>
+>> Romain
+>>
+>
+>
+> -- 
+> Romain Francois
+> Independent R Consultant
+> +33(0) 6 28 91 30 30
+> http://romainfrancois.blog.free.fr
+> |- http://tr.im/rw0p : useR! slides
+> |- http://tr.im/rw0b : RGG#154: demo of atomic functions
+> `- http://tr.im/qJ8V : RGG#153: stars network
+>
+> <ref.diff>_______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From romain.francois at dbmail.com  Tue Jul 21 08:51:13 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Tue, 21 Jul 2009 10:51:13 +0200
+Subject: Re: (JRIEngine) nested calls created on the java side
+In-Reply-To: <E7C68D37-58FA-42D6-B4AF-80F800F8469F@r-project.org>
+References: <4A64683A.7090608@dbmail.com> <4A646FAE.4000403@dbmail.com> <E7C68D37-58FA-42D6-B4AF-80F800F8469F@r-project.org>
+Message-ID: <4A658181.4040900@dbmail.com>
+
+On 07/21/2009 04:41 AM, Simon Urbanek wrote:
+>
+>
+> On Jul 20, 2009, at 9:22 AM, Romain Francois wrote:
+>
+>>
+>> Further research ...
+>>
+>> I think the attached patch fixes the second problem, in short the
+>> method createReferencePointer now first checks if the value it is
+>> given already is a reference and return the appropriate pointer in
+>> that case. This seems to fix it.
+>>
+>> BeanShell> sum_call = new REXPLanguage( new RList( new REXP[]{
+>> new REXPSymbol( "sum" ),
+>> r.parseAndEval( "call( 'rnorm', 10L)", r.globalEnv, false )
+>> } ) );
+>> r.eval( r.createReference(sum_call), r.globalEnv, true )
+>>
+>> org.rosuda.REngine.REXPDouble@7d798[1]
+>>
+>>
+>> Whether the createReference is redundant is still an open question
+>>
+>
+> Thanks, I have incorporated a variant of your patch and allowed
+> non-references in eval and all your examples work for me. Can you check
+> it, please? I don't get the list(..) behavior in Java - it works
+> correctly for me...
+
+It works fine for me, thanks.
+
+This puts me in a good position to implement "call" and perhaps "docall" 
+methods so that we can do things like:
+
+r.call( "rnorm", 100, 10 )
+
+or
+
+r.call( new REXPSymbol("rnorm"), new Object[]{ 100, 10 } )
+
+if we stick to non java 1.5 syntax ...
+
+
+"docall" would make sense when we are calling a function, __but__ at the 
+moment we can only get references to functions:
+
+BeanShell> r.parseAndEval( "rnorm", r.globalEnv, false )
+org.rosuda.REngine.REXPReference@dc0435{eng=org.rosuda.REngine.JRI.JRIEngine@98350a,h=171585844}
+BeanShell> r.parseAndEval( "rnorm", r.globalEnv, true ) == null
+true
+
+I have to check what makes sense in a "REXPFunction" and will make a 
+proposal in another thread.
+
+
+for the call method, I think these variants are appropriate;
+
+- for unnamed arguments
+
+REXP call( REXPSymbol fn, Object[] arguments )
+
+REXP call( String fn, Object[] arguments ) as a shortcut to :
+	call( new REXPSymbol(fn), arguments )
+
+- for (potentially) named arguments:
+
+REXP call( REXPSymbol fn, REXPList arguments )
+REXP call( String fn, REXPList arguments )
+
+or maybe a new set of constructors to the REXPLanguage class is what is 
+needed here.
+
+Anyway, as Simon pointed out in another thread, we would need a method 
+that would wrap an Object into a REXP so that we can call :
+
+call( "rnorm", 10 )
+instead of
+call( "rnorm", new REXPInteger(10))
+
+I think it would make sense to have this a method of the REngine class 
+to deal with most cases (REXP, int, int[], ...) and overload it in 
+JRIEngine so that we can push references to java objects using the 
+createRJavaRef method of the Rengine..
+
+
+> Thanks,
+> Simon
+>
+>
+>> Romain
+>>
+>> On 07/20/2009 02:51 PM, Romain Francois wrote:
+>>> Hello,
+>>>
+>>> I am trying to create calls from the java side and evaluate them, to do
+>>> something like this:
+>>>
+>>> R>eval( call( "sum", call( "rnorm" , 10L ) ) )
+>>> [1] 1.797284
+>>>
+>>> ... but create the call from java.
+>>>
+>>> import org.rosuda.REngine.* ;
+>>>
+>>> rnorm_call = new REXPLanguage( new RList( new REXP[]{
+>>> new REXPSymbol( "rnorm" ),
+>>> new REXPInteger( 10 )
+>>> } ) );
+>>>
+>>> sum_call = new REXPLanguage( new RList( new REXP[]{
+>>> new REXPSymbol( "sum" ),
+>>> rnorm_call
+>>> } ) );
+>>>
+>>> If I assign the call to some R object and then evaluate it, it works
+>>> fine:
+>>>
+>>> BeanShell> r.assign( "sum_call" , sum_call, r.globalEnv ) ;
+>>> BeanShell> r.parseAndEval( "eval( sum_call )", r.globalEnv, true ) ;
+>>> org.rosuda.REngine.REXPDouble@1a70b8[1]
+>>>
+>>> ... but I would prefer not to create a variable, and directly eval the
+>>> expression, like this :
+>>>
+>>> BeanShell> r.eval( sum_call, r.globalEnv, true ) ;
+>>> org.rosuda.REngine.REXPMismatchException: attempt to access
+>>> org.rosuda.REngine.REXPReference as reference (expression)
+>>> at org.rosuda.REngine.JRI.JRIEngine.eval(JRIEngine.java:145)
+>>> at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+>>> at
+>>> sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+>>>
+>>> [...]
+>>>
+>>> fair enough I suppose because the expression does not exist in the R
+>>> side, so I try to create the reference:
+>>>
+>>> BeanShell> r.eval( r.createReference(sum_call), r.globalEnv, true )
+>>> org.rosuda.REngine.REXPDouble@c28cb7[1]
+>>>
+>>> This now works. The first question is this, could/should eval try to
+>>> create the reference itself, in case where the "what" is a REXPLanguage
+>>> ? I can submit a patch if this makes sense.
+>>>
+>>> The next question is this, if I change the example so that a reference
+>>> for the "rnorm" call is first created and then used in the "sum" call:
+>>>
+>>> rnorm_call = new REXPLanguage( new RList( new REXP[]{
+>>> new REXPSymbol( "rnorm" ),
+>>> new REXPInteger( 10 )
+>>> } ) );
+>>>
+>>> rnorm_call_ref = r.createReference( rnorm_call ) ;
+>>>
+>>> sum_call = new REXPLanguage( new RList( new REXP[]{
+>>> new REXPSymbol( "sum" ),
+>>> rnorm_call_ref
+>>> } ) );
+>>>
+>>> r.assign( "sum_call", sum_call, r.globalEnv )
+>>>
+>>> I get this in the R side:
+>>>
+>>> R> sum_call
+>>> sum(list(rnorm, 10L))
+>>>
+>>> so it seems that the rnorm call becomes a simple list instead of a
+>>> language object. I've not been able to track down where this happens
+>>> yet.
+>>>
+>>> The same seems to happen if the "rnorm" call is made by R:
+>>>
+>>> sum_call = new REXPLanguage( new RList( new REXP[]{
+>>> new REXPSymbol( "sum" ),
+>>> r.parseAndEval( "call( 'rnorm', 10L)", r.globalEnv, false )
+>>> } ) );
+>>> r.assign( "sum_call", sum_call, r.globalEnv )
+>>>
+>>> R> sum_call
+>>> sum(list(rnorm, 10L))
+>>>
+>>> If I push the "sum_call" to a reference, resolve the reference, and
+>>> extract the second element, I get a REXPGenericVector where I would
+>>> expect a REXPLanguage:
+>>>
+>>> BeanShell> r.createReference(sum_call).resolve().asList().at(1)
+>>> org.rosuda.REngine.REXPGenericVector@161daed[2]
+>>>
+>>> BeanShell> sum_call.asList().at(1).resolve()
+>>> org.rosuda.REngine.REXPLanguage@148b3b8[2]
+>>>
+>>> Romain
+
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/rw0p : useR! slides
+|- http://tr.im/rw0b : RGG#154: demo of atomic functions
+`- http://tr.im/qJ8V : RGG#153: stars network
+
+From romain.francois at dbmail.com  Tue Jul 21 10:49:05 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Tue, 21 Jul 2009 12:49:05 +0200
+Subject: Re: (JRIEngine) nested calls created on the java side
+In-Reply-To: <4A658181.4040900@dbmail.com>
+References: <4A64683A.7090608@dbmail.com> <4A646FAE.4000403@dbmail.com> <E7C68D37-58FA-42D6-B4AF-80F800F8469F@r-project.org> <4A658181.4040900@dbmail.com>
+Message-ID: <4A659D21.9050500@dbmail.com>
+
+
+Hi again,
+
+I've put a patch here 
+(http://addictedtor.free.fr/misc/rosuda/wrapping.diff) that implements a 
+wrap method for REngine which takes an Object and gives back a REXP.
+
+If it is already a REXP, it is returned verbatim, otherwise if it is a 
+primitive type (int,long,short,double,String,float) or an array of 
+those, it is converted to the appropriate REXP subclass.
+
+In addition, for the JRIEngine an attempt is made to convert the object 
+to a "jObjRef" object in R
+
+BeanShell> r.wrap( 10 )
+org.rosuda.REngine.REXPInteger@510e39[1]
+BeanShell> r.wrap( 10.0 )
+org.rosuda.REngine.REXPDouble@61373f[1]
+BeanShell> r.wrap( "foobar" )
+org.rosuda.REngine.REXPString@1f44ec7[1]
+
+
+BeanShell> p = new Point( 10, 10 )
+java.awt.Point[x=10,y=10]
+BeanShell> ref = r.wrap( p )
+org.rosuda.REngine.REXPReference@1362a63{eng=org.rosuda.REngine.JRI.JRIEngine@867fc9,h=171890632}
+BeanShell> r.assign( "p", ref, r.globalEnv )
+
+ > p$move( 40L, 30L )
+ > p
+[1] "Java-Object{java.awt.Point[x=40,y=30]}"
+
+BeanShell> p
+java.awt.Point[x=40,y=30]
+
+
+Romain
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/rw0p : useR! slides
+|- http://tr.im/rw0b : RGG#154: demo of atomic functions
+`- http://tr.im/qJ8V : RGG#153: stars network
+
+From bernd_bischl at gmx.net  Tue Jul 21 11:45:12 2009
+From: bernd_bischl at gmx.net (Bernd Bischl)
+Date: Tue, 21 Jul 2009 13:45:12 +0200
+Subject: "Advanced" types for REngine
+Message-ID: <4A65AA48.3090707@gmx.net>
+
+Dear Simon,
+
+1) Is it possible to return S3 or S4 objects with REngine? I have tried 
+a couple of tests but in both cases my VM completely crashes if I try 
+parseAndEval with an expression which would return an S3/S4 object.
+
+2) I think it would be a good idea to handle functions as "first class 
+objects" in REngine, as they are handled as such in R. At the moment one 
+seems to simply get "null" when an expression is evaluated which would 
+return an R function. But apparently you are discussion something along 
+those lines with Romain anyway.
+
+Regards,
+
+Bernd
+
+From romain.francois at dbmail.com  Tue Jul 21 14:15:12 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Tue, 21 Jul 2009 16:15:12 +0200
+Subject: Re: "Advanced" types for REngine
+In-Reply-To: <4A65AA48.3090707@gmx.net>
+References: <4A65AA48.3090707@gmx.net>
+Message-ID: <4A65CD70.9010403@dbmail.com>
+
+On 07/21/2009 01:45 PM, Bernd Bischl wrote:
+> Dear Simon,
+>
+> 1) Is it possible to return S3 or S4 objects with REngine? I have tried
+> a couple of tests but in both cases my VM completely crashes if I try
+> parseAndEval with an expression which would return an S3/S4 object.
+
+Can you send some examples of what does not work. The example you sent 
+privately to me does work on my machine:
+
+BeanShell> res = r.parseAndEval( "rpart(Species~., data=iris)" )
+org.rosuda.REngine.REXPGenericVector@154c054+[12]named
+
+
+> 2) I think it would be a good idea to handle functions as "first class
+> objects" in REngine, as they are handled as such in R.
+
+You can get a REXPReference:
+
+BeanShell> rnorm = r.parseAndEval( "rnorm", r.globalEnv, false )
+org.rosuda.REngine.REXPReference@168e429{eng=org.rosuda.REngine.JRI.JRIEngine@867fc9,h=174731732}
+
+but resolving this reference is not handled and returns null. The 
+switch(xt) does not handle functions (CLOSXP, BUILTINSXP or SPECIALSXP)
+
+This I think needs a java class (something like REXPFunction) that would 
+represent the function, the question is what should it be.
+
+-- body of the function is a list of expressions, so this might be 
+enought: r.parseAndEval( "body( rnorm )" )
+
+-- arguments: formals gives the list of formal arguments, but I think 
+there is something missing to deal with the missing arguments:
+
+ > f <- function(x = 4, y = x + 2, z, ...){y}
+ > formals( f )
+$x
+[1] 4
+
+$y
+x + 2
+
+$z
+
+
+$...
+
+
+BeanShell> r.parseAndEval( "formals( f )" ).asList()
+RList[org.rosuda.REngine.REXPDouble@1a9b1ec[1], 
+org.rosuda.REngine.REXPLanguage@1e01252[3], 
+org.rosuda.REngine.REXPSymbol[], org.rosuda.REngine.REXPSymbol[]]{named,4}
+BeanShell> r.parseAndEval( "formals( f )" ).asList().at(2).asString()
+BeanShell> r.parseAndEval( "formals( f )" 
+).asList().at(2).asString().equals ("" )
+true
+
+maybe the missing symbol should be cached somehow the same way R does it 
+(which is used in the missing R function) or maybe this is enough:
+
+public boolean isMissing() { name.equals(""); }
+
+
+-- environment of the function, this is sometimes used to store data as 
+in here.
+
+ > f <- function( ){ x <- 3; g <- function(){ x + 2 }; g }
+ > ff <- f()
+ > environment( ff )
+<environment: 0xa664a70>
+ > ls.str( environment( ff ) )
+g : function ()
+x :  num 3
+
+
+The question about this really is: do we need additional java classes to 
+represent a java representation of the function or just some simple 
+dummy class like REXPS4 with maybe a few convenience methods to pull 
+things of the function.
+
+
+> At the moment one
+> seems to simply get "null" when an expression is evaluated which would
+> return an R function. But apparently you are discussion something along
+> those lines with Romain anyway.
+>
+> Regards,
+>
+> Bernd
+
+
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/rw0p : useR! slides
+|- http://tr.im/rw0b : RGG#154: demo of atomic functions
+`- http://tr.im/qJ8V : RGG#153: stars network
+
+From bernd_bischl at gmx.net  Tue Jul 21 14:45:51 2009
+From: bernd_bischl at gmx.net (Bernd Bischl)
+Date: Tue, 21 Jul 2009 16:45:51 +0200
+Subject: Re: "Advanced" types for REngine
+In-Reply-To: <4A65CD70.9010403@dbmail.com>
+References: <4A65AA48.3090707@gmx.net> <4A65CD70.9010403@dbmail.com>
+Message-ID: <4A65D49F.3020205@gmx.net>
+
+Romain Francois wrote:
+> On 07/21/2009 01:45 PM, Bernd Bischl wrote:
+>> Dear Simon,
+>>
+>> 1) Is it possible to return S3 or S4 objects with REngine? I have tried
+>> a couple of tests but in both cases my VM completely crashes if I try
+>> parseAndEval with an expression which would return an S3/S4 object.
+>
+> Can you send some examples of what does not work. The example you sent 
+> privately to me does work on my machine:
+>
+> BeanShell> res = r.parseAndEval( "rpart(Species~., data=iris)" )
+Sure, should have. But this _is_ the example which does not work, and  
+I  don't get any meaningful messages besides the access violation of the 
+VM crash.
+
+In R 2.9.1:
+#####################################################
+ > library(rJava)
+ > sessionInfo()
+R version 2.9.1 (2009-06-26)
+i386-pc-mingw32
+
+locale:
+LC_COLLATE=German_Germany.1252;LC_CTYPE=German_Germany.1252;LC_MONETARY=German_Germany.1252;LC_NUMERIC=C;LC_TIME=German_Germany.1252
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base    
+
+other attached packages:
+[1] rJava_0.6-3
+#####################################################
+
+Java (with today's build of JRIEngine and REngine)
+#####################################################
+REngine re = new JRIEngine();
+re.parseAndEval("library(rpart)");
+REXP r = re.parseAndEval("rpart(formula=Species~., data=iris)");
+
+# An unexpected error has been detected by Java Runtime Environment:
+#
+#  EXCEPTION_ACCESS_VIOLATION (0xc0000005) at pc=0x6c72d627, pid=4740, 
+tid=4932
+#
+# Java VM: Java HotSpot(TM) Client VM (11.0-b16 mixed mode, sharing 
+windows-x86)
+# Problematic frame:
+# C  [R.dll+0x2d627]
+#
+# An error report file with more information is saved as:
+# D:\sync\projekte\clr\hs_err_pid4740.log
+#
+# If you would like to submit a bug report, please visit:
+#   http://java.sun.com/webapps/bugreport/crash.jsp
+# The crash happened outside the Java Virtual Machine in native code.
+# See problematic frame for where to report the bug.
+#
+
+Process finished with exit code 1
+
+#####################################################
+
+
+>> 2) I think it would be a good idea to handle functions as "first class
+>> objects" in REngine, as they are handled as such in R.
+>
+> You can get a REXPReference:
+>
+> BeanShell> rnorm = r.parseAndEval( "rnorm", r.globalEnv, false )
+> org.rosuda.REngine.REXPReference@168e429{eng=org.rosuda.REngine.JRI.JRIEngine@867fc9,h=174731732} 
+>
+>
+I see, this works for me as well.
+> but resolving this reference is not handled and returns null. The 
+> switch(xt) does not handle functions (CLOSXP, BUILTINSXP or SPECIALSXP)
+>
+> This I think needs a java class (something like REXPFunction) that 
+> would represent the function, the question is what should it be.
+>
+Agree.
+> -- body of the function is a list of expressions, so this might be 
+> enought: r.parseAndEval( "body( rnorm )" )
+>
+> -- arguments: formals gives the list of formal arguments, but I think 
+> there is something missing to deal with the missing arguments:
+>
+> > f <- function(x = 4, y = x + 2, z, ...){y}
+> > formals( f )
+> $x
+> [1] 4
+>
+> $y
+> x + 2
+>
+> $z
+>
+>
+> $...
+>
+>
+> BeanShell> r.parseAndEval( "formals( f )" ).asList()
+> RList[org.rosuda.REngine.REXPDouble@1a9b1ec[1], 
+> org.rosuda.REngine.REXPLanguage@1e01252[3], 
+> org.rosuda.REngine.REXPSymbol[], 
+> org.rosuda.REngine.REXPSymbol[]]{named,4}
+> BeanShell> r.parseAndEval( "formals( f )" ).asList().at(2).asString()
+> BeanShell> r.parseAndEval( "formals( f )" 
+> ).asList().at(2).asString().equals ("" )
+> true
+>
+> maybe the missing symbol should be cached somehow the same way R does 
+> it (which is used in the missing R function) or maybe this is enough:
+>
+> public boolean isMissing() { name.equals(""); }
+>
+>
+> -- environment of the function, this is sometimes used to store data 
+> as in here.
+>
+> > f <- function( ){ x <- 3; g <- function(){ x + 2 }; g }
+> > ff <- f()
+> > environment( ff )
+> <environment: 0xa664a70>
+> > ls.str( environment( ff ) )
+> g : function ()
+> x :  num 3
+>
+>
+> The question about this really is: do we need additional java classes 
+> to represent a java representation of the function or just some simple 
+> dummy class like REXPS4 with maybe a few convenience methods to pull 
+> things of the function.
+I would probably (?) be content with the second option for now.
+
+Bernd
+
+From bernd_bischl at gmx.net  Tue Jul 21 14:55:33 2009
+From: bernd_bischl at gmx.net (Bernd Bischl)
+Date: Tue, 21 Jul 2009 16:55:33 +0200
+Subject: Re: "Advanced" types for REngine
+In-Reply-To: <4A65D49F.3020205@gmx.net>
+References: <4A65AA48.3090707@gmx.net> <4A65CD70.9010403@dbmail.com> <4A65D49F.3020205@gmx.net>
+Message-ID: <4A65D6E5.9090101@gmx.net>
+
+Bernd Bischl wrote:
+> Romain Francois wrote:
+>   
+>> On 07/21/2009 01:45 PM, Bernd Bischl wrote:
+>>     
+>>> Dear Simon,
+>>>
+>>> 1) Is it possible to return S3 or S4 objects with REngine? I have tried
+>>> a couple of tests but in both cases my VM completely crashes if I try
+>>> parseAndEval with an expression which would return an S3/S4 object.
+>>>       
+>> Can you send some examples of what does not work. The example you sent 
+>> privately to me does work on my machine:
+>>
+>> BeanShell> res = r.parseAndEval( "rpart(Species~., data=iris)" )
+>>     
+[Snip]
+
+Ok, I am an idiot and apologize. I should have used the daily build for 
+JRI as well.
+This only happens in the current release 0.6.3, but not with a daily 
+build of JRI (0.6.4)
+
+Again, my bad, sorry.
+
+Bernd
+
+From adrian_d at eskimo.com  Tue Jul 21 20:22:09 2009
+From: adrian_d at eskimo.com (Adrian Dragulescu)
+Date: Tue, 21 Jul 2009 13:22:09 -0700
+Subject: R and Google Docs via rJava
+Message-ID: <Pine.LNX.4.64.0907211321320.32146@shell.eskimo.com>
+
+
+
+Hello,
+
+For a while now I wanted to have an interface beteen R and Google
+Docs.  Duncan Temple Lang has a package RGoogleDocs on OmegaHat
+that uses rcurl, XML and basic POST and GET commands.  The
+package is currently not working and I would prefer not to work
+at that level, but to use the higher level Java API classes that
+Google makes available.
+
+One good reason for this is that occasionally Google changes the
+XML protocol basics and then you have a lot of things to change in
+your code.  However the Java API is stable, and should be easier
+to maintain in the long run.  Also, Java seems to be the prefered
+development language for the Google developers.  All the new
+features appear in the Java API first, and then later show up in
+other languages C#, Python, PHP, etc.  I think that the original
+RGoogleDocs package suffered from an upgrade problem.
+
+Following the Google
+tutorial (http://code.google.com/apis/gdata/articles/java_client_lib.html),
+I started yesterday to make a java class to get the names of my Google Docs.
+Things work when I run my java project on a stand-alone basis.  When I
+try to interface with R I run into troubles.  I've interfaced
+Java code before, but I cannot find this problem.  A fresh set of
+eyes may help.
+
+On the R side, I create a package, I put all the required Google
+jars and my RInterface.jar file in the inst/java directory.  I
+have a .jpackage(pkgname) call in my .onLoad function.
+
+When I call
+   ref <- .jnew("dev/RInterface", username, password)
+I get
+Error in .jnew("dev/RInterface", username, password) :
+   Failed to create object of class `dev/RInterface'
+In addition: Warning message:
+In .jnew("dev/RInterface", username, password) :
+   NewObject("dev/RInterface","(Ljava/lang/String;Ljava/lang/String;)V",...) 
+failed
+
+So R sees the signature, but cannot create the RInterface object.
+Things work If I don't create a DocsService object in the RInterface.
+
+Sorry for the long email.  If you get me over this hump, I'll
+pursue the project to have something workable soon.
+
+Thanks,
+  Adrian
+
+I've attached my RInterface.java code.  Below is a simple main class.
+
+import dev.RInterface;
+
+public class testRInterface {
+
+   public static void main(String[] args){
+     RInterface R = new RInterface("USERNAME at gmail.com",
+       "YOURPASSWORDHERE");
+
+     String aux = R.getDocumentNames();
+     System.out.println(aux);
+
+   }
+}
+
+PS.  The google tutorial doesn't mention that you need to
+register the jsr305.jar and google-collect-1.0.-rc1.jar to your
+project.  These jars are in the gdata/java/deps folder.
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: RInterface.java
+Type: application/octet-stream
+Size: 1501 bytes
+
+-------------- next part --------------
+
+
+From romain.francois at dbmail.com  Wed Jul 22 06:26:25 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Wed, 22 Jul 2009 08:26:25 +0200
+Subject: Re: R and Google Docs via rJava
+In-Reply-To: <Pine.LNX.4.64.0907211321320.32146@shell.eskimo.com>
+References: <Pine.LNX.4.64.0907211321320.32146@shell.eskimo.com>
+Message-ID: <4A66B111.8060705@dbmail.com>
+
+
+Hi,
+
+It is hard to say what is going on. Is you package downloadable 
+somewhere so we can just try your example without having to actually 
+recreate it.
+
+Romain
+
+
+On 07/21/2009 10:22 PM, Adrian Dragulescu wrote:
+> Hello,
+>
+> For a while now I wanted to have an interface beteen R and Google
+> Docs. Duncan Temple Lang has a package RGoogleDocs on OmegaHat
+> that uses rcurl, XML and basic POST and GET commands. The
+> package is currently not working and I would prefer not to work
+> at that level, but to use the higher level Java API classes that
+> Google makes available.
+>
+> One good reason for this is that occasionally Google changes the
+> XML protocol basics and then you have a lot of things to change in
+> your code. However the Java API is stable, and should be easier
+> to maintain in the long run. Also, Java seems to be the prefered
+> development language for the Google developers. All the new
+> features appear in the Java API first, and then later show up in
+> other languages C#, Python, PHP, etc. I think that the original
+> RGoogleDocs package suffered from an upgrade problem.
+>
+> Following the Google
+> tutorial (http://code.google.com/apis/gdata/articles/java_client_lib.html),
+> I started yesterday to make a java class to get the names of my Google
+> Docs.
+> Things work when I run my java project on a stand-alone basis. When I
+> try to interface with R I run into troubles. I've interfaced
+> Java code before, but I cannot find this problem. A fresh set of
+> eyes may help.
+>
+> On the R side, I create a package, I put all the required Google
+> jars and my RInterface.jar file in the inst/java directory. I
+> have a .jpackage(pkgname) call in my .onLoad function.
+>
+> When I call
+> ref <- .jnew("dev/RInterface", username, password)
+> I get
+> Error in .jnew("dev/RInterface", username, password) :
+> Failed to create object of class `dev/RInterface'
+> In addition: Warning message:
+> In .jnew("dev/RInterface", username, password) :
+> NewObject("dev/RInterface","(Ljava/lang/String;Ljava/lang/String;)V",...) failed
+>
+>
+> So R sees the signature, but cannot create the RInterface object.
+> Things work If I don't create a DocsService object in the RInterface.
+>
+> Sorry for the long email. If you get me over this hump, I'll
+> pursue the project to have something workable soon.
+>
+> Thanks,
+> Adrian
+>
+> I've attached my RInterface.java code. Below is a simple main class.
+>
+> import dev.RInterface;
+>
+> public class testRInterface {
+>
+> public static void main(String[] args){
+> RInterface R = new RInterface("USERNAME at gmail.com",
+> "YOURPASSWORDHERE");
+>
+> String aux = R.getDocumentNames();
+> System.out.println(aux);
+>
+> }
+> }
+>
+> PS. The google tutorial doesn't mention that you need to
+> register the jsr305.jar and google-collect-1.0.-rc1.jar to your
+> project. These jars are in the gdata/java/deps folder.
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/tlNb : RGG#155, 156 and 157
+|- http://tr.im/rw0p : useR! slides
+`- http://tr.im/rw0b : RGG#154: demo of atomic functions
+
+From simon.urbanek at r-project.org  Wed Jul 22 13:35:10 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 22 Jul 2009 09:35:10 -0400
+Subject: Re: R and Google Docs via rJava
+In-Reply-To: <Pine.LNX.4.64.0907211321320.32146@shell.eskimo.com>
+References: <Pine.LNX.4.64.0907211321320.32146@shell.eskimo.com>
+Message-ID: <42FFBBB9-BD09-4B26-8A34-43FE13BCA956@r-project.org>
+
+
+On Jul 21, 2009, at 16:22 , Adrian Dragulescu wrote:
+
+>
+>
+> Hello,
+>
+> For a while now I wanted to have an interface beteen R and Google
+> Docs.  Duncan Temple Lang has a package RGoogleDocs on OmegaHat
+> that uses rcurl, XML and basic POST and GET commands.  The
+> package is currently not working and I would prefer not to work
+> at that level, but to use the higher level Java API classes that
+> Google makes available.
+>
+> One good reason for this is that occasionally Google changes the
+> XML protocol basics and then you have a lot of things to change in
+> your code.  However the Java API is stable, and should be easier
+> to maintain in the long run.  Also, Java seems to be the prefered
+> development language for the Google developers.  All the new
+> features appear in the Java API first, and then later show up in
+> other languages C#, Python, PHP, etc.  I think that the original
+> RGoogleDocs package suffered from an upgrade problem.
+>
+> Following the Google
+> tutorial (http://code.google.com/apis/gdata/articles/java_client_lib.html 
+> ),
+> I started yesterday to make a java class to get the names of my  
+> Google Docs.
+> Things work when I run my java project on a stand-alone basis.  When I
+> try to interface with R I run into troubles.  I've interfaced
+> Java code before, but I cannot find this problem.  A fresh set of
+> eyes may help.
+>
+> On the R side, I create a package, I put all the required Google
+> jars and my RInterface.jar file in the inst/java directory.  I
+> have a .jpackage(pkgname) call in my .onLoad function.
+>
+> When I call
+>  ref <- .jnew("dev/RInterface", username, password)
+> I get
+> Error in .jnew("dev/RInterface", username, password) :
+>  Failed to create object of class `dev/RInterface'
+> In addition: Warning message:
+> In .jnew("dev/RInterface", username, password) :
+>  NewObject("dev/RInterface","(Ljava/lang/String;Ljava/lang/ 
+> String;)V",...) failed
+>
+> So R sees the signature, but cannot create the RInterface object.
+> Things work If I don't create a DocsService object in the RInterface.
+>
+
+Just off the top of my head - try moving the inline initialization  
+into the constructor - you're not catching any exceptions on that one  
+so it can fail without you knowing.
+If that doesn't help, as Romain said, can you put up your package  
+somewhere so we can test it?
+
+Thanks,
+Simon
+
+
+> Sorry for the long email.  If you get me over this hump, I'll
+> pursue the project to have something workable soon.
+>
+> Thanks,
+> Adrian
+>
+> I've attached my RInterface.java code.  Below is a simple main class.
+>
+> import dev.RInterface;
+>
+> public class testRInterface {
+>
+>  public static void main(String[] args){
+>    RInterface R = new RInterface("USERNAME at gmail.com",
+>      "YOURPASSWORDHERE");
+>
+>    String aux = R.getDocumentNames();
+>    System.out.println(aux);
+>
+>  }
+> }
+>
+> PS.  The google tutorial doesn't mention that you need to
+> register the jsr305.jar and google-collect-1.0.-rc1.jar to your
+> project.  These jars are in the gdata/java/deps folder.
+> <RInterface.java>_______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Wed Jul 22 17:40:54 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 22 Jul 2009 13:40:54 -0400
+Subject: Re: R and Google Docs via rJava
+In-Reply-To: <Pine.LNX.4.64.0907220933180.401@shell.eskimo.com>
+References: <Pine.LNX.4.64.0907211321320.32146@shell.eskimo.com> <42FFBBB9-BD09-4B26-8A34-43FE13BCA956@r-project.org> <Pine.LNX.4.64.0907220933180.401@shell.eskimo.com>
+Message-ID: <C040A8D0-9FA3-4B2A-893A-974F4D1864F6@r-project.org>
+
+
+On Jul 22, 2009, at 12:39 PM, Adrian Dragulescu wrote:
+
+>
+> I've put the package tar at www.eskimo.com/~adrian_d/Software/
+>
+
+AFAICS that is incomplete - I cannot even compile the RInterface:
+
+javac RInterface.java -cp activation.jar:dsn.jar:gdata- 
+base-1.0.jar:gdata-client-1.0.jar:gdata-client-meta-1.0.jar:gdata- 
+core-1.0.jar:gdata-docs-2.0.jar:gdata-docs-meta-2.0.jar:gdata- 
+finance-2.0.jar:gdata-finance-meta-2.0.jar:gdata- 
+spreadsheet-3.0.jar:gdata-spreadsheet-meta-3.0.jar:google-collect-1.0- 
+rc1.jar:imap.jar:jsr305.jar:mailapi.jar:pop3.jar:servlet- 
+api.jar:smtp.jar:. RInterface.java
+RInterface.java:12: cannot access  
+com.google.gdata.client.media.MediaService
+class file for com.google.gdata.client.media.MediaService not found
+   public DocsService service = new DocsService("Document List  
+RInterface");
+                                ^
+RInterface.java:20: cannot find symbol
+symbol  : method setUserCredentials(java.lang.String,java.lang.String)
+location: class com.google.gdata.client.docs.DocsService
+	   service.setUserCredentials(userName, password);
+	          ^
+RInterface.java:44: cannot find symbol
+symbol  : method  
+getFeed 
+(java 
+.net.URL,java.lang.Class<com.google.gdata.data.docs.DocumentListFeed>)
+location: class com.google.gdata.client.docs.DocsService
+       DocumentListFeed feed = service.getFeed(documentListFeedUrl,
+                                      ^
+RInterface.java:47: cannot access com.google.gdata.data.media.MediaFeed
+class file for com.google.gdata.data.media.MediaFeed not found
+       for (DocumentListEntry entry : feed.getEntries()){
+                                          ^
+RInterface.java:48: cannot access com.google.gdata.data.media.MediaEntry
+class file for com.google.gdata.data.media.MediaEntry not found
+   	    docs = docs + entry.getTitle().getPlainText() + "\n";
+   	                       ^
+5 errors
+
+
+I suspect you just didn't include all necessary JARs or something like  
+that ...
+
+Cheers,
+S
+
+
+> For testing I've also created a google account that you can use.  
+> Login using login:rdocsdemo at gmail.com, passwd:RGooglePass12.
+>
+> See the source of login.R.  That's where I get the error.
+>
+> I've also added the java files for testing.
+>
+> Thanks a lot for taking a look at this.
+> Adrian
+>
+>
+>
+> On Wed, 22 Jul 2009, Simon Urbanek wrote:
+>
+>>
+>> On Jul 21, 2009, at 16:22 , Adrian Dragulescu wrote:
+>>
+>>> Hello,
+>>> For a while now I wanted to have an interface beteen R and Google
+>>> Docs.  Duncan Temple Lang has a package RGoogleDocs on OmegaHat
+>>> that uses rcurl, XML and basic POST and GET commands.  The
+>>> package is currently not working and I would prefer not to work
+>>> at that level, but to use the higher level Java API classes that
+>>> Google makes available.
+>>> One good reason for this is that occasionally Google changes the
+>>> XML protocol basics and then you have a lot of things to change in
+>>> your code.  However the Java API is stable, and should be easier
+>>> to maintain in the long run.  Also, Java seems to be the prefered
+>>> development language for the Google developers.  All the new
+>>> features appear in the Java API first, and then later show up in
+>>> other languages C#, Python, PHP, etc.  I think that the original
+>>> RGoogleDocs package suffered from an upgrade problem.
+>>> Following the Google
+>>> tutorial (http://code.google.com/apis/gdata/articles/java_client_lib.html 
+>>> ),
+>>> I started yesterday to make a java class to get the names of my  
+>>> Google Docs.
+>>> Things work when I run my java project on a stand-alone basis.   
+>>> When I
+>>> try to interface with R I run into troubles.  I've interfaced
+>>> Java code before, but I cannot find this problem.  A fresh set of
+>>> eyes may help.
+>>> On the R side, I create a package, I put all the required Google
+>>> jars and my RInterface.jar file in the inst/java directory.  I
+>>> have a .jpackage(pkgname) call in my .onLoad function.
+>>> When I call
+>>> ref <- .jnew("dev/RInterface", username, password)
+>>> I get
+>>> Error in .jnew("dev/RInterface", username, password) :
+>>> Failed to create object of class `dev/RInterface'
+>>> In addition: Warning message:
+>>> In .jnew("dev/RInterface", username, password) :
+>>> NewObject("dev/RInterface","(Ljava/lang/String;Ljava/lang/ 
+>>> String;)V",...) failed
+>>> So R sees the signature, but cannot create the RInterface object.
+>>> Things work If I don't create a DocsService object in the  
+>>> RInterface.
+>>
+>> Just off the top of my head - try moving the inline initialization  
+>> into the constructor - you're not catching any exceptions on that  
+>> one so it can fail without you knowing.
+>> If that doesn't help, as Romain said, can you put up your package  
+>> somewhere so we can test it?
+>>
+>> Thanks,
+>> Simon
+>>
+>>
+>>> Sorry for the long email.  If you get me over this hump, I'll
+>>> pursue the project to have something workable soon.
+>>> Thanks,
+>>> Adrian
+>>> I've attached my RInterface.java code.  Below is a simple main  
+>>> class.
+>>> import dev.RInterface;
+>>> public class testRInterface {
+>>> public static void main(String[] args){
+>>>  RInterface R = new RInterface("USERNAME at gmail.com",
+>>>    "YOURPASSWORDHERE");
+>>>
+>>>  String aux = R.getDocumentNames();
+>>>  System.out.println(aux);
+>>> }
+>>> }
+>>> PS.  The google tutorial doesn't mention that you need to
+>>> register the jsr305.jar and google-collect-1.0.-rc1.jar to your
+>>> project.  These jars are in the gdata/java/deps folder.
+>>> <RInterface.java>_______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda- 
+>>> devel
+>>
+>
+>
+
+From adrian_d at eskimo.com  Wed Jul 22 16:39:57 2009
+From: adrian_d at eskimo.com (Adrian Dragulescu)
+Date: Wed, 22 Jul 2009 09:39:57 -0700
+Subject: Re: R and Google Docs via rJava
+In-Reply-To: <42FFBBB9-BD09-4B26-8A34-43FE13BCA956@r-project.org>
+References: <Pine.LNX.4.64.0907211321320.32146@shell.eskimo.com> <42FFBBB9-BD09-4B26-8A34-43FE13BCA956@r-project.org>
+Message-ID: <Pine.LNX.4.64.0907220933180.401@shell.eskimo.com>
+
+
+I've put the package tar at www.eskimo.com/~adrian_d/Software/
+
+For testing I've also created a google account that you can use. 
+Login using login:rdocsdemo at gmail.com, passwd:RGooglePass12.
+
+See the source of login.R.  That's where I get the error.
+
+I've also added the java files for testing.
+
+Thanks a lot for taking a look at this.
+Adrian
+
+
+
+On Wed, 22 Jul 2009, Simon Urbanek wrote:
+
+>
+> On Jul 21, 2009, at 16:22 , Adrian Dragulescu wrote:
+>
+>> 
+>> 
+>> Hello,
+>> 
+>> For a while now I wanted to have an interface beteen R and Google
+>> Docs.  Duncan Temple Lang has a package RGoogleDocs on OmegaHat
+>> that uses rcurl, XML and basic POST and GET commands.  The
+>> package is currently not working and I would prefer not to work
+>> at that level, but to use the higher level Java API classes that
+>> Google makes available.
+>> 
+>> One good reason for this is that occasionally Google changes the
+>> XML protocol basics and then you have a lot of things to change in
+>> your code.  However the Java API is stable, and should be easier
+>> to maintain in the long run.  Also, Java seems to be the prefered
+>> development language for the Google developers.  All the new
+>> features appear in the Java API first, and then later show up in
+>> other languages C#, Python, PHP, etc.  I think that the original
+>> RGoogleDocs package suffered from an upgrade problem.
+>> 
+>> Following the Google
+>> tutorial (http://code.google.com/apis/gdata/articles/java_client_lib.html),
+>> I started yesterday to make a java class to get the names of my Google 
+>> Docs.
+>> Things work when I run my java project on a stand-alone basis.  When I
+>> try to interface with R I run into troubles.  I've interfaced
+>> Java code before, but I cannot find this problem.  A fresh set of
+>> eyes may help.
+>> 
+>> On the R side, I create a package, I put all the required Google
+>> jars and my RInterface.jar file in the inst/java directory.  I
+>> have a .jpackage(pkgname) call in my .onLoad function.
+>> 
+>> When I call
+>> ref <- .jnew("dev/RInterface", username, password)
+>> I get
+>> Error in .jnew("dev/RInterface", username, password) :
+>> Failed to create object of class `dev/RInterface'
+>> In addition: Warning message:
+>> In .jnew("dev/RInterface", username, password) :
+>> NewObject("dev/RInterface","(Ljava/lang/String;Ljava/lang/String;)V",...) 
+>> failed
+>> 
+>> So R sees the signature, but cannot create the RInterface object.
+>> Things work If I don't create a DocsService object in the RInterface.
+>> 
+>
+> Just off the top of my head - try moving the inline initialization into the 
+> constructor - you're not catching any exceptions on that one so it can fail 
+> without you knowing.
+> If that doesn't help, as Romain said, can you put up your package somewhere 
+> so we can test it?
+>
+> Thanks,
+> Simon
+>
+>
+>> Sorry for the long email.  If you get me over this hump, I'll
+>> pursue the project to have something workable soon.
+>> 
+>> Thanks,
+>> Adrian
+>> 
+>> I've attached my RInterface.java code.  Below is a simple main class.
+>> 
+>> import dev.RInterface;
+>> 
+>> public class testRInterface {
+>> 
+>> public static void main(String[] args){
+>>   RInterface R = new RInterface("USERNAME at gmail.com",
+>>     "YOURPASSWORDHERE");
+>>
+>>   String aux = R.getDocumentNames();
+>>   System.out.println(aux);
+>> 
+>> }
+>> }
+>> 
+>> PS.  The google tutorial doesn't mention that you need to
+>> register the jsr305.jar and google-collect-1.0.-rc1.jar to your
+>> project.  These jars are in the gdata/java/deps folder.
+>> <RInterface.java>_______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From adrian_d at eskimo.com  Wed Jul 22 17:48:13 2009
+From: adrian_d at eskimo.com (Adrian Dragulescu)
+Date: Wed, 22 Jul 2009 10:48:13 -0700
+Subject: Re: R and Google Docs via rJava
+In-Reply-To: <C040A8D0-9FA3-4B2A-893A-974F4D1864F6@r-project.org>
+References: <Pine.LNX.4.64.0907211321320.32146@shell.eskimo.com> <42FFBBB9-BD09-4B26-8A34-43FE13BCA956@r-project.org> <Pine.LNX.4.64.0907220933180.401@shell.eskimo.com> <C040A8D0-9FA3-4B2A-893A-974F4D1864F6@r-project.org>
+Message-ID: <Pine.LNX.4.64.0907221047090.401@shell.eskimo.com>
+
+
+OK.  My sloppiness.  I added the gdata-media-1.0.jar and everything works.
+
+Thanks a lot.
+
+I'll keep you posted on the progress.
+
+Adrian
+
+On Wed, 22 Jul 2009, Simon Urbanek wrote:
+
+>
+> On Jul 22, 2009, at 12:39 PM, Adrian Dragulescu wrote:
+>
+>> 
+>> I've put the package tar at www.eskimo.com/~adrian_d/Software/
+>> 
+>
+> AFAICS that is incomplete - I cannot even compile the RInterface:
+>
+> javac RInterface.java -cp 
+> activation.jar:dsn.jar:gdata-base-1.0.jar:gdata-client-1.0.jar:gdata-client-meta-1.0.jar:gdata-core-1.0.jar:gdata-docs-2.0.jar:gdata-docs-meta-2.0.jar:gdata-finance-2.0.jar:gdata-finance-meta-2.0.jar:gdata-spreadsheet-3.0.jar:gdata-spreadsheet-meta-3.0.jar:google-collect-1.0-rc1.jar:imap.jar:jsr305.jar:mailapi.jar:pop3.jar:servlet-api.jar:smtp.jar:. 
+> RInterface.java
+> RInterface.java:12: cannot access com.google.gdata.client.media.MediaService
+> class file for com.google.gdata.client.media.MediaService not found
+> public DocsService service = new DocsService("Document List RInterface");
+>                              ^
+> RInterface.java:20: cannot find symbol
+> symbol  : method setUserCredentials(java.lang.String,java.lang.String)
+> location: class com.google.gdata.client.docs.DocsService
+> 	   service.setUserCredentials(userName, password);
+> 	          ^
+> RInterface.java:44: cannot find symbol
+> symbol  : method 
+> getFeed(java.net.URL,java.lang.Class<com.google.gdata.data.docs.DocumentListFeed>)
+> location: class com.google.gdata.client.docs.DocsService
+>     DocumentListFeed feed = service.getFeed(documentListFeedUrl,
+>                                    ^
+> RInterface.java:47: cannot access com.google.gdata.data.media.MediaFeed
+> class file for com.google.gdata.data.media.MediaFeed not found
+>     for (DocumentListEntry entry : feed.getEntries()){
+>                                        ^
+> RInterface.java:48: cannot access com.google.gdata.data.media.MediaEntry
+> class file for com.google.gdata.data.media.MediaEntry not found
+> 	    docs = docs + entry.getTitle().getPlainText() + "\n";
+> 	                       ^
+> 5 errors
+>
+>
+> I suspect you just didn't include all necessary JARs or something like that 
+> ...
+>
+> Cheers,
+> S
+>
+>
+>> For testing I've also created a google account that you can use. Login 
+>> using login:rdocsdemo at gmail.com, passwd:RGooglePass12.
+>> 
+>> See the source of login.R.  That's where I get the error.
+>> 
+>> I've also added the java files for testing.
+>> 
+>> Thanks a lot for taking a look at this.
+>> Adrian
+>> 
+>> 
+>> 
+>> On Wed, 22 Jul 2009, Simon Urbanek wrote:
+>> 
+>>> 
+>>> On Jul 21, 2009, at 16:22 , Adrian Dragulescu wrote:
+>>> 
+>>>> Hello,
+>>>> For a while now I wanted to have an interface beteen R and Google
+>>>> Docs.  Duncan Temple Lang has a package RGoogleDocs on OmegaHat
+>>>> that uses rcurl, XML and basic POST and GET commands.  The
+>>>> package is currently not working and I would prefer not to work
+>>>> at that level, but to use the higher level Java API classes that
+>>>> Google makes available.
+>>>> One good reason for this is that occasionally Google changes the
+>>>> XML protocol basics and then you have a lot of things to change in
+>>>> your code.  However the Java API is stable, and should be easier
+>>>> to maintain in the long run.  Also, Java seems to be the prefered
+>>>> development language for the Google developers.  All the new
+>>>> features appear in the Java API first, and then later show up in
+>>>> other languages C#, Python, PHP, etc.  I think that the original
+>>>> RGoogleDocs package suffered from an upgrade problem.
+>>>> Following the Google
+>>>> tutorial 
+>>>> (http://code.google.com/apis/gdata/articles/java_client_lib.html),
+>>>> I started yesterday to make a java class to get the names of my Google 
+>>>> Docs.
+>>>> Things work when I run my java project on a stand-alone basis.  When I
+>>>> try to interface with R I run into troubles.  I've interfaced
+>>>> Java code before, but I cannot find this problem.  A fresh set of
+>>>> eyes may help.
+>>>> On the R side, I create a package, I put all the required Google
+>>>> jars and my RInterface.jar file in the inst/java directory.  I
+>>>> have a .jpackage(pkgname) call in my .onLoad function.
+>>>> When I call
+>>>> ref <- .jnew("dev/RInterface", username, password)
+>>>> I get
+>>>> Error in .jnew("dev/RInterface", username, password) :
+>>>> Failed to create object of class `dev/RInterface'
+>>>> In addition: Warning message:
+>>>> In .jnew("dev/RInterface", username, password) :
+>>>> NewObject("dev/RInterface","(Ljava/lang/String;Ljava/lang/String;)V",...) 
+>>>> failed
+>>>> So R sees the signature, but cannot create the RInterface object.
+>>>> Things work If I don't create a DocsService object in the RInterface.
+>>> 
+>>> Just off the top of my head - try moving the inline initialization into 
+>>> the constructor - you're not catching any exceptions on that one so it can 
+>>> fail without you knowing.
+>>> If that doesn't help, as Romain said, can you put up your package 
+>>> somewhere so we can test it?
+>>> 
+>>> Thanks,
+>>> Simon
+>>> 
+>>> 
+>>>> Sorry for the long email.  If you get me over this hump, I'll
+>>>> pursue the project to have something workable soon.
+>>>> Thanks,
+>>>> Adrian
+>>>> I've attached my RInterface.java code.  Below is a simple main class.
+>>>> import dev.RInterface;
+>>>> public class testRInterface {
+>>>> public static void main(String[] args){
+>>>> RInterface R = new RInterface("USERNAME at gmail.com",
+>>>>   "YOURPASSWORDHERE");
+>>>> 
+>>>> String aux = R.getDocumentNames();
+>>>> System.out.println(aux);
+>>>> }
+>>>> }
+>>>> PS.  The google tutorial doesn't mention that you need to
+>>>> register the jsr305.jar and google-collect-1.0.-rc1.jar to your
+>>>> project.  These jars are in the gdata/java/deps folder.
+>>>> <RInterface.java>_______________________________________________
+>>>> stats-rosuda-devel mailing list
+>>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>> 
+>> 
+>> 
+>
+
+From landronimirc at gmail.com  Thu Jul 23 11:48:52 2009
+From: landronimirc at gmail.com (Liviu Andronic)
+Date: Thu, 23 Jul 2009 13:48:52 +0200
+Subject: object.browser() support for classes `Date' and `logical'
+Message-ID: <68b1e2610907230448i267ef358r1573f683d43c57be@mail.gmail.com>
+
+Hello
+Currently JGR fails to properly display objects of class `Date' in
+object.browser(). Instead of the formatted date, JGR will display the
+underlying number. For example, for "1960-01-01" it will display
+"-3653.0". Less of a problem, this also holds for objects of class
+`logical'. Instead of "TRUE" object.browser() will display "1". Would
+there be an easy fix to this issue?
+Thank you
+Liviu
+
+
+
+
+-- 
+Do you know how to read?
+http://www.alienetworks.com/srtest.cfm
+Do you know how to write?
+http://garbl.home.comcast.net/~garbl/stylemanual/e.htm#e-mail
+
+From bilel.masmoudi at gmail.com  Thu Jul 30 11:24:24 2009
+From: bilel.masmoudi at gmail.com (Bilel MASMOUDI)
+Date: Thu, 30 Jul 2009 13:24:24 +0200
+Subject: strange problem with JRI
+Message-ID: <e37a704c0907300424m1f369436w3c223d4ec297e6cf@mail.gmail.com>
+
+Hi,
+
+I have a strange problem when using JRI
+
+For example, I call this function written in test.R file
+
+test<- function()
+{
+    x<-3;
+    #x <- length(1:5);
+    return(x)
+}
+
+I interpret th result using the asInt() function, but I receive 0 not 3
+
+when I uncomment the 2nd line I do receive 5!!!!
+
+Many thanks for any help
+
+
+
+
+-- 
+Bilel
+
+-------------- next part --------------
+
+
+From romain.francois at dbmail.com  Thu Jul 30 12:09:07 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Thu, 30 Jul 2009 14:09:07 +0200
+Subject: Re: strange problem with JRI
+In-Reply-To: <e37a704c0907300424m1f369436w3c223d4ec297e6cf@mail.gmail.com>
+References: <e37a704c0907300424m1f369436w3c223d4ec297e6cf@mail.gmail.com>
+Message-ID: <4A718D63.70208@dbmail.com>
+
+On 07/30/2009 01:24 PM, Bilel MASMOUDI wrote:
+> Hi,
+>
+> I have a strange problem when using JRI
+>
+> For example, I call this function written in test.R file
+>
+> test<- function()
+> {
+>      x<-3;
+>      #x <- length(1:5);
+>      return(x)
+> }
+>
+> I interpret th result using the asInt() function, but I receive 0 not 3
+>
+> when I uncomment the 2nd line I do receive 5!!!!
+>
+> Many thanks for any help
+> --
+> Bilel
+
+
+This is because 3 is parsed as a numeric in the expression "x <- 3". A 
+few things you can do about it :
+
+- explicitly use an integer with the "L" notation:
+
+x <- 3L
+
+- convert to integer :
+
+as.integer( x )
+
+
+The asInt method of the Rengine class seems confused:
+
+BeanShell> r.getRni().eval( "test()" )
+[REAL* (3.0)]
+BeanShell> r.getRni().eval( "test()" ).asInt()
+0
+
+What you really should do is move on to the REngine API, which gets it 
+well:
+
+BeanShell> r.parseAndEval( "test()" ).asInteger()
+3
+
+Romain
+
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/tlNb : RGG#155, 156 and 157
+|- http://tr.im/rw0p : useR! slides
+`- http://tr.im/rw0b : RGG#154: demo of atomic functions
+
+From simon.urbanek at r-project.org  Thu Jul 30 12:48:33 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 30 Jul 2009 08:48:33 -0400
+Subject: Re: strange problem with JRI
+In-Reply-To: <4A718D63.70208@dbmail.com>
+References: <e37a704c0907300424m1f369436w3c223d4ec297e6cf@mail.gmail.com> <4A718D63.70208@dbmail.com>
+Message-ID: <43B4E4F3-6058-48F4-9823-5C55D53C5FB4@r-project.org>
+
+
+On Jul 30, 2009, at 8:09 AM, Romain Francois wrote:
+
+> On 07/30/2009 01:24 PM, Bilel MASMOUDI wrote:
+>> Hi,
+>>
+>> I have a strange problem when using JRI
+>>
+>> For example, I call this function written in test.R file
+>>
+>> test<- function()
+>> {
+>>     x<-3;
+>>     #x <- length(1:5);
+>>     return(x)
+>> }
+>>
+>> I interpret th result using the asInt() function, but I receive 0  
+>> not 3
+>>
+>> when I uncomment the 2nd line I do receive 5!!!!
+>>
+>> Many thanks for any help
+>> --
+>> Bilel
+>
+>
+> This is because 3 is parsed as a numeric
+
+(double to be precise)
+
+
+> in the expression "x <- 3". A
+> few things you can do about it :
+>
+> - explicitly use an integer with the "L" notation:
+>
+> x <- 3L
+>
+> - convert to integer :
+>
+> as.integer( x )
+>
+>
+> The asInt method of the Rengine class seems confused:
+>
+> BeanShell> r.getRni().eval( "test()" )
+> [REAL* (3.0)]
+> BeanShell> r.getRni().eval( "test()" ).asInt()
+> 0
+>
+
+asInt() does not perform any conversion and returns 0 if the result is  
+not an integer as the docs explicitly say:
+public int asInt()
+get content of the REXP as int (if it is one)
+Returns: int content or 0 if the REXP is no integer
+
+
+> What you really should do is move on to the REngine API, which gets it
+> well:
+>
+> BeanShell> r.parseAndEval( "test()" ).asInteger()
+> 3
+>
+
+Yes, the new API does perform the conversion implicitly.
+
+Cheers,
+Simon
+
+From bilel.masmoudi at gmail.com  Fri Jul 31 09:08:22 2009
+From: bilel.masmoudi at gmail.com (Bilel MASMOUDI)
+Date: Fri, 31 Jul 2009 11:08:22 +0200
+Subject: Re: strange problem with JRI
+In-Reply-To: <43B4E4F3-6058-48F4-9823-5C55D53C5FB4@r-project.org>
+References: <e37a704c0907300424m1f369436w3c223d4ec297e6cf@mail.gmail.com> <4A718D63.70208@dbmail.com> <43B4E4F3-6058-48F4-9823-5C55D53C5FB4@r-project.org>
+Message-ID: <e37a704c0907310208t7088e356yc4fa4d0c826d1807@mail.gmail.com>
+
+Hi Romain & Simon ,
+
+I understood that the asDouble() method is efficient in all cases, then
+casting in java to the suitable type
+
+the new API you talk about is a new JRI that I have to download from
+http://www.rforge.net/JRI/files/ ?
+
+thanks!!
+
+
+
+2009/7/30 Simon Urbanek <simon.urbanek at r-project.org>
+
+>
+> On Jul 30, 2009, at 8:09 AM, Romain Francois wrote:
+>
+>  On 07/30/2009 01:24 PM, Bilel MASMOUDI wrote:
+>>
+>>> Hi,
+>>>
+>>> I have a strange problem when using JRI
+>>>
+>>> For example, I call this function written in test.R file
+>>>
+>>> test<- function()
+>>> {
+>>>    x<-3;
+>>>    #x <- length(1:5);
+>>>    return(x)
+>>> }
+>>>
+>>> I interpret th result using the asInt() function, but I receive 0 not 3
+>>>
+>>> when I uncomment the 2nd line I do receive 5!!!!
+>>>
+>>> Many thanks for any help
+>>> --
+>>> Bilel
+>>>
+>>
+>>
+>> This is because 3 is parsed as a numeric
+>>
+>
+> (double to be precise)
+>
+>
+>  in the expression "x <- 3". A
+>> few things you can do about it :
+>>
+>> - explicitly use an integer with the "L" notation:
+>>
+>> x <- 3L
+>>
+>> - convert to integer :
+>>
+>> as.integer( x )
+>>
+>>
+>> The asInt method of the Rengine class seems confused:
+>>
+>> BeanShell> r.getRni().eval( "test()" )
+>> [REAL* (3.0)]
+>> BeanShell> r.getRni().eval( "test()" ).asInt()
+>> 0
+>>
+>>
+> asInt() does not perform any conversion and returns 0 if the result is not
+> an integer as the docs explicitly say:
+> public int asInt()
+> get content of the REXP as int (if it is one)
+> Returns: int content or 0 if the REXP is no integer
+>
+>
+>  What you really should do is move on to the REngine API, which gets it
+>> well:
+>>
+>> BeanShell> r.parseAndEval( "test()" ).asInteger()
+>> 3
+>>
+>>
+> Yes, the new API does perform the conversion implicitly.
+>
+> Cheers,
+> Simon
+>
+>
+
+
+-- 
+Bilel
+
+-------------- next part --------------
+
+
+From romain.francois at dbmail.com  Fri Jul 31 09:24:16 2009
+From: romain.francois at dbmail.com (Romain Francois)
+Date: Fri, 31 Jul 2009 11:24:16 +0200
+Subject: Re: strange problem with JRI
+In-Reply-To: <e37a704c0907310208t7088e356yc4fa4d0c826d1807@mail.gmail.com>
+References: <e37a704c0907300424m1f369436w3c223d4ec297e6cf@mail.gmail.com> <4A718D63.70208@dbmail.com> <43B4E4F3-6058-48F4-9823-5C55D53C5FB4@r-project.org> <e37a704c0907310208t7088e356yc4fa4d0c826d1807@mail.gmail.com>
+Message-ID: <4A72B840.9080901@dbmail.com>
+
+On 07/31/2009 11:08 AM, Bilel MASMOUDI wrote:
+> Hi Romain & Simon ,
+>
+> I understood that the asDouble() method is efficient in all cases, then
+> casting in java to the suitable type
+
+
+Not exactly, asDouble uses the same principle of returning the first 
+value if this is a double vector, and 0.0 otherwise. So if you try 
+asDouble on a integer, you'll get 0.0
+
+BeanShell> rni.eval( "3L" ).asDouble()
+0.0
+
+
+> the new API you talk about is a new JRI that I have to download from
+> http://www.rforge.net/JRI/files/ ?
+
+
+I think so. JGR now relies on the new API, so you might want to look at 
+it for examples.
+
+It might be worth doing a simple tutorial about how to setup and use the 
+new API though. Sounds like a good weekend task.
+
+
+> thanks!!
+>
+>
+>
+> 2009/7/30 Simon Urbanek <simon.urbanek at r-project.org
+> <mailto:simon.urbanek at r-project.org>>
+>
+>
+>     On Jul 30, 2009, at 8:09 AM, Romain Francois wrote:
+>
+>         On 07/30/2009 01:24 PM, Bilel MASMOUDI wrote:
+>
+>             Hi,
+>
+>             I have a strange problem when using JRI
+>
+>             For example, I call this function written in test.R file
+>
+>             test<- function()
+>             {
+>                 x<-3;
+>                 #x <- length(1:5);
+>                 return(x)
+>             }
+>
+>             I interpret th result using the asInt() function, but I
+>             receive 0 not 3
+>
+>             when I uncomment the 2nd line I do receive 5!!!!
+>
+>             Many thanks for any help
+>             --
+>             Bilel
+>
+>
+>
+>         This is because 3 is parsed as a numeric
+>
+>
+>     (double to be precise)
+>
+>
+>
+>         in the expression "x <- 3". A
+>         few things you can do about it :
+>
+>         - explicitly use an integer with the "L" notation:
+>
+>         x <- 3L
+>
+>         - convert to integer :
+>
+>         as.integer( x )
+>
+>
+>         The asInt method of the Rengine class seems confused:
+>
+>         BeanShell> r.getRni().eval( "test()" )
+>         [REAL* (3.0)]
+>         BeanShell> r.getRni().eval( "test()" ).asInt()
+>         0
+>
+>
+>     asInt() does not perform any conversion and returns 0 if the result
+>     is not an integer as the docs explicitly say:
+>     public int asInt()
+>     get content of the REXP as int (if it is one)
+>     Returns: int content or 0 if the REXP is no integer
+>
+>
+>
+>         What you really should do is move on to the REngine API, which
+>         gets it
+>         well:
+>
+>         BeanShell> r.parseAndEval( "test()" ).asInteger()
+>         3
+>
+>
+>     Yes, the new API does perform the conversion implicitly.
+>
+>     Cheers,
+>     Simon
+>
+>
+>
+>
+> --
+> Bilel
+
+
+-- 
+Romain Francois
+Independent R Consultant
++33(0) 6 28 91 30 30
+http://romainfrancois.blog.free.fr
+|- http://tr.im/tlNb : RGG#155, 156 and 157
+|- http://tr.im/rw0p : useR! slides
+`- http://tr.im/rw0b : RGG#154: demo of atomic functions
+
+From simon.urbanek at r-project.org  Fri Jul 31 13:00:25 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 31 Jul 2009 09:00:25 -0400
+Subject: Re: strange problem with JRI
+In-Reply-To: <e37a704c0907310208t7088e356yc4fa4d0c826d1807@mail.gmail.com>
+References: <e37a704c0907300424m1f369436w3c223d4ec297e6cf@mail.gmail.com> <4A718D63.70208@dbmail.com> <43B4E4F3-6058-48F4-9823-5C55D53C5FB4@r-project.org> <e37a704c0907310208t7088e356yc4fa4d0c826d1807@mail.gmail.com>
+Message-ID: <12C00397-A39D-4D65-B600-761EDA1EBE36@r-project.org>
+
+
+On Jul 31, 2009, at 5:08 AM, Bilel MASMOUDI wrote:
+
+> Hi Romain & Simon ,
+>
+> I understood that the asDouble() method is efficient in all cases,  
+> then casting in java to the suitable type
+>
+
+The old API performs no conversion regardless of type, so you have to  
+know what's coming back and use the appropriate method. In most cases  
+this is not an issue, because you know in advance the type of the  
+result. But this is one of the reasons why I created the new API - to  
+reduce the likelihood of silent errors.
+
+
+> the new API you talk about is a new JRI that I have to download from http://www.rforge.net/JRI/files/ 
+>  ?
+>
+
+Yes. (And it can be used both with Rserve and JRI).
+
+Cheers,
+Simon
+
+
+> thanks!!
+>
+>
+>
+> 2009/7/30 Simon Urbanek <simon.urbanek at r-project.org>
+>
+> On Jul 30, 2009, at 8:09 AM, Romain Francois wrote:
+>
+> On 07/30/2009 01:24 PM, Bilel MASMOUDI wrote:
+> Hi,
+>
+> I have a strange problem when using JRI
+>
+> For example, I call this function written in test.R file
+>
+> test<- function()
+> {
+>    x<-3;
+>    #x <- length(1:5);
+>    return(x)
+> }
+>
+> I interpret th result using the asInt() function, but I receive 0  
+> not 3
+>
+> when I uncomment the 2nd line I do receive 5!!!!
+>
+> Many thanks for any help
+> --
+> Bilel
+>
+>
+> This is because 3 is parsed as a numeric
+>
+> (double to be precise)
+>
+>
+>
+> in the expression "x <- 3". A
+> few things you can do about it :
+>
+> - explicitly use an integer with the "L" notation:
+>
+> x <- 3L
+>
+> - convert to integer :
+>
+> as.integer( x )
+>
+>
+> The asInt method of the Rengine class seems confused:
+>
+> BeanShell> r.getRni().eval( "test()" )
+> [REAL* (3.0)]
+> BeanShell> r.getRni().eval( "test()" ).asInt()
+> 0
+>
+>
+> asInt() does not perform any conversion and returns 0 if the result  
+> is not an integer as the docs explicitly say:
+> public int asInt()
+> get content of the REXP as int (if it is one)
+> Returns: int content or 0 if the REXP is no integer
+>
+>
+>
+> What you really should do is move on to the REngine API, which gets it
+> well:
+>
+> BeanShell> r.parseAndEval( "test()" ).asInteger()
+> 3
+>
+>
+> Yes, the new API does perform the conversion implicitly.
+>
+> Cheers,
+> Simon
+>
+>
+>
+>
+> -- 
+> Bilel
+
+From mauede at alice.it  Fri Jul 31 15:15:58 2009
+From: mauede at alice.it
+Date: Fri, 31 Jul 2009 17:15:58 +0200
+Subject: How to stop an R script when running JGR on a Linux/SuSE system
+Message-ID: <6B32C438581E5D4C8A34C377C3B334A403B1EEA3@FBCMST11V04.fbc.local>
+
+When I need to stop a running R script  on Windows or Mac I just use the <esc> key which kills the current script and returns the control to R interpreter.
+But when I run R from JGR the <esc> is useless as well as the other available keyboard keys.
+Just recently not even clicking on the STOP-symbol (a big red X) placed on JGR top menu bar could terminate a process that had entered a long loop.
+Eventually I could kill the process from bash comman line using # kill -KILL <process-id>
+ 
+I wonder whether there is a more gentle way to stop an R script running on top of JGR aother than ... unplugging the power cord.
+ 
+Thank you so much,
+Maura    
+
+
+
+.html?pmk=footer> 
+
+	[[alternative HTML version deleted]]
+
+From rv15i at yahoo.se  Fri Jul 31 15:07:11 2009
+From: rv15i at yahoo.se (ravi)
+Date: Fri, 31 Jul 2009 15:07:11 +0000
+Subject: problems with iplots package in R
+Message-ID: <252830.40799.qm@web26605.mail.ukl.yahoo.com>
+
+
+Hi,
+I have started using iplots in R. But it seems that the package is only functioning partially for me. As indicated in your web page, I started out by running the following commands :
+> library(iplots)
+Loading required package: rJava
+> library(MASS)
+> data(Cars93)
+> attach(Cars93)
+> imosaic(data.frame(AirBags,Cylinders,Origin))
+ID:1 Name: "Mosaic plot (AirBags, Cylinders, Origin)"
+> ibar(Cylinders, isSpine=T)
+ID:2 Name: "Barchart (Cylinders)"
+ 
+I get the mosaic and bar plots allright but they are empty and unfilled! The linking between them seems to work. That is, when I click on one of the bars in the barplot, the corresponding cells in the mosaic plot show up in red. The only problem is that the entire cells fill up (both in bar and mosaic plots). And no tool tip information appears when I click on any cell in the mosaic or bar plot.
+ 
+I am not sure that I have configured R and java as I should. I get the following in the command window (on a win XP pc) :
+M:\>java -version
+java version "1..6.0_14"
+Java(TM) SE Runtime Environment (build 1.6.0_14-b08)
+Java HotSpot(TM) Client VM (build 14.0-b16, mixed mode, sharing)
+ 
+Again, I get the following in R :
+> sessionInfo()
+R version 2.9.1 (2009-06-26) 
+i386-pc-mingw32 
+ 
+attached base packages:
+[1] stats     graphics  grDevices datasets  tcltk     utils     methods  
+[8] base     
+ 
+other attached packages:
+ [1] MASS_7.2-47     iplots_1.1-3    rJava_0.6-3     svSocket_0.9-43
+ [5] svMisc_0.9-48   TinnR_1.0.3     R2HTML_1.60-1   brew_1.0-3     
+ [9] Hmisc_3.6-0     rcom_2.2-1      rscproxy_1.3-1 
+ 
+loaded via a namespace (and not attached):
+[1] cluster_1.12.0  grid_2.9.1      lattice_0.17-25 tools_2.9.1   
+ 
+I am including the following also for diagonosing my problem :> library(rJava)
+> .jinit() # this starts the JVM
+> s <- .jnew("java/lang/string","Hello World!")
+Error in .jnew("java/lang/string", "Hello World!") : 
+  Failed to create object of class `java/lang/string'
+In addition: Warning message:
+In .jnew("java/lang/string", "Hello World!") :
+  createObject.FindClass java/lang/string failed
+ 
+Please let me know what I can do to fix the problems here.
+Thanking you,
+Ravi
+
+From bilel.masmoudi at gmail.com  Fri Jul 31 16:59:45 2009
+From: bilel.masmoudi at gmail.com (Bilel MASMOUDI)
+Date: Fri, 31 Jul 2009 18:59:45 +0200
+Subject: modify path dynamically to use R with java
+Message-ID: <e37a704c0907310959s6a226418v1fd516e856419f80@mail.gmail.com>
+
+Hi,
+
+In order to let a java program using R transportable,
+So, I removed the %R_HOME%/bin and the %JRI_HOME% from the windows path
+and I wrote this code to modify the path dynamically :
+
+        String path = System.getProperty("java.class.path");
+        path += ";C:\\R\\R-2.9.0\\bin";
+        path += ";C:\\R\\R-2.9.0\\library\\rJava\\jri";
+        System.out.println(path);
+        System.setProperty("java.class.path", path);
+
+        rengine = ConnectionToR.simpleConnect();
+
+but the connection to R didn't succeed!!! the dlls aren't visible
+
+thank you for your help!!
+
+-- 
+Bilel
+
+-------------- next part --------------
+
+
+From bernd_bischl at gmx.net  Fri Jul 31 17:54:56 2009
+From: bernd_bischl at gmx.net (Bernd Bischl)
+Date: Fri, 31 Jul 2009 19:54:56 +0200
+Subject: Re: strange problem with JRI
+In-Reply-To: <12C00397-A39D-4D65-B600-761EDA1EBE36@r-project.org>
+References: <e37a704c0907300424m1f369436w3c223d4ec297e6cf@mail.gmail.com> <4A718D63.70208@dbmail.com> <43B4E4F3-6058-48F4-9823-5C55D53C5FB4@r-project.org> <e37a704c0907310208t7088e356yc4fa4d0c826d1807@mail.gmail.com> <12C00397-A39D-4D65-B600-761EDA1EBE36@r-project.org>
+Message-ID: <4A732FF0.5020108@gmx.net>
+
+Hi,
+
+Bilel MASMOUDI wrote:
+> Hi,
+>
+> In order to let a java program using R transportable,
+Could you explain more what you mean by "R transpotable"?
+
+> So, I removed the %R_HOME%/bin and the %JRI_HOME% from the windows path
+> and I wrote this code to modify the path dynamically :
+>
+>         String path = System.getProperty("java.class.path");
+>         path += ";C:\\R\\R-2.9.0\\bin";
+>         path += ";C:\\R\\R-2.9.0\\library\\rJava\\jri";
+>         System.out.println(path);
+>         System.setProperty("java.class.path", path);
+>
+>         rengine = ConnectionToR.simpleConnect();
+>
+If I am guessing correctly what you are trying to do above, here are 
+some hints:
+
+1) You can never change the class path once you have started the Java 
+virtual machine. Or to put it differently: You would need to install a 
+custom class loader to do that, which is not that easy.
+
+2) For JRI to work on windows - at least from my experience - you need 
+to have the following: Valid R_HOME env. variable, R_HOME/bin in the 
+path, "java.library.path" pointing to JRI dir (so like c:\program 
+file\R\R-2.9.1\library\rJava\jri).
+You should try to set these before you start your Java VM which uses 
+JRI, if you can. There are ways to do this differently, but it will be 
+much harder.
+
+3) If you could explain what you are trying to achieve I could probably 
+answer better.
+
+Bernd
+
+From mauede at alice.it  Fri Jul 31 21:38:50 2009
+From: mauede at alice.it
+Date: Fri, 31 Jul 2009 23:38:50 +0200
+Subject: How to stop an R script when running JGR on a Linux/SuSE system
+Message-ID: <6B32C438581E5D4C8A34C377C3B334A403B1EEA4@FBCMST11V04.fbc.local>
+
+When I need to stop a running R script  on Windows or Mac I just use the <esc> key which kills the current script and returns the control to R interpreter.
+But when I run R from JGR the <esc> is useless as well as the other available keyboard keys.
+Just recently not even clicking on the STOP-symbol (a big red X) placed on JGR top menu bar could terminate a process that had entered a long loop.
+Eventually I could kill the process from bash comman line using # kill -KILL <process-id>
+
+I wonder whether there is a more gentle way to stop an R script running on top of JGR aother than ... unplugging the power cord.
+
+Thank you so much,
+Maura   
+
+
+Alice Messenger ;-) chatti anche con gli amici di Windows Live Messenger e tutti i telefonini TIM!
+Vai su http://maileservizi.alice.it/alice_messenger/index.html?pmk=footer
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Fri Jul 31 22:26:21 2009
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 31 Jul 2009 18:26:21 -0400
+Subject: Re: modify path dynamically to use R with java
+In-Reply-To: <e37a704c0907310959s6a226418v1fd516e856419f80@mail.gmail.com>
+References: <e37a704c0907310959s6a226418v1fd516e856419f80@mail.gmail.com>
+Message-ID: <C93564B3-6EA7-42B1-A448-72144ED17B66@r-project.org>
+
+Bilel,
+
+On Jul 31, 2009, at 12:59 PM, Bilel MASMOUDI wrote:
+
+> In order to let a java program using R transportable,
+> So, I removed the %R_HOME%/bin and the %JRI_HOME% from the windows  
+> path
+> and I wrote this code to modify the path dynamically :
+>
+>         String path = System.getProperty("java.class.path");
+>         path += ";C:\\R\\R-2.9.0\\bin";
+>         path += ";C:\\R\\R-2.9.0\\library\\rJava\\jri";
+>         System.out.println(path);
+>         System.setProperty("java.class.path", path);
+>
+
+This is all wrong - the *class* path is not relevant to locating R  
+(and the above has no effect anyway since the setting is only honored  
+at startup), it is the *library* path (and the system PATH variable -  
+though only on Windows) that matters. What you need to do first is to  
+set the PATH to include the "bin" directory of your R (unfortunately  
+you cannot do that form Java without 3rd party hacks). Then you have  
+to make sure that all Java-related settings are in place and add the  
+path to JRI to the java.library.path when you are starting Java.  
+Please have a look at the JGR launcher - with --debug you'll see all  
+the settings in C:\JGRdebug.txt.
+
+As Bernd pointed out there is an issue of a flexible class path as  
+well (it's necessary for JGR so other Java packages can be loaded -  
+whether your app needs is up to you), we solve that by bootstrapping  
+using the rJava class loader that can modify the class path at will  
+(again, see the JGR startup sequence).
+
+Cheers,
+Simon
+
+
+>         rengine = ConnectionToR.simpleConnect();
+>
+> but the connection to R didn't succeed!!! the dlls aren't visible
+>
+> thank you for your help!!
+>
+> -- 
+> Bilel
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

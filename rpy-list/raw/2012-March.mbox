@@ -1,0 +1,3142 @@
+From fyhe1991 at gmail.com  Sat Mar  3 15:52:37 2012
+From: fyhe1991 at gmail.com (Fangyu He)
+Date: Sat, 03 Mar 2012 23:52:37 +0800
+Subject: [Rpy] R function written with python can't work as parameter in R
+In-Reply-To: <4F4D71F5.7040304@gmail.com>
+References: <4F4D71F5.7040304@gmail.com>
+Message-ID: <4F523E45.3050700@gmail.com>
+
+
+Hi everyone,
+
+I want to create a R function which can be used as a parameter in the 
+function "outer", I tried the rternalize way which expose python 
+function to R. However, it doesn't work, the following being the 
+problems which I encountered.
+
+     import rpy2.rinterface as ri
+     seq = ri.globalenv.get("seq")
+     outer = ri.globalenv.get("outer")
+
+     #a1, a2, b1, b2 are a list which have only a element
+     a = 
+seq(ri.IntSexpVector(a1),ri.IntSexpVector(a2),length=ri.IntSexpVector([50,]))
+     b = 
+seq(ri.IntSexpVector(b1),ri.IntSexpVector(b2),length=ri.IntSexpVector([50,])) 
+
+
+     #create a python function with lambda and expose it to R
+     funcp = lambda x, y: x+y
+     funcp_f = ri.rternalize(funcp)
+     z = outer(a, b , funcp_f)
+
+gives a Error in FUN(X, Y, ...):
+     unsupported oper and type(s) for +: 'rpy2.rinterface.SexpVector' 
+and 'rpy2.rinterface.SexpVector'
+
+The only example I can find of creating R function that I can find is 
+creating a function having only one parameter, like this example:
+
+    from  rpy2.robjects.vectors  import  FloatVector
+    from  rpy2.robjects.packages  import  importr
+    import  rpy2.rinterface  as  ri
+    stats  =  importr('stats')
+
+    # Rosenbrock Banana function as a cost function
+    # (as in the R man page for optim())
+    def  cost_f(x):
+         x1  =  x[0]
+         x2  =  x[1]
+         return  100  *  (x2  -  x1  *  x1)**2  +  (1  -  x1)**2
+
+    # wrap the function f so it can be exposed to R
+    cost_fr  =  ri.rternalize(cost_f)
+
+    # starting parameters
+    start_params  =  FloatVector((-1.2,  1))
+
+    # call R's optim() with our cost funtion
+    res  =  stats.optim(start_params,  cost_fr)
+
+So how can I get a function can be used in "outer"? Any words would be 
+welcome.
+
+Thanks!
+Fangyu He
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Sun Mar  4 08:52:30 2012
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Sun, 04 Mar 2012 09:52:30 +0100
+Subject: Re: [Rpy] R function written with python can't work as parameter in R
+In-Reply-To: <4F523E45.3050700@gmail.com>
+References: <4F4D71F5.7040304@gmail.com> <4F523E45.3050700@gmail.com>
+Message-ID: <4F532D4E.6020204@gmail.com>
+
+On 2012-03-03 16:52, Fangyu He wrote:
+>
+> Hi everyone,
+>
+> I want to create a R function which can be used as a parameter in the 
+> function "outer", I tried the rternalize way which expose python 
+> function to R. However, it doesn't work, the following being the 
+> problems which I encountered.
+>
+>     import rpy2.rinterface as ri
+>     seq = ri.globalenv.get("seq")
+
+Here you'll get an error because R has not be initialized.
+
+import rpy2.rinterface as ri
+ri.initr()
+seq = ri.globalenv.get("seq")
+
+
+>     outer = ri.globalenv.get("outer")
+>
+>     #a1, a2, b1, b2 are a list which have only a element
+
+Let's add them so the example is self-contained:
+a1 = [1,]
+a2 = [2,]
+b1 = [3,]
+b2 = [4,]
+
+>     a = 
+> seq(ri.IntSexpVector(a1),ri.IntSexpVector(a2),length=ri.IntSexpVector([50,]))
+>     b = 
+> seq(ri.IntSexpVector(b1),ri.IntSexpVector(b2),length=ri.IntSexpVector([50,])) 
+>
+>
+>     #create a python function with lambda and expose it to R
+>     funcp = lambda x, y: x+y
+
+When at the rinterface level, one has to be explicit regarding a number 
+of things. A lot of the magic guesswork at the robjects level is no 
+longer there.
+
+radd = ri.baseenv.get('+')
+def funcp(x, y):
+     return radd(x, y)
+
+
+>     funcp_f = ri.rternalize(funcp)
+>     z = outer(a, b , funcp_f)
+
+Now it seems to be working.
+
+ >>> from rpy2.robjects.vectors import FloatVector
+ >>> FloatVector(z)
+<FloatVector - Python:0x7fee6416aef0 / R:0x1ef7480>
+[4.000000, 4.020408, 4.040816, ..., 5.959184, 5.979592, 6.000000]
+
+
+Best,
+
+
+L.
+
+
+
+>
+> gives a Error in FUN(X, Y, ...):
+>     unsupported oper and type(s) for +: 'rpy2.rinterface.SexpVector' 
+> and 'rpy2.rinterface.SexpVector'
+>
+> The only example I can find of creating R function that I can find is 
+> creating a function having only one parameter, like this example:
+>
+>     from  rpy2.robjects.vectors  import  FloatVector
+>     from  rpy2.robjects.packages  import  importr
+>     import  rpy2.rinterface  as  ri
+>     stats  =  importr('stats')
+>
+>     # Rosenbrock Banana function as a cost function
+>     # (as in the R man page for optim())
+>     def  cost_f(x):
+>          x1  =  x[0]
+>          x2  =  x[1]
+>          return  100  *  (x2  -  x1  *  x1)**2  +  (1  -  x1)**2
+>
+>     # wrap the function f so it can be exposed to R
+>     cost_fr  =  ri.rternalize(cost_f)
+>
+>     # starting parameters
+>     start_params  =  FloatVector((-1.2,  1))
+>
+>     # call R's optim() with our cost funtion
+>     res  =  stats.optim(start_params,  cost_fr)
+>
+> So how can I get a function can be used in "outer"? Any words would be 
+> welcome.
+>
+> Thanks!
+> Fangyu He
+>
+>
+>
+>
+>
+>
+>
+>
+>
+> ------------------------------------------------------------------------------
+> Virtualization&  Cloud Management Using Capacity Planning
+> Cloud computing makes use of virtualization - but cloud computing
+> also focuses on allowing computing to be delivered as a service.
+> http://www.accelacomm.com/jaw/sfnl/114/51521223/
+>
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From tim.te.beek at nbic.nl  Sun Mar  4 21:47:56 2012
+From: tim.te.beek at nbic.nl (Tim te Beek)
+Date: Sun, 04 Mar 2012 22:47:56 +0100
+Subject: [Rpy] ggplot2 import error: print.ggplot not found
+Message-ID: <CAM1_hOvYtaLaULCHLp3Wy1pVWqEHRDxVi3CeNE0zJ0Ct1iY9Nw@mail.gmail.com>
+
+Hi  all,
+
+I'm just getting started with using rpy2, but when I tried import ggplot2
+as per the documentation, I get an error saying print.ggplot is not found.
+
+I've described the problem in detail here, with the relevant parts copied
+below:
+http://stackoverflow.com/questions/9540316/rpy2-ggplot2-lookuperror-print-ggplot
+
+ * Ubuntu 11.10 64 bit
+ * `R version 2.14.2` (from r-cran mirror)
+ * `ggplot2` (through `R> install.packages('ggplot2')`)
+ * `rpy2-2.2.5` (through `easy_install`)
+
+Following this I am able to plot some example dataframes from an
+interactive R session using ggplot2.
+
+However, when I merely try to import `ggplot2` as I've seen in an example I
+found online, I get the following error:
+
+    from rpy2.robjects.lib import ggplot2
+      File ".../rpy2/robjects/lib/ggplot2.py", line 23, in <module>
+        class GGPlot(robjects.RObject):
+      File ".../rpy2/robjects/lib/ggplot2.py", line 26, in GGPlot
+        _rprint = ggplot2_env['print.ggplot']
+      File ".../rpy2/robjects/environments.py", line 14, in __getitem__
+        res = super(Environment, self).__getitem__(item)
+    LookupError: 'print.ggplot' not found
+
+Can anyone help me resolve this issue?
+
+Best,
+Tim
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From marko.limbek at valicon.net  Mon Mar  5 13:41:53 2012
+From: marko.limbek at valicon.net (Marko Limbek)
+Date: Mon, 05 Mar 2012 14:41:53 +0100
+Subject: [Rpy] Unicode problem
+Message-ID: <CAJy9KxuLGctn5hrx9Ym1Fmqq9UmDqvmBpZZY-OxWbtYzLTuXwg@mail.gmail.com>
+
+Hi!
+
+I turned to list once already with this question, but I haven't
+received any answer. I would be glad to solve that.
+Probably it's just a small problem with Unicode, however I don't know
+the answer.
+I use RPy and read the spss database with method read.spss inside a
+nested R code in Python, that looks like that:
+
+
+
+# -*- coding: utf-8 -*-
+# coding=<utf-8>
+#!/E:/Python
+
+import rpy
+from rpy import r
+
+r("""
+
+library(foreign)
+
+baza <- read.spss(""" + analysis[0] + """)
+
+print(baza$demo_izob0)
+
+""")
+
+
+Now when my text data labels in spss have slavic characters, they are
+not recognised and output is something like that:
+
+stiriletna srednja �ola
+nedokon�ana osnovna �ola
+
+
+Is there any idea what I should do here?
+The same code in pure R environment gives me
+
+stiriletna srednja šola
+nedokončana osnovna šola
+
+
+In Python code slavic characters work just fine in the code with upper encoding.
+
+Many thanks for any hint!
+
+
+Marko
+
+------------------------------------------------------------------------------
+Try before you buy = See our experts in action!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-dev2
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Mon Mar  5 15:07:22 2012
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Mon, 05 Mar 2012 16:07:22 +0100
+Subject: Re: [Rpy] Unicode problem
+In-Reply-To: <CAJy9KxuLGctn5hrx9Ym1Fmqq9UmDqvmBpZZY-OxWbtYzLTuXwg@mail.gmail.com>
+References: <CAJy9KxuLGctn5hrx9Ym1Fmqq9UmDqvmBpZZY-OxWbtYzLTuXwg@mail.gmail.com>
+Message-ID: <4F54D6AA.7030908@gmail.com>
+
+rpy predates R's support for UTF-8, and I'd think that you are mostly on 
+your own.
+
+Note that rpy2 has UTF-8 support.
+
+Best,
+
+L.
+
+
+On 2012-03-05 14:41, Marko Limbek wrote:
+> Hi!
+>
+> I turned to list once already with this question, but I haven't
+> received any answer. I would be glad to solve that.
+> Probably it's just a small problem with Unicode, however I don't know
+> the answer.
+> I use RPy and read the spss database with method read.spss inside a
+> nested R code in Python, that looks like that:
+>
+>
+>
+> # -*- coding: utf-8 -*-
+> # coding=<utf-8>
+> #!/E:/Python
+>
+> import rpy
+> from rpy import r
+>
+> r("""
+>
+> library(foreign)
+>
+> baza<- read.spss(""" + analysis[0] + """)
+>
+> print(baza$demo_izob0)
+>
+> """)
+>
+>
+> Now when my text data labels in spss have slavic characters, they are
+> not recognised and output is something like that:
+>
+> stiriletna srednja �ola
+> nedokon�ana osnovna �ola
+>
+>
+> Is there any idea what I should do here?
+> The same code in pure R environment gives me
+>
+> stiriletna srednja šola
+> nedokončana osnovna šola
+>
+>
+> In Python code slavic characters work just fine in the code with upper encoding.
+>
+> Many thanks for any hint!
+>
+>
+> Marko
+>
+> ------------------------------------------------------------------------------
+> Try before you buy = See our experts in action!
+> The most comprehensive online learning library for Microsoft developers
+> is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+> Metro Style Apps, more. Free future releases when you subscribe now!
+> http://p.sf.net/sfu/learndevnow-dev2
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Try before you buy = See our experts in action!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-dev2
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From marko.limbek at valicon.net  Mon Mar  5 16:09:39 2012
+From: marko.limbek at valicon.net (Marko Limbek)
+Date: Mon, 05 Mar 2012 17:09:39 +0100
+Subject: Re: [Rpy] Unicode problem
+In-Reply-To: <4F54D6AA.7030908@gmail.com>
+References: <CAJy9KxuLGctn5hrx9Ym1Fmqq9UmDqvmBpZZY-OxWbtYzLTuXwg@mail.gmail.com> <4F54D6AA.7030908@gmail.com>
+Message-ID: <CAJy9KxsytZNG1wxN_+nAtG9Z6i90UpaYoM3b1gqSC85hDuCDqA@mail.gmail.com>
+
+Ok, thank you.
+Now I will probably read a part of spss base with Python reader.
+I have also checked and seen, that the latest version of RPy is from
+August 2010. Has focus moved to rpy2 ?
+I have heard however that the version of rpy that correspondes to
+Python 3 can handle UTF-8, but I don't know, maybe it was meant for
+rpy2.
+To my knowledge rpy corresponds to Python 27 top.
+
+Best
+
+Marko
+
+
+
+On Mon, Mar 5, 2012 at 4:07 PM, Laurent Gautier <lgautier at gmail.com> wrote:
+> rpy predates R's support for UTF-8, and I'd think that you are mostly on
+> your own.
+>
+> Note that rpy2 has UTF-8 support.
+>
+> Best,
+>
+> L.
+>
+>
+>
+> On 2012-03-05 14:41, Marko Limbek wrote:
+>>
+>> Hi!
+>>
+>> I turned to list once already with this question, but I haven't
+>> received any answer. I would be glad to solve that.
+>> Probably it's just a small problem with Unicode, however I don't know
+>> the answer.
+>> I use RPy and read the spss database with method read.spss inside a
+>> nested R code in Python, that looks like that:
+>>
+>>
+>>
+>> # -*- coding: utf-8 -*-
+>> # coding=<utf-8>
+>> #!/E:/Python
+>>
+>> import rpy
+>> from rpy import r
+>>
+>> r("""
+>>
+>> library(foreign)
+>>
+>> baza<- read.spss(""" + analysis[0] + """)
+>>
+>> print(baza$demo_izob0)
+>>
+>> """)
+>>
+>>
+>> Now when my text data labels in spss have slavic characters, they are
+>> not recognised and output is something like that:
+>>
+>> stiriletna srednja �ola
+>> nedokon�ana osnovna �ola
+>>
+>>
+>> Is there any idea what I should do here?
+>> The same code in pure R environment gives me
+>>
+>> stiriletna srednja šola
+>> nedokončana osnovna šola
+>>
+>>
+>> In Python code slavic characters work just fine in the code with upper
+>> encoding.
+>>
+>> Many thanks for any hint!
+>>
+>>
+>> Marko
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> Try before you buy = See our experts in action!
+>> The most comprehensive online learning library for Microsoft developers
+>> is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+>> Metro Style Apps, more. Free future releases when you subscribe now!
+>> http://p.sf.net/sfu/learndevnow-dev2
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+------------------------------------------------------------------------------
+Try before you buy = See our experts in action!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-dev2
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Mon Mar  5 16:19:46 2012
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Mon, 05 Mar 2012 17:19:46 +0100
+Subject: Re: [Rpy] Unicode problem
+In-Reply-To: <CAJy9KxsytZNG1wxN_+nAtG9Z6i90UpaYoM3b1gqSC85hDuCDqA@mail.gmail.com>
+References: <CAJy9KxuLGctn5hrx9Ym1Fmqq9UmDqvmBpZZY-OxWbtYzLTuXwg@mail.gmail.com> <4F54D6AA.7030908@gmail.com> <CAJy9KxsytZNG1wxN_+nAtG9Z6i90UpaYoM3b1gqSC85hDuCDqA@mail.gmail.com>
+Message-ID: <CA+JCgN1wvR9-sEF7Wn0RLqbF5qTk0hkg2-=-sr47up0F6OwLjQ@mail.gmail.com>
+
+Most recent development was indeed on rpy2. Version 2.3 was scheduled to
+reach alpha now, but will likely be a little late.
+
+I don't think that rpy works with Python3 at all.
+
+L.
+On Mar 5, 2012 5:10 PM, "Marko Limbek" <marko.limbek at valicon.net> wrote:
+
+> Ok, thank you.
+> Now I will probably read a part of spss base with Python reader.
+> I have also checked and seen, that the latest version of RPy is from
+> August 2010. Has focus moved to rpy2 ?
+> I have heard however that the version of rpy that correspondes to
+> Python 3 can handle UTF-8, but I don't know, maybe it was meant for
+> rpy2.
+> To my knowledge rpy corresponds to Python 27 top.
+>
+> Best
+>
+> Marko
+>
+>
+>
+> On Mon, Mar 5, 2012 at 4:07 PM, Laurent Gautier <lgautier at gmail.com>
+> wrote:
+> > rpy predates R's support for UTF-8, and I'd think that you are mostly on
+> > your own.
+> >
+> > Note that rpy2 has UTF-8 support.
+> >
+> > Best,
+> >
+> > L.
+> >
+> >
+> >
+> > On 2012-03-05 14:41, Marko Limbek wrote:
+> >>
+> >> Hi!
+> >>
+> >> I turned to list once already with this question, but I haven't
+> >> received any answer. I would be glad to solve that.
+> >> Probably it's just a small problem with Unicode, however I don't know
+> >> the answer.
+> >> I use RPy and read the spss database with method read.spss inside a
+> >> nested R code in Python, that looks like that:
+> >>
+> >>
+> >>
+> >> # -*- coding: utf-8 -*-
+> >> # coding=<utf-8>
+> >> #!/E:/Python
+> >>
+> >> import rpy
+> >> from rpy import r
+> >>
+> >> r("""
+> >>
+> >> library(foreign)
+> >>
+> >> baza<- read.spss(""" + analysis[0] + """)
+> >>
+> >> print(baza$demo_izob0)
+> >>
+> >> """)
+> >>
+> >>
+> >> Now when my text data labels in spss have slavic characters, they are
+> >> not recognised and output is something like that:
+> >>
+> >> stiriletna srednja �ola
+> >> nedokon�ana osnovna �ola
+> >>
+> >>
+> >> Is there any idea what I should do here?
+> >> The same code in pure R environment gives me
+> >>
+> >> stiriletna srednja šola
+> >> nedokončana osnovna šola
+> >>
+> >>
+> >> In Python code slavic characters work just fine in the code with upper
+> >> encoding.
+> >>
+> >> Many thanks for any hint!
+> >>
+> >>
+> >> Marko
+> >>
+> >>
+> >>
+> ------------------------------------------------------------------------------
+> >> Try before you buy = See our experts in action!
+> >> The most comprehensive online learning library for Microsoft developers
+> >> is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+> >> Metro Style Apps, more. Free future releases when you subscribe now!
+> >> http://p.sf.net/sfu/learndevnow-dev2
+> >> _______________________________________________
+> >> rpy-list mailing list
+> >> rpy-list at lists.sourceforge.net
+> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >
+> >
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Try before you buy = See our experts in action!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-dev2
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From takowl at gmail.com  Mon Mar  5 16:28:03 2012
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Mon, 05 Mar 2012 16:28:03 +0000
+Subject: Re: [Rpy] Unicode problem
+In-Reply-To: <CA+JCgN1wvR9-sEF7Wn0RLqbF5qTk0hkg2-=-sr47up0F6OwLjQ@mail.gmail.com>
+References: <CAJy9KxuLGctn5hrx9Ym1Fmqq9UmDqvmBpZZY-OxWbtYzLTuXwg@mail.gmail.com> <4F54D6AA.7030908@gmail.com> <CAJy9KxsytZNG1wxN_+nAtG9Z6i90UpaYoM3b1gqSC85hDuCDqA@mail.gmail.com> <CA+JCgN1wvR9-sEF7Wn0RLqbF5qTk0hkg2-=-sr47up0F6OwLjQ@mail.gmail.com>
+Message-ID: <CAOvn4qi1z2r5n19bMaX7KMExu9=q3iKq5wG060aYb7gk9JUc1Q@mail.gmail.com>
+
+On 5 March 2012 16:19, Laurent Gautier <lgautier at gmail.com> wrote:
+
+> I don't think that rpy works with Python3 at all.
+
+
+To avoid any confusion: rpy almost certainly only works on Python 2, while
+rpy2 works on Python 2 or Python 3.
+
+Thomas
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Try before you buy = See our experts in action!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-dev2
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From noreply at sourceforge.net  Fri Mar  9 12:03:06 2012
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 09 Mar 2012 04:03:06 -0800
+Subject: [Rpy] [ rpy-Support Requests-2821065 ] installing RPy on OS X with deps satisfied through MacPorts
+Message-ID: <E1S5yXO-0004ff-HI@sfs-ml-4.v29.ch3.sourceforge.com>
+
+Support Requests item #2821065, was opened at 2009-07-13 20:16
+Message generated for change (Comment added) made by nobody
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=2821065&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Install Problem (example)
+Group: None
+Status: Open
+Priority: 5
+Private: No
+Submitted By: Mark Moll (mamoll)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: installing RPy on OS X with deps satisfied through MacPorts
+
+Initial Comment:
+I have R and python2.6 installed through MacPorts. When I run "python setup.py build" in the rpy2-2.0.6 directory, I get the following error:
+
+creating build/temp.macosx-10.5-i386-2.6/rpy/rinterface
+/usr/bin/gcc-4.0 -fno-strict-aliasing -fno-common -dynamic -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/opt/local/lib/R/include -Irpy/rinterface -I/opt/local/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c rpy/rinterface/array.c -o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/array.o
+/usr/bin/gcc-4.0 -fno-strict-aliasing -fno-common -dynamic -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/opt/local/lib/R/include -Irpy/rinterface -I/opt/local/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c rpy/rinterface/r_utils.c -o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/r_utils.o
+/usr/bin/gcc-4.0 -fno-strict-aliasing -fno-common -dynamic -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/opt/local/lib/R/include -Irpy/rinterface -I/opt/local/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c rpy/rinterface/rinterface.c -o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/rinterface.o
+In file included from rpy/rinterface/rinterface.c:69:
+/opt/local/lib/R/include/R_ext/Rdynload.h:26: warning: function declaration isn’t a prototype
+rpy/rinterface/rinterface.c:104: warning: ‘interrupt_R’ defined but not used
+rpy/rinterface/rinterface.c:2676: warning: ‘externalMethods’ defined but not used
+/usr/bin/gcc-4.0 -L/opt/local/lib -bundle -undefined dynamic_lookup build/temp.macosx-10.5-i386-2.6/rpy/rinterface/array.o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/r_utils.o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/rinterface.o -L/opt/local/lib/R/lib -L/opt/local/lib/R/modules -L/opt/local/lib/R/lib -L/opt/local/lib/R/modules -lR -o build/lib.macosx-10.5-i386-2.6/rpy2/rinterface/rinterface.so -L/opt/local/lib/R/lib -lR -dylib_file libRblas.dylib:/opt/local/lib/R/lib/libRblas.dylib -L/opt/local/lib/R/lib -lRlapack -L/opt/local/lib/R/lib -lRblas
+ld: library not found for -lR -dylib_file libRblas.dylib:/opt/local/lib/R/lib/libRblas.dylib
+collect2: ld returned 1 exit status
+error: command '/usr/bin/gcc-4.0' failed with exit status 1
+
+
+If I copy/paste the last gcc command on the command line I do *not* get an error. How could this be?
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2012-03-09 04:03
+
+Message:
+zz6wRq Great, thanks for sharing this article post.Really looking forward
+to read more. Much obliged.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=2821065&group_id=48422
+
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From noreply at sourceforge.net  Fri Mar  9 12:30:46 2012
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 09 Mar 2012 04:30:46 -0800
+Subject: [Rpy] [ rpy-Support Requests-2821065 ] installing RPy on OS X with deps satisfied through MacPorts
+Message-ID: <E1S5yy8-0006Dg-DJ@sfs-ml-4.v29.ch3.sourceforge.com>
+
+Support Requests item #2821065, was opened at 2009-07-13 20:16
+Message generated for change (Comment added) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=2821065&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Install Problem (example)
+Group: None
+>Status: Closed
+Priority: 5
+Private: No
+Submitted By: Mark Moll (mamoll)
+>Assigned to: lgautier (lgautier)
+Summary: installing RPy on OS X with deps satisfied through MacPorts
+
+Initial Comment:
+I have R and python2.6 installed through MacPorts. When I run "python setup.py build" in the rpy2-2.0.6 directory, I get the following error:
+
+creating build/temp.macosx-10.5-i386-2.6/rpy/rinterface
+/usr/bin/gcc-4.0 -fno-strict-aliasing -fno-common -dynamic -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/opt/local/lib/R/include -Irpy/rinterface -I/opt/local/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c rpy/rinterface/array.c -o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/array.o
+/usr/bin/gcc-4.0 -fno-strict-aliasing -fno-common -dynamic -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/opt/local/lib/R/include -Irpy/rinterface -I/opt/local/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c rpy/rinterface/r_utils.c -o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/r_utils.o
+/usr/bin/gcc-4.0 -fno-strict-aliasing -fno-common -dynamic -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/opt/local/lib/R/include -Irpy/rinterface -I/opt/local/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c rpy/rinterface/rinterface.c -o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/rinterface.o
+In file included from rpy/rinterface/rinterface.c:69:
+/opt/local/lib/R/include/R_ext/Rdynload.h:26: warning: function declaration isn’t a prototype
+rpy/rinterface/rinterface.c:104: warning: ‘interrupt_R’ defined but not used
+rpy/rinterface/rinterface.c:2676: warning: ‘externalMethods’ defined but not used
+/usr/bin/gcc-4.0 -L/opt/local/lib -bundle -undefined dynamic_lookup build/temp.macosx-10.5-i386-2.6/rpy/rinterface/array.o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/r_utils.o build/temp.macosx-10.5-i386-2.6/rpy/rinterface/rinterface.o -L/opt/local/lib/R/lib -L/opt/local/lib/R/modules -L/opt/local/lib/R/lib -L/opt/local/lib/R/modules -lR -o build/lib.macosx-10.5-i386-2.6/rpy2/rinterface/rinterface.so -L/opt/local/lib/R/lib -lR -dylib_file libRblas.dylib:/opt/local/lib/R/lib/libRblas.dylib -L/opt/local/lib/R/lib -lRlapack -L/opt/local/lib/R/lib -lRblas
+ld: library not found for -lR -dylib_file libRblas.dylib:/opt/local/lib/R/lib/libRblas.dylib
+collect2: ld returned 1 exit status
+error: command '/usr/bin/gcc-4.0' failed with exit status 1
+
+
+If I copy/paste the last gcc command on the command line I do *not* get an error. How could this be?
+
+----------------------------------------------------------------------
+
+>Comment By: lgautier (lgautier)
+Date: 2012-03-09 04:30
+
+Message:
+The 2.0.x series for rpy2 is no longer developed or supported. More recent
+versions will hopefully behave better (folks at ActiveState appear to be
+able to build binaries straight from the source on Pypi -
+http://code.activestate.com/pypm/rpy2/ )
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2012-03-09 04:03
+
+Message:
+zz6wRq Great, thanks for sharing this article post.Really looking forward
+to read more. Much obliged.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=2821065&group_id=48422
+
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From jianjian.issa at gmail.com  Sun Mar 25 07:47:16 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Sun, 25 Mar 2012 15:47:16 +0800
+Subject: [Rpy] Problem with installing rpy2 to Python3
+Message-ID: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com>
+
+Hi,
+
+When I was trying to install rpy2-2.2.5 to Python-3.2.2 in Win7, the error
+msg said "Tried to guess R's HOME but no R command in the PATH."
+
+I am new to programming, so wish you could provide some help.
+
+Many thanks,
+
+Y.Z.
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From niekdeklein at gmail.com  Sun Mar 25 11:27:21 2012
+From: niekdeklein at gmail.com (Niek de Klein)
+Date: Sun, 25 Mar 2012 12:27:21 +0100
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com>
+Message-ID: <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com>
+
+Hi Yuanda,
+
+I haven't had this problem myself so I don't know if the solutions given
+here: http://stackoverflow.com/questions/4924917/trouble-installing-rpy2-on-win7-r-2-12-python-2-5.
+ actually work, but it seems like a solution.
+
+Cheers,
+Niek
+
+On Sun, Mar 25, 2012 at 8:47 AM, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+
+> Hi,
+>
+> When I was trying to install rpy2-2.2.5 to Python-3.2.2 in Win7, the error
+> msg said "Tried to guess R's HOME but no R command in the PATH."
+>
+> I am new to programming, so wish you could provide some help.
+>
+> Many thanks,
+>
+> Y.Z.
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From jianjian.issa at gmail.com  Sun Mar 25 18:29:21 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 02:29:21 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com>
+Message-ID: <CAA+ddeKT-a68-XeaNhVSD596BL-81r=4mDURDP0m-sBwO=sJPA@mail.gmail.com>
+
+Hi Niek,
+
+I have tried those, but it seems that the methods in that thread don't work
+on my situation.
+Thank you very much, Niek.
+
+Y.Z.
+
+On Sun, Mar 25, 2012 at 7:27 PM, Niek de Klein <niekdeklein at gmail.com>wrote:
+
+> Hi Yuanda,
+>
+> I haven't had this problem myself so I don't know if the solutions given
+> here: http://stackoverflow.com/questions/4924917/trouble-installing-rpy2-on-win7-r-2-12-python-2-5.
+>  actually work, but it seems like a solution.
+>
+> Cheers,
+> Niek
+>
+> On Sun, Mar 25, 2012 at 8:47 AM, Yuanda Zhu <jianjian.issa at gmail.com>wrote:
+>
+>> Hi,
+>>
+>> When I was trying to install rpy2-2.2.5 to Python-3.2.2 in Win7, the
+>> error msg said "Tried to guess R's HOME but no R command in the PATH."
+>>
+>> I am new to programming, so wish you could provide some help.
+>>
+>> Many thanks,
+>>
+>> Y.Z.
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> This SF email is sponsosred by:
+>> Try Windows Azure free for 90 days Click Here
+>> http://p.sf.net/sfu/sfd2d-msazure
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From jianjian.issa at gmail.com  Sun Mar 25 19:17:52 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 03:17:52 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com>
+Message-ID: <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com>
+
+Hi Niek,
+
+Actually, after I changed the path of R, the error msg appeared to be
+*AttributeError:'module'
+object has no attribute 'popen3'*
+Do you know how to solve this problem?
+
+Many thanks,
+
+Y.Z.
+*
+*On Sun, Mar 25, 2012 at 7:27 PM, Niek de Klein <niekdeklein at gmail.com>wrote:
+
+> Hi Yuanda,
+>
+> I haven't had this problem myself so I don't know if the solutions given
+> here: http://stackoverflow.com/questions/4924917/trouble-installing-rpy2-on-win7-r-2-12-python-2-5.
+>  actually work, but it seems like a solution.
+>
+> Cheers,
+> Niek
+>
+> On Sun, Mar 25, 2012 at 8:47 AM, Yuanda Zhu <jianjian.issa at gmail.com>wrote:
+>
+>> Hi,
+>>
+>> When I was trying to install rpy2-2.2.5 to Python-3.2.2 in Win7, the
+>> error msg said "Tried to guess R's HOME but no R command in the PATH."
+>>
+>> I am new to programming, so wish you could provide some help.
+>>
+>> Many thanks,
+>>
+>> Y.Z.
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> This SF email is sponsosred by:
+>> Try Windows Azure free for 90 days Click Here
+>> http://p.sf.net/sfu/sfd2d-msazure
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From takowl at gmail.com  Sun Mar 25 19:59:56 2012
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Sun, 25 Mar 2012 20:59:56 +0100
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com>
+Message-ID: <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com>
+
+On 25 March 2012 20:17, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> AttributeError:'module' object has no attribute 'popen3'
+
+Can you post the traceback that goes with this? It's most likely a bug
+somewhere, as popen3 calls should be replaced using the subprocess
+module (see http://docs.python.org/library/subprocess.html#replacing-os-popen-os-popen2-os-popen3).
+
+Thanks,
+Thomas
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+From jianjian.issa at gmail.com  Sun Mar 25 20:24:36 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 04:24:36 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com>
+Message-ID: <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com>
+
+Hi Niek,
+
+Here is the Traceback
+
+
+Traceback (most recent call last):
+  File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462, in
+<module>
+    [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+  File "F:\Python32\lib\distutils\core.py", line 148, in setup
+    dist.run_commands()
+  File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+    self.run_command(cmd)
+  File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+    cmd_obj.run()
+  File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+    self.run_command('build')
+  File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+    self.distribution.run_command(command)
+  File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+    cmd_obj.run()
+  File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+    self.run_command(cmd_name)
+  File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+    self.distribution.run_command(command)
+  File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+    cmd_obj.ensure_finalized()
+  File "F:\Python32\lib\distutils\cmd.py", line 107, in ensure_finalized
+    self.finalize_options()
+  File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144, in
+finalize_options
+    rversion = get_rversion(r_home)
+  File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180, in
+get_rversion
+    rp = os.popen3('"'+r_exec+'" --version')[2]
+AttributeError: 'module' object has no attribute 'popen3'
+
+
+Please help me fix this, many thanks.
+
+Y.Z.
+
+
+On Mon, Mar 26, 2012 at 3:59 AM, Thomas Kluyver <takowl at gmail.com> wrote:
+
+> On 25 March 2012 20:17, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> > AttributeError:'module' object has no attribute 'popen3'
+>
+> Can you post the traceback that goes with this? It's most likely a bug
+> somewhere, as popen3 calls should be replaced using the subprocess
+> module (see
+> http://docs.python.org/library/subprocess.html#replacing-os-popen-os-popen2-os-popen3
+> ).
+>
+> Thanks,
+> Thomas
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From jianjian.issa at gmail.com  Sun Mar 25 20:54:43 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 04:54:43 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com>
+Message-ID: <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com>
+
+Hi Thomas,
+
+Here is the traceback:
+
+Traceback (most recent call last):
+  File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462, in
+<module>
+    [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+  File "F:\Python32\lib\distutils\core.py", line 148, in setup
+    dist.run_commands()
+  File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+    self.run_command(cmd)
+  File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+    cmd_obj.run()
+  File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+    self.run_command('build')
+  File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+    self.distribution.run_command(command)
+  File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+    cmd_obj.run()
+  File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+    self.run_command(cmd_name)
+  File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+    self.distribution.run_command(command)
+  File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+    cmd_obj.ensure_finalized()
+  File "F:\Python32\lib\distutils\cmd.py", line 107, in ensure_finalized
+    self.finalize_options()
+  File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144, in
+finalize_options
+    rversion = get_rversion(r_home)
+  File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180, in
+get_rversion
+    rp = os.popen3('"'+r_exec+'" --version')[2]
+AttributeError: 'module' object has no attribute 'popen3'
+
+Please help me, thank you very much
+
+Y.Z.
+
+On Mon, Mar 26, 2012 at 4:24 AM, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+
+> Hi Niek,
+>
+> Here is the Traceback
+>
+>
+> Traceback (most recent call last):
+>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462, in
+> <module>
+>     [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+>   File "F:\Python32\lib\distutils\core.py", line 148, in setup
+>     dist.run_commands()
+>   File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+>     self.run_command(cmd)
+>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>     cmd_obj.run()
+>   File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+>     self.run_command('build')
+>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>     self.distribution.run_command(command)
+>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>     cmd_obj.run()
+>   File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+>     self.run_command(cmd_name)
+>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>     self.distribution.run_command(command)
+>   File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+>     cmd_obj.ensure_finalized()
+>   File "F:\Python32\lib\distutils\cmd.py", line 107, in ensure_finalized
+>     self.finalize_options()
+>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144, in
+> finalize_options
+>     rversion = get_rversion(r_home)
+>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180, in
+> get_rversion
+>     rp = os.popen3('"'+r_exec+'" --version')[2]
+>
+> AttributeError: 'module' object has no attribute 'popen3'
+>
+>
+> Please help me fix this, many thanks.
+>
+> Y.Z.
+>
+>
+> On Mon, Mar 26, 2012 at 3:59 AM, Thomas Kluyver <takowl at gmail.com> wrote:
+>
+>> On 25 March 2012 20:17, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+>> > AttributeError:'module' object has no attribute 'popen3'
+>>
+>> Can you post the traceback that goes with this? It's most likely a bug
+>> somewhere, as popen3 calls should be replaced using the subprocess
+>> module (see
+>> http://docs.python.org/library/subprocess.html#replacing-os-popen-os-popen2-os-popen3
+>> ).
+>>
+>> Thanks,
+>> Thomas
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> This SF email is sponsosred by:
+>> Try Windows Azure free for 90 days Click Here
+>> http://p.sf.net/sfu/sfd2d-msazure
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From takowl at gmail.com  Sun Mar 25 21:02:05 2012
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Sun, 25 Mar 2012 22:02:05 +0100
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com>
+Message-ID: <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com>
+
+Hi Yuanda,
+
+You should edit setup.py to use subprocess.check_output() instead of
+os.popen3(). Note that it's not a direct replacement - popen3 returns
+a file-like object with a readline method; check_output() returns a
+string (use s.splitlines() to make a list of lines).
+
+For reference, you can see the current code here:
+https://bitbucket.org/lgautier/rpy2/src/f075a4291e9c/setup.py#cl-185
+
+Thomas
+
+On 25 March 2012 21:54, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> Hi Thomas,
+>
+> Here is the traceback:
+>
+> Traceback (most recent call last):
+>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462, in
+> <module>
+>     [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+>   File "F:\Python32\lib\distutils\core.py", line 148, in setup
+>     dist.run_commands()
+>   File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+>     self.run_command(cmd)
+>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>     cmd_obj.run()
+>   File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+>     self.run_command('build')
+>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>     self.distribution.run_command(command)
+>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>     cmd_obj.run()
+>   File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+>     self.run_command(cmd_name)
+>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>     self.distribution.run_command(command)
+>   File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+>     cmd_obj.ensure_finalized()
+>   File "F:\Python32\lib\distutils\cmd.py", line 107, in ensure_finalized
+>     self.finalize_options()
+>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144, in
+> finalize_options
+>     rversion = get_rversion(r_home)
+>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180, in
+> get_rversion
+>     rp = os.popen3('"'+r_exec+'" --version')[2]
+> AttributeError: 'module' object has no attribute 'popen3'
+>
+> Please help me, thank you very much
+>
+> Y.Z.
+>
+> On Mon, Mar 26, 2012 at 4:24 AM, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+>>
+>> Hi Niek,
+>>
+>> Here is the Traceback
+>>
+>>
+>> Traceback (most recent call last):
+>>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462, in
+>> <module>
+>>     [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+>>   File "F:\Python32\lib\distutils\core.py", line 148, in setup
+>>     dist.run_commands()
+>>   File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+>>     self.run_command(cmd)
+>>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>>     cmd_obj.run()
+>>   File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+>>     self.run_command('build')
+>>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>>     self.distribution.run_command(command)
+>>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>>     cmd_obj.run()
+>>   File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+>>     self.run_command(cmd_name)
+>>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>>     self.distribution.run_command(command)
+>>   File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+>>     cmd_obj.ensure_finalized()
+>>   File "F:\Python32\lib\distutils\cmd.py", line 107, in ensure_finalized
+>>     self.finalize_options()
+>>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144, in
+>> finalize_options
+>>     rversion = get_rversion(r_home)
+>>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180, in
+>> get_rversion
+>>     rp = os.popen3('"'+r_exec+'" --version')[2]
+>>
+>> AttributeError: 'module' object has no attribute 'popen3'
+>>
+>>
+>> Please help me fix this, many thanks.
+>>
+>> Y.Z.
+>>
+>>
+>> On Mon, Mar 26, 2012 at 3:59 AM, Thomas Kluyver <takowl at gmail.com> wrote:
+>>>
+>>> On 25 March 2012 20:17, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+>>> > AttributeError:'module' object has no attribute 'popen3'
+>>>
+>>> Can you post the traceback that goes with this? It's most likely a bug
+>>> somewhere, as popen3 calls should be replaced using the subprocess
+>>> module (see
+>>> http://docs.python.org/library/subprocess.html#replacing-os-popen-os-popen2-os-popen3).
+>>>
+>>> Thanks,
+>>> Thomas
+>>>
+>>>
+>>> ------------------------------------------------------------------------------
+>>> This SF email is sponsosred by:
+>>> Try Windows Azure free for 90 days Click Here
+>>> http://p.sf.net/sfu/sfd2d-msazure
+>>> _______________________________________________
+>>> rpy-list mailing list
+>>> rpy-list at lists.sourceforge.net
+>>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+From jianjian.issa at gmail.com  Mon Mar 26 06:57:25 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 14:57:25 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com>
+Message-ID: <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com>
+
+Hi Thomas,
+
+Please excuse my limited knowledge. I do not quite know how to replace it.
+Could you please write the full syntax for me? By the way, is this a
+compatibility problem between Python 3.2.2 and rpy2?
+
+Many thanks,
+
+Y.Z.
+On Mon, Mar 26, 2012 at 5:02 AM, Thomas Kluyver <takowl at gmail.com> wrote:
+
+> Hi Yuanda,
+>
+> You should edit setup.py to use subprocess.check_output() instead of
+> os.popen3(). Note that it's not a direct replacement - popen3 returns
+> a file-like object with a readline method; check_output() returns a
+> string (use s.splitlines() to make a list of lines).
+>
+> For reference, you can see the current code here:
+> https://bitbucket.org/lgautier/rpy2/src/f075a4291e9c/setup.py#cl-185
+>
+> Thomas
+>
+> On 25 March 2012 21:54, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> > Hi Thomas,
+> >
+> > Here is the traceback:
+> >
+> > Traceback (most recent call last):
+> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462,
+> in
+> > <module>
+> >     [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+> >   File "F:\Python32\lib\distutils\core.py", line 148, in setup
+> >     dist.run_commands()
+> >   File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+> >     self.run_command(cmd)
+> >   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+> >     cmd_obj.run()
+> >   File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+> >     self.run_command('build')
+> >   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+> >     self.distribution.run_command(command)
+> >   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+> >     cmd_obj.run()
+> >   File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+> >     self.run_command(cmd_name)
+> >   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+> >     self.distribution.run_command(command)
+> >   File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+> >     cmd_obj.ensure_finalized()
+> >   File "F:\Python32\lib\distutils\cmd.py", line 107, in ensure_finalized
+> >     self.finalize_options()
+> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144,
+> in
+> > finalize_options
+> >     rversion = get_rversion(r_home)
+> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180,
+> in
+> > get_rversion
+> >     rp = os.popen3('"'+r_exec+'" --version')[2]
+> > AttributeError: 'module' object has no attribute 'popen3'
+> >
+> > Please help me, thank you very much
+> >
+> > Y.Z.
+> >
+> > On Mon, Mar 26, 2012 at 4:24 AM, Yuanda Zhu <jianjian.issa at gmail.com>
+> wrote:
+> >>
+> >> Hi Niek,
+> >>
+> >> Here is the Traceback
+> >>
+> >>
+> >> Traceback (most recent call last):
+> >>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462,
+> in
+> >> <module>
+> >>     [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+> >>   File "F:\Python32\lib\distutils\core.py", line 148, in setup
+> >>     dist.run_commands()
+> >>   File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+> >>     self.run_command(cmd)
+> >>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+> >>     cmd_obj.run()
+> >>   File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+> >>     self.run_command('build')
+> >>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+> >>     self.distribution.run_command(command)
+> >>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+> >>     cmd_obj.run()
+> >>   File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+> >>     self.run_command(cmd_name)
+> >>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+> >>     self.distribution.run_command(command)
+> >>   File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+> >>     cmd_obj.ensure_finalized()
+> >>   File "F:\Python32\lib\distutils\cmd.py", line 107, in ensure_finalized
+> >>     self.finalize_options()
+> >>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144,
+> in
+> >> finalize_options
+> >>     rversion = get_rversion(r_home)
+> >>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180,
+> in
+> >> get_rversion
+> >>     rp = os.popen3('"'+r_exec+'" --version')[2]
+> >>
+> >> AttributeError: 'module' object has no attribute 'popen3'
+> >>
+> >>
+> >> Please help me fix this, many thanks.
+> >>
+> >> Y.Z.
+> >>
+> >>
+> >> On Mon, Mar 26, 2012 at 3:59 AM, Thomas Kluyver <takowl at gmail.com>
+> wrote:
+> >>>
+> >>> On 25 March 2012 20:17, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> >>> > AttributeError:'module' object has no attribute 'popen3'
+> >>>
+> >>> Can you post the traceback that goes with this? It's most likely a bug
+> >>> somewhere, as popen3 calls should be replaced using the subprocess
+> >>> module (see
+> >>>
+> http://docs.python.org/library/subprocess.html#replacing-os-popen-os-popen2-os-popen3
+> ).
+> >>>
+> >>> Thanks,
+> >>> Thomas
+> >>>
+> >>>
+> >>>
+> ------------------------------------------------------------------------------
+> >>> This SF email is sponsosred by:
+> >>> Try Windows Azure free for 90 days Click Here
+> >>> http://p.sf.net/sfu/sfd2d-msazure
+> >>> _______________________________________________
+> >>> rpy-list mailing list
+> >>> rpy-list at lists.sourceforge.net
+> >>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>
+> >>
+> >
+> >
+> >
+> ------------------------------------------------------------------------------
+> > This SF email is sponsosred by:
+> > Try Windows Azure free for 90 days Click Here
+> > http://p.sf.net/sfu/sfd2d-msazure
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From takowl at gmail.com  Mon Mar 26 09:50:46 2012
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Mon, 26 Mar 2012 10:50:46 +0100
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com>
+Message-ID: <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com>
+
+I haven't tested this, but it should be something like:
+
+r_exec = os.path.join(r_home, 'bin', 'R')
+# Changed ---------------------------------------
+import subprocess
+rp = subprocess.check_output([r_exec, '--version'],
+stderr=subprocess.STDOUT).splitlines()
+rversion = rp[0]
+#Twist if 'R RHOME' spits out a warning
+if rversion.startswith("WARNING"):
+    rversion = rp[1]
+# End of changed section -------------------
+m = re.match('^R ([^ ]+) ([^ ]+) .+$', rversion)
+...
+
+Thomas
+
+On 26 March 2012 07:57, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> Hi Thomas,
+>
+> Please excuse my limited knowledge. I do not quite know how to replace it.
+> Could you please write the full syntax for me? By the way, is this a
+> compatibility problem between Python 3.2.2 and rpy2?
+>
+> Many thanks,
+>
+> Y.Z.
+> On Mon, Mar 26, 2012 at 5:02 AM, Thomas Kluyver <takowl at gmail.com> wrote:
+>>
+>> Hi Yuanda,
+>>
+>> You should edit setup.py to use subprocess.check_output() instead of
+>> os.popen3(). Note that it's not a direct replacement - popen3 returns
+>> a file-like object with a readline method; check_output() returns a
+>> string (use s.splitlines() to make a list of lines).
+>>
+>> For reference, you can see the current code here:
+>> https://bitbucket.org/lgautier/rpy2/src/f075a4291e9c/setup.py#cl-185
+>>
+>> Thomas
+>>
+>> On 25 March 2012 21:54, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+>> > Hi Thomas,
+>> >
+>> > Here is the traceback:
+>> >
+>> > Traceback (most recent call last):
+>> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462,
+>> > in
+>> > <module>
+>> >     [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+>> >   File "F:\Python32\lib\distutils\core.py", line 148, in setup
+>> >     dist.run_commands()
+>> >   File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+>> >     self.run_command(cmd)
+>> >   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>> >     cmd_obj.run()
+>> >   File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+>> >     self.run_command('build')
+>> >   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>> >     self.distribution.run_command(command)
+>> >   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>> >     cmd_obj.run()
+>> >   File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+>> >     self.run_command(cmd_name)
+>> >   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>> >     self.distribution.run_command(command)
+>> >   File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+>> >     cmd_obj.ensure_finalized()
+>> >   File "F:\Python32\lib\distutils\cmd.py", line 107, in ensure_finalized
+>> >     self.finalize_options()
+>> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144,
+>> > in
+>> > finalize_options
+>> >     rversion = get_rversion(r_home)
+>> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180,
+>> > in
+>> > get_rversion
+>> >     rp = os.popen3('"'+r_exec+'" --version')[2]
+>> > AttributeError: 'module' object has no attribute 'popen3'
+>> >
+>> > Please help me, thank you very much
+>> >
+>> > Y.Z.
+>> >
+>> > On Mon, Mar 26, 2012 at 4:24 AM, Yuanda Zhu <jianjian.issa at gmail.com>
+>> > wrote:
+>> >>
+>> >> Hi Niek,
+>> >>
+>> >> Here is the Traceback
+>> >>
+>> >>
+>> >> Traceback (most recent call last):
+>> >>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 462,
+>> >> in
+>> >> <module>
+>> >>     [os.path.join('doc', 'source', 'rpy2_logo.png')])],
+>> >>   File "F:\Python32\lib\distutils\core.py", line 148, in setup
+>> >>     dist.run_commands()
+>> >>   File "F:\Python32\lib\distutils\dist.py", line 917, in run_commands
+>> >>     self.run_command(cmd)
+>> >>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>> >>     cmd_obj.run()
+>> >>   File "F:\Python32\lib\distutils\command\install.py", line 569, in run
+>> >>     self.run_command('build')
+>> >>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>> >>     self.distribution.run_command(command)
+>> >>   File "F:\Python32\lib\distutils\dist.py", line 936, in run_command
+>> >>     cmd_obj.run()
+>> >>   File "F:\Python32\lib\distutils\command\build.py", line 126, in run
+>> >>     self.run_command(cmd_name)
+>> >>   File "F:\Python32\lib\distutils\cmd.py", line 313, in run_command
+>> >>     self.distribution.run_command(command)
+>> >>   File "F:\Python32\lib\distutils\dist.py", line 935, in run_command
+>> >>     cmd_obj.ensure_finalized()
+>> >>   File "F:\Python32\lib\distutils\cmd.py", line 107, in
+>> >> ensure_finalized
+>> >>     self.finalize_options()
+>> >>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 144,
+>> >> in
+>> >> finalize_options
+>> >>     rversion = get_rversion(r_home)
+>> >>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 180,
+>> >> in
+>> >> get_rversion
+>> >>     rp = os.popen3('"'+r_exec+'" --version')[2]
+>> >>
+>> >> AttributeError: 'module' object has no attribute 'popen3'
+>> >>
+>> >>
+>> >> Please help me fix this, many thanks.
+>> >>
+>> >> Y.Z.
+>> >>
+>> >>
+>> >> On Mon, Mar 26, 2012 at 3:59 AM, Thomas Kluyver <takowl at gmail.com>
+>> >> wrote:
+>> >>>
+>> >>> On 25 March 2012 20:17, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+>> >>> > AttributeError:'module' object has no attribute 'popen3'
+>> >>>
+>> >>> Can you post the traceback that goes with this? It's most likely a bug
+>> >>> somewhere, as popen3 calls should be replaced using the subprocess
+>> >>> module (see
+>> >>>
+>> >>> http://docs.python.org/library/subprocess.html#replacing-os-popen-os-popen2-os-popen3).
+>> >>>
+>> >>> Thanks,
+>> >>> Thomas
+>> >>>
+>> >>>
+>> >>>
+>> >>> ------------------------------------------------------------------------------
+>> >>> This SF email is sponsosred by:
+>> >>> Try Windows Azure free for 90 days Click Here
+>> >>> http://p.sf.net/sfu/sfd2d-msazure
+>> >>> _______________________________________________
+>> >>> rpy-list mailing list
+>> >>> rpy-list at lists.sourceforge.net
+>> >>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>> >>
+>> >>
+>> >
+>> >
+>> >
+>> > ------------------------------------------------------------------------------
+>> > This SF email is sponsosred by:
+>> > Try Windows Azure free for 90 days Click Here
+>> > http://p.sf.net/sfu/sfd2d-msazure
+>> > _______________________________________________
+>> > rpy-list mailing list
+>> > rpy-list at lists.sourceforge.net
+>> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>> >
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> This SF email is sponsosred by:
+>> Try Windows Azure free for 90 days Click Here
+>> http://p.sf.net/sfu/sfd2d-msazure
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+From takowl at gmail.com  Mon Mar 26 09:52:33 2012
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Mon, 26 Mar 2012 10:52:33 +0100
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com> <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com>
+Message-ID: <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com>
+
+On 26 March 2012 10:50, Thomas Kluyver <takowl at gmail.com> wrote:
+> I haven't tested this, but it should be something like:
+
+Email formatting mangled that a bit. Here it is in a pastebin:
+https://gist.github.com/2204230
+
+Thomas
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+From jianjian.issa at gmail.com  Mon Mar 26 11:06:13 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 19:06:13 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com> <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com> <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com>
+Message-ID: <CAA+dde+9ada2bXwrfVqTyk8kQnt9kj-pe9XVG25=QfUi7gBd9w@mail.gmail.com>
+
+Hi Thomas,
+
+Thank you very much for your code. I ran it and it showed that
+
+
+  File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 183, in
+get_rversion
+    if rversion.startswith("WARNING"):
+TypeError: startswith first arg must be bytes or a tuple of bytes, not str
+
+
+Please help.
+
+Thanks,
+
+Y.Z.
+
+
+On Mon, Mar 26, 2012 at 5:52 PM, Thomas Kluyver <takowl at gmail.com> wrote:
+
+
+> On 26 March 2012 10:50, Thomas Kluyver <takowl at gmail.com> wrote:
+> > I haven't tested this, but it should be something like:
+>
+>
+> Email formatting mangled that a bit. Here it is in a pastebin:
+> https://gist.github.com/2204230
+>
+> Thomas
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From takowl at gmail.com  Mon Mar 26 11:29:26 2012
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Mon, 26 Mar 2012 12:29:26 +0100
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+dde+9ada2bXwrfVqTyk8kQnt9kj-pe9XVG25=QfUi7gBd9w@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com> <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com> <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com> <CAA+dde+9ada2bXwrfVqTyk8kQnt9kj-pe9XVG25=QfUi7gBd9w@mail.gmail.com>
+Message-ID: <CAOvn4qiQjbWZRqxgheUG2DY4oO2Z_G40A+MN34Dt=K6RW-98BA@mail.gmail.com>
+
+Updated gist. https://gist.github.com/2204230
+
+On 26 March 2012 12:06, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> Hi Thomas,
+>
+> Thank you very much for your code. I ran it and it showed that
+>
+>
+>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 183, in
+> get_rversion
+>     if rversion.startswith("WARNING"):
+> TypeError: startswith first arg must be bytes or a tuple of bytes, not str
+>
+>
+> Please help.
+>
+> Thanks,
+>
+> Y.Z.
+>
+>
+> On Mon, Mar 26, 2012 at 5:52 PM, Thomas Kluyver <takowl at gmail.com> wrote:
+>
+>>
+>> On 26 March 2012 10:50, Thomas Kluyver <takowl at gmail.com> wrote:
+>> > I haven't tested this, but it should be something like:
+>>
+>>
+>> Email formatting mangled that a bit. Here it is in a pastebin:
+>> https://gist.github.com/2204230
+>>
+>> Thomas
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> This SF email is sponsosred by:
+>> Try Windows Azure free for 90 days Click Here
+>> http://p.sf.net/sfu/sfd2d-msazure
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+From jianjian.issa at gmail.com  Mon Mar 26 11:55:14 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 19:55:14 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAOvn4qiQjbWZRqxgheUG2DY4oO2Z_G40A+MN34Dt=K6RW-98BA@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com> <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com> <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com> <CAA+dde+9ada2bXwrfVqTyk8kQnt9kj-pe9XVG25=QfUi7gBd9w@mail.gmail.com> <CAOvn4qiQjbWZRqxgheUG2DY4oO2Z_G40A+MN34Dt=K6RW-98BA@mail.gmail.com>
+Message-ID: <CAA+ddeK0ovZSMycTuOP6QTUqKu3hQdWJKaxuvWPGqaMTdJ9w8Q@mail.gmail.com>
+
+Hi Thomas,
+
+I tried your updated code and rpy2 still can't be installed properly. I
+searched on the internet and it can be solved by ignore check rversion. Do
+you know how to do it?
+
+Many thanks,
+
+Y.Z.
+
+On Mon, Mar 26, 2012 at 7:29 PM, Thomas Kluyver <takowl at gmail.com> wrote:
+
+> Updated gist. https://gist.github.com/2204230
+>
+> On 26 March 2012 12:06, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> > Hi Thomas,
+> >
+> > Thank you very much for your code. I ran it and it showed that
+> >
+> >
+> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 183,
+> in
+> > get_rversion
+> >     if rversion.startswith("WARNING"):
+> > TypeError: startswith first arg must be bytes or a tuple of bytes, not
+> str
+> >
+> >
+> > Please help.
+> >
+> > Thanks,
+> >
+> > Y.Z.
+> >
+> >
+> > On Mon, Mar 26, 2012 at 5:52 PM, Thomas Kluyver <takowl at gmail.com>
+> wrote:
+> >
+> >>
+> >> On 26 March 2012 10:50, Thomas Kluyver <takowl at gmail.com> wrote:
+> >> > I haven't tested this, but it should be something like:
+> >>
+> >>
+> >> Email formatting mangled that a bit. Here it is in a pastebin:
+> >> https://gist.github.com/2204230
+> >>
+> >> Thomas
+> >>
+> >>
+> >>
+> ------------------------------------------------------------------------------
+> >> This SF email is sponsosred by:
+> >> Try Windows Azure free for 90 days Click Here
+> >> http://p.sf.net/sfu/sfd2d-msazure
+> >> _______________________________________________
+> >> rpy-list mailing list
+> >> rpy-list at lists.sourceforge.net
+> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>
+> >
+> >
+> >
+> >
+> ------------------------------------------------------------------------------
+> > This SF email is sponsosred by:
+> > Try Windows Azure free for 90 days Click Here
+> > http://p.sf.net/sfu/sfd2d-msazure
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From niekdeklein at gmail.com  Mon Mar 26 12:27:50 2012
+From: niekdeklein at gmail.com (Niek de Klein)
+Date: Mon, 26 Mar 2012 13:27:50 +0100
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+ddeK0ovZSMycTuOP6QTUqKu3hQdWJKaxuvWPGqaMTdJ9w8Q@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com> <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com> <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com> <CAA+dde+9ada2bXwrfVqTyk8kQnt9kj-pe9XVG25=QfUi7gBd9w@mail.gmail.com> <CAOvn4qiQjbWZRqxgheUG2DY4oO2Z_G40A+MN34Dt=K6RW-98BA@mail.gmail.com> <CAA+ddeK0ovZSMycTuOP6QTUqKu3hQdWJKaxuvWPGqaMTdJ9w8Q@mail.gmail.com>
+Message-ID: <CAEBKWGbhirc17OSO-hKbOQ_Rx4LB6hV2zynntk5jczqwDh7aSw@mail.gmail.com>
+
+Try it without the if statement:
+
+r_exec = os.path.join(r_home, 'bin', 'R')
+# Changed ---------------------------------------
+import subprocess
+rp = subprocess.check_output([r_exec, '--version'],
+stderr=subprocess.STDOUT).decode('ascii').splitlines()
+
+# removed the if statement
+rversion = rp[1]
+
+# End of changed section ------------------------
+m = re.match('^R ([^ ]+) ([^ ]+) .+$', rversion)
+
+Niek
+
+
+On Mon, Mar 26, 2012 at 12:55 PM, Yuanda Zhu <jianjian.issa at gmail.com>wrote:
+
+> Hi Thomas,
+>
+> I tried your updated code and rpy2 still can't be installed properly. I
+> searched on the internet and it can be solved by ignore check rversion. Do
+> you know how to do it?
+>
+> Many thanks,
+>
+> Y.Z.
+>
+> On Mon, Mar 26, 2012 at 7:29 PM, Thomas Kluyver <takowl at gmail.com> wrote:
+>
+>> Updated gist. https://gist.github.com/2204230
+>>
+>> On 26 March 2012 12:06, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+>> > Hi Thomas,
+>> >
+>> > Thank you very much for your code. I ran it and it showed that
+>> >
+>> >
+>> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 183,
+>> in
+>> > get_rversion
+>> >     if rversion.startswith("WARNING"):
+>> > TypeError: startswith first arg must be bytes or a tuple of bytes, not
+>> str
+>> >
+>> >
+>> > Please help.
+>> >
+>> > Thanks,
+>> >
+>> > Y.Z.
+>> >
+>> >
+>> > On Mon, Mar 26, 2012 at 5:52 PM, Thomas Kluyver <takowl at gmail.com>
+>> wrote:
+>> >
+>> >>
+>> >> On 26 March 2012 10:50, Thomas Kluyver <takowl at gmail.com> wrote:
+>> >> > I haven't tested this, but it should be something like:
+>> >>
+>> >>
+>> >> Email formatting mangled that a bit. Here it is in a pastebin:
+>> >> https://gist.github.com/2204230
+>> >>
+>> >> Thomas
+>> >>
+>> >>
+>> >>
+>> ------------------------------------------------------------------------------
+>> >> This SF email is sponsosred by:
+>> >> Try Windows Azure free for 90 days Click Here
+>> >> http://p.sf.net/sfu/sfd2d-msazure
+>> >> _______________________________________________
+>> >> rpy-list mailing list
+>> >> rpy-list at lists.sourceforge.net
+>> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>> >>
+>> >
+>> >
+>> >
+>> >
+>> ------------------------------------------------------------------------------
+>> > This SF email is sponsosred by:
+>> > Try Windows Azure free for 90 days Click Here
+>> > http://p.sf.net/sfu/sfd2d-msazure
+>> > _______________________________________________
+>> > rpy-list mailing list
+>> > rpy-list at lists.sourceforge.net
+>> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>> >
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> This SF email is sponsosred by:
+>> Try Windows Azure free for 90 days Click Here
+>> http://p.sf.net/sfu/sfd2d-msazure
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From jianjian.issa at gmail.com  Mon Mar 26 12:36:08 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 20:36:08 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAEBKWGbhirc17OSO-hKbOQ_Rx4LB6hV2zynntk5jczqwDh7aSw@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com> <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com> <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com> <CAA+dde+9ada2bXwrfVqTyk8kQnt9kj-pe9XVG25=QfUi7gBd9w@mail.gmail.com> <CAOvn4qiQjbWZRqxgheUG2DY4oO2Z_G40A+MN34Dt=K6RW-98BA@mail.gmail.com> <CAA+ddeK0ovZSMycTuOP6QTUqKu3hQdWJKaxuvWPGqaMTdJ9w8Q@mail.gmail.com> <CAEBKWGbhirc17OSO-hKbOQ_Rx4LB6hV2zynntk5jczqwDh7aSw@mail.gmail.com>
+Message-ID: <CAA+ddeJLMUW7MocN+HtdBse-g2NXaEEUaR=cjOyB6-=h-V_nVA@mail.gmail.com>
+
+Hi Thomas,
+
+Here is the new error message with no if statement:
+
+  File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 187, in
+get_r
+version
+    rversion = m.groups()[0]
+AttributeError: 'NoneType' object has no attribute 'groups'
+
+Y.Z.
+
+
+On Mon, Mar 26, 2012 at 8:27 PM, Niek de Klein <niekdeklein at gmail.com>wrote:
+
+> Try it without the if statement:
+>
+> r_exec = os.path.join(r_home, 'bin', 'R')
+>
+> # Changed ---------------------------------------
+>
+> import subprocess
+>
+> rp = subprocess.check_output([r_exec, '--version'], stderr=subprocess.STDOUT).decode('ascii').splitlines()
+>
+>  # removed the if statement
+>  rversion = rp[1]
+>
+> # End of changed section ------------------------
+> m = re.match('^R ([^ ]+) ([^ ]+) .+$', rversion)
+>
+>
+> Niek
+>
+>
+> On Mon, Mar 26, 2012 at 12:55 PM, Yuanda Zhu <jianjian.issa at gmail.com>wrote:
+>
+>> Hi Thomas,
+>>
+>> I tried your updated code and rpy2 still can't be installed properly. I
+>> searched on the internet and it can be solved by ignore check rversion. Do
+>> you know how to do it?
+>>
+>> Many thanks,
+>>
+>> Y.Z.
+>>
+>> On Mon, Mar 26, 2012 at 7:29 PM, Thomas Kluyver <takowl at gmail.com> wrote:
+>>
+>>> Updated gist. https://gist.github.com/2204230
+>>>
+>>> On 26 March 2012 12:06, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+>>> > Hi Thomas,
+>>> >
+>>> > Thank you very much for your code. I ran it and it showed that
+>>> >
+>>> >
+>>> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line
+>>> 183, in
+>>> > get_rversion
+>>> >     if rversion.startswith("WARNING"):
+>>> > TypeError: startswith first arg must be bytes or a tuple of bytes, not
+>>> str
+>>> >
+>>> >
+>>> > Please help.
+>>> >
+>>> > Thanks,
+>>> >
+>>> > Y.Z.
+>>> >
+>>> >
+>>> > On Mon, Mar 26, 2012 at 5:52 PM, Thomas Kluyver <takowl at gmail.com>
+>>> wrote:
+>>> >
+>>> >>
+>>> >> On 26 March 2012 10:50, Thomas Kluyver <takowl at gmail.com> wrote:
+>>> >> > I haven't tested this, but it should be something like:
+>>> >>
+>>> >>
+>>> >> Email formatting mangled that a bit. Here it is in a pastebin:
+>>> >> https://gist.github.com/2204230
+>>> >>
+>>> >> Thomas
+>>> >>
+>>> >>
+>>> >>
+>>> ------------------------------------------------------------------------------
+>>> >> This SF email is sponsosred by:
+>>> >> Try Windows Azure free for 90 days Click Here
+>>> >> http://p.sf.net/sfu/sfd2d-msazure
+>>> >> _______________________________________________
+>>> >> rpy-list mailing list
+>>> >> rpy-list at lists.sourceforge.net
+>>> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>> >>
+>>> >
+>>> >
+>>> >
+>>> >
+>>> ------------------------------------------------------------------------------
+>>> > This SF email is sponsosred by:
+>>> > Try Windows Azure free for 90 days Click Here
+>>> > http://p.sf.net/sfu/sfd2d-msazure
+>>> > _______________________________________________
+>>> > rpy-list mailing list
+>>> > rpy-list at lists.sourceforge.net
+>>> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>> >
+>>>
+>>>
+>>> ------------------------------------------------------------------------------
+>>> This SF email is sponsosred by:
+>>> Try Windows Azure free for 90 days Click Here
+>>> http://p.sf.net/sfu/sfd2d-msazure
+>>> _______________________________________________
+>>> rpy-list mailing list
+>>> rpy-list at lists.sourceforge.net
+>>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>>
+>>
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> This SF email is sponsosred by:
+>> Try Windows Azure free for 90 days Click Here
+>> http://p.sf.net/sfu/sfd2d-msazure
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From takowl at gmail.com  Mon Mar 26 12:45:28 2012
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Mon, 26 Mar 2012 13:45:28 +0100
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+ddeJLMUW7MocN+HtdBse-g2NXaEEUaR=cjOyB6-=h-V_nVA@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com> <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com> <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com> <CAA+dde+9ada2bXwrfVqTyk8kQnt9kj-pe9XVG25=QfUi7gBd9w@mail.gmail.com> <CAOvn4qiQjbWZRqxgheUG2DY4oO2Z_G40A+MN34Dt=K6RW-98BA@mail.gmail.com> <CAA+ddeK0ovZSMycTuOP6QTUqKu3hQdWJKaxuvWPGqaMTdJ9w8Q@mail.gmail.com> <CAEBKWGbhirc17OSO-hKbOQ_Rx4LB6hV2zynntk5jczqwDh7aSw@mail.gmail.com> <CAA+ddeJLMUW7MocN+HtdBse-g2NXaEEUaR=cjOyB6-=h-V_nVA@mail.gmail.com>
+Message-ID: <CAOvn4qiP4imHJPB1q9j53J-8cz3g2GiFh-RhXF6pqOZO+dQvpQ@mail.gmail.com>
+
+I guess you'll need to comment out the section where it's called:
+https://bitbucket.org/lgautier/rpy2/src/f075a4291e9c/setup.py#cl-151
+
+I'll try to have a look at this when I've got some spare time, but it
+might be a Windows specific problem, which I'm less able to debug.
+
+Thomas
+
+On 26 March 2012 13:36, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> Hi Thomas,
+>
+> Here is the new error message with no if statement:
+>
+>   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 187, in
+> get_r
+> version
+>     rversion = m.groups()[0]
+> AttributeError: 'NoneType' object has no attribute 'groups'
+>
+> Y.Z.
+>
+>
+> On Mon, Mar 26, 2012 at 8:27 PM, Niek de Klein <niekdeklein at gmail.com>
+> wrote:
+>>
+>> Try it without the if statement:
+>>
+>>
+>>
+>> r_exec = os.path.join(r_home, 'bin', 'R')
+>>
+>>
+>> # Changed ---------------------------------------
+>>
+>>
+>> import subprocess
+>>
+>>
+>> rp = subprocess.check_output([r_exec, '--version'],
+>> stderr=subprocess.STDOUT).decode('ascii').splitlines()
+>>
+>>
+>> # removed the if statement
+>> rversion = rp[1]
+>>
+>> # End of changed section ------------------------
+>>
+>>
+>> m = re.match('^R ([^ ]+) ([^ ]+) .+$', rversion)
+>>
+>>
+>>
+>> Niek
+>>
+>>
+>> On Mon, Mar 26, 2012 at 12:55 PM, Yuanda Zhu <jianjian.issa at gmail.com>
+>> wrote:
+>>>
+>>> Hi Thomas,
+>>>
+>>> I tried your updated code and rpy2 still can't be installed properly. I
+>>> searched on the internet and it can be solved by ignore check rversion. Do
+>>> you know how to do it?
+>>>
+>>> Many thanks,
+>>>
+>>> Y.Z.
+>>>
+>>> On Mon, Mar 26, 2012 at 7:29 PM, Thomas Kluyver <takowl at gmail.com> wrote:
+>>>>
+>>>> Updated gist. https://gist.github.com/2204230
+>>>>
+>>>> On 26 March 2012 12:06, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+>>>> > Hi Thomas,
+>>>> >
+>>>> > Thank you very much for your code. I ran it and it showed that
+>>>> >
+>>>> >
+>>>> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line
+>>>> > 183, in
+>>>> > get_rversion
+>>>> >     if rversion.startswith("WARNING"):
+>>>> > TypeError: startswith first arg must be bytes or a tuple of bytes, not
+>>>> > str
+>>>> >
+>>>> >
+>>>> > Please help.
+>>>> >
+>>>> > Thanks,
+>>>> >
+>>>> > Y.Z.
+>>>> >
+>>>> >
+>>>> > On Mon, Mar 26, 2012 at 5:52 PM, Thomas Kluyver <takowl at gmail.com>
+>>>> > wrote:
+>>>> >
+>>>> >>
+>>>> >> On 26 March 2012 10:50, Thomas Kluyver <takowl at gmail.com> wrote:
+>>>> >> > I haven't tested this, but it should be something like:
+>>>> >>
+>>>> >>
+>>>> >> Email formatting mangled that a bit. Here it is in a pastebin:
+>>>> >> https://gist.github.com/2204230
+>>>> >>
+>>>> >> Thomas
+>>>> >>
+>>>> >>
+>>>> >>
+>>>> >> ------------------------------------------------------------------------------
+>>>> >> This SF email is sponsosred by:
+>>>> >> Try Windows Azure free for 90 days Click Here
+>>>> >> http://p.sf.net/sfu/sfd2d-msazure
+>>>> >> _______________________________________________
+>>>> >> rpy-list mailing list
+>>>> >> rpy-list at lists.sourceforge.net
+>>>> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>>> >>
+>>>> >
+>>>> >
+>>>> >
+>>>> >
+>>>> > ------------------------------------------------------------------------------
+>>>> > This SF email is sponsosred by:
+>>>> > Try Windows Azure free for 90 days Click Here
+>>>> > http://p.sf.net/sfu/sfd2d-msazure
+>>>> > _______________________________________________
+>>>> > rpy-list mailing list
+>>>> > rpy-list at lists.sourceforge.net
+>>>> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>>> >
+>>>>
+>>>>
+>>>> ------------------------------------------------------------------------------
+>>>> This SF email is sponsosred by:
+>>>> Try Windows Azure free for 90 days Click Here
+>>>> http://p.sf.net/sfu/sfd2d-msazure
+>>>> _______________________________________________
+>>>> rpy-list mailing list
+>>>> rpy-list at lists.sourceforge.net
+>>>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>>
+>>>
+>>>
+>>>
+>>> ------------------------------------------------------------------------------
+>>> This SF email is sponsosred by:
+>>> Try Windows Azure free for 90 days Click Here
+>>> http://p.sf.net/sfu/sfd2d-msazure
+>>> _______________________________________________
+>>> rpy-list mailing list
+>>> rpy-list at lists.sourceforge.net
+>>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>>
+>>
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> This SF email is sponsosred by:
+>> Try Windows Azure free for 90 days Click Here
+>> http://p.sf.net/sfu/sfd2d-msazure
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+From jianjian.issa at gmail.com  Mon Mar 26 12:57:00 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Mon, 26 Mar 2012 20:57:00 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAOvn4qiP4imHJPB1q9j53J-8cz3g2GiFh-RhXF6pqOZO+dQvpQ@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <CAEBKWGaZhekKk6CcQOdXerqS=y7nLM9upJ7ksAtk2pi7t9VS9g@mail.gmail.com> <CAA+ddeLq1hNFdiDSq+A=p-_U6fu6yOTH0FX4=JK+Bwd5v3AP9Q@mail.gmail.com> <CAOvn4qgOJ5yZCdJYytLwDMpkEUWt6eeR=mwXPuLcRYRGHeaq8w@mail.gmail.com> <CAA+ddeJAr_9_aW7uhzN4HpdTv6ixU+DYx5V2A+-nFGMed5Y46w@mail.gmail.com> <CAA+ddeLAxAmy64eR8B3uR4_eabKi53FY1yaVipJHPKAKR9ZGWQ@mail.gmail.com> <CAOvn4qiSEq0h7G=WLOJgggZGhhTJKtTdy6tLbrSbdbCyYt+1tA@mail.gmail.com> <CAA+ddeLV17qtL95JuJwYQ8iJWz4+efTShTdDeoz9gbWGUG0=Yg@mail.gmail.com> <CAOvn4qj09aheoYxp+iZMOLYXKwo+RJkxbKg7e+Sxc9arRXQryQ@mail.gmail.com> <CAOvn4qi-tcGExPFkm4Ni_ao=kmP68psDCPq45Yz3nNH4uLw--A@mail.gmail.com> <CAA+dde+9ada2bXwrfVqTyk8kQnt9kj-pe9XVG25=QfUi7gBd9w@mail.gmail.com> <CAOvn4qiQjbWZRqxgheUG2DY4oO2Z_G40A+MN34Dt=K6RW-98BA@mail.gmail.com> <CAA+ddeK0ovZSMycTuOP6QTUqKu3hQdWJKaxuvWPGqaMTdJ9w8Q@mail.gmail.com> <CAEBKWGbhirc17OSO-hKbOQ_Rx4LB6hV2zynntk5jczqwDh7aSw@mail.gmail.com> <CAA+ddeJLMUW7MocN+HtdBse-g2NXaEEUaR=cjOyB6-=h-V_nVA@mail.gmail.com> <CAOvn4qiP4imHJPB1q9j53J-8cz3g2GiFh-RhXF6pqOZO+dQvpQ@mail.gmail.com>
+Message-ID: <CAA+ddeJiL64S=Ptu5XamvjVHCQowwoTWiOkwCnaJSCbR-HM_4Q@mail.gmail.com>
+
+I see. Thank you very much for your help though!
+
+Y.Z.
+
+On Mon, Mar 26, 2012 at 8:45 PM, Thomas Kluyver <takowl at gmail.com> wrote:
+
+> I guess you'll need to comment out the section where it's called:
+> https://bitbucket.org/lgautier/rpy2/src/f075a4291e9c/setup.py#cl-151
+>
+> I'll try to have a look at this when I've got some spare time, but it
+> might be a Windows specific problem, which I'm less able to debug.
+>
+> Thomas
+>
+> On 26 March 2012 13:36, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> > Hi Thomas,
+> >
+> > Here is the new error message with no if statement:
+> >
+> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line 187,
+> in
+> > get_r
+> > version
+> >     rversion = m.groups()[0]
+> > AttributeError: 'NoneType' object has no attribute 'groups'
+> >
+> > Y.Z.
+> >
+> >
+> > On Mon, Mar 26, 2012 at 8:27 PM, Niek de Klein <niekdeklein at gmail.com>
+> > wrote:
+> >>
+> >> Try it without the if statement:
+> >>
+> >>
+> >>
+> >> r_exec = os.path.join(r_home, 'bin', 'R')
+> >>
+> >>
+> >> # Changed ---------------------------------------
+> >>
+> >>
+> >> import subprocess
+> >>
+> >>
+> >> rp = subprocess.check_output([r_exec, '--version'],
+> >> stderr=subprocess.STDOUT).decode('ascii').splitlines()
+> >>
+> >>
+> >> # removed the if statement
+> >> rversion = rp[1]
+> >>
+> >> # End of changed section ------------------------
+> >>
+> >>
+> >> m = re.match('^R ([^ ]+) ([^ ]+) .+$', rversion)
+> >>
+> >>
+> >>
+> >> Niek
+> >>
+> >>
+> >> On Mon, Mar 26, 2012 at 12:55 PM, Yuanda Zhu <jianjian.issa at gmail.com>
+> >> wrote:
+> >>>
+> >>> Hi Thomas,
+> >>>
+> >>> I tried your updated code and rpy2 still can't be installed properly. I
+> >>> searched on the internet and it can be solved by ignore check
+> rversion. Do
+> >>> you know how to do it?
+> >>>
+> >>> Many thanks,
+> >>>
+> >>> Y.Z.
+> >>>
+> >>> On Mon, Mar 26, 2012 at 7:29 PM, Thomas Kluyver <takowl at gmail.com>
+> wrote:
+> >>>>
+> >>>> Updated gist. https://gist.github.com/2204230
+> >>>>
+> >>>> On 26 March 2012 12:06, Yuanda Zhu <jianjian.issa at gmail.com> wrote:
+> >>>> > Hi Thomas,
+> >>>> >
+> >>>> > Thank you very much for your code. I ran it and it showed that
+> >>>> >
+> >>>> >
+> >>>> >   File "G:\Backup\Setup\Python\Packages\rpy2-2.2.5\setup.py", line
+> >>>> > 183, in
+> >>>> > get_rversion
+> >>>> >     if rversion.startswith("WARNING"):
+> >>>> > TypeError: startswith first arg must be bytes or a tuple of bytes,
+> not
+> >>>> > str
+> >>>> >
+> >>>> >
+> >>>> > Please help.
+> >>>> >
+> >>>> > Thanks,
+> >>>> >
+> >>>> > Y.Z.
+> >>>> >
+> >>>> >
+> >>>> > On Mon, Mar 26, 2012 at 5:52 PM, Thomas Kluyver <takowl at gmail.com>
+> >>>> > wrote:
+> >>>> >
+> >>>> >>
+> >>>> >> On 26 March 2012 10:50, Thomas Kluyver <takowl at gmail.com> wrote:
+> >>>> >> > I haven't tested this, but it should be something like:
+> >>>> >>
+> >>>> >>
+> >>>> >> Email formatting mangled that a bit. Here it is in a pastebin:
+> >>>> >> https://gist.github.com/2204230
+> >>>> >>
+> >>>> >> Thomas
+> >>>> >>
+> >>>> >>
+> >>>> >>
+> >>>> >>
+> ------------------------------------------------------------------------------
+> >>>> >> This SF email is sponsosred by:
+> >>>> >> Try Windows Azure free for 90 days Click Here
+> >>>> >> http://p.sf.net/sfu/sfd2d-msazure
+> >>>> >> _______________________________________________
+> >>>> >> rpy-list mailing list
+> >>>> >> rpy-list at lists.sourceforge.net
+> >>>> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>>> >>
+> >>>> >
+> >>>> >
+> >>>> >
+> >>>> >
+> >>>> >
+> ------------------------------------------------------------------------------
+> >>>> > This SF email is sponsosred by:
+> >>>> > Try Windows Azure free for 90 days Click Here
+> >>>> > http://p.sf.net/sfu/sfd2d-msazure
+> >>>> > _______________________________________________
+> >>>> > rpy-list mailing list
+> >>>> > rpy-list at lists.sourceforge.net
+> >>>> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>>> >
+> >>>>
+> >>>>
+> >>>>
+> ------------------------------------------------------------------------------
+> >>>> This SF email is sponsosred by:
+> >>>> Try Windows Azure free for 90 days Click Here
+> >>>> http://p.sf.net/sfu/sfd2d-msazure
+> >>>> _______________________________________________
+> >>>> rpy-list mailing list
+> >>>> rpy-list at lists.sourceforge.net
+> >>>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>>
+> >>>
+> >>>
+> >>>
+> >>>
+> ------------------------------------------------------------------------------
+> >>> This SF email is sponsosred by:
+> >>> Try Windows Azure free for 90 days Click Here
+> >>> http://p.sf.net/sfu/sfd2d-msazure
+> >>> _______________________________________________
+> >>> rpy-list mailing list
+> >>> rpy-list at lists.sourceforge.net
+> >>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>>
+> >>
+> >>
+> >>
+> >>
+> ------------------------------------------------------------------------------
+> >> This SF email is sponsosred by:
+> >> Try Windows Azure free for 90 days Click Here
+> >> http://p.sf.net/sfu/sfd2d-msazure
+> >> _______________________________________________
+> >> rpy-list mailing list
+> >> rpy-list at lists.sourceforge.net
+> >> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >>
+> >
+> >
+> >
+> ------------------------------------------------------------------------------
+> > This SF email is sponsosred by:
+> > Try Windows Azure free for 90 days Click Here
+> > http://p.sf.net/sfu/sfd2d-msazure
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> >
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From fyhe1991 at gmail.com  Tue Mar 27 07:47:12 2012
+From: fyhe1991 at gmail.com (Fangyu He)
+Date: Tue, 27 Mar 2012 15:47:12 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com>
+Message-ID: <4F717080.2010903@gmail.com>
+
+Dear Yuanda Zhu
+
+I did never do install rpy2 to Python3, but I got it for Python2.7 
+easily with the help of apt-get before. I think that you may try it if 
+your os is ubuntu or its likes. I hope it does work, which doesn't take 
+much time. The following is the code used in terminal.
+     sudo apt-get update
+     sudo apt-get install r-base r-base-dev
+     sudo apt-get install python-rpy2
+
+Fangyu He
+
+? 03/25/2012 03:47 PM, Yuanda Zhu ??:
+> Hi,
+> When I was trying to install rpy2-2.2.5 to Python-3.2.2 in Win7, the 
+> error msg said "Tried to guess R's HOME but no R command in the PATH."
+> I am new to programming, so wish you could provide some help.
+> Many thanks,
+> Y.Z.
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+>
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From jianjian.issa at gmail.com  Tue Mar 27 12:15:44 2012
+From: jianjian.issa at gmail.com (Yuanda Zhu)
+Date: Tue, 27 Mar 2012 20:15:44 +0800
+Subject: Re: [Rpy] Problem with installing rpy2 to Python3
+In-Reply-To: <4F717080.2010903@gmail.com>
+References: <CAA+ddeLtJMChDSw-3i+sTw8zu_Okb=U+3Aygnah138YZTgsMEQ@mail.gmail.com> <4F717080.2010903@gmail.com>
+Message-ID: <CAA+ddeJ5KwGO2WG3J7ZYNXRssgn6YwVrX7ABajWumnt_8N3NcA@mail.gmail.com>
+
+Hi Fangyu,
+
+I use Win7, not sure if it works but thanks for the suggestion.
+
+Y.Z.
+
+On Tue, Mar 27, 2012 at 3:47 PM, Fangyu He <fyhe1991 at gmail.com> wrote:
+
+>  Dear Yuanda Zhu
+>
+> I did never do install rpy2 to Python3, but I got it for Python2.7 easily
+> with the help of apt-get before. I think that you may try it if your os is
+> ubuntu or its likes. I hope it does work, which doesn't take much time. The
+> following is the code used in terminal.
+>     sudo apt-get update
+>     sudo apt-get install r-base r-base-dev
+>     sudo apt-get install python-rpy2
+>
+> Fangyu He
+>
+> 于 03/25/2012 03:47 PM, Yuanda Zhu 写道:
+>
+> Hi,
+>
+> When I was trying to install rpy2-2.2.5 to Python-3.2.2 in Win7, the error
+> msg said "Tried to guess R's HOME but no R command in the PATH."
+>
+> I am new to programming, so wish you could provide some help.
+>
+> Many thanks,
+>
+> Y.Z.
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here http://p.sf.net/sfu/sfd2d-msazure
+>
+>
+>
+> _______________________________________________
+> rpy-list mailing listrpy-list at lists.sourceforge.nethttps://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+>
+> ------------------------------------------------------------------------------
+> This SF email is sponsosred by:
+> Try Windows Azure free for 90 days Click Here
+> http://p.sf.net/sfu/sfd2d-msazure
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From eddelbuettel at users.sourceforge.net  Sat Mar 31 13:19:11 2012
+From: eddelbuettel at users.sourceforge.net
+Date: Sat, 31 Mar 2012 13:19:11 +0000
+Subject: [Rpy] SF.net SVN: rpy:[794] trunk/rpy/debian
+Message-ID: <E1SDyD1-00029c-Vo@sfp-svn-4.v30.ch3.sourceforge.com>
+
+Revision: 794
+          http://rpy.svn.sourceforge.net/rpy/?rev=794&view=rev
+Author:   eddelbuettel
+Date:     2012-03-31 13:19:11 +0000 (Sat, 31 Mar 2012)
+Log Message:
+-----------
+Debian release 1.0.3-21 against R 2.15.0
+
+Modified Paths:
+--------------
+    trunk/rpy/debian/changelog
+    trunk/rpy/debian/control
+    trunk/rpy/debian/python-rpy.lintian-overrides
+    trunk/rpy/debian/rules
+
+Modified: trunk/rpy/debian/changelog
+===================================================================
+--- trunk/rpy/debian/changelog	2010-12-25 15:57:43 UTC (rev 793)
++++ trunk/rpy/debian/changelog	2012-03-31 13:19:11 UTC (rev 794)
+@@ -1,3 +1,47 @@
++rpy (1.0.3-21) unstable; urgency=low
++
++  * Rebuilt under R 2.15.0
++
++  * debian/control: Set (Build-)Depends: to current R version
++  * debian/control: Set Standards-Version: to current version 
++  * debian/control: Set Breaks: to next R version (expected March 2013)
++
++ -- Dirk Eddelbuettel <edd at debian.org>  Sat, 31 Mar 2012 06:55:03 -0500
++
++rpy (1.0.3-20) unstable; urgency=low
++
++  * Rebuilt under R 2.14.1 
++
++  * debian/control: Set (Build-)Depends: to current R version
++  * debian/control: Set Standards-Version: to current version 
++
++ -- Dirk Eddelbuettel <edd at debian.org>  Sat, 24 Dec 2011 08:22:25 -0600
++
++rpy (1.0.3-19) unstable; urgency=low
++
++  * Rebuilt under R 2.14.0 (prereleases -- release coming October 31)
++
++  * debian/control: Set (Build-)Depends: to current R version
++  * debian/control: Set Standards-Version: to current version 
++
++  * debian/control: Added 'Breaks: r-base-core (>= 2.15.0)'
++    							(Closes: #646969)
++  
++ -- Dirk Eddelbuettel <edd at debian.org>  Fri, 28 Oct 2011 15:58:16 -0500
++
++rpy (1.0.3-18) unstable; urgency=low
++
++  * Rebuilt under R 2.13.0 (prereleases -- release coming April 13)
++
++  * debian/*: Updated to use new dh_python2 scheme       (Closes: #617056)
++  * debian/control: Remove Build-Depends: on python-central
++  * debian/control: Set (Build-)Depends: to current R version
++  * debian/control: Set Build-Depends: on 'python-all-dev (>= 2.6.6-3)'
++  * debian/rules: Substitute dh_pycentral with dh_python2
++  * debian/rules: Add '--install-layout=deb' to 'python setup.py install'
++  
++ -- Dirk Eddelbuettel <edd at debian.org>  Sun, 03 Apr 2011 14:21:38 -0500
++
+ rpy (1.0.3-17) unstable; urgency=low
+ 
+   * Rebuilt under R 2.12.1
+
+Modified: trunk/rpy/debian/control
+===================================================================
+--- trunk/rpy/debian/control	2010-12-25 15:57:43 UTC (rev 793)
++++ trunk/rpy/debian/control	2012-03-31 13:19:11 UTC (rev 794)
+@@ -2,13 +2,14 @@
+ Section: python
+ Priority: optional
+ Maintainer: Dirk Eddelbuettel <edd at debian.org>
+-Standards-Version: 3.9.1
++Standards-Version: 3.9.3
+ XS-Python-Version: all
+-Build-Depends: debhelper (>= 7.2.17), r-base-dev (>= 2.12.1), python-all-dev (>= 2.3.5-10), python-numpy (>= 1:1.3.0), texinfo, texi2html, texlive-base, texlive-latex-base, python-central (>= 0.5)
++Build-Depends: debhelper (>= 7.2.17), r-base-dev (>= 2.15.0), python-all-dev (>= 2.6.6-3), python-numpy (>= 1:1.3.0), python, texinfo, texi2html, texlive-base, texlive-latex-base
+ 
+ Package: python-rpy
+ Architecture: any
+-Depends: ${misc:Depends}, ${shlibs:Depends}, ${python:Depends}, python-numpy (>= 1:1.3.0), r-base-core (>= 2.12.1)
++Depends: ${misc:Depends}, ${shlibs:Depends}, ${python:Depends}, python-numpy (>= 1:1.3.0), r-base-core (>= 2.15.0)
++Breaks: r-base-core (>= 2.16.0)
+ Replaces: python2.2-rpy (<< 0.99.2-4), python2.3-rpy (<< 0.99.2-4), python2.4-rpy (<< 0.99.2-4) 
+ Conflicts: python2.2-rpy (<< 0.99.2-4), python2.3-rpy (<< 0.99.2-4), python2.4-rpy (<< 0.99.2-4) 
+ XB-Python-Version: ${python:Versions}
+
+Modified: trunk/rpy/debian/python-rpy.lintian-overrides
+===================================================================
+--- trunk/rpy/debian/python-rpy.lintian-overrides	2010-12-25 15:57:43 UTC (rev 793)
++++ trunk/rpy/debian/python-rpy.lintian-overrides	2012-03-31 13:19:11 UTC (rev 794)
+@@ -1,6 +1,4 @@
+-python-rpy: script-not-executable ./usr/share/pycentral/python-rpy/site-packages/rpy_options.py
+-python-rpy: script-not-executable ./usr/share/pyshared/rpy_options.py
+-python-rpy: binary-or-shlib-defines-rpath ./usr/lib/python2.5/site-packages/_rpy2121.so /usr/lib/R/bin
+-python-rpy: binary-or-shlib-defines-rpath ./usr/lib/python2.5/site-packages/_rpy2121.so /usr/lib/R/lib
+-python-rpy: binary-or-shlib-defines-rpath ./usr/lib/python2.6/dist-packages/_rpy2121.so /usr/lib/R/bin
+-python-rpy: binary-or-shlib-defines-rpath ./usr/lib/python2.6/dist-packages/_rpy2121.so /usr/lib/R/lib
++python-rpy: binary-or-shlib-defines-rpath usr/lib/python2.6/dist-packages/_rpy2150.so /usr/lib/R/bin
++python-rpy: binary-or-shlib-defines-rpath usr/lib/python2.6/dist-packages/_rpy2150.so /usr/lib/R/lib
++python-rpy: binary-or-shlib-defines-rpath usr/lib/python2.7/dist-packages/_rpy2150.so /usr/lib/R/bin
++python-rpy: binary-or-shlib-defines-rpath usr/lib/python2.7/dist-packages/_rpy2150.so /usr/lib/R/lib
+
+Modified: trunk/rpy/debian/rules
+===================================================================
+--- trunk/rpy/debian/rules	2010-12-25 15:57:43 UTC (rev 793)
++++ trunk/rpy/debian/rules	2012-03-31 13:19:11 UTC (rev 794)
+@@ -1,6 +1,6 @@
+ #!/usr/bin/make -f
+ # debian/rules file for the Debian GNU/Linux python-rpy package
+-# Copyright 2004 - 2007 by Dirk Eddelbuettel <edd at debian.org>
++# Copyright 2004 - 2012 by Dirk Eddelbuettel <edd at debian.org>
+ 
+ project		:= rpy
+ package		:= python-$(project)
+@@ -38,7 +38,9 @@
+ 	dh_testdir
+ 	touch configure-stamp
+ 
+-build: configure-stamp build-stamp
++build: configure-stamp build-arch build-indep
++build-arch: build-stamp
++build-indep: build-stamp
+ build-stamp:
+ 	dh_testdir
+ #	CFLAGS="$(compilerflags)" $(PYTHON2.3) setup.py build \
+@@ -83,7 +85,7 @@
+         #$(PYTHON2.3) setup.py install --root=debian/python2.3-rpy
+         #$(PYTHON2.4) setup.py install --root=debian/python2.4-rpy
+ 	for python in $(PYVERS); \
+-		do $$python setup.py install --root=debian/python-rpy; \
++		do $$python setup.py install --root=debian/python-rpy --install-layout=deb; \
+ 	done
+ 
+ 	install -d $(lintiandir)
+@@ -137,7 +139,8 @@
+ #	dh_suidregister -a
+ #	dh_makeshlibs -a
+ #	dh_perl -a
+-	dh_pycentral -a
++#	dh_pycentral -a
++	dh_python2 -a 
+ 	dh_shlibdeps -a
+ 	dh_installdeb -a
+ 	dh_gencontrol -a
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+

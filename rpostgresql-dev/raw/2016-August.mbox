@@ -1,0 +1,356 @@
+From heibsta-hi6Y0CQ0nG0 at public.gmane.org  Mon Aug  1 13:07:28 2016
+From: heibsta-hi6Y0CQ0nG0 at public.gmane.org (Nelson Jaiva)
+Date: Mon, 01 Aug 2016 06:07:28 -0700
+Subject: Re: pg_config not found during configuration
+In-Reply-To: <7fbd771c-c872-46c5-bbf2-b5c42c27d1b8@googlegroups.com>
+References: <7fbd771c-c872-46c5-bbf2-b5c42c27d1b8@googlegroups.com>
+Message-ID: <71b9488d-c9be-46b1-93ff-4d6f25c3813f@googlegroups.com>
+
+Problem solved!
+
+Here's what I did:
+
+1. Open the *configure.in* file in RPostgreSQL
+
+2. Search for the line reading
+
+ AC_PATH_PROG([PG_CONFIG], [pg_config])
+
+3. Add as a third argument the absolute path to *pg_config*:
+
+ AC_PATH_PROG([PG_CONFIG], [pg_config], 
+[/installed/in/a/strange/place/pg_config])
+
+4. Create a new configure file with *autoconf*, replacing the one that came 
+with the package
+
+autoconf -o configure configure.in
+
+5. The package should install fine - if everything else is OK.
+
+I hope this will be helpful,
+Nelson
+
+
+
+Am Sonntag, 31. Juli 2016 16:48:25 UTC+2 schrieb Nelson Jaiva:
+>
+> Hi,
+>
+> I am trying to install the newest version of RPostgreSQL on a linux 
+> cluster, where I have PostgreSQL-9.5.3 running.
+>
+> Because the installation is in a non-standard location, I need to update 
+> my search path before that:
+>
+> > export PATH=$PATH:postgres/bin
+>
+> (I guess, the export command here is not necessary and 
+> PATH=$PATH:postgres/bin would be sufficient, but I am not sure. I tested 
+> both ways anyway)
+>
+> Then I run R CMD INSTALL (which fails) and the last check tells me that 
+> pg_config was not found (and as a consequence libpg-fe.h, which is in 
+> postgres/include, can neither be found) . In the lines that follow, which 
+> list the places where the configure script has looked for the 'include' and 
+> 'lib' folders, my 'postgres' folder does not show up. So, does this mean my 
+> path has not been taken over by the configure script?
+>
+> > R CMD INSTALL RPostgreSQL_0.4-1.tar.gz 
+> * installing to library ‘/home/hpc/pr48co/gu28luf2/r/R-3.2.2/library’
+> * installing *source* package ‘RPostgreSQL’ ...
+> ** package ‘RPostgreSQL’ successfully unpacked and MD5 sums checked
+> checking for gcc... gcc
+> checking for C compiler default output file name... a.out
+> checking whether the C compiler works... yes
+> checking whether we are cross compiling... no
+> checking for suffix of executables... 
+> checking for suffix of object files... o
+> checking whether we are using the GNU C compiler... yes
+> checking whether gcc accepts -g... yes
+> checking for gcc option to accept ISO C89... none needed
+> checking build system type... x86_64-unknown-linux-gnu
+> checking host system type... x86_64-unknown-linux-gnu
+> checking target system type... x86_64-unknown-linux-gnu
+> checking for pg_config... no                      #  pg_config is in 
+> ~/postgres/bin
+> configure: checking for PostgreSQL header files
+> configure: Checking include /usr/include.
+> configure: Checking include /usr/include/pgsql.
+> configure: Checking include /usr/include/postgresql.
+> configure: Checking include /usr/local/include.
+> configure: Checking include /usr/local/include/pgsql.
+> configure: Checking include /usr/local/include/postgresql.
+> configure: Checking include /usr/local/pgsql/include.
+> configure: Checking include /usr/local/postgresql/include.
+> configure: Checking include /opt/include.
+> configure: Checking include /opt/include/pgsql.
+> configure: Checking include /opt/include/postgresql.
+> configure: Checking include /opt/local/include.
+> configure: Checking include /opt/local/include/postgresql.
+> configure: Checking include /opt/local/include/postgresql84.
+> configure: Checking include /sw/opt/postgresql-8.4/include.
+> configure: Checking include /Library/PostgresPlus/8.4SS/include.
+> configure: Checking include /sw/include/postgresql.
+> configure: Checking lib /usr/lib.
+> configure: Checking lib /usr/lib/pgsql.
+> configure: Checking lib /usr/lib/postgresql.
+> configure: Checking lib /usr/local/lib.
+> configure: Checking lib /usr/local/lib/pgsql.
+> configure: Checking lib /usr/local/lib/postgresql.
+> configure: Checking lib /usr/local/pgsql/lib.
+> configure: Checking lib /usr/local/postgresql/lib.
+> configure: Checking lib /opt/lib.
+> configure: Checking lib /opt/lib/pgsql.
+> configure: Checking lib /opt/lib/postgresql.
+> configure: Checking lib /opt/local/lib.
+> configure: Checking lib /opt/local/lib/postgresql.
+> configure: Checking lib /opt/local/lib/postgresql84.
+> configure: Checking lib /sw/opt/postgresql-8.4/lib.
+> configure: Checking lib /Library/PostgresPlus/8.4SS/lib.
+> configure: Checking lib /sw/lib.
+> checking for "/libpq-fe.h"... no
+>
+> I wonder, how I can tell R CMD INSTALL to find pg_config in postgres/bin. 
+> There are two options in R CMD INSTALL ( --configure-args and 
+> --configure-vars),
+> which I have tried with something like:
+>
+> R CMD INSTALL RPostgreSQL_0.4-1.tar.gz 
+> --configure.args='PG_CONFIG=postgres/bin'
+>
+> or 
+>
+> R CMD INSTALL RPostgreSQL_0.4-1.tar.gz --configure.args=postgres/bin/pg_bin
+>
+> or 
+>
+> R CMD INSTALL RPostgreSQL_0.4-1.tar.gz 
+> --configure.vars='PG_CONFIG=postgres/bin/pg_bin'
+>
+> but that does not work either.
+>
+> I know that people  (including me) have succeded in the past finding 
+> 'libpq-fe.h' by setting environmental variables like
+>
+> LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pg_config --includedir)
+> export LD_LIBRARY_PATH
+>
+> but strangely this does not work anymore for me and, besides, it might me 
+> more resonable to resolve the issue upstream by making the configuration 
+> process find and use pg_config. (When I call pg_config on the command line 
+> it return correctly the location of include and lib.)
+>
+> Any help is greatly appreciated! 
+>
+> Best,
+> Nelson Jaiva
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org  Mon Aug  1 15:02:21 2016
+From: neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org (Neil Tiffin)
+Date: Mon, 01 Aug 2016 10:02:21 -0500
+Subject: Re: pg_config not found during configuration
+In-Reply-To: <7fbd771c-c872-46c5-bbf2-b5c42c27d1b8@googlegroups.com>
+References: <7fbd771c-c872-46c5-bbf2-b5c42c27d1b8@googlegroups.com>
+Message-ID: <DE0A7981-3839-4AA3-9384-99AF43B78D3F@neiltiffin.com>
+
+
+> On Jul 31, 2016, at 9:48 AM, Nelson Jaiva <heibsta-hi6Y0CQ0nG0 at public.gmane.org <mailto:heibsta at gmx.net>> wrote:
+> 
+> Hi,
+> 
+> I am trying to install the newest version of RPostgreSQL on a linux cluster, where I have PostgreSQL-9.5.3 running.
+> 
+> Because the installation is in a non-standard location, I need to update my search path before that:
+> 
+> > export PATH=$PATH:postgres/bin
+> 
+> (I guess, the export command here is not necessary and PATH=$PATH:postgres/bin would be sufficient, but I am not sure. I tested both ways anyway)
+> 
+> 
+> checking target system type... x86_64-unknown-linux-gnu
+> checking for pg_config... no                      #  pg_config is in ~/postgres/bin
+> configure: checking for PostgreSQL header files
+
+Please recheck your  export PATH=$PATH:postgres/bin statement 
+
+“postgres/bin” is not the same as “~/postgres/bin”
+
+Neil
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From jenny-bBFxML8CZwspAS55Wn97og at public.gmane.org  Thu Aug 11 01:09:42 2016
+From: jenny-bBFxML8CZwspAS55Wn97og at public.gmane.org (Jenny Hutchison)
+Date: Wed, 10 Aug 2016 18:09:42 -0700
+Subject: Re: RPostgreSQL won't connect anymore, but it used to
+In-Reply-To: <91A711BA-0754-403C-8DF5-7B0BEE2C6A49@gmail.com>
+References: <a211d34e-b44a-4846-b90c-b5514fd8e8c9@googlegroups.com> <91A711BA-0754-403C-8DF5-7B0BEE2C6A49@gmail.com>
+Message-ID: <a887b9ee-430c-49ca-9d7b-257fab38a995@googlegroups.com>
+
+I am having the same problem with my connection to my postgres databases 
+(and continue to connect just fine through other means, it most definitely 
+is my upgrading R and its packages yesterday that broke this!). When I try 
+to use install RPostgreSQL using devtools as described, I get a different 
+error: 
+
+Downloading GitHub repo tomoakin/RPostgreSQL@master
+from URL https://api.github.com/repos/tomoakin/RPostgreSQL/zipball/master
+Error: Does not appear to be an R package (no DESCRIPTION)
+
+[I already have postgres running locally; it, too, is behaving perfectly]
+
+On Tuesday, 12 July 2016 03:14:54 UTC+10, Ian Gow wrote:
+>
+> Does installing the latest RPostgreSQL (v.0.5-2) from GitHub help?
+>
+> devtools::install_github("tomoakin/RPostgreSQL", subdir="RPostgreSQL")
+>
+> On 11 Jul 2016, at 13:04, mst...-8Z8B9NtlZsFWk0Htik3J/w at public.gmane.org <javascript:> wrote:
+>
+> I'm not sure why, but I'm no longer able to connect to my postgres database
+> the RPostgreSQL packages. It's a postgres database on Amazon AWS (not
+> redshift).
+>
+> library(RPostgreSQL)
+> drv <- dbDriver("PostgreSQL")
+> con <- dbConnect(drv,
+> host='<host>',
+> port='5432',
+> dbname='<dbname>',
+> user='<username>',
+> password='<password>')
+>
+> Error in postgresqlNewConnection(drv, ...) :
+> RS-DBI driver: (could not connect <username>@<host> on dbname "<dbname>"
+> )
+>
+> The weird thing is that this used to work until very recently (I'm not sure
+> what broke it). I'm able to connect to this database via psql and other SQL
+> editors. Here are other details that might be of use:
+>
+>    - I'm using a Mac (OS X 10.11.5 (El Capitan)) - 
+>    - R version 3.3.1 
+>    - RPostgreSQL_0.4-1 
+>    - DBI_0.4-1 
+>
+> -- 
+> You received this message because you are subscribed to the Google Groups 
+> "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an 
+> email to rpostgresql-d...-/JYPxA39Uh5TLH3MbocFFw at public.gmane.org <javascript:>.
+> For more options, visit https://groups.google.com/d/optout.
+>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From iandgow-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Aug 11 04:52:28 2016
+From: iandgow-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ian Gow)
+Date: Thu, 11 Aug 2016 06:52:28 +0200
+Subject: Re: RPostgreSQL won't connect anymore, but it used to
+In-Reply-To: <a887b9ee-430c-49ca-9d7b-257fab38a995@googlegroups.com>
+References: <a211d34e-b44a-4846-b90c-b5514fd8e8c9@googlegroups.com> <91A711BA-0754-403C-8DF5-7B0BEE2C6A49@gmail.com> <a887b9ee-430c-49ca-9d7b-257fab38a995@googlegroups.com>
+Message-ID: <FD7BC4A9-58B6-470D-BE55-ED74DE258781@gmail.com>
+
+I had the [same 
+problem](https://github.com/tomoakin/RPostgreSQL/issues/82), try:
+
+```
+devtools::install_github("tomoakin/RPostgreSQL", subdir="RPostgreSQL")
+```
+
+On 11 Aug 2016, at 3:09, Jenny Hutchison wrote:
+
+> I am having the same problem with my connection to my postgres 
+> databases
+> (and continue to connect just fine through other means, it most 
+> definitely
+> is my upgrading R and its packages yesterday that broke this!). When I 
+> try
+> to use install RPostgreSQL using devtools as described, I get a 
+> different
+> error:
+>
+> Downloading GitHub repo tomoakin/RPostgreSQL@master
+> from URL 
+> https://api.github.com/repos/tomoakin/RPostgreSQL/zipball/master
+> Error: Does not appear to be an R package (no DESCRIPTION)
+>
+> [I already have postgres running locally; it, too, is behaving 
+> perfectly]
+>
+> On Tuesday, 12 July 2016 03:14:54 UTC+10, Ian Gow wrote:
+>>
+>> Does installing the latest RPostgreSQL (v.0.5-2) from GitHub help?
+>>
+>> devtools::install_github("tomoakin/RPostgreSQL", 
+>> subdir="RPostgreSQL")
+>>
+>> On 11 Jul 2016, at 13:04, mst...-8Z8B9NtlZsFWk0Htik3J/w at public.gmane.org <javascript:> wrote:
+>>
+>> I'm not sure why, but I'm no longer able to connect to my postgres 
+>> database
+>> the RPostgreSQL packages. It's a postgres database on Amazon AWS (not
+>> redshift).
+>>
+>> library(RPostgreSQL)
+>> drv <- dbDriver("PostgreSQL")
+>> con <- dbConnect(drv,
+>> host='<host>',
+>> port='5432',
+>> dbname='<dbname>',
+>> user='<username>',
+>> password='<password>')
+>>
+>> Error in postgresqlNewConnection(drv, ...) :
+>> RS-DBI driver: (could not connect <username>@<host> on dbname 
+>> "<dbname>"
+>> )
+>>
+>> The weird thing is that this used to work until very recently (I'm 
+>> not sure
+>> what broke it). I'm able to connect to this database via psql and 
+>> other SQL
+>> editors. Here are other details that might be of use:
+>>
+>>    - I'm using a Mac (OS X 10.11.5 (El Capitan)) -
+>>    - R version 3.3.1
+>>    - RPostgreSQL_0.4-1
+>>    - DBI_0.4-1
+>>
+>> -- 
+>> You received this message because you are subscribed to the Google 
+>> Groups
+>> "RPostgreSQL Development and Discussion List" group.
+>> To unsubscribe from this group and stop receiving emails from it, 
+>> send an
+>> email to rpostgresql-d...-/JYPxA39Uh5TLH3MbocFFw at public.gmane.org <javascript:>.
+>> For more options, visit https://groups.google.com/d/optout.
+>>
+>>
+>
+> -- 
+> You received this message because you are subscribed to the Google 
+> Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send 
+> an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/d/optout.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+

@@ -1,0 +1,2194 @@
+From p.alayrac-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue May  1 10:37:51 2018
+From: p.alayrac-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Pierre Alayrac)
+Date: Tue, 01 May 2018 11:37:51 +0100
+Subject: Augmentation des cases vides lors de restrictions progressives d'une base
+Message-ID: <6117B79E-6385-48D8-B07F-9C0DD1CDDBA1@gmail.com>
+
+Bonjour à tou.te.s,
+
+Je ne suis pas un excellent connaisseur de R, et j’ai probablement une question très bête, mais …
+
+Je travaille cette semaine sur une base de données assez importante (5873 individus, 255 variables).
+Parmi ces individus tous n’ont pas le même intérêt pour moi, et j’ai donc restreint la base plusieurs fois (aussi pour éviter quelques problèmes liées à des « mauvaises réponses / mauvais codages » sur lesquels je n’ai pas la main).
+Mon problème est qu’à mesure que je restreint la base, le tri de la variable sexe fait augmenter les non-réponses. Je m’en suis rendu compte car cette variable est simple et n’a que 3 modalités (Homme/Femme/Ne préfère pas répondre) — et des cases vides.
+
+(J’appelle « cases vides » la différence entre le nombre de lignes obtenues via dim(OBJET) et la somme des valeurs obtenues lors d’un tri à plat de la variable sexe.
+EX =
+dim(base1) = 5873 * 255
+table(base1$Q18) = 2819 « 1 », 2682 « 2 », et 155 « 3 »
+5873-2819-2682-155 = 217 cases vides)
+
+Ainsi :
+
+- base1 regroupe 5873 individus, et compte 217 cases vides quand je trie par sexe (hors Homme/Femme/Ne préfère pas répondre donc)
+- basead regroupe 4823 individus, et compte 231 cases vides quand je trie par sexe (soit 17 de plus)
+- BADAG regroupe 4657 individus, et compte 351 cases vides quand je trie par sexe (soit 120 de plus)
+- BADAG1 regroupe 4655 individus, et compte 421 cases vides quand je trie par sexe (soit 70 de plus)
+
+Voici les lignes de codes qui restreignent la base petit à petit
+basead<-base1[base1$Q6 == 1,]
+BADAG <- basead[basead$Q17 >= 1941,]
+BADAG1 <- BADAG[BADAG$Q1 >= 14 & BADAG$Q1 <= 55,]
+
+Avez-vous une idée de ce qui cloche (chez moi ?),
+
+Bon premier mai à tou.te.s,
+
+Pierre Alayrac
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu May  3 07:57:30 2018
+From: samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Samuel Coavoux)
+Date: Thu, 03 May 2018 09:57:30 +0200
+Subject: Re: Augmentation des cases vides lors de restrictions progressives d'une base
+In-Reply-To: <6117B79E-6385-48D8-B07F-9C0DD1CDDBA1@gmail.com>
+References: <6117B79E-6385-48D8-B07F-9C0DD1CDDBA1@gmail.com>
+Message-ID: <CAFyE9YNEm8qAPgxyKsZDVyMiT_SUJDtbfiS2gNk9odryc8-qtA@mail.gmail.com>
+
+Hello,
+
+Sans exemple reproductible, il est difficile de diagnostiquer le problème.
+Mais il peut s’agir du fait que les variables utilisées dans le subset avec
+[ contiennent des valeurs manquantes. Un exemple:
+
+df <- data.frame(sexe = c("H", "F", "H", "F", NA),
+                 age = c(NA, NA, 21, 35, 56))
+df[df$sexe == "H", ]
+   sexe age1     H  NA3     H  21NA <NA>  NA
+
+On veut sélectionner les hommes, soit deux observations, mais on a en
+réalité trois retours parce que df$sexe == "H" renvoie NA quand le sexe est
+manquant.
+
+Une façon de pallier ce problème avec [ est:
+
+df[df$sexe == "H" & !is.na(df$sexe), ]
+  sexe age1    H  NA3    H  21
+
+dplyr::filter() à l’intérêt de ne pas avoir besoin de préciser !is.na sur
+la variable de subset.
+
+Samuel
+​
+
+2018-05-01 12:37 GMT+02:00 Pierre Alayrac <p.alayrac-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>:
+
+> Bonjour à tou.te.s,
+>
+> Je ne suis pas un excellent connaisseur de R, et j’ai probablement une
+> question très bête, mais …
+>
+> Je travaille cette semaine sur une base de données assez importante (5873
+> individus, 255 variables).
+> Parmi ces individus tous n’ont pas le même intérêt pour moi, et j’ai donc
+> restreint la base plusieurs fois (aussi pour éviter quelques problèmes
+> liées à des « mauvaises réponses / mauvais codages » sur lesquels je n’ai
+> pas la main).
+> Mon problème est qu’à mesure que je restreint la base, le tri de la
+> variable *sexe* fait augmenter les non-réponses. Je m’en suis rendu
+> compte car cette variable est simple et n’a que 3 modalités (Homme/Femme/Ne
+> préfère pas répondre) — et des cases vides.
+>
+> (J’appelle « cases vides » la différence entre le nombre de lignes
+> obtenues via dim(OBJET) et la somme des valeurs obtenues lors d’un tri à
+> plat de la variable *sexe*.
+> EX =
+> dim(base1) = 5873 * 255
+> table(base1$Q18) = 2819 « 1 », 2682 « 2 », et 155 « 3 »
+> 5873-2819-2682-155 = 217 cases vides)
+>
+> Ainsi :
+>
+> - base1 regroupe 5873 individus, et compte 217 cases vides quand je trie
+> par sexe (hors Homme/Femme/Ne préfère pas répondre donc)
+> - basead regroupe 4823 individus, et compte 231 cases vides quand je trie
+> par sexe (soit 17 de plus)
+> - BADAG regroupe 4657 individus, et compte 351 cases vides quand je trie
+> par sexe (soit 120 de plus)
+> - BADAG1 regroupe 4655 individus, et compte 421 cases vides quand je trie
+> par sexe (soit 70 de plus)
+>
+> Voici les lignes de codes qui restreignent la base petit à petit
+> basead<-base1[base1$Q6 == 1,]
+> BADAG <- basead[basead$Q17 >= 1941,]
+> BADAG1 <- BADAG[BADAG$Q1 >= 14 & BADAG$Q1 <= 55,]
+>
+> Avez-vous une idée de ce qui cloche (chez moi ?),
+>
+> Bon premier mai à tou.te.s,
+>
+> Pierre Alayrac
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From p.alayrac-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu May  3 08:56:31 2018
+From: p.alayrac-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Pierre Alayrac)
+Date: Thu, 03 May 2018 09:56:31 +0100
+Subject: Re: Augmentation des cases vides lors de restrictions progressives d'une base
+In-Reply-To: <CAFyE9YNEm8qAPgxyKsZDVyMiT_SUJDtbfiS2gNk9odryc8-qtA@mail.gmail.com>
+References: <6117B79E-6385-48D8-B07F-9C0DD1CDDBA1@gmail.com> <CAFyE9YNEm8qAPgxyKsZDVyMiT_SUJDtbfiS2gNk9odryc8-qtA@mail.gmail.com>
+Message-ID: <684F0299-EE1E-4E15-9E56-080416D62DEF@gmail.com>
+
+Bonjour,
+
+Je sais bien qu’il est de coutume d’envoyer un peu plus que ce que je vous ai envoyé dans mon précédent mail, mais je travaille sur des données assez confidentielles, et donc sur un ordinateur verrouillé, sans internet, et sans possibilité de mettre même un script sur une clef USB (ça a l’air un peu brutal dit comme ça :) ). Merci beaucoup d’avoir pris le temps de créer cet exemple !
+Je vais tester ça tout de suite.
+
+Pierre
+
+> Le 3 mai 2018 à 08:57, Samuel Coavoux <samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> a écrit :
+> 
+> Hello,
+> 
+> Sans exemple reproductible, il est difficile de diagnostiquer le problème. Mais il peut s’agir du fait que les variables utilisées dans le subset avec [ contiennent des valeurs manquantes. Un exemple:
+> 
+> df <- data.frame(sexe = c("H", "F", "H", "F", NA),
+>                  age = c(NA, NA, 21, 35, 56)) 
+> df[df$sexe == "H", ]
+>    sexe age
+> 1     H  NA
+> 3     H  21
+> NA <NA>  NA
+> On veut sélectionner les hommes, soit deux observations, mais on a en réalité trois retours parce que df$sexe == "H" renvoie NA quand le sexe est manquant.
+> 
+> Une façon de pallier ce problème avec [ est:
+> 
+> df[df$sexe == "H" & !is.na <http://is.na/>(df$sexe), ]
+>   sexe age
+> 1    H  NA
+> 3    H  21
+> dplyr::filter() à l’intérêt de ne pas avoir besoin de préciser !is.na <http://is.na/> sur la variable de subset.
+> 
+> Samuel
+> 
+> 
+> 2018-05-01 12:37 GMT+02:00 Pierre Alayrac <p.alayrac-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <mailto:p.alayrac-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>>:
+> Bonjour à tou.te.s,
+> 
+> Je ne suis pas un excellent connaisseur de R, et j’ai probablement une question très bête, mais …
+> 
+> Je travaille cette semaine sur une base de données assez importante (5873 individus, 255 variables).
+> Parmi ces individus tous n’ont pas le même intérêt pour moi, et j’ai donc restreint la base plusieurs fois (aussi pour éviter quelques problèmes liées à des « mauvaises réponses / mauvais codages » sur lesquels je n’ai pas la main).
+> Mon problème est qu’à mesure que je restreint la base, le tri de la variable sexe fait augmenter les non-réponses. Je m’en suis rendu compte car cette variable est simple et n’a que 3 modalités (Homme/Femme/Ne préfère pas répondre) — et des cases vides.
+> 
+> (J’appelle « cases vides » la différence entre le nombre de lignes obtenues via dim(OBJET) et la somme des valeurs obtenues lors d’un tri à plat de la variable sexe.
+> EX =
+> dim(base1) = 5873 * 255
+> table(base1$Q18) = 2819 « 1 », 2682 « 2 », et 155 « 3 »
+> 5873-2819-2682-155 = 217 cases vides)
+> 
+> Ainsi :
+> 
+> - base1 regroupe 5873 individus, et compte 217 cases vides quand je trie par sexe (hors Homme/Femme/Ne préfère pas répondre donc)
+> - basead regroupe 4823 individus, et compte 231 cases vides quand je trie par sexe (soit 17 de plus)
+> - BADAG regroupe 4657 individus, et compte 351 cases vides quand je trie par sexe (soit 120 de plus)
+> - BADAG1 regroupe 4655 individus, et compte 421 cases vides quand je trie par sexe (soit 70 de plus)
+> 
+> Voici les lignes de codes qui restreignent la base petit à petit
+> basead<-base1[base1$Q6 == 1,]
+> BADAG <- basead[basead$Q17 >= 1941,]
+> BADAG1 <- BADAG[BADAG$Q1 >= 14 & BADAG$Q1 <= 55,]
+> 
+> Avez-vous une idée de ce qui cloche (chez moi ?),
+> 
+> Bon premier mai à tou.te.s,
+> 
+> Pierre Alayrac
+> 
+> 
+> -- 
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc <https://groupes.renater.fr/sympa/info/r-soc>
+> 
+> 
+> 
+> 
+> -- 
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Thu May  3 09:46:10 2018
+From: julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (Julien Barnier)
+Date: Thu, 03 May 2018 11:46:10 +0200
+Subject: Re: Augmentation des cases vides lors de restrictions progressives d'une base
+In-Reply-To: <6117B79E-6385-48D8-B07F-9C0DD1CDDBA1@gmail.com>
+References: <6117B79E-6385-48D8-B07F-9C0DD1CDDBA1@gmail.com>
+Message-ID: <4892e3df-aa5d-afac-4891-f521158d0d6b@ens-lyon.fr>
+
+Bonjour Pierre,
+
+> Je ne suis pas un excellent connaisseur de R, et j’ai probablement une 
+> question très bête, mais …
+> 
+> Je travaille cette semaine sur une base de données assez importante 
+> (5873 individus, 255 variables).
+> Parmi ces individus tous n’ont pas le même intérêt pour moi, et j’ai 
+> donc restreint la base plusieurs fois (aussi pour éviter quelques 
+> problèmes liées à des « mauvaises réponses / mauvais codages » sur 
+> lesquels je n’ai pas la main).
+> Mon problème est qu’à mesure que je restreint la base, le tri de la 
+> variable /sexe/ fait augmenter les non-réponses. Je m’en suis rendu 
+> compte car cette variable est simple et n’a que 3 modalités 
+> (Homme/Femme/Ne préfère pas répondre) — et des cases vides.
+> 
+> (J’appelle « cases vides » la différence entre le nombre de lignes 
+> obtenues via dim(OBJET) et la somme des valeurs obtenues lors d’un tri à 
+> plat de la variable /sexe/.
+> EX =
+> dim(base1) = 5873 * 255
+> table(base1$Q18) = 2819 « 1 », 2682 « 2 », et 155 « 3 »
+> 5873-2819-2682-155 = 217 cases vides)
+
+Alors d'abord ce que tu entends par "cases vides" ce sont sans doute des 
+valeurs manquantes, symbolisées en général sous R par le code NA.
+
+Tu peux faire apparaître le nombre de NA dans ta variable en utilisant 
+summary à la place de table, ou bien la fonction freq de l'extension 
+questionr :
+
+summary(base1$Q18)
+
+library(questionr)
+freq(base1$Q18)
+
+> Ainsi :
+> 
+> - base1 regroupe 5873 individus, et compte 217 cases vides quand je trie 
+> par sexe (hors Homme/Femme/Ne préfère pas répondre donc)
+> - basead regroupe 4823 individus, et compte 231 cases vides quand je 
+> trie par sexe (soit 17 de plus)
+> - BADAG regroupe 4657 individus, et compte 351 cases vides quand je trie 
+> par sexe (soit 120 de plus)
+> - BADAG1 regroupe 4655 individus, et compte 421 cases vides quand je 
+> trie par sexe (soit 70 de plus)
+> 
+> Voici les lignes de codes qui restreignent la base petit à petit
+> basead<-base1[base1$Q6 == 1,]
+> BADAG <- basead[basead$Q17 >= 1941,]
+> BADAG1 <- BADAG[BADAG$Q1 >= 14 & BADAG$Q1 <= 55,]
+> 
+> Avez-vous une idée de ce qui cloche (chez moi ?),
+
+Tu ne devrais pas avoir davantage de valeurs manquantes dans une 
+sous-population que dans ta population de départ, sinon effectivement il 
+y a un problème. Essaie de revoir la distribution des valeurs de ta 
+variable avec sexe dans tes différentes sous-populations, voire si tu 
+constates toujours ce problème...
+
+Bon courage,
+
+-- 
+Julien Barnier
+Centre Max Weber
+ENS de Lyon
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Thu May  3 09:47:51 2018
+From: julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (Julien Barnier)
+Date: Thu, 03 May 2018 11:47:51 +0200
+Subject: Re: Augmentation des cases vides lors de restrictions progressives d'une base
+In-Reply-To: <4892e3df-aa5d-afac-4891-f521158d0d6b@ens-lyon.fr>
+References: <6117B79E-6385-48D8-B07F-9C0DD1CDDBA1@gmail.com> <4892e3df-aa5d-afac-4891-f521158d0d6b@ens-lyon.fr>
+Message-ID: <81403cf7-54ba-2905-ea91-53196d869f8d@ens-lyon.fr>
+
+Re,
+
+Ah, mes excuses, j'ai répondu en n'ayant pas vu que Samuel l'avait déjà 
+fait.
+
+Désolé et bonne journée,
+
+Julien
+
+> Bonjour Pierre,
+> 
+>> Je ne suis pas un excellent connaisseur de R, et j’ai probablement une 
+>> question très bête, mais …
+>>
+>> Je travaille cette semaine sur une base de données assez importante 
+>> (5873 individus, 255 variables).
+>> Parmi ces individus tous n’ont pas le même intérêt pour moi, et j’ai 
+>> donc restreint la base plusieurs fois (aussi pour éviter quelques 
+>> problèmes liées à des « mauvaises réponses / mauvais codages » sur 
+>> lesquels je n’ai pas la main).
+>> Mon problème est qu’à mesure que je restreint la base, le tri de la 
+>> variable /sexe/ fait augmenter les non-réponses. Je m’en suis rendu 
+>> compte car cette variable est simple et n’a que 3 modalités 
+>> (Homme/Femme/Ne préfère pas répondre) — et des cases vides.
+>>
+>> (J’appelle « cases vides » la différence entre le nombre de lignes 
+>> obtenues via dim(OBJET) et la somme des valeurs obtenues lors d’un tri 
+>> à plat de la variable /sexe/.
+>> EX =
+>> dim(base1) = 5873 * 255
+>> table(base1$Q18) = 2819 « 1 », 2682 « 2 », et 155 « 3 »
+>> 5873-2819-2682-155 = 217 cases vides)
+> 
+> Alors d'abord ce que tu entends par "cases vides" ce sont sans doute des 
+> valeurs manquantes, symbolisées en général sous R par le code NA.
+> 
+> Tu peux faire apparaître le nombre de NA dans ta variable en utilisant 
+> summary à la place de table, ou bien la fonction freq de l'extension 
+> questionr :
+> 
+> summary(base1$Q18)
+> 
+> library(questionr)
+> freq(base1$Q18)
+> 
+>> Ainsi :
+>>
+>> - base1 regroupe 5873 individus, et compte 217 cases vides quand je 
+>> trie par sexe (hors Homme/Femme/Ne préfère pas répondre donc)
+>> - basead regroupe 4823 individus, et compte 231 cases vides quand je 
+>> trie par sexe (soit 17 de plus)
+>> - BADAG regroupe 4657 individus, et compte 351 cases vides quand je 
+>> trie par sexe (soit 120 de plus)
+>> - BADAG1 regroupe 4655 individus, et compte 421 cases vides quand je 
+>> trie par sexe (soit 70 de plus)
+>>
+>> Voici les lignes de codes qui restreignent la base petit à petit
+>> basead<-base1[base1$Q6 == 1,]
+>> BADAG <- basead[basead$Q17 >= 1941,]
+>> BADAG1 <- BADAG[BADAG$Q1 >= 14 & BADAG$Q1 <= 55,]
+>>
+>> Avez-vous une idée de ce qui cloche (chez moi ?),
+> 
+> Tu ne devrais pas avoir davantage de valeurs manquantes dans une 
+> sous-population que dans ta population de départ, sinon effectivement il 
+> y a un problème. Essaie de revoir la distribution des valeurs de ta 
+> variable avec sexe dans tes différentes sous-populations, voire si tu 
+> constates toujours ce problème...
+> 
+> Bon courage,
+> 
+> 
+> 
+> 
+
+
+-- 
+Julien Barnier
+Centre Max Weber
+ENS de Lyon
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org  Thu May  3 11:08:09 2018
+From: aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org (Anton Perdoncin)
+Date: Thu, 03 May 2018 13:08:09 +0200
+Subject: Question group_by
+Message-ID: <7dd99393-f447-a865-8425-f8ab802bb8a3@ens-cachan.fr>
+
+Salut,
+
+Voici un problème, sans doute très simple (mais comme Pierre M. je suis
+entrain de découvrir le tidyverse...).
+
+Ci dessous l'exemple minimal reproductible :
+
+# Début du script
+
+natio <- c(rep("Francais", 5), rep("Algériens", 5), rep("Autres Natio",
+5), rep("Etrangers", 5))
+
+annee <- rep(1970:1974, 4)
+
+entrees <- c(rep(1, 5), rep(2, 5), rep(3, 5), rep(5, 5))
+
+df <- data.frame(natio, annee, entrees)
+
+# Les lignes Etrangers sont la somme des lignes Algériens et Autres Natio
+
+# Problème : comment calculer un nombre total d'entrées par année sans
+compter deux fois les étrangers ?
+
+df <- df %>%
+  group_by(annee) %>%
+  mutate(entrees_tot = sum(entrees))
+# ne produit évidemment pas le bon résultat
+
+df <- df %>%
+  filter(natio != "Etrangers") %>%
+  group_by(annee) %>%
+  mutate(entrees_tot = sum(entrees))
+# produit le bon résultat mais en supprimant les lignes Etrangers que je
+veux garder...
+
+# Bref : y a-t-il un moyen d'indiquer après group_by que l'opération
+mutate ne doit tenir compte que de certaines lignes ?
+
+# Fin du script
+
+Merci !
+
+Amicalement,
+
+Anton
+-- 
+Anton Perdoncin
+Agrégé Préparateur
+Ecole Normale Supérieure
+Département de Sciences Sociales
+48 bd Jourdan
+75014 Paris
+
+http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org  Thu May  3 11:16:33 2018
+From: aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org (Anton Perdoncin)
+Date: Thu, 03 May 2018 13:16:33 +0200
+Subject: Re: Question group_by
+In-Reply-To: <7dd99393-f447-a865-8425-f8ab802bb8a3@ens-cachan.fr>
+References: <7dd99393-f447-a865-8425-f8ab802bb8a3@ens-cachan.fr>
+Message-ID: <5c0f7d28-212e-bbee-dd19-a2b4ace1cb85@ens-cachan.fr>
+
+Erratum dans l'exemple minimal : celui-ci est plus explicite :
+
+# Début du script
+
+natio <- c(rep("Francais", 5), rep("Algériens", 5), rep("Autres Natio",
+5), rep("Etrangers", 5))
+
+annee <- rep(1970:1974, 4)
+
+entrees <- c(1:5, 6:10, 11:15, 17, 19, 21, 23, 25)
+
+df <- data.frame(natio, annee, entrees)
+
+# Les lignes Etrangers sont la somme des lignes Algériens et Autres Natio
+
+# Problème : comment calculer un nombre total d'entrées par année sans
+compter deux fois les étrangers ?
+
+df <- df %>%
+  group_by(annee) %>%
+  mutate(entrees_tot = sum(entrees))
+# ne produit évidemment pas le bon résultat
+
+df <- df %>%
+  filter(natio != "Etrangers") %>%
+  group_by(annee) %>%
+  mutate(entrees_tot = sum(entrees))
+# produit le bon résultat mais en supprimant les lignes Etrangers que je
+veux garder...
+
+# Bref : y a-t-il un moyen d'indiquer après group_by que l'opération
+mutate ne doit tenir compte que de certaines lignes ?
+
+# Fin du script
+
+
+Le 03/05/2018 à 13:08, Anton Perdoncin a écrit :
+> Salut,
+> 
+> Voici un problème, sans doute très simple (mais comme Pierre M. je suis
+> entrain de découvrir le tidyverse...).
+> 
+> Ci dessous l'exemple minimal reproductible :
+> 
+> # Début du script
+> 
+> natio <- c(rep("Francais", 5), rep("Algériens", 5), rep("Autres Natio",
+> 5), rep("Etrangers", 5))
+> 
+> annee <- rep(1970:1974, 4)
+> 
+> entrees <- c(rep(1, 5), rep(2, 5), rep(3, 5), rep(5, 5))
+> 
+> df <- data.frame(natio, annee, entrees)
+> 
+> # Les lignes Etrangers sont la somme des lignes Algériens et Autres Natio
+> 
+> # Problème : comment calculer un nombre total d'entrées par année sans
+> compter deux fois les étrangers ?
+> 
+> df <- df %>%
+>   group_by(annee) %>%
+>   mutate(entrees_tot = sum(entrees))
+> # ne produit évidemment pas le bon résultat
+> 
+> df <- df %>%
+>   filter(natio != "Etrangers") %>%
+>   group_by(annee) %>%
+>   mutate(entrees_tot = sum(entrees))
+> # produit le bon résultat mais en supprimant les lignes Etrangers que je
+> veux garder...
+> 
+> # Bref : y a-t-il un moyen d'indiquer après group_by que l'opération
+> mutate ne doit tenir compte que de certaines lignes ?
+> 
+> # Fin du script
+> 
+> Merci !
+> 
+> Amicalement,
+> 
+> Anton
+> 
+> 
+> 
+> 
+
+-- 
+Anton Perdoncin
+Agrégé Préparateur
+Ecole Normale Supérieure
+Département de Sciences Sociales
+48 bd Jourdan
+75014 Paris
+
+http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From coulmont-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu May  3 11:30:27 2018
+From: coulmont-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Baptiste Coulmont)
+Date: Thu, 03 May 2018 13:30:27 +0200
+Subject: Re: Question group_by
+In-Reply-To: <7dd99393-f447-a865-8425-f8ab802bb8a3@ens-cachan.fr>
+References: <7dd99393-f447-a865-8425-f8ab802bb8a3@ens-cachan.fr>
+Message-ID: <CAA=nVLrn7SRWqJpyH+jWjn6f5Qep9CeKpQ+NVC8bfchUbFTobQ@mail.gmail.com>
+
+df %>%
+  group_by(annee) %>%
+  mutate(entrees_tot = sum(entrees[natio!="Etrangers"]))
+
+--
+Baptiste    Coulmont
+http://coulmont.com/
+baptiste.coulmont-6ZSsIk173LA at public.gmane.org
+
+2018-05-03 13:08 GMT+02:00 Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org>:
+
+> Salut,
+>
+> Voici un problème, sans doute très simple (mais comme Pierre M. je suis
+> entrain de découvrir le tidyverse...).
+>
+> Ci dessous l'exemple minimal reproductible :
+>
+> # Début du script
+>
+> natio <- c(rep("Francais", 5), rep("Algériens", 5), rep("Autres Natio",
+> 5), rep("Etrangers", 5))
+>
+> annee <- rep(1970:1974, 4)
+>
+> entrees <- c(rep(1, 5), rep(2, 5), rep(3, 5), rep(5, 5))
+>
+> df <- data.frame(natio, annee, entrees)
+>
+> # Les lignes Etrangers sont la somme des lignes Algériens et Autres Natio
+>
+> # Problème : comment calculer un nombre total d'entrées par année sans
+> compter deux fois les étrangers ?
+>
+> df <- df %>%
+>   group_by(annee) %>%
+>   mutate(entrees_tot = sum(entrees))
+> # ne produit évidemment pas le bon résultat
+>
+> df <- df %>%
+>   filter(natio != "Etrangers") %>%
+>   group_by(annee) %>%
+>   mutate(entrees_tot = sum(entrees))
+> # produit le bon résultat mais en supprimant les lignes Etrangers que je
+> veux garder...
+>
+> # Bref : y a-t-il un moyen d'indiquer après group_by que l'opération
+> mutate ne doit tenir compte que de certaines lignes ?
+>
+> # Fin du script
+>
+> Merci !
+>
+> Amicalement,
+>
+> Anton
+> --
+> Anton Perdoncin
+> Agrégé Préparateur
+> Ecole Normale Supérieure
+> Département de Sciences Sociales
+> 48 bd Jourdan
+> 75014 Paris
+>
+> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu May  3 11:47:43 2018
+From: samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Samuel Coavoux)
+Date: Thu, 03 May 2018 13:47:43 +0200
+Subject: Re: Question group_by
+In-Reply-To: <CAA=nVLrn7SRWqJpyH+jWjn6f5Qep9CeKpQ+NVC8bfchUbFTobQ@mail.gmail.com>
+References: <7dd99393-f447-a865-8425-f8ab802bb8a3@ens-cachan.fr> <CAA=nVLrn7SRWqJpyH+jWjn6f5Qep9CeKpQ+NVC8bfchUbFTobQ@mail.gmail.com>
+Message-ID: <CAFyE9YMJ4STxJcDy9Sz2AuS2-euKpnLt_mX4SZvVgA2FjmQkzw@mail.gmail.com>
+
+Ou alors, sans subset en base R
+
+filter(df, natio != "Etrangers") %>%
+  group_by(annee) %>%
+  summarise(entrees_tot = sum(entrees)) %>%
+  right_join(df, by = "annee")
+
+​
+
+2018-05-03 13:30 GMT+02:00 Baptiste Coulmont <coulmont-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>:
+
+> df %>%
+>   group_by(annee) %>%
+>   mutate(entrees_tot = sum(entrees[natio!="Etrangers"]))
+>
+> --
+> Baptiste    Coulmont
+> http://coulmont.com/
+> baptiste.coulmont-6ZSsIk173LA at public.gmane.org
+>
+> 2018-05-03 13:08 GMT+02:00 Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org>:
+>
+>> Salut,
+>>
+>> Voici un problème, sans doute très simple (mais comme Pierre M. je suis
+>> entrain de découvrir le tidyverse...).
+>>
+>> Ci dessous l'exemple minimal reproductible :
+>>
+>> # Début du script
+>>
+>> natio <- c(rep("Francais", 5), rep("Algériens", 5), rep("Autres Natio",
+>> 5), rep("Etrangers", 5))
+>>
+>> annee <- rep(1970:1974, 4)
+>>
+>> entrees <- c(rep(1, 5), rep(2, 5), rep(3, 5), rep(5, 5))
+>>
+>> df <- data.frame(natio, annee, entrees)
+>>
+>> # Les lignes Etrangers sont la somme des lignes Algériens et Autres Natio
+>>
+>> # Problème : comment calculer un nombre total d'entrées par année sans
+>> compter deux fois les étrangers ?
+>>
+>> df <- df %>%
+>>   group_by(annee) %>%
+>>   mutate(entrees_tot = sum(entrees))
+>> # ne produit évidemment pas le bon résultat
+>>
+>> df <- df %>%
+>>   filter(natio != "Etrangers") %>%
+>>   group_by(annee) %>%
+>>   mutate(entrees_tot = sum(entrees))
+>> # produit le bon résultat mais en supprimant les lignes Etrangers que je
+>> veux garder...
+>>
+>> # Bref : y a-t-il un moyen d'indiquer après group_by que l'opération
+>> mutate ne doit tenir compte que de certaines lignes ?
+>>
+>> # Fin du script
+>>
+>> Merci !
+>>
+>> Amicalement,
+>>
+>> Anton
+>> --
+>> Anton Perdoncin
+>> Agrégé Préparateur
+>> Ecole Normale Supérieure
+>> Département de Sciences Sociales
+>> 48 bd Jourdan
+>> 75014 Paris
+>>
+>> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>>
+>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>>
+>>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org  Thu May  3 12:11:32 2018
+From: aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org (Anton Perdoncin)
+Date: Thu, 03 May 2018 14:11:32 +0200
+Subject: Re: Question group_by
+In-Reply-To: <CAFyE9YMJ4STxJcDy9Sz2AuS2-euKpnLt_mX4SZvVgA2FjmQkzw@mail.gmail.com>
+References: <7dd99393-f447-a865-8425-f8ab802bb8a3@ens-cachan.fr> <CAA=nVLrn7SRWqJpyH+jWjn6f5Qep9CeKpQ+NVC8bfchUbFTobQ@mail.gmail.com> <CAFyE9YMJ4STxJcDy9Sz2AuS2-euKpnLt_mX4SZvVgA2FjmQkzw@mail.gmail.com>
+Message-ID: <2cce13cf-2077-5ca8-b250-8f03d1777c5b@ens-cachan.fr>
+
+Merci à vous deux ! C'était en effet plutôt simplle...
+A.
+
+Le 03/05/2018 à 13:47, Samuel Coavoux a écrit :
+> Ou alors, sans subset en base R
+> 
+> filter(df, natio != "Etrangers") %>%
+>   group_by(annee) %>%
+>   summarise(entrees_tot = sum(entrees)) %>%
+>   right_join(df, by = "annee")
+> 
+> ​
+> 
+> 2018-05-03 13:30 GMT+02:00 Baptiste Coulmont <coulmont-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>:
+> 
+>> df %>%
+>>   group_by(annee) %>%
+>>   mutate(entrees_tot = sum(entrees[natio!="Etrangers"]))
+>>
+>> --
+>> Baptiste    Coulmont
+>> http://coulmont.com/
+>> baptiste.coulmont-6ZSsIk173LA at public.gmane.org
+>>
+>> 2018-05-03 13:08 GMT+02:00 Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org>:
+>>
+>>> Salut,
+>>>
+>>> Voici un problème, sans doute très simple (mais comme Pierre M. je suis
+>>> entrain de découvrir le tidyverse...).
+>>>
+>>> Ci dessous l'exemple minimal reproductible :
+>>>
+>>> # Début du script
+>>>
+>>> natio <- c(rep("Francais", 5), rep("Algériens", 5), rep("Autres Natio",
+>>> 5), rep("Etrangers", 5))
+>>>
+>>> annee <- rep(1970:1974, 4)
+>>>
+>>> entrees <- c(rep(1, 5), rep(2, 5), rep(3, 5), rep(5, 5))
+>>>
+>>> df <- data.frame(natio, annee, entrees)
+>>>
+>>> # Les lignes Etrangers sont la somme des lignes Algériens et Autres Natio
+>>>
+>>> # Problème : comment calculer un nombre total d'entrées par année sans
+>>> compter deux fois les étrangers ?
+>>>
+>>> df <- df %>%
+>>>   group_by(annee) %>%
+>>>   mutate(entrees_tot = sum(entrees))
+>>> # ne produit évidemment pas le bon résultat
+>>>
+>>> df <- df %>%
+>>>   filter(natio != "Etrangers") %>%
+>>>   group_by(annee) %>%
+>>>   mutate(entrees_tot = sum(entrees))
+>>> # produit le bon résultat mais en supprimant les lignes Etrangers que je
+>>> veux garder...
+>>>
+>>> # Bref : y a-t-il un moyen d'indiquer après group_by que l'opération
+>>> mutate ne doit tenir compte que de certaines lignes ?
+>>>
+>>> # Fin du script
+>>>
+>>> Merci !
+>>>
+>>> Amicalement,
+>>>
+>>> Anton
+>>> --
+>>> Anton Perdoncin
+>>> Agrégé Préparateur
+>>> Ecole Normale Supérieure
+>>> Département de Sciences Sociales
+>>> 48 bd Jourdan
+>>> 75014 Paris
+>>>
+>>> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>>>
+>>>
+>>> --
+>>> Liste des utilisateurs de R en sciences sociales
+>>> Informations / options / désabonnement :
+>>> https://groupes.renater.fr/sympa/info/r-soc
+>>>
+>>>
+>>>
+>>
+>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>>
+>>
+> 
+> 
+> 
+> 
+
+-- 
+Anton Perdoncin
+Agrégé Préparateur
+Ecole Normale Supérieure
+Département de Sciences Sociales
+48 bd Jourdan
+75014 Paris
+
+http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Wed May  9 07:01:19 2018
+From: pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (=?utf-8?q?Pierre_Merckl=C3=A9?=)
+Date: Wed, 09 May 2018 09:01:19 +0200
+Subject: RSelenium
+Message-ID: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr>
+
+Bonjour tout le monde,
+
+Ayant des choses beaucoup plus urgentes à faire, jai donc décidé de
+procrastiner un peu en cette semaine pleine de jours fériés, et dexplorer
+comment je pourrais améliorer mes outils de web scraping avec RSelenium.
+Las, je narrive pas à linstaller : il vient dêtre retiré de CRAN, et
+linstallation github ne passe pas non plus, à cause de deux dépendances
+(wdman et binman) introuvables (plus sur CRAN non plus et je ne les trouve
+pas ailleurs). Quelquun a-t-il une piste pour contourner ces obstacles ?
+
+Amicalement,
+
+Pierre
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed May  9 08:08:06 2018
+From: joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Joel GOMBIN)
+Date: Wed, 09 May 2018 08:08:06 +0000
+Subject: Re: RSelenium
+In-Reply-To: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr>
+References: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr>
+Message-ID: <CA+o9Gp_un_SqhQeRj-kXJHinhi3ppEwJy1D=wZaVVgXJDLPT0Q@mail.gmail.com>
+
+Bonjour Pierre,
+
+réponse obtenue via ROpenSci :
+
+> in the latest newsletter https://ropensci.github.io/biweekly/2018-05-07/
+Scott wrote "RSelenium has been most likely temporarily archived on CRAN -
+should be back up there soon. In the meantime, you can install it from
+GitHub."  There's also seleniumPipes from the same maintainer but it's not
+on CRAN (yet?). And Suzan Baert has been working on
+https://github.com/suzanbaert/RPhantomJS
+
+Apparemment cela provient du fait que le package wdman a été archivé
+également sur le CRAN.
+Sinon, selon ce que tu cherches à faire, jette un œil à
+https://github.com/hrbrmstr/splashr ?
+
+On Wed, May 9, 2018 at 9:01 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr>
+wrote:
+
+> Bonjour tout le monde,
+>
+> Ayant des choses beaucoup plus urgentes à faire, j’ai donc décidé de
+> procrastiner un peu en cette semaine pleine de jours fériés, et d’explorer
+> comment je pourrais améliorer mes outils de web scraping avec RSelenium.
+> Las, je n’arrive pas à l’installer : il vient d’être retiré de CRAN, et
+> l’installation github ne passe pas non plus, à cause de deux dépendances
+> (wdman et binman) introuvables (plus sur CRAN non plus et je ne les trouve
+> pas ailleurs). Quelqu’un a-t-il une piste pour contourner ces obstacles ?
+>
+> Amicalement,
+>
+> Pierre
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed May  9 09:06:15 2018
+From: joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Joel GOMBIN)
+Date: Wed, 09 May 2018 09:06:15 +0000
+Subject: Re: RSelenium
+In-Reply-To: <CA+o9Gp_un_SqhQeRj-kXJHinhi3ppEwJy1D=wZaVVgXJDLPT0Q@mail.gmail.com>
+References: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr> <CA+o9Gp_un_SqhQeRj-kXJHinhi3ppEwJy1D=wZaVVgXJDLPT0Q@mail.gmail.com>
+Message-ID: <CA+o9Gp-FicSNx9BwzFduC_WuDjEEp6HcyebSv1yamq87HgxrZA@mail.gmail.com>
+
+Autre possibilité : https://github.com/rstudio/webdriver
+
+On Wed, May 9, 2018 at 10:08 AM Joel GOMBIN <joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> Bonjour Pierre,
+>
+> réponse obtenue via ROpenSci :
+>
+> > in the latest newsletter https://ropensci.github.io/biweekly/2018-05-07/
+> Scott wrote "RSelenium has been most likely temporarily archived on CRAN -
+> should be back up there soon. In the meantime, you can install it from
+> GitHub."  There's also seleniumPipes from the same maintainer but it's not
+> on CRAN (yet?). And Suzan Baert has been working on
+> https://github.com/suzanbaert/RPhantomJS
+>
+> Apparemment cela provient du fait que le package wdman a été archivé
+> également sur le CRAN.
+> Sinon, selon ce que tu cherches à faire, jette un œil à
+> https://github.com/hrbrmstr/splashr ?
+>
+> On Wed, May 9, 2018 at 9:01 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr>
+> wrote:
+>
+>> Bonjour tout le monde,
+>>
+>> Ayant des choses beaucoup plus urgentes à faire, j’ai donc décidé de
+>> procrastiner un peu en cette semaine pleine de jours fériés, et d’explorer
+>> comment je pourrais améliorer mes outils de web scraping avec RSelenium.
+>> Las, je n’arrive pas à l’installer : il vient d’être retiré de CRAN, et
+>> l’installation github ne passe pas non plus, à cause de deux dépendances
+>> (wdman et binman) introuvables (plus sur CRAN non plus et je ne les trouve
+>> pas ailleurs). Quelqu’un a-t-il une piste pour contourner ces obstacles ?
+>>
+>> Amicalement,
+>>
+>> Pierre
+>>
+>>
+>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Wed May  9 09:16:58 2018
+From: pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (=?utf-8?q?Pierre_Merckl=C3=A9?=)
+Date: Wed, 09 May 2018 11:16:58 +0200
+Subject: RE: RSelenium
+In-Reply-To: <CA+o9Gp-FicSNx9BwzFduC_WuDjEEp6HcyebSv1yamq87HgxrZA@mail.gmail.com>
+References: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr> <CA+o9Gp_un_SqhQeRj-kXJHinhi3ppEwJy1D=wZaVVgXJDLPT0Q@mail.gmail.com> <CA+o9Gp-FicSNx9BwzFduC_WuDjEEp6HcyebSv1yamq87HgxrZA@mail.gmail.com>
+Message-ID: <011501d3e776$7c0bed70$7423c850$@ens-lyon.fr>
+
+Merci Joël pour ces pistes ! L’objectif est d’arriver à récupérer une URL générée après la saisie de données dans un formulaire, et ensuite sur la page de cette URL effectuer des actions en boucle pour récupérer des résultats (cliquer sur des boutons et remplir des formulaires permettant de les télécharger). Si je n’ai pas la patience d’attendre le retour de RSelenium sur CRAN avec des dépendances à jour, je vais explorer splashr et webdriver… Possible que je le fasse assez vite, puisque le but était de procrastiner !
+
+Amicalement,
+
+Pierre
+
+ 
+
+ 
+
+De : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> De la part de Joel GOMBIN
+Envoyé : mercredi 9 mai 2018 11:06
+À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+Objet : Re: [R-soc] RSelenium
+
+ 
+
+Autre possibilité : https://github.com/rstudio/webdriver
+
+ 
+
+On Wed, May 9, 2018 at 10:08 AM Joel GOMBIN <joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <mailto:joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> > wrote:
+
+Bonjour Pierre,
+
+réponse obtenue via ROpenSci : 
+
+> in the latest newsletter https://ropensci.github.io/biweekly/2018-05-07/ Scott wrote "RSelenium has been most likely temporarily archived on CRAN - should be back up there soon. In the meantime, you can install it from GitHub."  There's also seleniumPipes from the same maintainer but it's not on CRAN (yet?). And Suzan Baert has been working on https://github.com/suzanbaert/RPhantomJS
+
+Apparemment cela provient du fait que le package wdman a été archivé également sur le CRAN. 
+
+Sinon, selon ce que tu cherches à faire, jette un œil à https://github.com/hrbrmstr/splashr ?
+
+ 
+
+On Wed, May 9, 2018 at 9:01 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr <mailto:pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org> > wrote:
+
+Bonjour tout le monde,
+
+Ayant des choses beaucoup plus urgentes à faire, j’ai donc décidé de procrastiner un peu en cette semaine pleine de jours fériés, et d’explorer comment je pourrais améliorer mes outils de web scraping avec RSelenium. Las, je n’arrive pas à l’installer : il vient d’être retiré de CRAN, et l’installation github ne passe pas non plus, à cause de deux dépendances (wdman et binman) introuvables (plus sur CRAN non plus et je ne les trouve pas ailleurs). Quelqu’un a-t-il une piste pour contourner ces obstacles ?
+
+Amicalement,
+
+Pierre
+
+ 
+
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed May  9 09:23:38 2018
+From: joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Joel GOMBIN)
+Date: Wed, 09 May 2018 09:23:38 +0000
+Subject: Re: RSelenium
+In-Reply-To: <011501d3e776$7c0bed70$7423c850$@ens-lyon.fr>
+References: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr> <CA+o9Gp_un_SqhQeRj-kXJHinhi3ppEwJy1D=wZaVVgXJDLPT0Q@mail.gmail.com> <CA+o9Gp-FicSNx9BwzFduC_WuDjEEp6HcyebSv1yamq87HgxrZA@mail.gmail.com> <011501d3e776$7c0bed70$7423c850$@ens-lyon.fr>
+Message-ID: <CA+o9Gp90iW1berrDdGeO9R8+syCSbmeUGgJepM1_anB_Ryx+ZA@mail.gmail.com>
+
+Tes pages sont statiques (i.e. les données que tu veux récupérer figurent
+dans le code soruce html de la page) ou générées par du js ? Dans le
+premier cas, rvest devrait faire l'affaire sans avoir besoin de faire
+tourner des usines à gaz comme celles-ci...
+
+On Wed, May 9, 2018 at 11:17 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr>
+wrote:
+
+> Merci Joël pour ces pistes ! L’objectif est d’arriver à récupérer une URL
+> générée après la saisie de données dans un formulaire, et ensuite sur la
+> page de cette URL effectuer des actions en boucle pour récupérer des
+> résultats (cliquer sur des boutons et remplir des formulaires permettant de
+> les télécharger). Si je n’ai pas la patience d’attendre le retour de
+> RSelenium sur CRAN avec des dépendances à jour, je vais explorer splashr et
+> webdriver… Possible que je le fasse assez vite, puisque le but était de
+> procrastiner !
+>
+> Amicalement,
+>
+> Pierre
+>
+>
+>
+>
+>
+> *De :* r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org>
+> *De la part de* Joel GOMBIN
+> *Envoyé :* mercredi 9 mai 2018 11:06
+> *À :* r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+> *Objet :* Re: [R-soc] RSelenium
+>
+>
+>
+> Autre possibilité : https://github.com/rstudio/webdriver
+>
+>
+>
+> On Wed, May 9, 2018 at 10:08 AM Joel GOMBIN <joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>
+> Bonjour Pierre,
+>
+> réponse obtenue via ROpenSci :
+>
+> > in the latest newsletter https://ropensci.github.io/biweekly/2018-05-07/
+> Scott wrote "RSelenium has been most likely temporarily archived on CRAN -
+> should be back up there soon. In the meantime, you can install it from
+> GitHub."  There's also seleniumPipes from the same maintainer but it's not
+> on CRAN (yet?). And Suzan Baert has been working on
+> https://github.com/suzanbaert/RPhantomJS
+>
+> Apparemment cela provient du fait que le package wdman a été archivé
+> également sur le CRAN.
+>
+> Sinon, selon ce que tu cherches à faire, jette un œil à
+> https://github.com/hrbrmstr/splashr ?
+>
+>
+>
+> On Wed, May 9, 2018 at 9:01 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr>
+> wrote:
+>
+> Bonjour tout le monde,
+>
+> Ayant des choses beaucoup plus urgentes à faire, j’ai donc décidé de
+> procrastiner un peu en cette semaine pleine de jours fériés, et d’explorer
+> comment je pourrais améliorer mes outils de web scraping avec RSelenium.
+> Las, je n’arrive pas à l’installer : il vient d’être retiré de CRAN, et
+> l’installation github ne passe pas non plus, à cause de deux dépendances
+> (wdman et binman) introuvables (plus sur CRAN non plus et je ne les trouve
+> pas ailleurs). Quelqu’un a-t-il une piste pour contourner ces obstacles ?
+>
+> Amicalement,
+>
+> Pierre
+>
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Wed May  9 09:35:17 2018
+From: pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (=?utf-8?q?Pierre_Merckl=C3=A9?=)
+Date: Wed, 09 May 2018 11:35:17 +0200
+Subject: RE: RSelenium
+In-Reply-To: <CA+o9Gp90iW1berrDdGeO9R8+syCSbmeUGgJepM1_anB_Ryx+ZA@mail.gmail.com>
+References: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr> <CA+o9Gp_un_SqhQeRj-kXJHinhi3ppEwJy1D=wZaVVgXJDLPT0Q@mail.gmail.com> <CA+o9Gp-FicSNx9BwzFduC_WuDjEEp6HcyebSv1yamq87HgxrZA@mail.gmail.com> <011501d3e776$7c0bed70$7423c850$@ens-lyon.fr> <CA+o9Gp90iW1berrDdGeO9R8+syCSbmeUGgJepM1_anB_Ryx+ZA@mail.gmail.com>
+Message-ID: <012f01d3e779$0b42c2a0$21c847e0$@ens-lyon.fr>
+
+Non il y a plusieurs obstacles à du scraping sur des pages stattiques : les URLs générées par les formulaires successifs ne sont pas « devinables », et les liens vers les fichiers que je veux télécharger ne sont pas trouvables dans le code source, ils sont également générés par les formulaires… Il faut donc bien que j’arrive à faire cliquer R sur des boutons et ensuite remplir des formulaires…
+
+ 
+
+De : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> De la part de Joel GOMBIN
+Envoyé : mercredi 9 mai 2018 11:24
+À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+Objet : Re: [R-soc] RSelenium
+
+ 
+
+Tes pages sont statiques (i.e. les données que tu veux récupérer figurent dans le code soruce html de la page) ou générées par du js ? Dans le premier cas, rvest devrait faire l'affaire sans avoir besoin de faire tourner des usines à gaz comme celles-ci...
+
+ 
+
+On Wed, May 9, 2018 at 11:17 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr <mailto:pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org> > wrote:
+
+Merci Joël pour ces pistes ! L’objectif est d’arriver à récupérer une URL générée après la saisie de données dans un formulaire, et ensuite sur la page de cette URL effectuer des actions en boucle pour récupérer des résultats (cliquer sur des boutons et remplir des formulaires permettant de les télécharger). Si je n’ai pas la patience d’attendre le retour de RSelenium sur CRAN avec des dépendances à jour, je vais explorer splashr et webdriver… Possible que je le fasse assez vite, puisque le but était de procrastiner !
+
+Amicalement,
+
+Pierre
+
+ 
+
+ 
+
+De : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-request-mZqXLFNjc/xcagtgOVd1Lg at public.gmane.org.fr>  <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-request-mZqXLFNjc/wO9K1eqHFuvA at public.gmane.orger.fr> > De la part de Joel GOMBIN
+Envoyé : mercredi 9 mai 2018 11:06
+À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> 
+Objet : Re: [R-soc] RSelenium
+
+ 
+
+Autre possibilité : https://github.com/rstudio/webdriver
+
+ 
+
+On Wed, May 9, 2018 at 10:08 AM Joel GOMBIN <joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <mailto:joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> > wrote:
+
+Bonjour Pierre,
+
+réponse obtenue via ROpenSci : 
+
+> in the latest newsletter https://ropensci.github.io/biweekly/2018-05-07/ Scott wrote "RSelenium has been most likely temporarily archived on CRAN - should be back up there soon. In the meantime, you can install it from GitHub."  There's also seleniumPipes from the same maintainer but it's not on CRAN (yet?). And Suzan Baert has been working on https://github.com/suzanbaert/RPhantomJS
+
+Apparemment cela provient du fait que le package wdman a été archivé également sur le CRAN. 
+
+Sinon, selon ce que tu cherches à faire, jette un œil à https://github.com/hrbrmstr/splashr ?
+
+ 
+
+On Wed, May 9, 2018 at 9:01 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr <mailto:pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org> > wrote:
+
+Bonjour tout le monde,
+
+Ayant des choses beaucoup plus urgentes à faire, j’ai donc décidé de procrastiner un peu en cette semaine pleine de jours fériés, et d’explorer comment je pourrais améliorer mes outils de web scraping avec RSelenium. Las, je n’arrive pas à l’installer : il vient d’être retiré de CRAN, et l’installation github ne passe pas non plus, à cause de deux dépendances (wdman et binman) introuvables (plus sur CRAN non plus et je ne les trouve pas ailleurs). Quelqu’un a-t-il une piste pour contourner ces obstacles ?
+
+Amicalement,
+
+Pierre
+
+ 
+
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed May  9 09:53:25 2018
+From: joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Joel GOMBIN)
+Date: Wed, 09 May 2018 09:53:25 +0000
+Subject: Re: RSelenium
+In-Reply-To: <012f01d3e779$0b42c2a0$21c847e0$@ens-lyon.fr>
+References: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr> <CA+o9Gp_un_SqhQeRj-kXJHinhi3ppEwJy1D=wZaVVgXJDLPT0Q@mail.gmail.com> <CA+o9Gp-FicSNx9BwzFduC_WuDjEEp6HcyebSv1yamq87HgxrZA@mail.gmail.com> <011501d3e776$7c0bed70$7423c850$@ens-lyon.fr> <CA+o9Gp90iW1berrDdGeO9R8+syCSbmeUGgJepM1_anB_Ryx+ZA@mail.gmail.com> <012f01d3e779$0b42c2a0$21c847e0$@ens-lyon.fr>
+Message-ID: <CA+o9Gp85dryE77-33M=KdxCGKEg6vxLVbZfe_Pvd7XjSitc3Rg@mail.gmail.com>
+
+oui mais tu peux faire des requêtes POST pour remplir les formulaires via
+rvest avec la fonction submit_form :
+https://rdrr.io/cran/rvest/man/submit_form.html
+
+On Wed, May 9, 2018 at 11:35 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr>
+wrote:
+
+> Non il y a plusieurs obstacles à du scraping sur des pages stattiques :
+> les URLs générées par les formulaires successifs ne sont pas
+> « devinables », et les liens vers les fichiers que je veux télécharger ne
+> sont pas trouvables dans le code source, ils sont également générés par les
+> formulaires… Il faut donc bien que j’arrive à faire cliquer R sur des
+> boutons et ensuite remplir des formulaires…
+>
+>
+>
+> *De :* r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org>
+> *De la part de* Joel GOMBIN
+>
+> *Envoyé :* mercredi 9 mai 2018 11:24
+>
+>
+> *À :* r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+> *Objet :* Re: [R-soc] RSelenium
+>
+>
+>
+> Tes pages sont statiques (i.e. les données que tu veux récupérer figurent
+> dans le code soruce html de la page) ou générées par du js ? Dans le
+> premier cas, rvest devrait faire l'affaire sans avoir besoin de faire
+> tourner des usines à gaz comme celles-ci...
+>
+>
+>
+> On Wed, May 9, 2018 at 11:17 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr>
+> wrote:
+>
+> Merci Joël pour ces pistes ! L’objectif est d’arriver à récupérer une URL
+> générée après la saisie de données dans un formulaire, et ensuite sur la
+> page de cette URL effectuer des actions en boucle pour récupérer des
+> résultats (cliquer sur des boutons et remplir des formulaires permettant de
+> les télécharger). Si je n’ai pas la patience d’attendre le retour de
+> RSelenium sur CRAN avec des dépendances à jour, je vais explorer splashr et
+> webdriver… Possible que je le fasse assez vite, puisque le but était de
+> procrastiner !
+>
+> Amicalement,
+>
+> Pierre
+>
+>
+>
+>
+>
+> *De :* r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org>
+> *De la part de* Joel GOMBIN
+> *Envoyé :* mercredi 9 mai 2018 11:06
+> *À :* r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+> *Objet :* Re: [R-soc] RSelenium
+>
+>
+>
+> Autre possibilité : https://github.com/rstudio/webdriver
+>
+>
+>
+> On Wed, May 9, 2018 at 10:08 AM Joel GOMBIN <joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>
+> Bonjour Pierre,
+>
+> réponse obtenue via ROpenSci :
+>
+> > in the latest newsletter https://ropensci.github.io/biweekly/2018-05-07/
+> Scott wrote "RSelenium has been most likely temporarily archived on CRAN -
+> should be back up there soon. In the meantime, you can install it from
+> GitHub."  There's also seleniumPipes from the same maintainer but it's not
+> on CRAN (yet?). And Suzan Baert has been working on
+> https://github.com/suzanbaert/RPhantomJS
+>
+> Apparemment cela provient du fait que le package wdman a été archivé
+> également sur le CRAN.
+>
+> Sinon, selon ce que tu cherches à faire, jette un œil à
+> https://github.com/hrbrmstr/splashr ?
+>
+>
+>
+> On Wed, May 9, 2018 at 9:01 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr>
+> wrote:
+>
+> Bonjour tout le monde,
+>
+> Ayant des choses beaucoup plus urgentes à faire, j’ai donc décidé de
+> procrastiner un peu en cette semaine pleine de jours fériés, et d’explorer
+> comment je pourrais améliorer mes outils de web scraping avec RSelenium.
+> Las, je n’arrive pas à l’installer : il vient d’être retiré de CRAN, et
+> l’installation github ne passe pas non plus, à cause de deux dépendances
+> (wdman et binman) introuvables (plus sur CRAN non plus et je ne les trouve
+> pas ailleurs). Quelqu’un a-t-il une piste pour contourner ces obstacles ?
+>
+> Amicalement,
+>
+> Pierre
+>
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Wed May  9 10:12:27 2018
+From: pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (=?utf-8?q?Pierre_Merckl=C3=A9?=)
+Date: Wed, 09 May 2018 12:12:27 +0200
+Subject: RE: RSelenium
+In-Reply-To: <CA+o9Gp85dryE77-33M=KdxCGKEg6vxLVbZfe_Pvd7XjSitc3Rg@mail.gmail.com>
+References: <00c401d3e763$8897baa0$99c72fe0$@ens-lyon.fr> <CA+o9Gp_un_SqhQeRj-kXJHinhi3ppEwJy1D=wZaVVgXJDLPT0Q@mail.gmail.com> <CA+o9Gp-FicSNx9BwzFduC_WuDjEEp6HcyebSv1yamq87HgxrZA@mail.gmail.com> <011501d3e776$7c0bed70$7423c850$@ens-lyon.fr> <CA+o9Gp90iW1berrDdGeO9R8+syCSbmeUGgJepM1_anB_Ryx+ZA@mail.gmail.com> <012f01d3e779$0b42c2a0$21c847e0$@ens-lyon.fr> <CA+o9Gp85dryE77-33M=KdxCGKEg6vxLVbZfe_Pvd7XjSitc3Rg@mail.gmail.com>
+Message-ID: <014301d3e77e$3c039680$b40ac380$@ens-lyon.fr>
+
+Alors je vais explorer aussi cette piste-là !
+
+ 
+
+De : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> De la part de Joel GOMBIN
+Envoyé : mercredi 9 mai 2018 11:53
+À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+Objet : Re: [R-soc] RSelenium
+
+ 
+
+oui mais tu peux faire des requêtes POST pour remplir les formulaires via rvest avec la fonction submit_form : https://rdrr.io/cran/rvest/man/submit_form.html
+
+ 
+
+On Wed, May 9, 2018 at 11:35 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr <mailto:pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org> > wrote:
+
+Non il y a plusieurs obstacles à du scraping sur des pages stattiques : les URLs générées par les formulaires successifs ne sont pas « devinables », et les liens vers les fichiers que je veux télécharger ne sont pas trouvables dans le code source, ils sont également générés par les formulaires… Il faut donc bien que j’arrive à faire cliquer R sur des boutons et ensuite remplir des formulaires…
+
+ 
+
+De : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-request-mZqXLFNjc/xcagtgOVd1Lg at public.gmane.org.fr>  <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-request-mZqXLFNjc/wO9K1eqHFuvA at public.gmane.orger.fr> > De la part de Joel GOMBIN
+
+Envoyé : mercredi 9 mai 2018 11:24
+
+
+À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> 
+Objet : Re: [R-soc] RSelenium
+
+ 
+
+Tes pages sont statiques (i.e. les données que tu veux récupérer figurent dans le code soruce html de la page) ou générées par du js ? Dans le premier cas, rvest devrait faire l'affaire sans avoir besoin de faire tourner des usines à gaz comme celles-ci...
+
+ 
+
+On Wed, May 9, 2018 at 11:17 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr <mailto:pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org> > wrote:
+
+Merci Joël pour ces pistes ! L’objectif est d’arriver à récupérer une URL générée après la saisie de données dans un formulaire, et ensuite sur la page de cette URL effectuer des actions en boucle pour récupérer des résultats (cliquer sur des boutons et remplir des formulaires permettant de les télécharger). Si je n’ai pas la patience d’attendre le retour de RSelenium sur CRAN avec des dépendances à jour, je vais explorer splashr et webdriver… Possible que je le fasse assez vite, puisque le but était de procrastiner !
+
+Amicalement,
+
+Pierre
+
+ 
+
+ 
+
+De : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-request-mZqXLFNjc/xcagtgOVd1Lg at public.gmane.org.fr>  <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-request-mZqXLFNjc/wO9K1eqHFuvA at public.gmane.orger.fr> > De la part de Joel GOMBIN
+Envoyé : mercredi 9 mai 2018 11:06
+À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> 
+Objet : Re: [R-soc] RSelenium
+
+ 
+
+Autre possibilité : https://github.com/rstudio/webdriver
+
+ 
+
+On Wed, May 9, 2018 at 10:08 AM Joel GOMBIN <joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <mailto:joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> > wrote:
+
+Bonjour Pierre,
+
+réponse obtenue via ROpenSci : 
+
+> in the latest newsletter https://ropensci.github.io/biweekly/2018-05-07/ Scott wrote "RSelenium has been most likely temporarily archived on CRAN - should be back up there soon. In the meantime, you can install it from GitHub."  There's also seleniumPipes from the same maintainer but it's not on CRAN (yet?). And Suzan Baert has been working on https://github.com/suzanbaert/RPhantomJS
+
+Apparemment cela provient du fait que le package wdman a été archivé également sur le CRAN. 
+
+Sinon, selon ce que tu cherches à faire, jette un œil à https://github.com/hrbrmstr/splashr ?
+
+ 
+
+On Wed, May 9, 2018 at 9:01 AM Pierre Mercklé <pierre.merckle at ens-lyon.fr> wrote:
+
+Bonjour tout le monde,
+
+Ayant des choses beaucoup plus urgentes à faire, j’ai donc décidé de procrastiner un peu en cette semaine pleine de jours fériés, et d’explorer comment je pourrais améliorer mes outils de web scraping avec RSelenium. Las, je n’arrive pas à l’installer : il vient d’être retiré de CRAN, et l’installation github ne passe pas non plus, à cause de deux dépendances (wdman et binman) introuvables (plus sur CRAN non plus et je ne les trouve pas ailleurs). Quelqu’un a-t-il une piste pour contourner ces obstacles ?
+
+Amicalement,
+
+Pierre
+
+ 
+
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org  Wed May 16 13:38:39 2018
+From: aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org (Anton Perdoncin)
+Date: Wed, 16 May 2018 15:38:39 +0200
+Subject: Convertisseur de code Sas en R
+Message-ID: <184c62da-ec60-d83d-7067-630b2a2de205@ens-cachan.fr>
+
+Bonjour,
+
+Je pose cette question pour un collègue et ami utilisateur de Sas et non
+inscrit sur cette liste (personne n'est parfait...) : existe-t-il un
+outil permettant de convertir ou traduire du code Sas en code R ? A la
+manière de ce qui existe en informatique (comme ici pour un outil en
+ligne : https://www.varycode.com/converter.html)...
+
+Merci.
+
+Amicalement,
+
+Anton
+
+-- 
+Anton Perdoncin
+Doctorant à l'IDHES
+Agrégé Préparateur
+Ecole Normale Supérieure
+Département de Sciences Sociales
+48 bd Jourdan
+75014 Paris
+
+http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From ppg-rN3gS7ZnVUsdnm+yROfE0A at public.gmane.org  Wed May 16 13:54:50 2018
+From: ppg-rN3gS7ZnVUsdnm+yROfE0A at public.gmane.org (Pierre-Guillaume Prigent)
+Date: Wed, 16 May 2018 15:54:50 +0200
+Subject: Re: Convertisseur de code Sas en R
+In-Reply-To: <184c62da-ec60-d83d-7067-630b2a2de205@ens-cachan.fr>
+References: <184c62da-ec60-d83d-7067-630b2a2de205@ens-cachan.fr>
+Message-ID: <20180516155450.54c94ec66300532f0b4a0dbd@mailoo.org>
+
+Bonjour,
+
+Je suis moi aussi tout à fait preneur si ça existe !
+
+J'avais commencé à développer un script R se basant sur des expressions régulières ,qui était censé me permettre de convertir un script SAS générant des formats SAS en un fichier de recodages R. J'ai abandonné en cours de route, mais le principe était assez simple finalement.
+
+Depuis, j'ai dû me mettre à SAS parce que j'ai besoin d'écrire des scripts qui pourraient servir à d'autres personnes qui utilisent uniquement SAS.
+
+Bonne journée à tou.te.s,
+
+Pierre-Guillaume.
+
+On Wed, 16 May 2018 15:38:39 +0200
+Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org> wrote:
+
+> Bonjour,
+> 
+> Je pose cette question pour un collègue et ami utilisateur de Sas et non
+> inscrit sur cette liste (personne n'est parfait...) : existe-t-il un
+> outil permettant de convertir ou traduire du code Sas en code R ? A la
+> manière de ce qui existe en informatique (comme ici pour un outil en
+> ligne : https://www.varycode.com/converter.html)...
+> 
+> Merci.
+> 
+> Amicalement,
+> 
+> Anton
+> 
+> -- 
+> Anton Perdoncin
+> Doctorant à l'IDHES
+> Agrégé Préparateur
+> Ecole Normale Supérieure
+> Département de Sciences Sociales
+> 48 bd Jourdan
+> 75014 Paris
+> 
+> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+> 
+
+
+-- 
+Pierre-Guillaume Prigent <ppg-rN3gS7ZnVUsdnm+yROfE0A at public.gmane.org>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org  Sun May 27 22:05:40 2018
+From: aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org (Anton Perdoncin)
+Date: Mon, 28 May 2018 00:05:40 +0200
+Subject: Fusion de deux tables par variable dates
+Message-ID: <d27c9c18-7c5a-86af-082d-3e1562302914@ens-cachan.fr>
+
+Bonjour,
+
+Je cherche à fusionner deux jeux de données présentant des épisodes de
+carrière (grades et postes de travail), dont les dates de début et de
+fin des épisodes ne coïncident pas.
+
+J'ai créé un exemple reproductible simple dans le script en pj. Une
+solution, aussi en pj, possible consiste à ajouter autant de lignes
+qu'il y a de jours dans chaque carrière, pour pouvoir fusionner les
+lignes/jours des deux tables. Mais problème : mon vrai jeu de données
+comporte près de 1600 épisodes de carrière pour près de 400 individus...
+ce qui risque de rendre l'opération moins fluide.
+
+Bref, si quelqu'un.e a une solution permettant de fusionner les deux
+tables de façon rapide, je suis preneur !
+
+Amicalement,
+
+Anton
+
+
+-- 
+Anton Perdoncin
+Agrégé Préparateur
+Ecole Normale Supérieure
+Département de Sciences Sociales
+48 bd Jourdan
+75014 Paris
+
+http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+
+-------------- next part --------------
+
+library(tidyverse)
+
+# Deux jeux de donn��es : postes et grades ---- 
+
+ident <- c(rep("id1", 3),  rep("id2", 3))
+
+poste <- c("P1", "P2", "P1", 
+           "P1", "P2", "P3")
+rang_poste <- rep(c(1:3), 2)
+
+deb_poste <- as.Date(c("1955-03-01", "1955-04-01", "1955-05-01", 
+                       "1960-01-01", "1960-01-15", "1960-02-01"), format = "%Y-%m-%d")
+
+fin_poste <- as.Date(c("1955-04-01", "1955-05-01", "1955-06-01",
+                       "1960-01-15", "1960-02-01", "1960-02-15"), format = "%Y-%m-%d")
+
+postes <- data.frame(ident, poste, rang_poste, deb_poste, fin_poste)
+
+grade <- c("G1", "G3", "G5", 
+           "G1", "G2", "G3")
+rang_grade <- rep(c(1:3), 2)
+deb_grade <- as.Date(c("1955-03-01", "1955-03-20", "1955-04-15",
+                       "1960-01-01", "1960-01-20", "1960-02-10"), format = "%Y-%m-%d")
+fin_grade <- as.Date(c("1955-03-20", "1955-04-15", "1955-06-01",
+                       "1960-01-20", "1960-02-10", "1960-02-15"), format = "%Y-%m-%d")
+
+grades <- data.frame(ident, grade, rang_grade, deb_grade, fin_grade)
+
+
+# Ces deux individus changent de poste de travail, et de grade, mais de fa��on non synchronis��e. Je souhaite fusionner ces deux jeux de donn��es, en cr��ant de nouveaux ��pisodes correspondant �� la combinaison des grades et des postes. Autrement dit : fusionner les deux jeux de donn��es mais de fa��on "intelligente" en faisant en sorte que le d��but d'un nouveau grade intervenant avant le d��but d'un nouveau poste entra��ne la cr��ation d'un nouvel ��pisode.
+
+
+# Une solution : calculer le nombre de semaines, dupliquer les lignes, fusionner les jeux de donn��es ----
+
+# variables du dur��e
+postes$duree <- as.numeric(difftime(fin_poste, deb_poste, units = "days"))
+grades$duree <- as.numeric(difftime(fin_grade, deb_grade, units = "days"))
+
+# r��pliquer chaque ��pisode selon sa duree et cr��er une variable d��but pour chaque ligne
+postes_long <- postes %>% 
+  uncount(duree) %>% 
+  group_by(rang_poste, ident) %>% 
+  mutate(n = order(rang_poste)) %>% 
+  mutate(deb_ep = deb_poste + n - 1)
+
+grades_long <- grades %>% 
+  uncount(duree) %>% 
+  group_by(rang_grade, ident) %>% 
+  mutate(n = order(rang_grade)) %>% 
+  mutate(deb_ep = deb_grade + n - 1)
+
+# fusionner les deux jeux de donn��es par la date de d��but d'��pisode
+grades_postes_long <- postes_long %>% 
+  left_join(grades_long, by = c("deb_ep" = "deb_ep")) %>% 
+  select(-ident.y, -n.y, -n.x) %>% 
+  rename(ident = ident.x) %>% 
+  group_by(ident, rang_grade, rang_poste) %>% 
+  mutate(n = row_number())
+
+# revenir au format "court" : une ligne par ��pisode poste/grade
+grades_postes <- grades_postes_long %>% 
+  filter(n == 1) %>% 
+  ungroup() %>% 
+  select(-ends_with("_grade"), -ends_with("_poste"), -n) %>% 
+  rename(deb = deb_ep) %>% 
+  group_by(ident) %>% 
+  mutate(rang = row_number())
+
+
+
+str(grades_postes)
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From gabriel.alcaras-IXhm7p9kbTE at public.gmane.org  Mon May 28 07:31:59 2018
+From: gabriel.alcaras-IXhm7p9kbTE at public.gmane.org (Gabriel Alcaras)
+Date: Mon, 28 May 2018 09:31:59 +0200
+Subject: Re: Fusion de deux tables par variable dates
+In-Reply-To: <d27c9c18-7c5a-86af-082d-3e1562302914@ens-cachan.fr>
+References: <d27c9c18-7c5a-86af-082d-3e1562302914@ens-cachan.fr>
+Message-ID: <20180528073159.pazpkhadgvucrnh5@batcave>
+
+Salut Anton,
+
+Ce que tu cherches à faire s'appelle une jointure de table
+conditionnelle ("conditional join"). Malheureusement, il n'existe pas
+encore de fonctionnalité dans dplyr pour le faire, voir :
+
+https://github.com/tidyverse/dplyr/issues/2240
+
+Pour faire ce genre de jointure dans R, tu peux utiliser une requête SQL
+avec un paquet comme `sqldf`. Il existe aussi `fuzzyjoin`
+(https://github.com/dgrtwo/fuzzyjoin) qui implémente ces requêtes avec
+une syntaxe R, la fonction `interval_inner_join` a l'air de faire ce que
+tu recherches.
+
+Tu pourrais alors faire dans un premier temps une jointure
+conditionnelle (ajouter à chaque poste tous les grades dont la date de
+début est comprise entre les deux bornes du poste), puis utiliser le
+tidyverse de manière astucieuse pour créer autant de lignes que de
+combinaisons poste / grade.
+
+Je n'ai malheureusement pas le temps de proposer une solution à partir
+de ton exemple reproductible, mais ces paquets pourraient simplifier la
+chose. Si j'ai le temps j'y reviendrai, le problème est intéressant.
+
+Amicalement,
+Gabriel
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Mon May 28 07:48:09 2018
+From: julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (Julien Barnier)
+Date: Mon, 28 May 2018 09:48:09 +0200
+Subject: Re: Fusion de deux tables par variable dates
+In-Reply-To: <d27c9c18-7c5a-86af-082d-3e1562302914@ens-cachan.fr>
+References: <d27c9c18-7c5a-86af-082d-3e1562302914@ens-cachan.fr>
+Message-ID: <f536e558-25af-9ede-dec5-232e2d32033a@ens-lyon.fr>
+
+Bonjour,
+
+Une piste pourrait être de regarder du côte du package "fuzzyjoin" :
+
+# Installation
+source("https://bioconductor.org/biocLite.R")
+biocLite("IRanges")
+install.packages("fuzzyjoin")
+
+# Utilisation
+grades %>%
+     interval_left_join(postes, by=c("deb_grade"="deb_poste",
+ 
+"fin_grade"="fin_poste"))
+
+Je ne sais pas si ça peut faire exactement ce que tu recherches, mais 
+c'est sans doute à tester.
+
+Bonne journée,
+
+Julien
+
+
+> Bonjour,
+> 
+> Je cherche à fusionner deux jeux de données présentant des épisodes de
+> carrière (grades et postes de travail), dont les dates de début et de
+> fin des épisodes ne coïncident pas.
+> 
+> J'ai créé un exemple reproductible simple dans le script en pj. Une
+> solution, aussi en pj, possible consiste à ajouter autant de lignes
+> qu'il y a de jours dans chaque carrière, pour pouvoir fusionner les
+> lignes/jours des deux tables. Mais problème : mon vrai jeu de données
+> comporte près de 1600 épisodes de carrière pour près de 400 individus...
+> ce qui risque de rendre l'opération moins fluide.
+> 
+> Bref, si quelqu'un.e a une solution permettant de fusionner les deux
+> tables de façon rapide, je suis preneur !
+> 
+> Amicalement,
+> 
+> Anton
+> 
+> 
+> 
+> 
+> 
+
+
+-- 
+Julien Barnier
+Centre Max Weber
+ENS de Lyon
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From cyrille.conord-q1n/7C+hizDw54ZbO8sZfEZa+K1vlBrA at public.gmane.org  Mon May 28 12:24:23 2018
+From: cyrille.conord-q1n/7C+hizDw54ZbO8sZfEZa+K1vlBrA at public.gmane.org (Conord Cyrille)
+Date: Mon, 28 May 2018 14:24:23 +0200
+Subject: Re: Fusion de deux tables par variable dates
+In-Reply-To: <f536e558-25af-9ede-dec5-232e2d32033a@ens-lyon.fr>
+References: <f536e558-25af-9ede-dec5-232e2d32033a@ens-lyon.fr>
+Message-ID: <13f3e-5b0bf500-269-2e7c3080@84422974>
+
+
+Bonjour,
+
+Je me lance pour une piste avec data.table
+
+library(data.table)
+dt_grades[, rollDate:=deb_grade] # Ajout d'une colonne commune
+dt_postes[, rollDate:=deb_poste]
+
+setkey(dt_grades,ident,rollDate)
+setkey(dt_postes,ident,rollDate)
+
+soluce_dt <- merge(dt_postes,dt_grades,all=TRUE,by=.EACHI)
+
+soluce_dt[, poste_corr := soluce_dt[!is.na(poste)][soluce_dt, poste, roll = T]]
+soluce_dt[, grade_corr := soluce_dt[!is.na(grade)][soluce_dt, grade, roll = T]]
+
+> soluce_dt
+    ident   rollDate poste grade poste_corr grade_corr
+ 1:   id1 1955-03-01    P1    G1         P1         G1
+ 2:   id1 1955-03-20  <NA>    G3         P1         G3
+ 3:   id1 1955-04-01    P2  <NA>         P2         G3
+ 4:   id1 1955-04-15  <NA>    G5         P2         G5
+ 5:   id1 1955-05-01    P1  <NA>         P1         G5
+ 6:   id2 1960-01-01    P1    G1         P1         G1
+ 7:   id2 1960-01-15    P2  <NA>         P2         G1
+ 8:   id2 1960-01-20  <NA>    G2         P2         G2
+ 9:   id2 1960-02-01    P3  <NA>         P3         G2
+10:   id2 1960-02-10  <NA>    G3         P3         G3
+
+Bonne journée,
+Cyrille
+
+Le Lundi 28 Mai 2018 09:48 CEST, Julien Barnier <julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org> a écrit:
+ Bonjour,
+
+Une piste pourrait être de regarder du côte du package "fuzzyjoin" :
+
+# Installation
+source("https://bioconductor.org/biocLite.R")
+biocLite("IRanges")
+install.packages("fuzzyjoin")
+
+# Utilisation
+grades %>%
+interval_left_join(postes, by=c("deb_grade"="deb_poste",
+
+"fin_grade"="fin_poste"))
+
+Je ne sais pas si ça peut faire exactement ce que tu recherches, mais
+c'est sans doute à tester.
+
+Bonne journée,
+
+Julien
+
+
+> Bonjour,
+>
+> Je cherche à fusionner deux jeux de données présentant des épisodes de
+> carrière (grades et postes de travail), dont les dates de début et de
+> fin des épisodes ne coïncident pas.
+>
+> J'ai créé un exemple reproductible simple dans le script en pj. Une
+> solution, aussi en pj, possible consiste à ajouter autant de lignes
+> qu'il y a de jours dans chaque carrière, pour pouvoir fusionner les
+> lignes/jours des deux tables. Mais problème : mon vrai jeu de données
+> comporte près de 1600 épisodes de carrière pour près de 400 individus...
+> ce qui risque de rendre l'opération moins fluide.
+>
+> Bref, si quelqu'un.e a une solution permettant de fusionner les deux
+> tables de façon rapide, je suis preneur !
+>
+> Amicalement,
+>
+> Anton
+>
+>
+>
+>
+>
+
+
+--
+Julien Barnier
+Centre Max Weber
+ENS de Lyon
+
+
+--
+Cordialement
+ Cyrille ConordIngénieur d'EtudesFaculté de Sciences Humaines et Sociales
+Campus Tréfilerie
+6 RUE Basse des Rives
+42023 SAINT-ETIENNE CEDEX 2
+FRANCE04.77.42.19.32
+cyrille.conord-q1n/7C+hizDw54ZbO8sZfD8meBdTjz0/@public.gmane.org://www.univ-st-etienne.fr/fr/evs-isthme.html
+http://fac-shs.univ-st-etienne.fr
+04 77 42 13 24
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: 13F3E-5B0BF500-26B-2E7C3080
+Type: image/png
+Size: 2689 bytes
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: 13F3E-5B0BF500-26D-2E7C3080
+Type: image/png
+Size: 21661 bytes
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From cyrille.conord-q1n/7C+hizDw54ZbO8sZfEZa+K1vlBrA at public.gmane.org  Mon May 28 12:26:03 2018
+From: cyrille.conord-q1n/7C+hizDw54ZbO8sZfEZa+K1vlBrA at public.gmane.org (Conord Cyrille)
+Date: Mon, 28 May 2018 14:26:03 +0200
+Subject: Re: Fusion de deux tables par variable dates
+In-Reply-To: <13f3e-5b0bf500-269-2e7c3080@84422974>
+References: <13f3e-5b0bf500-269-2e7c3080@84422974>
+Message-ID: <1744d-5b0bf580-16f-7d19ef00@129811174>
+
+
+Oups, j'ai oublié la transformation des data.frames grades et postes en data.tables
+dt_grades <- as.data.table(grades)
+dt_postes <- as.data.table(postes)
+
+désolé.
+
+Le Lundi 28 Mai 2018 14:24 CEST, "Conord Cyrille" <cyrille.conord at univ-st-etienne.fr> a écrit:
+  
+Bonjour,
+
+Je me lance pour une piste avec data.table
+
+library(data.table)
+dt_grades[, rollDate:=deb_grade] # Ajout d'une colonne commune
+dt_postes[, rollDate:=deb_poste]
+
+setkey(dt_grades,ident,rollDate)
+setkey(dt_postes,ident,rollDate)
+
+soluce_dt <- merge(dt_postes,dt_grades,all=TRUE,by=.EACHI)
+
+soluce_dt[, poste_corr := soluce_dt[!is.na(poste)][soluce_dt, poste, roll = T]]
+soluce_dt[, grade_corr := soluce_dt[!is.na(grade)][soluce_dt, grade, roll = T]]
+
+> soluce_dt
+    ident   rollDate poste grade poste_corr grade_corr
+ 1:   id1 1955-03-01    P1    G1         P1         G1
+ 2:   id1 1955-03-20  <NA>    G3         P1         G3
+ 3:   id1 1955-04-01    P2  <NA>         P2         G3
+ 4:   id1 1955-04-15  <NA>    G5         P2         G5
+ 5:   id1 1955-05-01    P1  <NA>         P1         G5
+ 6:   id2 1960-01-01    P1    G1         P1         G1
+ 7:   id2 1960-01-15    P2  <NA>         P2         G1
+ 8:   id2 1960-01-20  <NA>    G2         P2         G2
+ 9:   id2 1960-02-01    P3  <NA>         P3         G2
+10:   id2 1960-02-10  <NA>    G3         P3         G3
+
+Bonne journée,
+Cyrille
+
+Le Lundi 28 Mai 2018 09:48 CEST, Julien Barnier <julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org> a écrit:
+ Bonjour,
+
+Une piste pourrait être de regarder du côte du package "fuzzyjoin" :
+
+# Installation
+source("https://bioconductor.org/biocLite.R")
+biocLite("IRanges")
+install.packages("fuzzyjoin")
+
+# Utilisation
+grades %>%
+interval_left_join(postes, by=c("deb_grade"="deb_poste",
+
+"fin_grade"="fin_poste"))
+
+Je ne sais pas si ça peut faire exactement ce que tu recherches, mais
+c'est sans doute à tester.
+
+Bonne journée,
+
+Julien
+
+
+> Bonjour,
+>
+> Je cherche à fusionner deux jeux de données présentant des épisodes de
+> carrière (grades et postes de travail), dont les dates de début et de
+> fin des épisodes ne coïncident pas.
+>
+> J'ai créé un exemple reproductible simple dans le script en pj. Une
+> solution, aussi en pj, possible consiste à ajouter autant de lignes
+> qu'il y a de jours dans chaque carrière, pour pouvoir fusionner les
+> lignes/jours des deux tables. Mais problème : mon vrai jeu de données
+> comporte près de 1600 épisodes de carrière pour près de 400 individus...
+> ce qui risque de rendre l'opération moins fluide.
+>
+> Bref, si quelqu'un.e a une solution permettant de fusionner les deux
+> tables de façon rapide, je suis preneur !
+>
+> Amicalement,
+>
+> Anton
+>
+>
+>
+>
+>
+
+
+--
+Julien Barnier
+Centre Max Weber
+ENS de Lyon
+
+
+--
+Cordialement
+ Cyrille ConordIngénieur d'EtudesFaculté de Sciences Humaines et Sociales
+Campus Tréfilerie
+6 RUE Basse des Rives
+42023 SAINT-ETIENNE CEDEX 2
+FRANCE04.77.42.19.32
+cyrille.conord-q1n/7C+hizDw54ZbO8sZfD8meBdTjz0/@public.gmane.org://www.univ-st-etienne.fr/fr/evs-isthme.html
+http://fac-shs.univ-st-etienne.fr
+04 77 42 13 24 
+
+
+--
+Cordialement
+ Cyrille ConordIngénieur d'EtudesFaculté de Sciences Humaines et Sociales
+Campus Tréfilerie
+6 RUE Basse des Rives
+42023 SAINT-ETIENNE CEDEX 2
+FRANCE04.77.42.19.32
+cyrille.conord-q1n/7C+hizDw54ZbO8sZfD8meBdTjz0/@public.gmane.org://www.univ-st-etienne.fr/fr/evs-isthme.html
+http://fac-shs.univ-st-etienne.fr
+04 77 42 13 24
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: 1744D-5B0BF580-171-7D19EF00
+Type: image/png
+Size: 2689 bytes
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: 1744D-5B0BF580-173-7D19EF00
+Type: image/png
+Size: 21661 bytes
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+

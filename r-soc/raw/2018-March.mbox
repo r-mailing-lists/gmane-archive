@@ -1,0 +1,2923 @@
+From talain-qtLr9r5vFYnYtjvyW6yDsg at public.gmane.org  Thu Mar  1 17:16:26 2018
+From: talain-qtLr9r5vFYnYtjvyW6yDsg at public.gmane.org
+Date: Thu, 01 Mar 2018 18:16:26 +0100
+Subject: =?utf-8?q?export_r=C3=A9p=C3=A9t=C3=A9_de_tableaux?=
+Message-ID: <sympa.1519924037.666.172@groupes.renater.fr>
+
+Bonjour,
+Je suis un récent utilisateur de R et je me rends compte que je n’ai jamais eu
+à réaliser d’analyse « automatisé », répétées et qui puisse être assez
+facilement exporté.
+Je m’explique, dans le cadre de mon travail, je dois analyser une enquête de
+satisfaction qui comprend un certain nombre d’affirmations auxquelles les
+participants doivent répondre par un chiffre entre 1 et 5 (1= Je ne suis pas
+du tout satisfait …  5= Je suis très satisfait). Chaque affirmation
+représentant un item et chaque item étant inclut dans une dimension. Ce modèle
+d’évaluation de la satisfaction est basé sur un modèle théorique (il y 5
+dimensions comprenant chacun entre 4 et 6 items, un item étant seulement dans
+une et une seule dimension).
+L’idée étant de comparer les scores moyens de chaque item et de chaque
+dimension (score dimension = somme(items) )
+Mon problème relève de plusieurs ordres je pense, mais je voudrais en gros,
+pourvoir « sortir » plusieurs tableaux de ce type :
+
+Dimensions	                                            Lieu 1	Lieu 2
+Lieu 3
+	                                    N	   Score moyen	N	 Score
+moyen	Significativité (versus Lieu 1)	N	Score moyen
+Significativité (versus lieu 2)
+Réactivité	                   322	4,39          	181   	4,24
+*	                               170	     4,24
+**
+Le temps d'attente	   338	4,46          	188	        4,30
+*	                               176	     4,28
+*
+L’attention portée	   325	4,35	                187	        4,29
+ns	                               172	     4,16
+***
+*** différence significative au seuil 1%, ** différence significative au seuil
+5%, * différence significative au seuil 10%, ns différence non significative.
+1 = offre de service Bien pire qu’attendu et 5 = Bien meilleure qu’attendu
+
+Le test correspondant est le test de Wilcoxon / Mann Whitney (non normalité
+vérifié par le test de Shapiro Wilk). Mon problème est que je n’arrive pas à
+créer un tableau comprenant tous les scores moyens, les N, les tests
+significatifs.
+J’ai essayé plusieurs choses :
+-	Un tapply pour les scores moyens mais Je n’arrive pas à extraire les «
+N » (ou les NA) lorsque je les calcule
+-	Un CreateTableOne pour extraire le tableau le plus complet possible
+mais je n’ai toujours pas les N et le test de Wilcoxon ne permet pas de savoir
+quelles modalités sont comparés (effectué avec kruskal.test). De plus lorsque
+l’on veut utiliser ce test, ils transforment toutes les moyennes en médianes
+car les variables ne suivent pas une loi normale.
+-	Exporter avec write.table qui semble fonctionner
+
+> ## VARIABLES SUIVENT UNE LOI NORMALE ?
+> temps_attente_1 <- subset(enquete2, lieux == "Lieu1",temps_attente)
+> temps_attente_2 <- subset(enquete2, lieux == "Lieu2", temps_attente)
+> shapiro.test(temps_attente_1$temps_attente)
+> shapiro.test(temps_attente_2$temps_attente)
+
+> ##TEST DE WILCOXON / MANN WHITNEY
+> temps_attente_1w <- as.numeric(temps_attente_1 [,1])
+> temps_attente_2w <- as.numeric(temps_attente_2 [,1])
+> wilcox.test(temps_attente_1w, temps_attente_2w)
+
+> ## CALCUL DES MOYENNES PAR SOUS GROUPE DE TEMPS ATENTE
+> m=tapply(enquete2$temps_attente, enquete2$lieux, mean, na.rm=TRUE)
+> m
+          Lieu 1             Lieu 2             Lieu 3
+          4.058894           4.131250           4.283333
+
+> ## CREATETABLEONE
+> library(tableone)
+> library(survival)
+> dput(names(enquete2))
+> vars_tot <- c("dim_reactivite", "temps_attente", "attention", "lieux")
+> tab_1 <- CreateTableOne(vars=vars_tot, strata= "lieux", data=enquete2,
+testNonNormal = kruskal.test)
+> tab_1
+                              Stratified by lieux
+                               Lieu1         Lieu2         Lieu3       p
+test
+  n                             245            92            41
+  dim_reactivite (mean (sd))   4.06 (0.67)   4.13 (0.43)   4.28 (0.58)
+0.144
+  temps_attente (mean (sd))    3.84 (1.00)   3.27 (1.00)   4.11 (0.84)
+<0.001
+  attention (mean (sd))        4.22 (0.86)   4.45 (0.74)   4.26 (0.78)
+0.074
+  lieux (%)
+<0.001
+     Lieu1                     245 (100.0)     0 (  0.0)     0 (  0.0)
+     Lieu2                       0 (  0.0)    92 (100.0)     0 (  0.0)
+     Lieu3                       0 (  0.0)     0 (  0.0)    41 (100.0)
+
+> tab_2 <- print(tab_1$ContTable, smd=TRUE, showAllLevels=TRUE, quote=FALSE,
+noSpaces=TRUE)
+                              Stratified by lieux
+                               Lieu1       Lieu2       Lieu3       p      test
+SMD
+  n                            245         92          41
+  dim_reactivite (mean (sd))   4.06 (0.67) 4.13 (0.43) 4.28 (0.58)
+0.144       0.263
+  temps_attente (mean (sd))    3.84 (1.00) 3.27 (1.00) 4.11 (0.84)
+<0.001      0.588
+  attention (mean (sd))        4.22 (0.86) 4.45 (0.74) 4.26 (0.78)
+0.074       0.199
+
+> #variante avec variables non normales
+> items <- c("dim_empathie", "horaires_rec", "proximite_rec",
+"non_jugement_rec", "tout_dire_rec")
+> tab_2 <- print(tab_1$ContTable, nonnormal= items, smd=TRUE,
+showAllLevels=TRUE)
+                                 Stratified by lieux
+                                  Lieu1             Lieu2             Lieu3
+p       test     SMD
+  n                               245               92                41
+  dim_reactivite (median [IQR])   4.25 [3.69, 4.50] 4.25 [3.75, 4.25] 4.25
+[3.81, 4.75]   0.258 nonnorm  0.263
+  temps_attente (median [IQR])    4.00 [3.00, 5.00] 3.00 [3.00, 4.00] 4.00
+[3.00, 5.00]  <0.001 nonnorm  0.588
+  attention (median [IQR])        4.00 [4.00, 5.00] 5.00 [4.00, 5.00] 4.00
+[4.00, 5.00]   0.080 nonnorm  0.199
+
+> # EXPORT DANS UN TABLEAU EXCEL
+> write.table(cbind(VARIABLES=row.names(tab_2), tab_2), file="U:/HAITI/
+EVENEMENTS/2018/2018_01_29_ENQUETE_SATISFACTION/test2.xls",dec=",",
+row.names=F, col.names=TRUE, sep ="\t")
+
+Merci beaucoup pour votre réponse !
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Mar  6 09:25:58 2018
+From: etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Etienne Ollion)
+Date: Tue, 06 Mar 2018 10:25:58 +0100
+Subject: =?utf-8?q?Un_article_de_SNA_avec_de_la_d=C3=A9tection_de_communaut=C3=A9/_du_clustering?=
+Message-ID: <CAKc4pT+hf7F8d0Dw+pii9zP=M=GNwHfDmiYm-orU4eWpiki+8g@mail.gmail.com>
+
+Bonjour à tou-te-s,
+
+Dans le cadre d'un cours que je dois donner, j'aimerais trouver un article
+d'analyse de réseau qui présente des méthodes de clustering (blockmodel, ou
+plutôt détection de communauté, ou autre encore), sur des données réelles,
+sur un sujet intéressant, et si possible avec pas trop de digressions
+techniques.
+
+J'en connais quelques uns en français, mais ca doit être en anglais.
+Tout conseil bienvenu!
+
+Amicalement,
+Etienne
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From memontpar-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Mar  6 10:51:31 2018
+From: memontpar-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (M E)
+Date: Tue, 06 Mar 2018 11:51:31 +0100
+Subject: =?utf-8?q?Re=3A_Un_article_de_SNA_avec_de_la_d=C3=A9tection_de_communaut=C3=A9/_du_clustering?=
+In-Reply-To: <CAKc4pT+hf7F8d0Dw+pii9zP=M=GNwHfDmiYm-orU4eWpiki+8g@mail.gmail.com>
+References: <CAKc4pT+hf7F8d0Dw+pii9zP=M=GNwHfDmiYm-orU4eWpiki+8g@mail.gmail.com>
+Message-ID: <CALOr=rGpjNFP8qhD0mJs_x=AuLVP0n7FD7RyxAGQSBpxxU+BZA@mail.gmail.com>
+
+Bonjour
+
+Tu as regardé sur linkage.fr? il y a pas mal de digressions techniques mais
+c'est rigolo et en anglais (par exemple sur Enron). Comme il s'agit
+d'articles "exemples" plus que de vrais articles, je les trouve assez
+accessibles.
+
+Amicalement,
+
+ME
+
+Le 6 mars 2018 à 10:25, Etienne Ollion <etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> a écrit :
+
+> Bonjour à tou-te-s,
+>
+> Dans le cadre d'un cours que je dois donner, j'aimerais trouver un article
+> d'analyse de réseau qui présente des méthodes de clustering (blockmodel, ou
+> plutôt détection de communauté, ou autre encore), sur des données réelles,
+> sur un sujet intéressant, et si possible avec pas trop de digressions
+> techniques.
+>
+> J'en connais quelques uns en français, mais ca doit être en anglais.
+> Tout conseil bienvenu!
+>
+> Amicalement,
+> Etienne
+>
+>
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From olivier.godechot-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org  Tue Mar  6 11:06:33 2018
+From: olivier.godechot-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org (Olivier GODECHOT)
+Date: Tue, 06 Mar 2018 12:06:33 +0100
+Subject: =?utf-8?q?Re=3A_Un_article_de_SNA_avec_de_la_d=C3=A9tection_de_communaut=C3=A9/_du_clustering?=
+In-Reply-To: <CAKc4pT+hf7F8d0Dw+pii9zP=M=GNwHfDmiYm-orU4eWpiki+8g@mail.gmail.com>
+References: <CAKc4pT+hf7F8d0Dw+pii9zP=M=GNwHfDmiYm-orU4eWpiki+8g@mail.gmail.com>
+Message-ID: <b2c8a4a6-7c32-012f-6567-a8822614627d@sciencespo.fr>
+
+"Structural folds" (même s'il est discutable).
+
+
+
+Le 06/03/2018 à 10:25, Etienne Ollion a écrit :
+> Bonjour à tou-te-s,
+>
+> Dans le cadre d'un cours que je dois donner, j'aimerais trouver un 
+> article d'analyse de réseau qui présente des méthodes de clustering 
+> (blockmodel, ou plutôt détection de communauté, ou autre encore), sur 
+> des données réelles, sur un sujet intéressant, et si possible avec pas 
+> trop de digressions techniques.
+>
+> J'en connais quelques uns en français, mais ca doit être en anglais.
+> Tout conseil bienvenu!
+>
+> Amicalement,
+> Etienne
+>
+>
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Mon Mar 12 13:02:14 2018
+From: julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (Julien Barnier)
+Date: Mon, 12 Mar 2018 14:02:14 +0100
+Subject: =?utf-8?q?Cr=C3=A9ation_d=27un_groupe_Slack_d=27=C3=A9changes_et_entraide_autour_de_R?=
+Message-ID: <139d8e2f-3b49-fbf0-c0a9-148dcd0e43a8@ens-lyon.fr>
+
+Bonjour à tous,
+
+Pour information, un groupe Slack (plateforme de discussion instantanée) 
+vient d'être mis en place pour permettre entraide et échanges 
+francophones autour de R. L'idée est de fournir un outil complémentaire 
+aux listes et forums déjà existants, et qui soit notamment accessible et 
+accueillant pour les débutants (qui semblent assez peu présents sur les 
+listes).
+
+Le groupe s'appelle Grrr ("pour quand votre R fait Grrr"). Il est tout 
+nouveau et donc assez peu actif pour le moment, mais il n'attend que 
+votre participation, et notamment vos questions !
+
+Pour rejoindre le groupe : https://frama.link/r-grrr
+
+Bonne journée,
+
+Julien
+
+-- 
+Julien Barnier
+Centre Max Weber
+ENS de Lyon
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Wed Mar 14 08:42:23 2018
+From: pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (=?utf-8?q?Pierre_Merckl=C3=A9?=)
+Date: Wed, 14 Mar 2018 09:42:23 +0100
+Subject: =?utf-8?q?Co=C3=BBts_diff=C3=A9rents_pour_l=27insertion_et_la_suppression_dans_la_fonction_seqdist=28=29_de_TraMineR_=3F?=
+Message-ID: <001b01d3bb70$5ff21bf0$1fd653d0$@ens-lyon.fr>
+
+Bonjour tout le monde
+
+ 
+
+Une petite question pour vous pour les amateurs danalyse de séquences et
+doptimal matching
+
+ 
+
+J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et j'ai
+une liste de prénoms candidats dont je dois déterminer s'ils sont
+compatibles avec le sien, ou s'il s'agit d'une autre personne (l'objectif
+est de discriminer faux positifs dans des listes de publications aspirées
+sur Web of Science, par exemple : c("RICCARDO M", "RAFAEL", "RICARDO", "R
+M", "R", "RICHARD"). 
+
+Après quelques tentatives, une piste intéressante consiste à utiliser de
+l'optimal matching, en calculant les distances entre le vrai prénom et
+chaque prénom candidat. Je le fais ci-dessous à l'aide de la fonction
+seqdist(method="OM") de TraMineR :
+
+ 
+
+# Exemple Riccardo
+
+library(TraMineR)
+
+library(magrittr)
+
+real <- "RICCARDO M"
+
+seq.real <- gsub("", "-", real) 
+
+obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+
+seq.obs <- gsub("", "-", obs)
+
+order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM",
+sm="CONSTANT")
+
+res <- cbind(obs, dist=order[-1]) %>% as.data.frame(stringsAsFactors=FALSE)
+
+print(res[order(as.integer(res$dist)), ])
+
+ 
+
+LOM avec indel=1 classe correctement les prénoms candidats, mais pour
+améliorer la discrimination entre les « bons » prénoms candidats et le
+mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût d'insertion
+dune nouvelle lettre bien supérieur au coût de suppression d'une lettre
+existante, et je ne trouve pas comment faire. Le paramètre indel de
+seqdist() impute en effet la même valeur à l'insertion et à la suppression.
+Quelqu'un sait-il comment faire pour les paramétrer séparément ?
+
+ 
+
+Bon début de journée à tout le monde !
+
+ 
+
+Pierre
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Mar 14 09:21:09 2018
+From: etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Etienne Ollion)
+Date: Wed, 14 Mar 2018 10:21:09 +0100
+Subject: =?utf-8?q?Re=3A_Co=C3=BBts_diff=C3=A9rents_pour_l=27insertion_et_la_suppression_dans_la_fonction_seqdist=28=29_de_TraMineR_=3F?=
+In-Reply-To: <9c5da9f0-1b00-9024-0b69-866ec2d5960b@sciencespo.fr>
+References: <001b01d3bb70$5ff21bf0$1fd653d0$@ens-lyon.fr> <9c5da9f0-1b00-9024-0b69-866ec2d5960b@sciencespo.fr>
+Message-ID: <CAKc4pTJimdGYKR+z_qArUGrVBy6iukoTx4KvxeOKqGdA8R62kA@mail.gmail.com>
+
+Bonjour,
+
+Je laisse l'analyse de séquence aux spécialistes, mais j'utilise pour cette
+activité Open Refine (http://openrefine.org/), qui fonctionne très bien et
+te permet de choisir le type de métrique de distance que tu veux employer
+(d'une simple distance de Levenshtein à d'autres aspects). Je trouve que
+c'est très efficace, toujours controlé manuellement, et ca s'enseigne très
+bien.
+
+Il en existe sûrement d'autres, et ca n'est peut etre pas ce que tu veux...
+
+Etienne
+
+
+2018-03-14 10:17 GMT+01:00 Claire Lemercier <claire.lemercier-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org>
+:
+
+> Bonjour Pierre,
+>
+> A moins que je sois mal réveillée, on ne peut pas : les matrices de coût
+> de l'OA sont symétriques (car la distance de A vers B est toujours la même
+> que de B vers A), ce qui peut du reste poser problème parfois aussi pour
+> les coûts de substitution.
+>
+> En revanche, il existe des tas de machins (en général avec des gros taux
+> d'erreur) de matching de noms, développés pour la généalogie notamment. Je
+> ne sais pas te pointer vers des algorithmes / sites ressources précis
+> cependant, mais peut-être que d'autres personnes de la liste pourront.
+>
+> Bien amicalement,
+> CL.
+>
+> Le 14/03/2018 à 09:42, Pierre Mercklé a écrit :
+>
+> Bonjour tout le monde
+>
+>
+>
+> Une petite question pour vous pour les amateurs d’analyse de séquences et
+> d’optimal matching…
+>
+>
+>
+> J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et j'ai
+> une liste de prénoms candidats dont je dois déterminer s'ils sont
+> compatibles avec le sien, ou s'il s'agit d'une autre personne (l'objectif
+> est de discriminer faux positifs dans des listes de publications aspirées
+> sur Web of Science, par exemple : c("RICCARDO M", "RAFAEL", "RICARDO", "R
+> M", "R", "RICHARD").
+>
+> Après quelques tentatives, une piste intéressante consiste à utiliser de
+> l'optimal matching, en calculant les distances entre le vrai prénom et
+> chaque prénom candidat. Je le fais ci-dessous à l'aide de la fonction
+> seqdist(method="OM") de TraMineR :
+>
+>
+>
+> # Exemple Riccardo
+>
+> library(TraMineR)
+>
+> library(magrittr)
+>
+> real <- "RICCARDO M"
+>
+> seq.real <- gsub("", "-", real)
+>
+> obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+>
+> seq.obs <- gsub("", "-", obs)
+>
+> order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM",
+> sm="CONSTANT")
+>
+> res <- cbind(obs, dist=order[-1]) %>% as.data.frame(
+> stringsAsFactors=FALSE)
+>
+> print(res[order(as.integer(res$dist)), ])
+>
+>
+>
+> L’OM avec indel=1 classe correctement les prénoms candidats, mais pour
+> améliorer la discrimination entre les « bons » prénoms candidats et le
+> mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût d'insertion
+> d’une nouvelle lettre bien supérieur au coût de suppression d'une lettre
+> existante, et je ne trouve pas comment faire. Le paramètre indel de
+> seqdist() impute en effet la même valeur à l'insertion et à la suppression.
+> Quelqu'un sait-il comment faire pour les paramétrer séparément ?
+>
+>
+>
+> Bon début de journée à tout le monde !
+>
+>
+>
+> Pierre
+>
+>
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From claire.lemercier-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org  Wed Mar 14 09:17:42 2018
+From: claire.lemercier-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org (Claire Lemercier)
+Date: Wed, 14 Mar 2018 10:17:42 +0100
+Subject: =?utf-8?q?Re=3A_Co=C3=BBts_diff=C3=A9rents_pour_l=27insertion_et_la_suppression_dans_la_fonction_seqdist=28=29_de_TraMineR_=3F?=
+In-Reply-To: <001b01d3bb70$5ff21bf0$1fd653d0$@ens-lyon.fr>
+References: <001b01d3bb70$5ff21bf0$1fd653d0$@ens-lyon.fr>
+Message-ID: <9c5da9f0-1b00-9024-0b69-866ec2d5960b@sciencespo.fr>
+
+Bonjour Pierre,
+
+A moins que je sois mal réveillée, on ne peut pas : les matrices de coût 
+de l'OA sont symétriques (car la distance de A vers B est toujours la 
+même que de B vers A), ce qui peut du reste poser problème parfois aussi 
+pour les coûts de substitution.
+
+En revanche, il existe des tas de machins (en général avec des gros taux 
+d'erreur) de matching de noms, développés pour la généalogie notamment. 
+Je ne sais pas te pointer vers des algorithmes / sites ressources précis 
+cependant, mais peut-être que d'autres personnes de la liste pourront.
+
+Bien amicalement,
+CL.
+
+
+Le 14/03/2018 à 09:42, Pierre Mercklé a écrit :
+>
+> Bonjour tout le monde
+>
+> Une petite question pour vous pour les amateurs d’analyse de séquences 
+> et d’optimal matching…
+>
+> J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et 
+> j'ai une liste de prénoms candidats dont je dois déterminer s'ils sont 
+> compatibles avec le sien, ou s'il s'agit d'une autre personne 
+> (l'objectif est de discriminer faux positifs dans des listes de 
+> publications aspirées sur Web of Science, par exemple : c("RICCARDO 
+> M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD").
+>
+> Après quelques tentatives, une piste intéressante consiste à utiliser 
+> de l'optimal matching, en calculant les distances entre le vrai prénom 
+> et chaque prénom candidat. Je le fais ci-dessous à l'aide de la 
+> fonction seqdist(method="OM") de TraMineR :
+>
+> # Exemple Riccardo
+>
+> library(TraMineR)
+>
+> library(magrittr)
+>
+> real <- "RICCARDO M"
+>
+> seq.real <- gsub("", "-", real)
+>
+> obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+>
+> seq.obs <- gsub("", "-", obs)
+>
+> order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM", 
+> sm="CONSTANT")
+>
+> res <- cbind(obs, dist=order[-1]) %>% 
+> as.data.frame(stringsAsFactors=FALSE)
+>
+> print(res[order(as.integer(res$dist)), ])
+>
+> L’OM avec indel=1 classe correctement les prénoms candidats, mais pour 
+> améliorer la discrimination entre les « bons » prénoms candidats et le 
+> mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût 
+> d'insertion d’une nouvelle lettre bien supérieur au coût de 
+> suppression d'une lettre existante, et je ne trouve pas comment faire. 
+> Le paramètre indel de seqdist() impute en effet la même valeur à 
+> l'insertion et à la suppression. Quelqu'un sait-il comment faire pour 
+> les paramétrer séparément ?
+>
+> Bon début de journée à tout le monde !
+>
+> Pierre
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Wed Mar 14 11:50:22 2018
+From: pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (=?utf-8?q?Pierre_Merckl=C3=A9?=)
+Date: Wed, 14 Mar 2018 12:50:22 +0100
+Subject: =?utf-8?q?RE=3A_Co=C3=BBts_diff=C3=A9rents_pour_l=27insertion_et_la_suppression_dans_la_fonction_seqdist=28=29_de_TraMineR_=3F?=
+In-Reply-To: <9c5da9f0-1b00-9024-0b69-866ec2d5960b@sciencespo.fr>
+References: <001b01d3bb70$5ff21bf0$1fd653d0$@ens-lyon.fr> <9c5da9f0-1b00-9024-0b69-866ec2d5960b@sciencespo.fr>
+Message-ID: <00aa01d3bb8a$a2ffa420$e8feec60$@ens-lyon.fr>
+
+Merci Claire, et merci Etienne pour vos réponses,
+
+Comme jai besoin de traitements un peu automatiques (il sagit de trier
+200,000+ publications), je vais morienter effectivement vers des techniques
+de matching inexact de noms. Sur le slack que Julien vient de mettre en
+place (https://r-grrr.slack.com), Samuel ma suggéré le package stringdist,
+et Paul-André ma suggéré fuzzyjoin A suivre !
+
+Merci encore pour vos suggestions !
+
+Amicalement,
+
+Pierre
+
+ 
+
+De : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> De
+la part de Claire Lemercier
+Envoyé : mercredi 14 mars 2018 10:18
+À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+Objet : Re: [R-soc] Coûts différents pour l'insertion et la suppression dans
+la fonction seqdist() de TraMineR ?
+
+ 
+
+Bonjour Pierre,
+
+A moins que je sois mal réveillée, on ne peut pas : les matrices de coût de
+l'OA sont symétriques (car la distance de A vers B est toujours la même que
+de B vers A), ce qui peut du reste poser problème parfois aussi pour les
+coûts de substitution.
+
+En revanche, il existe des tas de machins (en général avec des gros taux
+d'erreur) de matching de noms, développés pour la généalogie notamment. Je
+ne sais pas te pointer vers des algorithmes / sites ressources précis
+cependant, mais peut-être que d'autres personnes de la liste pourront.
+
+Bien amicalement,
+CL.
+
+ 
+
+Le 14/03/2018 à 09:42, Pierre Mercklé a écrit :
+
+Bonjour tout le monde
+
+ 
+
+Une petite question pour vous pour les amateurs danalyse de séquences et
+doptimal matching
+
+ 
+
+J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et j'ai
+une liste de prénoms candidats dont je dois déterminer s'ils sont
+compatibles avec le sien, ou s'il s'agit d'une autre personne (l'objectif
+est de discriminer faux positifs dans des listes de publications aspirées
+sur Web of Science, par exemple : c("RICCARDO M", "RAFAEL", "RICARDO", "R
+M", "R", "RICHARD"). 
+
+Après quelques tentatives, une piste intéressante consiste à utiliser de
+l'optimal matching, en calculant les distances entre le vrai prénom et
+chaque prénom candidat. Je le fais ci-dessous à l'aide de la fonction
+seqdist(method="OM") de TraMineR :
+
+ 
+
+# Exemple Riccardo
+
+library(TraMineR)
+
+library(magrittr)
+
+real <- "RICCARDO M"
+
+seq.real <- gsub("", "-", real) 
+
+obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+
+seq.obs <- gsub("", "-", obs)
+
+order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM",
+sm="CONSTANT")
+
+res <- cbind(obs, dist=order[-1]) %>% as.data.frame(stringsAsFactors=FALSE)
+
+print(res[order(as.integer(res$dist)), ])
+
+ 
+
+LOM avec indel=1 classe correctement les prénoms candidats, mais pour
+améliorer la discrimination entre les « bons » prénoms candidats et le
+mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût d'insertion
+dune nouvelle lettre bien supérieur au coût de suppression d'une lettre
+existante, et je ne trouve pas comment faire. Le paramètre indel de
+seqdist() impute en effet la même valeur à l'insertion et à la suppression.
+Quelqu'un sait-il comment faire pour les paramétrer séparément ?
+
+ 
+
+Bon début de journée à tout le monde !
+
+ 
+
+Pierre
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Mar 14 14:50:43 2018
+From: etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Etienne Ollion)
+Date: Wed, 14 Mar 2018 15:50:43 +0100
+Subject: =?utf-8?q?Re=3A_Co=C3=BBts_diff=C3=A9rents_pour_l=27insertion_et_la_suppression_dans_la_fonction_seqdist=28=29_de_TraMineR_=3F?=
+In-Reply-To: <00aa01d3bb8a$a2ffa420$e8feec60$@ens-lyon.fr>
+References: <001b01d3bb70$5ff21bf0$1fd653d0$@ens-lyon.fr> <9c5da9f0-1b00-9024-0b69-866ec2d5960b@sciencespo.fr> <00aa01d3bb8a$a2ffa420$e8feec60$@ens-lyon.fr>
+Message-ID: <CAKc4pTLyWEqs5BQtJ1-scWFoWjTFjYjZExTxt46afKLMO_oXkg@mail.gmail.com>
+
+Merci de partager l'information Pierre, et de ramener l'information depuis
+Slack
+
+Je me posais une question à propos du fil slack justement: qu'est-ce qu'il
+apporte par rapport à la liste? Et est-ce qu'il faut qu'on migre tous vers
+Slack, plutôt que de conserver deux lieux de publication?
+J'avais l'impression que la liste n'était pas scandaleusement active au
+point de la dédoubler, mais peut etre y a t il un intérêt? Julien B, qui a
+créé la liste avant le Slack, doit avoir une idée.
+
+C'est une vraie question, et je migrerai vers un autre service si besoin.
+Mais en toute honnêteté, si je peux éviter d'avoir un fil supplémentaire là
+dessus (slack), je m'en porterai aussi bien.
+Amitiés à tous,
+
+Etienne
+
+2018-03-14 12:50 GMT+01:00 Pierre Mercklé <pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org>:
+
+> Merci Claire, et merci Etienne pour vos réponses,
+>
+> Comme j’ai besoin de traitements un peu automatiques (il s’agit de trier
+> 200,000+ publications), je vais m’orienter effectivement vers des
+> techniques de matching inexact de noms. Sur le slack que Julien vient de
+> mettre en place (https://r-grrr.slack.com), Samuel m’a suggéré le package
+> stringdist, et Paul-André m’a suggéré fuzzyjoin… A suivre !
+>
+> Merci encore pour vos suggestions !
+>
+> Amicalement,
+>
+> Pierre
+>
+>
+>
+> *De :* r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org>
+> *De la part de* Claire Lemercier
+> *Envoyé :* mercredi 14 mars 2018 10:18
+> *À :* r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+> *Objet :* Re: [R-soc] Coûts différents pour l'insertion et la suppression
+> dans la fonction seqdist() de TraMineR ?
+>
+>
+>
+> Bonjour Pierre,
+>
+> A moins que je sois mal réveillée, on ne peut pas : les matrices de coût
+> de l'OA sont symétriques (car la distance de A vers B est toujours la même
+> que de B vers A), ce qui peut du reste poser problème parfois aussi pour
+> les coûts de substitution.
+>
+> En revanche, il existe des tas de machins (en général avec des gros taux
+> d'erreur) de matching de noms, développés pour la généalogie notamment. Je
+> ne sais pas te pointer vers des algorithmes / sites ressources précis
+> cependant, mais peut-être que d'autres personnes de la liste pourront.
+>
+> Bien amicalement,
+> CL.
+>
+>
+>
+> Le 14/03/2018 à 09:42, Pierre Mercklé a écrit :
+>
+> Bonjour tout le monde
+>
+>
+>
+> Une petite question pour vous pour les amateurs d’analyse de séquences et
+> d’optimal matching…
+>
+>
+>
+> J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et j'ai
+> une liste de prénoms candidats dont je dois déterminer s'ils sont
+> compatibles avec le sien, ou s'il s'agit d'une autre personne (l'objectif
+> est de discriminer faux positifs dans des listes de publications aspirées
+> sur Web of Science, par exemple : c("RICCARDO M", "RAFAEL", "RICARDO", "R
+> M", "R", "RICHARD").
+>
+> Après quelques tentatives, une piste intéressante consiste à utiliser de
+> l'optimal matching, en calculant les distances entre le vrai prénom et
+> chaque prénom candidat. Je le fais ci-dessous à l'aide de la fonction
+> seqdist(method="OM") de TraMineR :
+>
+>
+>
+> # Exemple Riccardo
+>
+> library(TraMineR)
+>
+> library(magrittr)
+>
+> real <- "RICCARDO M"
+>
+> seq.real <- gsub("", "-", real)
+>
+> obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+>
+> seq.obs <- gsub("", "-", obs)
+>
+> order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM",
+> sm="CONSTANT")
+>
+> res <- cbind(obs, dist=order[-1]) %>% as.data.frame(
+> stringsAsFactors=FALSE)
+>
+> print(res[order(as.integer(res$dist)), ])
+>
+>
+>
+> L’OM avec indel=1 classe correctement les prénoms candidats, mais pour
+> améliorer la discrimination entre les « bons » prénoms candidats et le
+> mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût d'insertion
+> d’une nouvelle lettre bien supérieur au coût de suppression d'une lettre
+> existante, et je ne trouve pas comment faire. Le paramètre indel de
+> seqdist() impute en effet la même valeur à l'insertion et à la suppression.
+> Quelqu'un sait-il comment faire pour les paramétrer séparément ?
+>
+>
+>
+> Bon début de journée à tout le monde !
+>
+>
+>
+> Pierre
+>
+>
+>
+>
+>
+>
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org  Wed Mar 14 17:50:45 2018
+From: julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org (Julien Barnier)
+Date: Wed, 14 Mar 2018 18:50:45 +0100
+Subject: =?utf-8?q?Re=3A_Co=C3=BBts_diff=C3=A9rents_pour_l=27insertion_et_la_suppression_dans_la_fonction_seqdist=28=29_de_TraMineR_=3F?=
+In-Reply-To: <CAKc4pTLyWEqs5BQtJ1-scWFoWjTFjYjZExTxt46afKLMO_oXkg@mail.gmail.com>
+References: <001b01d3bb70$5ff21bf0$1fd653d0$@ens-lyon.fr> <9c5da9f0-1b00-9024-0b69-866ec2d5960b@sciencespo.fr> <00aa01d3bb8a$a2ffa420$e8feec60$@ens-lyon.fr> <CAKc4pTLyWEqs5BQtJ1-scWFoWjTFjYjZExTxt46afKLMO_oXkg@mail.gmail.com>
+Message-ID: <48f36eba267ab2fbdfd6dc6986e4d143@ens-lyon.fr>
+
+Bonjour,
+
+L'idée de base pour la création d'un Slack (ou plutôt d'une formule 
+"discussion instantanée", ça aurait pu être une autre plateforme) c'est 
+surtout un constat : je parle systématiquement de cette liste quand je 
+donne des formations R, et je crois que jamais personne n'a posé de 
+question dessus, alors que ce sont la plupart du temps des débutants qui 
+auraient besoin d'un accompagnement.
+
+Du coup l'idée du Slack c'est de proposer un outil complémentaire, qui 
+parlerait peut-être davantage aux plus jeunes ou aux débutants (par sa 
+forme et par le fait qu'on peut utiliser un pseudonyme). Mais ça reste à 
+prouver, et l'outil deviendra évidemment ce qu'en feront ses 
+utilisateurs (et peut-être qu'il ne deviendra rien du tout).
+
+En tous cas l'objectif n'est pas de se substituer aux ressources déjà 
+existantes (listes mails, forums, etc.) mais de venir en complément, 
+chacun pouvant participer à ce qui lui convient le mieux (je comprends 
+bien le côté potentiellement chronophage et fatigant de la 
+multiplication des canaux)...
+
+J'espère que ça répond aux interrogations ?
+
+Bonne soirée !
+
+Julien
+
+-- 
+Julien Barnier
+Centre Max Weber
+
+
+Le 2018-03-14 15:50, Etienne Ollion a écrit :
+
+> Merci de partager l'information Pierre, et de ramener l'information 
+> depuis Slack
+> Je me posais une question à propos du fil slack justement: qu'est-ce 
+> qu'il apporte par rapport à la liste? Et est-ce qu'il faut qu'on migre 
+> tous vers Slack, plutôt que de conserver deux lieux de publication? 
+> J'avais l'impression que la liste n'était pas scandaleusement active au 
+> point de la dédoubler, mais peut etre y a t il un intérêt? Julien B, 
+> qui a créé la liste avant le Slack, doit avoir une idée.
+> 
+> C'est une vraie question, et je migrerai vers un autre service si 
+> besoin. Mais en toute honnêteté, si je peux éviter d'avoir un fil 
+> supplémentaire là dessus (slack), je m'en porterai aussi bien. Amitiés 
+> à tous,
+> 
+> Etienne
+> 
+> 2018-03-14 12:50 GMT+01:00 Pierre Mercklé <pierre.merckle-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org>:
+> 
+> Merci Claire, et merci Etienne pour vos réponses,
+> 
+> Comme j'ai besoin de traitements un peu automatiques (il s'agit de 
+> trier 200,000+ publications), je vais m'orienter effectivement vers des 
+> techniques de matching inexact de noms. Sur le slack que Julien vient 
+> de mettre en place (https://r-grrr.slack.com), Samuel m'a suggéré le 
+> package stringdist, et Paul-André m'a suggéré fuzzyjoin... A suivre !
+> 
+> Merci encore pour vos suggestions !
+> 
+> Amicalement,
+> 
+> Pierre
+> 
+> DE : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org 
+> <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> DE LA PART DE Claire Lemercier
+> ENVOYÉ : mercredi 14 mars 2018 10:18
+> À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+> OBJET : Re: [R-soc] Coûts différents pour l'insertion et la suppression 
+> dans la fonction seqdist() de TraMineR ?
+> 
+> Bonjour Pierre,
+> 
+> A moins que je sois mal réveillée, on ne peut pas : les matrices de 
+> coût de l'OA sont symétriques (car la distance de A vers B est toujours 
+> la même que de B vers A), ce qui peut du reste poser problème parfois 
+> aussi pour les coûts de substitution.
+> 
+> En revanche, il existe des tas de machins (en général avec des gros 
+> taux d'erreur) de matching de noms, développés pour la généalogie 
+> notamment. Je ne sais pas te pointer vers des algorithmes / sites 
+> ressources précis cependant, mais peut-être que d'autres personnes de 
+> la liste pourront.
+> 
+> Bien amicalement,
+> CL.
+> 
+> Le 14/03/2018 à 09:42, Pierre Mercklé a écrit :
+> 
+> Bonjour tout le monde
+> 
+> Une petite question pour vous pour les amateurs d'analyse de séquences 
+> et d'optimal matching...
+> 
+> J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et 
+> j'ai une liste de prénoms candidats dont je dois déterminer s'ils sont 
+> compatibles avec le sien, ou s'il s'agit d'une autre personne 
+> (l'objectif est de discriminer faux positifs dans des listes de 
+> publications aspirées sur Web of Science, par exemple : c("RICCARDO M", 
+> "RAFAEL", "RICARDO", "R M", "R", "RICHARD").
+> 
+> Après quelques tentatives, une piste intéressante consiste à utiliser 
+> de l'optimal matching, en calculant les distances entre le vrai prénom 
+> et chaque prénom candidat. Je le fais ci-dessous à l'aide de la 
+> fonction seqdist(method="OM") de TraMineR :
+> 
+> # Exemple Riccardo
+> 
+> library(TraMineR)
+> 
+> library(magrittr)
+> 
+> real <- "RICCARDO M"
+> 
+> seq.real <- gsub("", "-", real)
+> 
+> obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+> 
+> seq.obs <- gsub("", "-", obs)
+> 
+> order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM", 
+> sm="CONSTANT")
+> 
+> res <- cbind(obs, dist=order[-1]) %>% 
+> as.data.frame(stringsAsFactors=FALSE)
+> 
+> print(res[order(as.integer(res$dist)), ])
+> 
+> L'OM avec indel=1 classe correctement les prénoms candidats, mais pour 
+> améliorer la discrimination entre les « bons » prénoms candidats et le 
+> mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût 
+> d'insertion d'une nouvelle lettre bien supérieur au coût de suppression 
+> d'une lettre existante, et je ne trouve pas comment faire. Le paramètre 
+> indel de seqdist() impute en effet la même valeur à l'insertion et à la 
+> suppression. Quelqu'un sait-il comment faire pour les paramétrer 
+> séparément ?
+> 
+> Bon début de journée à tout le monde !
+> 
+> Pierre
+> 
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Mar 15 07:36:52 2018
+From: etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Etienne Ollion)
+Date: Thu, 15 Mar 2018 08:36:52 +0100
+Subject: Liste RSoc
+Message-ID: <CAKc4pTKQeQrN1_irD4kkOWR4h_GzywkT1COUnzsGCAc5z8U-8g@mail.gmail.com>
+
+Bonjour,
+(j'ai changé le titre pour mieux refleter le contenu)
+
+Merci de cette réponse détaillée Julien. Je fais aussi passer l'information
+à chaque formation/ cours. Je ne sais pas combien de personnes sont sur la
+liste, mais c'est vrai qu'il y a peut etre de la censure.
+
+Peut être faudrait il inciter plus à poster? C'est un effet cumulatif: ca
+montrerait qu'il est possible de poser une question 'simple', et ca
+pourrait créer une dynamique.
+
+La question des formats est bonne aussi. J'avais discuté avec plusieurs
+personnes d'un possible forum (ca stocke les réponses en plus d'apporter de
+l'aide). Ou donc une messagerie type slack.
+
+Est ce qu'on devrait réfléchir à organiser cette discussion ?
+(questionnaire en ligne, échanges sur la liste?). Si des gens ont des
+idées, qu'ils/elles n'hésitent pas.
+
+En tout cas, merci de ce boulot
+
+Etienne
+
+
+
+2018-03-14 18:50 GMT+01:00 Julien Barnier <julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org>:
+
+> Bonjour,
+>
+> L'idée de base pour la création d'un Slack (ou plutôt d'une formule
+> "discussion instantanée", ça aurait pu être une autre plateforme) c'est
+> surtout un constat : je parle systématiquement de cette liste quand je
+> donne des formations R, et je crois que jamais personne n'a posé de
+> question dessus, alors que ce sont la plupart du temps des débutants qui
+> auraient besoin d'un accompagnement.
+>
+> Du coup l'idée du Slack c'est de proposer un outil complémentaire, qui
+> parlerait peut-être davantage aux plus jeunes ou aux débutants (par sa
+> forme et par le fait qu'on peut utiliser un pseudonyme). Mais ça reste à
+> prouver, et l'outil deviendra évidemment ce qu'en feront ses utilisateurs
+> (et peut-être qu'il ne deviendra rien du tout).
+>
+> En tous cas l'objectif n'est pas de se substituer aux ressources déjà
+> existantes (listes mails, forums, etc.) mais de venir en complément, chacun
+> pouvant participer à ce qui lui convient le mieux (je comprends bien le
+> côté potentiellement chronophage et fatigant de la multiplication des
+> canaux)...
+>
+> J'espère que ça répond aux interrogations ?
+>
+> Bonne soirée !
+>
+> Julien
+>
+> --
+> Julien Barnier
+> Centre Max Weber
+>
+>
+> Le 2018-03-14 15:50, Etienne Ollion a écrit :
+>
+> Merci de partager l'information Pierre, et de ramener l'information depuis
+>> Slack
+>> Je me posais une question à propos du fil slack justement: qu'est-ce
+>> qu'il apporte par rapport à la liste? Et est-ce qu'il faut qu'on migre tous
+>> vers Slack, plutôt que de conserver deux lieux de publication? J'avais
+>> l'impression que la liste n'était pas scandaleusement active au point de la
+>> dédoubler, mais peut etre y a t il un intérêt? Julien B, qui a créé la
+>> liste avant le Slack, doit avoir une idée.
+>>
+>> C'est une vraie question, et je migrerai vers un autre service si besoin.
+>> Mais en toute honnêteté, si je peux éviter d'avoir un fil supplémentaire là
+>> dessus (slack), je m'en porterai aussi bien. Amitiés à tous,
+>>
+>> Etienne
+>>
+>> 2018-03-14 12:50 GMT+01:00 Pierre Mercklé <pierre.merckle at ens-lyon.fr>:
+>>
+>> Merci Claire, et merci Etienne pour vos réponses,
+>>
+>> Comme j'ai besoin de traitements un peu automatiques (il s'agit de trier
+>> 200,000+ publications), je vais m'orienter effectivement vers des
+>> techniques de matching inexact de noms. Sur le slack que Julien vient de
+>> mettre en place (https://r-grrr.slack.com), Samuel m'a suggéré le
+>> package stringdist, et Paul-André m'a suggéré fuzzyjoin... A suivre !
+>>
+>> Merci encore pour vos suggestions !
+>>
+>> Amicalement,
+>>
+>> Pierre
+>>
+>> DE : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org>
+>> DE LA PART DE Claire Lemercier
+>> ENVOYÉ : mercredi 14 mars 2018 10:18
+>> À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+>> OBJET : Re: [R-soc] Coûts différents pour l'insertion et la suppression
+>> dans la fonction seqdist() de TraMineR ?
+>>
+>> Bonjour Pierre,
+>>
+>> A moins que je sois mal réveillée, on ne peut pas : les matrices de coût
+>> de l'OA sont symétriques (car la distance de A vers B est toujours la même
+>> que de B vers A), ce qui peut du reste poser problème parfois aussi pour
+>> les coûts de substitution.
+>>
+>> En revanche, il existe des tas de machins (en général avec des gros taux
+>> d'erreur) de matching de noms, développés pour la généalogie notamment. Je
+>> ne sais pas te pointer vers des algorithmes / sites ressources précis
+>> cependant, mais peut-être que d'autres personnes de la liste pourront.
+>>
+>> Bien amicalement,
+>> CL.
+>>
+>> Le 14/03/2018 à 09:42, Pierre Mercklé a écrit :
+>>
+>> Bonjour tout le monde
+>>
+>> Une petite question pour vous pour les amateurs d'analyse de séquences et
+>> d'optimal matching...
+>>
+>> J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et
+>> j'ai une liste de prénoms candidats dont je dois déterminer s'ils sont
+>> compatibles avec le sien, ou s'il s'agit d'une autre personne (l'objectif
+>> est de discriminer faux positifs dans des listes de publications aspirées
+>> sur Web of Science, par exemple : c("RICCARDO M", "RAFAEL", "RICARDO", "R
+>> M", "R", "RICHARD").
+>>
+>> Après quelques tentatives, une piste intéressante consiste à utiliser de
+>> l'optimal matching, en calculant les distances entre le vrai prénom et
+>> chaque prénom candidat. Je le fais ci-dessous à l'aide de la fonction
+>> seqdist(method="OM") de TraMineR :
+>>
+>> # Exemple Riccardo
+>>
+>> library(TraMineR)
+>>
+>> library(magrittr)
+>>
+>> real <- "RICCARDO M"
+>>
+>> seq.real <- gsub("", "-", real)
+>>
+>> obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+>>
+>> seq.obs <- gsub("", "-", obs)
+>>
+>> order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM",
+>> sm="CONSTANT")
+>>
+>> res <- cbind(obs, dist=order[-1]) %>% as.data.frame(stringsAsFactors
+>> =FALSE)
+>>
+>> print(res[order(as.integer(res$dist)), ])
+>>
+>> L'OM avec indel=1 classe correctement les prénoms candidats, mais pour
+>> améliorer la discrimination entre les « bons » prénoms candidats et le
+>> mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût d'insertion
+>> d'une nouvelle lettre bien supérieur au coût de suppression d'une lettre
+>> existante, et je ne trouve pas comment faire. Le paramètre indel de
+>> seqdist() impute en effet la même valeur à l'insertion et à la suppression.
+>> Quelqu'un sait-il comment faire pour les paramétrer séparément ?
+>>
+>> Bon début de journée à tout le monde !
+>>
+>> Pierre
+>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From olivier.godechot-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org  Thu Mar 15 11:26:53 2018
+From: olivier.godechot-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org (Olivier GODECHOT)
+Date: Thu, 15 Mar 2018 12:26:53 +0100
+Subject: Intervalle de confiance d'un odds ratio de moyennes proportion
+In-Reply-To: <CAKc4pTKQeQrN1_irD4kkOWR4h_GzywkT1COUnzsGCAc5z8U-8g@mail.gmail.com>
+References: <CAKc4pTKQeQrN1_irD4kkOWR4h_GzywkT1COUnzsGCAc5z8U-8g@mail.gmail.com>
+Message-ID: <679adae5-7cfb-d993-e65e-bd5268d50cfe@sciencespo.fr>
+
+Bonjour à tous,
+
+
+Je calcule des proportions (ici des taux d'expositions aux femmes au 
+travail) dans différences unités (établissement) et je calcule des 
+moyennes de ces proportions pour l'ensemble de la population. Je voudrai 
+comparer de tels moyennes de proportions pour différents groupes ou dans 
+le temps, avec un odds ratio, moins sensible aux effets de bord et plus 
+comparable. Je me pose la question du calcul d'un intervalle de 
+confiance et j'ai pas trouvé de bonnes solutions. Une solution est de 
+partir des intervalles de confiance des moyennes de proportion et/ou de 
+la différence des moyennes des proportions.
+Mais il y a peut-être mieux. Une idée ?
+
+Voici une simulation de mon exemple.
+
+NB: je n'ai pas accès aux données sources, et je ne peux pas envisager 
+je crois de bootstrapping.
+
+A bientôt
+
+
+
+############################
+# Example
+#Calculating exposure of females to females in different units 
+(establishment)
+#and compare this exposure from that of male to females
+
+
+#Generation sample
+n<-100000
+unit<-round(runif(n),4)
+female<-(runif(n)+unit>1.05)*1
+d<-as.data.frame(cbind(unit,female))
+d$one<-1
+
+d<-within(d,{n_unit = ave(one,unit,FUN=sum,na.rm=TRUE)} )
+d<-within(d,{nfemale_unit = ave(female,unit,FUN=sum,na.rm=TRUE)} )
+d$xfemale<-ifelse(d$n_u>1,(d$nfemale_unit-d$female)/(d$n_unit-1),NA)
+
+m<-tapply(d$xfemale,d$female,mean,na.rm=TRUE)
+sd<-tapply(d$xfemale,d$female,sd,na.rm=TRUE)
+var<-tapply(d$xfemale,d$female,var,na.rm=TRUE)
+obs<-tapply(is.na(d$female)==FALSE,d$female,sum,na.rm=TRUE)
+unit_meansize<-mean(d$n_unit[is.na(d$xfemale)==FALSE],na.rm=TRUE)
+nb_unit<-length(table(d$u[is.na(d$xfemale)==FALSE]))
+
+#Available statistics in my data set
+m
+sd
+se<-sd/(obs)**0.5
+se
+var
+obs
+prop.table(obs)
+unit_meansize
+nb_unit
+
+#Confidence interval for differnce in means
+difm<-m[2]-m[1]
+var_com<-((var*obs)[1]+(var*obs)[2])/(obs[1]+obs[2]-2)
+se_com<-((var_com)**0.5)*((1/obs[1]+1/obs[2])**0.5)
+lc95<-difm-1.96*se_com
+uc95<-difm+1.96*se_com
+
+m[2]
+m[1]
+difm
+lc95
+uc95
+se_com
+
+t.test(xfemale~I(1-female),data=d,var.equal=TRUE)
+
+
+#Confidence interval for my log of odds ratio ?????
+OR<-(m[2]/(1-m[2]))/(m[1]/(1-m[1]))
+OR
+log(OR)
+
+# Here the solution for log OR confidence (1/a+1/b+1/c+1/d)**0.5 is not 
+available
+# because we don't have just one table but an aggregation of tables.
+
+
+# Proxy 1 based on the confidence interval each proportions
+# Here I use the upper bound and the lower bound of each proportion
+# And compute cross comparison
+m2l<-m[2]-1.96*(sd[2])/(obs[2])**0.5
+m1u<-m[1]+1.96*(sd[1])/(obs[1])**0.5
+m1l<-m[1]-1.96*(sd[1])/(obs[1])**0.5
+m2u<-m[2]+1.96*(sd[2])/(obs[2])**0.5
+
+# NB : with the technique the confidence interval of the mean is too large
+m2l-m1u
+lc95
+
+m2u-m1l
+uc95
+
+ORl<-(m2l/(1-m2l))/(m1u/(1-m1u))
+ORu<-(m2u/(1-m2u))/(m1l/(1-m1l))
+
+OR
+ORl
+ORu
+
+log(OR)
+log(ORl)
+log(ORu)
+
+
+#Proxy 2, based on the confidence interval of the difference of proportions
+m2lb<-m[2]-(uc95-difm)/2
+m1ub<-m[1]+(uc95-difm)/2
+
+m2ub<-m[2]+(uc95-difm)/2
+m1lb<-m[1]-(uc95-difm)/2
+
+difmlb<-m2lb-m1ub
+difmub<-m2ub-m1lb
+
+difmlb
+lc95
+
+difmub
+uc95
+
+ORlb<-(m2lb/(1-m2lb))/(m1ub/(1-m1ub))
+ORub<-(m2ub/(1-m2ub))/(m1lb/(1-m1lb))
+
+OR
+ORlb
+ORub
+
+log(OR)
+log(ORlb)
+log(ORub)
+
+
+#Proxy 3, based on the confidence interval of
+# the difference of  proportions
+c<-(difm-lc95)/(1.96*(se[1]+se[2]))
+c
+
+m2lc<-m[2]-c*1.96*(sd[2])/(obs[2])**0.5
+m1uc<-m[1]+c*1.96*(sd[1])/(obs[1])**0.5
+m1lc<-m[1]-c*1.96*(sd[1])/(obs[1])**0.5
+m2uc<-m[2]+c*1.96*(sd[2])/(obs[2])**0.5
+
+m2lc-m1uc-difml
+m2uc-m1lc-difmu
+
+ORlc<-(m2lc/(1-m2lc))/(m1uc/(1-m1uc))
+ORuc<-(m2uc/(1-m2uc))/(m1lc/(1-m1lc))
+
+OR
+ORlc
+ORuc
+
+log(OR)
+log(ORlc)
+log(ORuc)
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Mar 15 14:43:11 2018
+From: samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Samuel Coavoux)
+Date: Thu, 15 Mar 2018 15:43:11 +0100
+Subject: Re: Liste RSoc
+In-Reply-To: <CAKc4pTKQeQrN1_irD4kkOWR4h_GzywkT1COUnzsGCAc5z8U-8g@mail.gmail.com>
+References: <CAKc4pTKQeQrN1_irD4kkOWR4h_GzywkT1COUnzsGCAc5z8U-8g@mail.gmail.com>
+Message-ID: <CAFyE9YN367rjk4YVM+f2Qiw91oYBTi32-SwWDG+rAF2k09qchw@mail.gmail.com>
+
+Bonjour,
+
+Je suis d'accord avec Julien sur le problème de l'autocensure et avec
+Etienne sur celui de la dispersion de l'attention sur différents outils. Je
+me suis inscrit sur le slack, mais ça fait quand même beaucoup de canaux
+différents, avec des redondances et je ne suis pas sûr que sur le long
+terme je participerai à tous.
+
+S'il faut réfléchir à des formats pour les dispositifs d'entraide, je
+trouve personnellement que stackoverflow est le meilleur modèle. Par
+rapport à la liste et aux forums, il a l'avantage de  conserver une
+mémoire, de hiérarchiser l'information, et de permettre la collaboration.
+Cela dit, il y a peut-être une barrière de la langue qui favorise aussi
+l'autocensure... Mais de mon expérience, c'est une communauté qui est assez
+accueillante et le système de point, pour absurde qu'il paraisse, donne
+vite des retours positifs. Par ailleurs, les spécialistes de R y sont bien
+représentés.
+
+Si la barrière de la langue est le problème, des collègues ont monté un
+serveur français à la SO spécialisé dans latex: http://texnique.fr/osqa/
+qui peut être une bonne solution aussi.
+
+A+
+
+Samuel
+
+
+
+2018-03-15 8:36 GMT+01:00 Etienne Ollion <etienne.ollion-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>:
+
+> Bonjour,
+> (j'ai changé le titre pour mieux refleter le contenu)
+>
+> Merci de cette réponse détaillée Julien. Je fais aussi passer
+> l'information à chaque formation/ cours. Je ne sais pas combien de
+> personnes sont sur la liste, mais c'est vrai qu'il y a peut etre de la
+> censure.
+>
+> Peut être faudrait il inciter plus à poster? C'est un effet cumulatif: ca
+> montrerait qu'il est possible de poser une question 'simple', et ca
+> pourrait créer une dynamique.
+>
+> La question des formats est bonne aussi. J'avais discuté avec plusieurs
+> personnes d'un possible forum (ca stocke les réponses en plus d'apporter de
+> l'aide). Ou donc une messagerie type slack.
+>
+> Est ce qu'on devrait réfléchir à organiser cette discussion ?
+> (questionnaire en ligne, échanges sur la liste?). Si des gens ont des
+> idées, qu'ils/elles n'hésitent pas.
+>
+> En tout cas, merci de ce boulot
+>
+> Etienne
+>
+>
+>
+> 2018-03-14 18:50 GMT+01:00 Julien Barnier <julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org>:
+>
+>> Bonjour,
+>>
+>> L'idée de base pour la création d'un Slack (ou plutôt d'une formule
+>> "discussion instantanée", ça aurait pu être une autre plateforme) c'est
+>> surtout un constat : je parle systématiquement de cette liste quand je
+>> donne des formations R, et je crois que jamais personne n'a posé de
+>> question dessus, alors que ce sont la plupart du temps des débutants qui
+>> auraient besoin d'un accompagnement.
+>>
+>> Du coup l'idée du Slack c'est de proposer un outil complémentaire, qui
+>> parlerait peut-être davantage aux plus jeunes ou aux débutants (par sa
+>> forme et par le fait qu'on peut utiliser un pseudonyme). Mais ça reste à
+>> prouver, et l'outil deviendra évidemment ce qu'en feront ses utilisateurs
+>> (et peut-être qu'il ne deviendra rien du tout).
+>>
+>> En tous cas l'objectif n'est pas de se substituer aux ressources déjà
+>> existantes (listes mails, forums, etc.) mais de venir en complément, chacun
+>> pouvant participer à ce qui lui convient le mieux (je comprends bien le
+>> côté potentiellement chronophage et fatigant de la multiplication des
+>> canaux)...
+>>
+>> J'espère que ça répond aux interrogations ?
+>>
+>> Bonne soirée !
+>>
+>> Julien
+>>
+>> --
+>> Julien Barnier
+>> Centre Max Weber
+>>
+>>
+>> Le 2018-03-14 15:50, Etienne Ollion a écrit :
+>>
+>> Merci de partager l'information Pierre, et de ramener l'information
+>>> depuis Slack
+>>> Je me posais une question à propos du fil slack justement: qu'est-ce
+>>> qu'il apporte par rapport à la liste? Et est-ce qu'il faut qu'on migre tous
+>>> vers Slack, plutôt que de conserver deux lieux de publication? J'avais
+>>> l'impression que la liste n'était pas scandaleusement active au point de la
+>>> dédoubler, mais peut etre y a t il un intérêt? Julien B, qui a créé la
+>>> liste avant le Slack, doit avoir une idée.
+>>>
+>>> C'est une vraie question, et je migrerai vers un autre service si
+>>> besoin. Mais en toute honnêteté, si je peux éviter d'avoir un fil
+>>> supplémentaire là dessus (slack), je m'en porterai aussi bien. Amitiés à
+>>> tous,
+>>>
+>>> Etienne
+>>>
+>>> 2018-03-14 12:50 GMT+01:00 Pierre Mercklé <pierre.merckle at ens-lyon.fr>:
+>>>
+>>> Merci Claire, et merci Etienne pour vos réponses,
+>>>
+>>> Comme j'ai besoin de traitements un peu automatiques (il s'agit de trier
+>>> 200,000+ publications), je vais m'orienter effectivement vers des
+>>> techniques de matching inexact de noms. Sur le slack que Julien vient de
+>>> mettre en place (https://r-grrr.slack.com), Samuel m'a suggéré le
+>>> package stringdist, et Paul-André m'a suggéré fuzzyjoin... A suivre !
+>>>
+>>> Merci encore pour vos suggestions !
+>>>
+>>> Amicalement,
+>>>
+>>> Pierre
+>>>
+>>> DE : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org>
+>>> DE LA PART DE Claire Lemercier
+>>> ENVOYÉ : mercredi 14 mars 2018 10:18
+>>> À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+>>> OBJET : Re: [R-soc] Coûts différents pour l'insertion et la suppression
+>>> dans la fonction seqdist() de TraMineR ?
+>>>
+>>> Bonjour Pierre,
+>>>
+>>> A moins que je sois mal réveillée, on ne peut pas : les matrices de coût
+>>> de l'OA sont symétriques (car la distance de A vers B est toujours la même
+>>> que de B vers A), ce qui peut du reste poser problème parfois aussi pour
+>>> les coûts de substitution.
+>>>
+>>> En revanche, il existe des tas de machins (en général avec des gros taux
+>>> d'erreur) de matching de noms, développés pour la généalogie notamment. Je
+>>> ne sais pas te pointer vers des algorithmes / sites ressources précis
+>>> cependant, mais peut-être que d'autres personnes de la liste pourront.
+>>>
+>>> Bien amicalement,
+>>> CL.
+>>>
+>>> Le 14/03/2018 à 09:42, Pierre Mercklé a écrit :
+>>>
+>>> Bonjour tout le monde
+>>>
+>>> Une petite question pour vous pour les amateurs d'analyse de séquences
+>>> et d'optimal matching...
+>>>
+>>> J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et
+>>> j'ai une liste de prénoms candidats dont je dois déterminer s'ils sont
+>>> compatibles avec le sien, ou s'il s'agit d'une autre personne (l'objectif
+>>> est de discriminer faux positifs dans des listes de publications aspirées
+>>> sur Web of Science, par exemple : c("RICCARDO M", "RAFAEL", "RICARDO", "R
+>>> M", "R", "RICHARD").
+>>>
+>>> Après quelques tentatives, une piste intéressante consiste à utiliser de
+>>> l'optimal matching, en calculant les distances entre le vrai prénom et
+>>> chaque prénom candidat. Je le fais ci-dessous à l'aide de la fonction
+>>> seqdist(method="OM") de TraMineR :
+>>>
+>>> # Exemple Riccardo
+>>>
+>>> library(TraMineR)
+>>>
+>>> library(magrittr)
+>>>
+>>> real <- "RICCARDO M"
+>>>
+>>> seq.real <- gsub("", "-", real)
+>>>
+>>> obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+>>>
+>>> seq.obs <- gsub("", "-", obs)
+>>>
+>>> order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM",
+>>> sm="CONSTANT")
+>>>
+>>> res <- cbind(obs, dist=order[-1]) %>% as.data.frame(stringsAsFactors
+>>> =FALSE)
+>>>
+>>> print(res[order(as.integer(res$dist)), ])
+>>>
+>>> L'OM avec indel=1 classe correctement les prénoms candidats, mais pour
+>>> améliorer la discrimination entre les « bons » prénoms candidats et le
+>>> mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût d'insertion
+>>> d'une nouvelle lettre bien supérieur au coût de suppression d'une lettre
+>>> existante, et je ne trouve pas comment faire. Le paramètre indel de
+>>> seqdist() impute en effet la même valeur à l'insertion et à la suppression.
+>>> Quelqu'un sait-il comment faire pour les paramétrer séparément ?
+>>>
+>>> Bon début de journée à tout le monde !
+>>>
+>>> Pierre
+>>>
+>>> --
+>>> Liste des utilisateurs de R en sciences sociales
+>>> Informations / options / désabonnement :
+>>> https://groupes.renater.fr/sympa/info/r-soc
+>>>
+>>
+>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>>
+>>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From aden.gaide-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Mar 16 16:55:16 2018
+From: aden.gaide-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Aden Gaide)
+Date: Fri, 16 Mar 2018 17:55:16 +0100
+Subject: =?utf-8?q?Pond=C3=A9ration_CAH_via_FactoMineR?=
+Message-ID: <CAJLOnoJ3YUvXNOgALUAYALQ=7oRwnu8gS93zO1mwN_WtJ84Djw@mail.gmail.com>
+
+Bonjour,
+
+Je recherche des informations sur la fonction HCPC dans le package
+FatoMineR.
+
+En l'occurrence, je souhaiterais faire une classification ascendante
+hiérarchique pondérée à partir d'une ACM elle-même pondérée.
+J'ai donc pondéré mon ACM (fonction MCA) avec la variable de poids de mon
+enquête. Je n'ai pas trouvé d'argument pour le faire dans la façon HCPC, en
+revanche il semblerait que la fonction prenne bien en compte la question du
+poids - mais ça n'est pas très clair pour moi. Est-ce que quelqu'un peut me
+confirmer que la fonction HCPC fait bien une CAH pondérée ?
+
+Merci d'avance et bon week-end !
+
+Cordialement,
+Aden Gaide
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Mar 16 17:05:20 2018
+From: samuel.coavoux-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Samuel Coavoux)
+Date: Fri, 16 Mar 2018 18:05:20 +0100
+Subject: =?utf-8?q?Re=3A_Pond=C3=A9ration_CAH_via_FactoMineR?=
+In-Reply-To: <CAJLOnoJ3YUvXNOgALUAYALQ=7oRwnu8gS93zO1mwN_WtJ84Djw@mail.gmail.com>
+References: <CAJLOnoJ3YUvXNOgALUAYALQ=7oRwnu8gS93zO1mwN_WtJ84Djw@mail.gmail.com>
+Message-ID: <CAFyE9YNiv-sbisjy51_8BhCck5rLTpgv+qcxeKv=yBTwn6QdjQ@mail.gmail.com>
+
+Il semble que HCPC() reprend les poids passés à MCA(); cf. ce bout de code
+(res étant l’objet retourné par MCA()):
+
+    if (is.null(res$call$row.w.init))
+      res$call$row.w.init <- res$call$row.w
+    t <- auto.cut.tree(res, min = min, max = max, metric = metric,
+      method = method, weight = res$call$row.w.init, cla = cla,
+      order = order, ...)
+
+2018-03-16 17:55 GMT+01:00 Aden Gaide <aden.gaide-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>:
+
+Bonjour,
+>
+> Je recherche des informations sur la fonction HCPC dans le package
+> FatoMineR.
+>
+> En l'occurrence, je souhaiterais faire une classification ascendante
+> hiérarchique pondérée à partir d'une ACM elle-même pondérée.
+> J'ai donc pondéré mon ACM (fonction MCA) avec la variable de poids de mon
+> enquête. Je n'ai pas trouvé d'argument pour le faire dans la façon HCPC, en
+> revanche il semblerait que la fonction prenne bien en compte la question du
+> poids - mais ça n'est pas très clair pour moi. Est-ce que quelqu'un peut me
+> confirmer que la fonction HCPC fait bien une CAH pondérée ?
+>
+> Merci d'avance et bon week-end !
+>
+> Cordialement,
+> Aden Gaide
+>
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+> ​
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From remi.sinthon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Mar 16 17:09:21 2018
+From: remi.sinthon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (=?utf-8?q?R=C3=A9mi_Sinthon?=)
+Date: Fri, 16 Mar 2018 18:09:21 +0100
+Subject: =?utf-8?q?Re=3A_Pond=C3=A9ration_CAH_via_FactoMineR?=
+In-Reply-To: <CAJLOnoJ3YUvXNOgALUAYALQ=7oRwnu8gS93zO1mwN_WtJ84Djw@mail.gmail.com>
+References: <CAJLOnoJ3YUvXNOgALUAYALQ=7oRwnu8gS93zO1mwN_WtJ84Djw@mail.gmail.com>
+Message-ID: <CACdv6DzbFVeRJg4ZKq=FGiwZ4bQZYJoUWSWQn0e+rSQ-O5z6+Q@mail.gmail.com>
+
+Bonjour,
+
+Je vois que vous avez choisi la pondération. Je suis à la fois Marie et
+Milan sur ce point: toute la question est de savoir si vous considérez le
+fait même de pondérer comme pertinent. Une fois ceci décidé, il me semble
+qu'il faut s'y tenir, quelle que soit la technique d'analyse des
+corrélations utilisée (ACM, régression ou autre).
+
+Sur la nouvelle question posée, je dois corriger une bêtise que j'ai dite
+dans ma première réponse.
+Lors d'une classification sur un nuage de points, deux points aux
+coordonnées identiques ont une distance nulle entre eux (quelle que soit la
+mesure de distance choisie).
+Or, les distances entre groupes de points (et non plus entre points) sont
+définies d'une manière ou d'une autre sur la base des distances entre
+points. Il en résulte que le résultat de la classification est exactement
+le même pour un nuage de points donné et pour le même nuage dont certains
+points auraient été "dédoublés". Cela se voit bien au graphique du
+dendrogramme de classification: les points à la base du dendrogrammes sont
+tous séparés: si deux points ont la même position ils sont confondus et ça
+n'affecte pas la procédure de clustering.
+*A fortiori*, le résultat de la classification est le même quelle que soit
+la pondération adoptée (étant entendu bien sûr que tous les poids sont
+strictement positifs).
+
+Par contre, là où la pondération importe, c'est dans la taille des classes
+obtenues: une classe sera plus grande si ses points sont plus fortement
+pondérés.
+
+Bref: pas besoin de pondération lors de la classification, par contre, *si
+la pondération est considérée pertinente*, il faut la réintroduire lors de
+la description des classes obtenues.
+
+Bon week-end à tout le monde,
+
+Rémi
+
+
+
+
+Le 16 mars 2018 à 17:55, Aden Gaide <aden.gaide-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> a écrit :
+
+> Bonjour,
+>
+> Je recherche des informations sur la fonction HCPC dans le package
+> FatoMineR.
+>
+> En l'occurrence, je souhaiterais faire une classification ascendante
+> hiérarchique pondérée à partir d'une ACM elle-même pondérée.
+> J'ai donc pondéré mon ACM (fonction MCA) avec la variable de poids de mon
+> enquête. Je n'ai pas trouvé d'argument pour le faire dans la façon HCPC, en
+> revanche il semblerait que la fonction prenne bien en compte la question du
+> poids - mais ça n'est pas très clair pour moi. Est-ce que quelqu'un peut me
+> confirmer que la fonction HCPC fait bien une CAH pondérée ?
+>
+> Merci d'avance et bon week-end !
+>
+> Cordialement,
+> Aden Gaide
+>
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From remi.sinthon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Mar 16 17:14:30 2018
+From: remi.sinthon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (=?utf-8?q?R=C3=A9mi_Sinthon?=)
+Date: Fri, 16 Mar 2018 18:14:30 +0100
+Subject: =?utf-8?q?Re=3A_Pond=C3=A9ration_CAH_via_FactoMineR?=
+In-Reply-To: <CACdv6DzbFVeRJg4ZKq=FGiwZ4bQZYJoUWSWQn0e+rSQ-O5z6+Q@mail.gmail.com>
+References: <CAJLOnoJ3YUvXNOgALUAYALQ=7oRwnu8gS93zO1mwN_WtJ84Djw@mail.gmail.com> <CACdv6DzbFVeRJg4ZKq=FGiwZ4bQZYJoUWSWQn0e+rSQ-O5z6+Q@mail.gmail.com>
+Message-ID: <CACdv6DxVoqdPiG08yK3rwDkVfMTnCWQLnxhBj35sM2UWOw=EsQ@mail.gmail.com>
+
+Oups, j'ai dit encore une bêtise et j'en reviens à ma toute première
+réponse:
+certaines distances entre groupes de points diffèrent selon la présence de
+nombreux points confondus ou non (par exemple quand la distance entre deux
+groupes est posée égale à la distance des barycentres des groupes). Donc la
+pondération importe.
+J'ai répondu trop vite et m'en excuse. Et je constate en même temps que
+Samuel a résolu le problème.
+
+Rémi
+
+
+Le 16 mars 2018 à 18:09, Rémi Sinthon <remi.sinthon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> a écrit :
+
+> Bonjour,
+>
+> Je vois que vous avez choisi la pondération. Je suis à la fois Marie et
+> Milan sur ce point: toute la question est de savoir si vous considérez le
+> fait même de pondérer comme pertinent. Une fois ceci décidé, il me semble
+> qu'il faut s'y tenir, quelle que soit la technique d'analyse des
+> corrélations utilisée (ACM, régression ou autre).
+>
+> Sur la nouvelle question posée, je dois corriger une bêtise que j'ai dite
+> dans ma première réponse.
+> Lors d'une classification sur un nuage de points, deux points aux
+> coordonnées identiques ont une distance nulle entre eux (quelle que soit la
+> mesure de distance choisie).
+> Or, les distances entre groupes de points (et non plus entre points) sont
+> définies d'une manière ou d'une autre sur la base des distances entre
+> points. Il en résulte que le résultat de la classification est exactement
+> le même pour un nuage de points donné et pour le même nuage dont certains
+> points auraient été "dédoublés". Cela se voit bien au graphique du
+> dendrogramme de classification: les points à la base du dendrogrammes sont
+> tous séparés: si deux points ont la même position ils sont confondus et ça
+> n'affecte pas la procédure de clustering.
+> *A fortiori*, le résultat de la classification est le même quelle que
+> soit la pondération adoptée (étant entendu bien sûr que tous les poids sont
+> strictement positifs).
+>
+> Par contre, là où la pondération importe, c'est dans la taille des classes
+> obtenues: une classe sera plus grande si ses points sont plus fortement
+> pondérés.
+>
+> Bref: pas besoin de pondération lors de la classification, par contre, *si
+> la pondération est considérée pertinente*, il faut la réintroduire lors
+> de la description des classes obtenues.
+>
+> Bon week-end à tout le monde,
+>
+> Rémi
+>
+>
+>
+>
+> Le 16 mars 2018 à 17:55, Aden Gaide <aden.gaide-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> a écrit :
+>
+>> Bonjour,
+>>
+>> Je recherche des informations sur la fonction HCPC dans le package
+>> FatoMineR.
+>>
+>> En l'occurrence, je souhaiterais faire une classification ascendante
+>> hiérarchique pondérée à partir d'une ACM elle-même pondérée.
+>> J'ai donc pondéré mon ACM (fonction MCA) avec la variable de poids de mon
+>> enquête. Je n'ai pas trouvé d'argument pour le faire dans la façon HCPC, en
+>> revanche il semblerait que la fonction prenne bien en compte la question du
+>> poids - mais ça n'est pas très clair pour moi. Est-ce que quelqu'un peut me
+>> confirmer que la fonction HCPC fait bien une CAH pondérée ?
+>>
+>> Merci d'avance et bon week-end !
+>>
+>> Cordialement,
+>> Aden Gaide
+>>
+>>
+>>
+>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>>
+>>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From olivier.godechot-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org  Sun Mar 18 17:01:20 2018
+From: olivier.godechot-OjvQ4EZaS5FrWtwKdN0D9g at public.gmane.org (Olivier Godechot)
+Date: Sun, 18 Mar 2018 18:01:20 +0100
+Subject: Re: Intervalle de confiance d'un odds ratio de moyennes proportion
+In-Reply-To: <679adae5-7cfb-d993-e65e-bd5268d50cfe@sciencespo.fr>
+References: <CAKc4pTKQeQrN1_irD4kkOWR4h_GzywkT1COUnzsGCAc5z8U-8g@mail.gmail.com> <679adae5-7cfb-d993-e65e-bd5268d50cfe@sciencespo.fr>
+Message-ID: <7e0365dc-4a14-ffb8-4b87-aef3bdc9db3d@sciencespo.fr>
+
+Bonjour à tous,
+
+Merci à Rémi et à Milan pour leurs messages. Quelques éléments de ma 
+progression, qui pourront être utiles à d'autres.
+
+J'ai fait une vérification par bootstrap, pour quelques cas (il faudrait 
+vérifier plus systématiquement pour une variation des paramètres de 
+base), mais il semble que pour calculer un IC d'un odds ratio de 
+moyennes de proportions 
+(OR(m(p1),m(p2)=[m(p1)/(1-m(p1)]/[m(p2)/(1-m(p2)] ) , l'idée de calculer 
+un OR des IC croisés de m(p1) et m(p2) ne soit pas une mauvaise solution.
+
+Précisons un peu. Si on encadre notre OR par OR(m(p1)_l, m(p2)_u)  et 
+OR(m(p1)_u, m(p2)_l), on obtiendra de un OR trop grand, exactement comme 
+si on encadrait m(p1)-m(p2) par [m(p1)_l-m(p2)_u)] et 
+[m(p1)_u-m(p2)_l].  (* l pour lower et u pour upper)
+
+La solution pratique que je retiens, en apparence confirmée par 
+bootstrapping est de recalculer à partir de l'IC de la différence 
+m(p1)-m(p2) des bornes pour m(p1) et m(p2) qui vérifient que 
+[m(p1)_u-m(p2)_l]-[m(p1)_l-m(p2)_u)]=[m(p1)-m(p2)]_u-[m(p1)-m(p2)]_l
+
+Il y a plusieurs façons d'obtenir ces bornes modifiées. Une fois 
+obtenues des bornes de m(p1) et m(p2), les résultats sur les odds ratio 
+varient peu et sont proches du résultat par bootstrap.
+
+A+
+
+
+
+Le 15/03/2018 à 12:26, Olivier GODECHOT a écrit :
+
+> Bonjour à tous,
+>
+>
+> Je calcule des proportions (ici des taux d'expositions aux femmes au 
+> travail) dans différences unités (établissement) et je calcule des 
+> moyennes de ces proportions pour l'ensemble de la population. Je 
+> voudrai comparer de tels moyennes de proportions pour différents 
+> groupes ou dans le temps, avec un odds ratio, moins sensible aux 
+> effets de bord et plus comparable. Je me pose la question du calcul 
+> d'un intervalle de confiance et j'ai pas trouvé de bonnes solutions. 
+> Une solution est de partir des intervalles de confiance des moyennes 
+> de proportion et/ou de la différence des moyennes des proportions.
+> Mais il y a peut-être mieux. Une idée ?
+>
+> Voici une simulation de mon exemple.
+>
+> NB: je n'ai pas accès aux données sources, et je ne peux pas envisager 
+> je crois de bootstrapping.
+>
+> A bientôt
+>
+>
+>
+> ############################
+> # Example
+> #Calculating exposure of females to females in different units 
+> (establishment)
+> #and compare this exposure from that of male to females
+>
+>
+> #Generation sample
+> n<-100000
+> unit<-round(runif(n),4)
+> female<-(runif(n)+unit>1.05)*1
+> d<-as.data.frame(cbind(unit,female))
+> d$one<-1
+>
+> d<-within(d,{n_unit = ave(one,unit,FUN=sum,na.rm=TRUE)} )
+> d<-within(d,{nfemale_unit = ave(female,unit,FUN=sum,na.rm=TRUE)} )
+> d$xfemale<-ifelse(d$n_u>1,(d$nfemale_unit-d$female)/(d$n_unit-1),NA)
+>
+> m<-tapply(d$xfemale,d$female,mean,na.rm=TRUE)
+> sd<-tapply(d$xfemale,d$female,sd,na.rm=TRUE)
+> var<-tapply(d$xfemale,d$female,var,na.rm=TRUE)
+> obs<-tapply(is.na(d$female)==FALSE,d$female,sum,na.rm=TRUE)
+> unit_meansize<-mean(d$n_unit[is.na(d$xfemale)==FALSE],na.rm=TRUE)
+> nb_unit<-length(table(d$u[is.na(d$xfemale)==FALSE]))
+>
+> #Available statistics in my data set
+> m
+> sd
+> se<-sd/(obs)**0.5
+> se
+> var
+> obs
+> prop.table(obs)
+> unit_meansize
+> nb_unit
+>
+> #Confidence interval for differnce in means
+> difm<-m[2]-m[1]
+> var_com<-((var*obs)[1]+(var*obs)[2])/(obs[1]+obs[2]-2)
+> se_com<-((var_com)**0.5)*((1/obs[1]+1/obs[2])**0.5)
+> lc95<-difm-1.96*se_com
+> uc95<-difm+1.96*se_com
+>
+> m[2]
+> m[1]
+> difm
+> lc95
+> uc95
+> se_com
+>
+> t.test(xfemale~I(1-female),data=d,var.equal=TRUE)
+>
+>
+> #Confidence interval for my log of odds ratio ?????
+> OR<-(m[2]/(1-m[2]))/(m[1]/(1-m[1]))
+> OR
+> log(OR)
+>
+> # Here the solution for log OR confidence (1/a+1/b+1/c+1/d)**0.5 is 
+> not available
+> # because we don't have just one table but an aggregation of tables.
+>
+>
+> # Proxy 1 based on the confidence interval each proportions
+> # Here I use the upper bound and the lower bound of each proportion
+> # And compute cross comparison
+> m2l<-m[2]-1.96*(sd[2])/(obs[2])**0.5
+> m1u<-m[1]+1.96*(sd[1])/(obs[1])**0.5
+> m1l<-m[1]-1.96*(sd[1])/(obs[1])**0.5
+> m2u<-m[2]+1.96*(sd[2])/(obs[2])**0.5
+>
+> # NB : with the technique the confidence interval of the mean is too 
+> large
+> m2l-m1u
+> lc95
+>
+> m2u-m1l
+> uc95
+>
+> ORl<-(m2l/(1-m2l))/(m1u/(1-m1u))
+> ORu<-(m2u/(1-m2u))/(m1l/(1-m1l))
+>
+> OR
+> ORl
+> ORu
+>
+> log(OR)
+> log(ORl)
+> log(ORu)
+>
+>
+> #Proxy 2, based on the confidence interval of the difference of 
+> proportions
+> m2lb<-m[2]-(uc95-difm)/2
+> m1ub<-m[1]+(uc95-difm)/2
+>
+> m2ub<-m[2]+(uc95-difm)/2
+> m1lb<-m[1]-(uc95-difm)/2
+>
+> difmlb<-m2lb-m1ub
+> difmub<-m2ub-m1lb
+>
+> difmlb
+> lc95
+>
+> difmub
+> uc95
+>
+> ORlb<-(m2lb/(1-m2lb))/(m1ub/(1-m1ub))
+> ORub<-(m2ub/(1-m2ub))/(m1lb/(1-m1lb))
+>
+> OR
+> ORlb
+> ORub
+>
+> log(OR)
+> log(ORlb)
+> log(ORub)
+>
+>
+> #Proxy 3, based on the confidence interval of
+> # the difference of  proportions
+> c<-(difm-lc95)/(1.96*(se[1]+se[2]))
+> c
+>
+> m2lc<-m[2]-c*1.96*(sd[2])/(obs[2])**0.5
+> m1uc<-m[1]+c*1.96*(sd[1])/(obs[1])**0.5
+> m1lc<-m[1]-c*1.96*(sd[1])/(obs[1])**0.5
+> m2uc<-m[2]+c*1.96*(sd[2])/(obs[2])**0.5
+>
+> m2lc-m1uc-difml
+> m2uc-m1lc-difmu
+>
+> ORlc<-(m2lc/(1-m2lc))/(m1uc/(1-m1uc))
+> ORuc<-(m2uc/(1-m2uc))/(m1lc/(1-m1lc))
+>
+> OR
+> ORlc
+> ORuc
+>
+> log(OR)
+> log(ORlc)
+> log(ORuc)
+>
+
+-------------- next part --------------
+############################
+# Example 
+#Calculating exposure of females to females in different units (establishment)
+#and compare this exposure from that of male to females
+
+#Generation sample
+#Parameters
+#Number of workers
+n<-10000
+#segregation parameter (between 0 : no segregation and 1 full segregation)
+s<-0.5
+
+#Share of women (between 0 and 1)
+w<-0.45
+z<-rnorm(n)
+unit<-round(z,3)
+female<-(((1-s)*rnorm(n)+s*unit)>qnorm(1-w))*1
+
+d<-as.data.frame(cbind(unit,female))
+d$one<-1
+
+
+d<-within(d,{n_unit = ave(one,unit,FUN=sum,na.rm=TRUE)} )
+d<-d[d$n_unit>1,]
+d<-within(d,{nfemale_unit = ave(female,unit,FUN=sum,na.rm=TRUE)} )
+d$xfemale<-ifelse(d$n_u>1,(d$nfemale_unit-d$female)/(d$n_unit-1),NA)
+m<-tapply(d$xfemale,d$female,mean,na.rm=TRUE)
+sd<-tapply(d$xfemale,d$female,sd,na.rm=TRUE)
+var<-tapply(d$xfemale,d$female,var,na.rm=TRUE)
+obs<-tapply(is.na(d$female)==FALSE,d$female,sum,na.rm=TRUE)
+
+unit_meansize<-mean(d$n_unit[is.na(d$xfemale)==FALSE],na.rm=TRUE)
+nb_unit<-length(table(d$u[is.na(d$xfemale)==FALSE]))
+
+#Available statistics in my data set
+m
+sd
+se<-sd/(obs)**0.5
+se
+var
+obs
+prop.table(obs)
+unit_meansize
+nb_unit
+table(d$n_unit)
+
+#Confidence interval for differnce in means
+difm<-m[2]-m[1]
+var_com<-((var*obs)[1]+(var*obs)[2])/(obs[1]+obs[2]-2)
+se_com<-((var_com)**0.5)*((1/obs[1]+1/obs[2])**0.5)
+lc95<-difm-1.96*se_com
+uc95<-difm+1.96*se_com
+
+m[2]
+m[1]
+difm 
+lc95
+uc95
+se_com
+
+t.test(xfemale~I(1-female),data=d,var.equal=TRUE)
+
+
+#Confidence interval for my log of odds ratio ?????
+OR<-(m[2]/(1-m[2]))/(m[1]/(1-m[1]))
+OR
+log(OR)
+
+# Here the solution for log OR confidence (1/a+1/b+1/c+1/d)**0.5 is not available
+# because we don't have just one table but an aggregation of tables.
+
+
+# Proxy 1 based on the confidence interval each proportions
+# Here I use the upper bound and the lower bound of each proportion
+# And compute cross comparison
+m2l<-m[2]-1.96*(sd[2])/(obs[2])**0.5
+m1u<-m[1]+1.96*(sd[1])/(obs[1])**0.5
+m1l<-m[1]-1.96*(sd[1])/(obs[1])**0.5
+m2u<-m[2]+1.96*(sd[2])/(obs[2])**0.5
+
+# NB : with the technique the confidence interval of the mean is too large
+m2l-m1u
+lc95
+
+m2u-m1l
+uc95
+
+ORl<-(m2l/(1-m2l))/(m1u/(1-m1u))
+ORu<-(m2u/(1-m2u))/(m1l/(1-m1l))
+
+OR
+ORl
+ORu
+
+log(OR)
+log(ORl)
+log(ORu)
+
+
+#Proxy 2, based on the confidence interval of the difference of proportions
+m2lb<-m[2]-(uc95-difm)/2
+m1ub<-m[1]+(uc95-difm)/2
+
+m2ub<-m[2]+(uc95-difm)/2
+m1lb<-m[1]-(uc95-difm)/2
+
+difmlb<-m2lb-m1ub
+difmub<-m2ub-m1lb
+
+difmlb
+lc95
+
+difmub
+uc95
+
+ORlb<-(m2lb/(1-m2lb))/(m1ub/(1-m1ub))
+ORub<-(m2ub/(1-m2ub))/(m1lb/(1-m1lb))
+
+OR
+ORlb
+ORub
+
+log(OR)
+log(ORlb)
+log(ORub)
+
+
+#Proxy 3, based on the confidence interval of 
+# the difference of  proportions
+c<-(difm-lc95)/(1.96*(se[1]+se[2]))
+c
+
+m2lc<-m[2]-c*1.96*(sd[2])/(obs[2])**0.5
+m1uc<-m[1]+c*1.96*(sd[1])/(obs[1])**0.5
+m1lc<-m[1]-c*1.96*(sd[1])/(obs[1])**0.5
+m2uc<-m[2]+c*1.96*(sd[2])/(obs[2])**0.5
+
+m2lc-m1uc-lc95
+m2uc-m1lc-uc95
+
+ORlc<-(m2lc/(1-m2lc))/(m1uc/(1-m1uc))
+ORuc<-(m2uc/(1-m2uc))/(m1lc/(1-m1lc))
+
+OR
+ORlc
+ORuc
+
+
+log(OR)
+log(ORlc)
+log(ORuc)
+
+
+#####################################################
+# Verification through bootstrapping 
+#####################################################
+
+install.packages("boot")
+library("boot")
+
+
+fc <- function(d, i){
+  d2 <- d[i,]
+  m<-tapply(d2$xfemale,d2$female,mean,na.rm=TRUE)
+  OR<-(m[2]/(1-m[2]))/(m[1]/(1-m[1]))
+  return(log(OR))
+}
+
+# bootstrapping with 1000 replications
+results <- boot(d, fc,
+                R=1000)
+results
+plot(results)
+summary(results)
+boot.ci(boot.out = results, type = c("norm", "basic"))
+
+
+
+####################################################
+# Constructing cross tables through Dyadic ties
+d$id<-row.names(d)
+
+e<-merge(d,d,by="unit")
+e<-e[e$id.x!=e$id.y,]
+str(e)
+
+
+#View(e)
+t<-table(e$female.x,e$female.y)
+p<-prop.table(table(e$female.x,e$female.y),1)
+addmargins(t)
+p
+se_t<-sum(1/t)**0.5
+se_t
+or_t<-(p[2,2]/(1-p[2,2]))/(p[1,2]/(1-p[1,2]))
+or_t
+log(or_t)
+log(or_t)-1.96*se_t
+log(or_t)+1.96*se_t
+
+l<-glm(female.y~female.x,data=e,family=binomial)
+summary(l)
+
+#the table above based on dyadic relations with all coworkers differ from our first table, 
+# because it is waited by coworkers
+
+
+#Therefore the original table can be reproduced by reweighting 
+#each lign of the table by 1/(number of coworkers) 
+t0<-tapply((1-e$female.y)/(e$n_unit.y-1),e$female.x,sum)
+t1<-tapply(e$female.y/(e$n_unit.y-1),e$female.x,sum)
+t2<-rbind(t0,t1)
+addmargins(t2)
+p2<-prop.table(t2,1)
+p2
+
+se_t2<-sum(1/t2)**0.5
+se_t2
+or_t2<-(p2[2,2]/(1-p2[2,2]))/(p2[1,2]/(1-p2[1,2]))
+or_t2
+log(or_t2)
+log(or_t2)-1.96*se_t2
+log(or_t2)+1.96*se_t2
+
+
+#However we get large CI because we don't take into account the reduction of cell variance through 
+#aggregation
+
+
+#Those tables can be reproduced with our statistics
+sum(d$nfemale_unit-d$female)
+sum(d$n_unit-d$nfemale_unit-(1-d$female))
+
+m
+p
+t
+
+coworkers<-prop.table(obs)*(sum(obs)*unit_meansize-sum(obs))
+myt<-rbind(coworkers-m*coworkers,m*coworkers)
+
+addmargins(myt)
+addmargins(t)
+
+p3<-prop.table(myt,1)
+
+
+se_t3<-sum(1/myt)**0.5
+or_t3<-(p3[2,2]/(1-p3[2,2]))/(p3[1,2]/(1-p3[1,2]))
+or_t3
+log(or_t3)
+log(or_t3)-1.96*se_t3
+log(or_t3)+1.96*se_t3
+
+-------------- next part --------------
+#Generation sample
+#Parameters
+#Number of workers
+n<-100000
+#segregation parameter (between 0 : no segregation and 1 full segregation)
+s<-0.3
+
+#Share of women (between 0 and 1)
+w<-0.3
+var<-runif(n)
+female<-(runif(n)<w)*1
+z<-rnorm(n)
+
+
+target_prop<-0.3
+dif_prop<-0.05
+sdf2h_ratio<-0.9
+
+var<-ifelse(female==1,pnorm(z,-qnorm(target_prop+dif_prop/2),1/sdf2h_ratio),
+            pnorm(z,-qnorm(target_prop-dif_prop/2),sdf2h_ratio))
+summary(var)
+
+
+d<-as.data.frame(cbind(var,female))
+d$one<-1
+
+
+summary(d$var)
+summary(d$female)
+
+m<-tapply(d$var,d$female,mean,na.rm=TRUE)
+m
+sd<-tapply(d$var,d$female,sd,na.rm=TRUE)
+sd
+var<-tapply(d$var,d$female,var,na.rm=TRUE)
+obs<-tapply(is.na(d$female)==FALSE,d$female,sum,na.rm=TRUE)
+
+
+#Available statistics in my data set
+m
+sd
+se<-sd/(obs)**0.5
+se
+var
+obs
+prop.table(obs)
+
+
+
+#Confidence interval for differnce in means
+difm<-m[2]-m[1]
+var_com<-((var*obs)[1]+(var*obs)[2])/(obs[1]+obs[2]-2)
+se_com<-((var_com)**0.5)*((1/obs[1]+1/obs[2])**0.5)
+lc95<-difm-1.96*se_com
+uc95<-difm+1.96*se_com
+
+m[2]
+m[1]
+difm 
+lc95
+uc95
+se_com
+
+t.test(var~I(1-female),data=d,var.equal=TRUE)
+
+
+#Confidence interval for my log of odds ratio ?????
+OR<-(m[2]/(1-m[2]))/(m[1]/(1-m[1]))
+OR
+log(OR)
+
+# Here the solution for log OR confidence (1/a+1/b+1/c+1/d)**0.5 is not available
+# because we don't have just one table but an aggregation of tables.
+
+
+# Proxy 1 based on the confidence interval each proportions
+# Here I use the upper bound and the lower bound of each proportion
+# And compute cross comparison
+m2l<-m[2]-1.96*(sd[2])/(obs[2])**0.5
+m1u<-m[1]+1.96*(sd[1])/(obs[1])**0.5
+m1l<-m[1]-1.96*(sd[1])/(obs[1])**0.5
+m2u<-m[2]+1.96*(sd[2])/(obs[2])**0.5
+
+# NB : with the technique the confidence interval of the mean is too large
+m2l-m1u
+lc95
+
+m2u-m1l
+uc95
+
+ORl<-(m2l/(1-m2l))/(m1u/(1-m1u))
+ORu<-(m2u/(1-m2u))/(m1l/(1-m1l))
+
+OR
+ORl
+ORu
+
+log(OR)
+log(ORl)
+log(ORu)
+
+
+#Proxy 2, based on the confidence interval of the difference of proportions
+m2lb<-m[2]-(uc95-difm)/2
+m1ub<-m[1]+(uc95-difm)/2
+
+m2ub<-m[2]+(uc95-difm)/2
+m1lb<-m[1]-(uc95-difm)/2
+
+difmlb<-m2lb-m1ub
+difmub<-m2ub-m1lb
+
+difmlb
+lc95
+
+difmub
+uc95
+
+ORlb<-(m2lb/(1-m2lb))/(m1ub/(1-m1ub))
+ORub<-(m2ub/(1-m2ub))/(m1lb/(1-m1lb))
+
+OR
+ORlb
+ORub
+
+log(OR)
+log(ORlb)
+log(ORub)
+
+
+#Proxy 3, based on the confidence interval of 
+# the difference of  proportions
+c<-(difm-lc95)/(1.96*(se[1]+se[2]))
+c
+
+m2lc<-m[2]-c*1.96*(sd[2])/(obs[2])**0.5
+m1uc<-m[1]+c*1.96*(sd[1])/(obs[1])**0.5
+m1lc<-m[1]-c*1.96*(sd[1])/(obs[1])**0.5
+m2uc<-m[2]+c*1.96*(sd[2])/(obs[2])**0.5
+
+m2lc-m1uc-lc95
+m2uc-m1lc-uc95
+
+ORlc<-(m2lc/(1-m2lc))/(m1uc/(1-m1uc))
+ORuc<-(m2uc/(1-m2uc))/(m1lc/(1-m1lc))
+
+OR
+ORlc
+ORuc
+
+
+log(OR)
+log(ORlc)
+log(ORuc)
+
+
+#####################################################
+# Verification through bootstrapping 
+#####################################################
+
+#install.packages("boot")
+library("boot")
+
+
+fc <- function(d, i){
+  d2 <- d[i,]
+  m<-tapply(d2$var,d2$female,mean,na.rm=TRUE)
+  OR<-(m[2]/(1-m[2]))/(m[1]/(1-m[1]))
+  return(log(OR))
+}
+
+# bootstrapping with 1000 replications
+results <- boot(d, fc,
+                R=1000)
+results
+plot(results)
+summary(results)
+boot.ci(boot.out = results, type = c("norm", "basic"))
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Mar 19 22:27:10 2018
+From: joel.gombin-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Joel GOMBIN)
+Date: Mon, 19 Mar 2018 22:27:10 +0000
+Subject: =?utf-8?q?Re=3A_Co=C3=BBts_diff=C3=A9rents_pour_l=27insertion_et_la_suppression_dans_la_fonction_seqdist=28=29_de_TraMineR_=3F?=
+In-Reply-To: <48f36eba267ab2fbdfd6dc6986e4d143@ens-lyon.fr>
+References: <001b01d3bb70$5ff21bf0$1fd653d0$@ens-lyon.fr> <9c5da9f0-1b00-9024-0b69-866ec2d5960b@sciencespo.fr> <00aa01d3bb8a$a2ffa420$e8feec60$@ens-lyon.fr> <CAKc4pTLyWEqs5BQtJ1-scWFoWjTFjYjZExTxt46afKLMO_oXkg@mail.gmail.com> <48f36eba267ab2fbdfd6dc6986e4d143@ens-lyon.fr>
+Message-ID: <CA+o9Gp_068W=WEUo9Vi7h5468meFYsPJ0X4vTKEsSjH7B2YJWg@mail.gmail.com>
+
+J'en profite pour faire un peu de pub pour ce petit outil que j'ai
+prototypé : https://github.com/datactivist/helpR.
+Il s'agit d'un petit chatbot dans Rstudio qui permet de poser des
+questions, qui arrivent sur un slack en backoffice (en l'état le mien, mais
+il est aisé de modifier le code pour que ça arrive sur le service d'aide
+pédagogique d'une université, par exemple).
+je suis preneur de retours !
+
+Joel
+
+On Wed, Mar 14, 2018 at 6:50 PM Julien Barnier <julien.barnier-vYW+cPY1g1pWj0EZb7rXcA at public.gmane.org>
+wrote:
+
+> Bonjour,
+>
+> L'idée de base pour la création d'un Slack (ou plutôt d'une formule
+> "discussion instantanée", ça aurait pu être une autre plateforme) c'est
+> surtout un constat : je parle systématiquement de cette liste quand je
+> donne des formations R, et je crois que jamais personne n'a posé de
+> question dessus, alors que ce sont la plupart du temps des débutants qui
+> auraient besoin d'un accompagnement.
+>
+> Du coup l'idée du Slack c'est de proposer un outil complémentaire, qui
+> parlerait peut-être davantage aux plus jeunes ou aux débutants (par sa
+> forme et par le fait qu'on peut utiliser un pseudonyme). Mais ça reste à
+> prouver, et l'outil deviendra évidemment ce qu'en feront ses
+> utilisateurs (et peut-être qu'il ne deviendra rien du tout).
+>
+> En tous cas l'objectif n'est pas de se substituer aux ressources déjà
+> existantes (listes mails, forums, etc.) mais de venir en complément,
+> chacun pouvant participer à ce qui lui convient le mieux (je comprends
+> bien le côté potentiellement chronophage et fatigant de la
+> multiplication des canaux)...
+>
+> J'espère que ça répond aux interrogations ?
+>
+> Bonne soirée !
+>
+> Julien
+>
+> --
+> Julien Barnier
+> Centre Max Weber
+>
+>
+> Le 2018-03-14 15:50, Etienne Ollion a écrit :
+>
+> > Merci de partager l'information Pierre, et de ramener l'information
+> > depuis Slack
+> > Je me posais une question à propos du fil slack justement: qu'est-ce
+> > qu'il apporte par rapport à la liste? Et est-ce qu'il faut qu'on migre
+> > tous vers Slack, plutôt que de conserver deux lieux de publication?
+> > J'avais l'impression que la liste n'était pas scandaleusement active au
+> > point de la dédoubler, mais peut etre y a t il un intérêt? Julien B,
+> > qui a créé la liste avant le Slack, doit avoir une idée.
+> >
+> > C'est une vraie question, et je migrerai vers un autre service si
+> > besoin. Mais en toute honnêteté, si je peux éviter d'avoir un fil
+> > supplémentaire là dessus (slack), je m'en porterai aussi bien. Amitiés
+> > à tous,
+> >
+> > Etienne
+> >
+> > 2018-03-14 12:50 GMT+01:00 Pierre Mercklé <pierre.merckle at ens-lyon.fr>:
+> >
+> > Merci Claire, et merci Etienne pour vos réponses,
+> >
+> > Comme j'ai besoin de traitements un peu automatiques (il s'agit de
+> > trier 200,000+ publications), je vais m'orienter effectivement vers des
+> > techniques de matching inexact de noms. Sur le slack que Julien vient
+> > de mettre en place (https://r-grrr.slack.com), Samuel m'a suggéré le
+> > package stringdist, et Paul-André m'a suggéré fuzzyjoin... A suivre !
+> >
+> > Merci encore pour vos suggestions !
+> >
+> > Amicalement,
+> >
+> > Pierre
+> >
+> > DE : r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+> > <r-soc-request-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org> DE LA PART DE Claire Lemercier
+> > ENVOYÉ : mercredi 14 mars 2018 10:18
+> > À : r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org
+> > OBJET : Re: [R-soc] Coûts différents pour l'insertion et la suppression
+> > dans la fonction seqdist() de TraMineR ?
+> >
+> > Bonjour Pierre,
+> >
+> > A moins que je sois mal réveillée, on ne peut pas : les matrices de
+> > coût de l'OA sont symétriques (car la distance de A vers B est toujours
+> > la même que de B vers A), ce qui peut du reste poser problème parfois
+> > aussi pour les coûts de substitution.
+> >
+> > En revanche, il existe des tas de machins (en général avec des gros
+> > taux d'erreur) de matching de noms, développés pour la généalogie
+> > notamment. Je ne sais pas te pointer vers des algorithmes / sites
+> > ressources précis cependant, mais peut-être que d'autres personnes de
+> > la liste pourront.
+> >
+> > Bien amicalement,
+> > CL.
+> >
+> > Le 14/03/2018 à 09:42, Pierre Mercklé a écrit :
+> >
+> > Bonjour tout le monde
+> >
+> > Une petite question pour vous pour les amateurs d'analyse de séquences
+> > et d'optimal matching...
+> >
+> > J'ai les "vrais" prénoms d'une personne, par exemple "RICCARDO M", et
+> > j'ai une liste de prénoms candidats dont je dois déterminer s'ils sont
+> > compatibles avec le sien, ou s'il s'agit d'une autre personne
+> > (l'objectif est de discriminer faux positifs dans des listes de
+> > publications aspirées sur Web of Science, par exemple : c("RICCARDO M",
+> > "RAFAEL", "RICARDO", "R M", "R", "RICHARD").
+> >
+> > Après quelques tentatives, une piste intéressante consiste à utiliser
+> > de l'optimal matching, en calculant les distances entre le vrai prénom
+> > et chaque prénom candidat. Je le fais ci-dessous à l'aide de la
+> > fonction seqdist(method="OM") de TraMineR :
+> >
+> > # Exemple Riccardo
+> >
+> > library(TraMineR)
+> >
+> > library(magrittr)
+> >
+> > real <- "RICCARDO M"
+> >
+> > seq.real <- gsub("", "-", real)
+> >
+> > obs <- c("RICCARDO M", "RAFAEL", "RICARDO", "R M", "R", "RICHARD")
+> >
+> > seq.obs <- gsub("", "-", obs)
+> >
+> > order <- seqdist(seqdef(c(seq.real, seq.obs)), refseq=1, method="OM",
+> > sm="CONSTANT")
+> >
+> > res <- cbind(obs, dist=order[-1]) %>%
+> > as.data.frame(stringsAsFactors=FALSE)
+> >
+> > print(res[order(as.integer(res$dist)), ])
+> >
+> > L'OM avec indel=1 classe correctement les prénoms candidats, mais pour
+> > améliorer la discrimination entre les « bons » prénoms candidats et le
+> > mauvais prénom (RAFAEL), j'aurais besoin de paramétrer un coût
+> > d'insertion d'une nouvelle lettre bien supérieur au coût de suppression
+> > d'une lettre existante, et je ne trouve pas comment faire. Le paramètre
+> > indel de seqdist() impute en effet la même valeur à l'insertion et à la
+> > suppression. Quelqu'un sait-il comment faire pour les paramétrer
+> > séparément ?
+> >
+> > Bon début de journée à tout le monde !
+> >
+> > Pierre
+> >
+> > --
+> > Liste des utilisateurs de R en sciences sociales
+> > Informations / options / désabonnement :
+> > https://groupes.renater.fr/sympa/info/r-soc
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org  Tue Mar 20 17:23:56 2018
+From: aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org (Anton Perdoncin)
+Date: Tue, 20 Mar 2018 18:23:56 +0100
+Subject: =?utf-8?q?Passage_format_=C3=A9pisode_-_format_individu?=
+Message-ID: <a8285000-d28d-8ee5-ccb1-965626d58482@ens-cachan.fr>
+
+Salut,
+
+Petit problème de manipulation de données : je veux passer d'un format
+de données de type "épisodes" (une ligne correspondant à une
+publication... donc un même individu (auteur) se répète autant de fois
+qu'il a de publis différentes) comportant des variables relatives à
+chaque épisode et des variables "fixes" relatives à l'auteur, à un
+format "individu" (une ligne = un individu (auteur) avec informations
+sur les différentes publis en colonnes).
+
+Voici un exemple reproductible : on cherche à passer de df à df2...
+
+
+id <- c(rep("id1", 3), rep("id2", 2))
+sexe <- c(rep("H", 3), rep("F", 2))
+ne_a <- c(rep(1945, 3), rep(1950, 2))
+publi <- paste0("Journal", 1:5)
+publi_a <- 1950:1954
+df <- data.frame(id, sexe, ne_a, publi, publi_a)
+df
+
+id <- 1:2
+sexe <- c("H", "F")
+ne_a <- c(1945, 1950)
+publi1 <- paste0("Journal", c(1,4))
+publi2 <- paste0("Journal", c(2,5))
+publi3 <- c(paste0("Journal", 3), NA)
+publi_a1 <- c(1950, 1953)
+publi_a2 <- c(1951, 1954)
+publi_a3 <- c(1952, NA)
+df2 <- data.frame(id, sexe, ne_a, publi1, publi2, publi3, publi_a1,
+publi_a2, publi_a3)
+df2
+
+Je me doute que la solution doit impliquer gather... mais je suis encore
+novice dans l'art du tidyverse...
+
+Merci !
+
+Amicalement
+
+-- 
+Anton Perdoncin
+Doctorant à l'IDHES
+Agrégé Préparateur
+Ecole Normale Supérieure
+Département de Sciences Sociales
+48 bd Jourdan
+75014 Paris
+
+http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From yann.renisio-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Mar 20 18:04:25 2018
+From: yann.renisio-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Yann Renisio)
+Date: Tue, 20 Mar 2018 19:04:25 +0100
+Subject: =?utf-8?q?Re=3A_Passage_format_=C3=A9pisode_-_format_individu?=
+In-Reply-To: <a8285000-d28d-8ee5-ccb1-965626d58482@ens-cachan.fr>
+References: <a8285000-d28d-8ee5-ccb1-965626d58482@ens-cachan.fr>
+Message-ID: <CAMS7S+zAoTn7FAhP9E=OpTxm7UeMNVPJDzjTcZd4P6dg98-6aQ@mail.gmail.com>
+
+Bonjour,
+
+J'ai fait en sorte d'obtenir exactement df2 depuis df, mais j'imagine que
+la première opération n'est pas très utile...
+
+library(tidyverse)
+
+df3 <- df %>%
+  mutate(id = str_replace(string = id, pattern = "id", replacement = ""))
+%>% # se débarasser du lemme "id" dans la variable id.
+  group_by(id) %>%
+  mutate(ordre = row_number()) %>% # créer une variable d'ordre
+  gather(nouvelle_variable, nouvelle_valeur, -c(id:ne_a, ordre)) %>% #
+passer en format long
+  mutate(nouvelle_variable = paste0(nouvelle_variable, ordre)) %>% #
+associer ordre à la variable
+  select(-ordre) %>% # se débarasser de la variable d'ordre
+  spread(nouvelle_variable, nouvelle_valeur) # passer en format large.
+
+
+df3 == df2
+
+Est ce que cela convient?
+
+Yann
+
+Yann Renisio
+Docteur en sociologie
+CMH Paris <http://www.cmh.ens.fr/Renisio-Yann>
+Postdoc PSL au Collège de France
+3, rue d'Ulm, 75005 Paris
+(+33) 6 26 92 46 63 <06%2026%2092%2046%2063>.
+
+
+
+
+
+Le 20 mars 2018 à 18:23, Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org> a écrit :
+
+> Salut,
+>
+> Petit problème de manipulation de données : je veux passer d'un format
+> de données de type "épisodes" (une ligne correspondant à une
+> publication... donc un même individu (auteur) se répète autant de fois
+> qu'il a de publis différentes) comportant des variables relatives à
+> chaque épisode et des variables "fixes" relatives à l'auteur, à un
+> format "individu" (une ligne = un individu (auteur) avec informations
+> sur les différentes publis en colonnes).
+>
+> Voici un exemple reproductible : on cherche à passer de df à df2...
+>
+>
+> id <- c(rep("id1", 3), rep("id2", 2))
+> sexe <- c(rep("H", 3), rep("F", 2))
+> ne_a <- c(rep(1945, 3), rep(1950, 2))
+> publi <- paste0("Journal", 1:5)
+> publi_a <- 1950:1954
+> df <- data.frame(id, sexe, ne_a, publi, publi_a)
+> df
+>
+> id <- 1:2
+> sexe <- c("H", "F")
+> ne_a <- c(1945, 1950)
+> publi1 <- paste0("Journal", c(1,4))
+> publi2 <- paste0("Journal", c(2,5))
+> publi3 <- c(paste0("Journal", 3), NA)
+> publi_a1 <- c(1950, 1953)
+> publi_a2 <- c(1951, 1954)
+> publi_a3 <- c(1952, NA)
+> df2 <- data.frame(id, sexe, ne_a, publi1, publi2, publi3, publi_a1,
+> publi_a2, publi_a3)
+> df2
+>
+> Je me doute que la solution doit impliquer gather... mais je suis encore
+> novice dans l'art du tidyverse...
+>
+> Merci !
+>
+> Amicalement
+>
+> --
+> Anton Perdoncin
+> Doctorant à l'IDHES
+> Agrégé Préparateur
+> Ecole Normale Supérieure
+> Département de Sciences Sociales
+> 48 bd Jourdan
+> 75014 Paris
+>
+> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>
+>
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+

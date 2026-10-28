@@ -1,0 +1,2915 @@
+From lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org  Thu May  8 03:52:47 2014
+From: lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org (Lngmyers)
+Date: Thu, 08 May 2014 11:52:47 +0800
+Subject: bug in lmer or in my head?
+In-Reply-To: <67D909CD-542C-4733-9442-C1481CC6110B-XkckGZ689+c@public.gmane.org>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu>
+Message-ID: <536AFF8F.8090805@ccu.edu.tw>
+
+
+I'm teaching stats this semester and was trying to be all Barr-orthodox in my 
+LME handout, so I played around with some fake data that I created somehow or 
+other in 2008, originally designed for teaching minF'. But when trying to use 
+likelihood ratio tests to test the significance of one factor, I got a bizarre 
+result: in the reduced model, one of the factors was treated as if it had four 
+levels in its interaction with the removed factor, when actually it has only 
+two. The problem disappears if this factor is recoded by hand to a numerical 
+variable using effect (sum) coding (-1 vs. 1).
+
+I wasn't able to replicate this bizarre result in simpler data, so let me just 
+show you using the original fake data set, which is here:
+
+http://www.ccunix.ccu.edu.tw/~lngproc/doramiR.txt
+
+This describes a fake experiment in which Dorami (who is, of course, the sister 
+of Doraemon - no idea why all sorts of crap manga get translated into English, 
+but not this classic - maybe because there's no blood or cheesecake) had a bunch 
+of people with either a high school or college education respond (giving RTs) to 
+a bunch of words: nouns and verbs, of high and low frequency (fully crossed). 
+Every person gets words of all four types, so syntactic category and frequency 
+are grouped by participant, and every item is responded to by people of both 
+education levels, so education is grouped by item. (This is not a design 
+addressed by Barr et al. 2013, since they're cognitive psychologists, not social 
+or personality psychologists.)
+
+Let's run the analysis, shall we?
+
+# Load'er up
+
+library(lme4) # I'm using R version 3.1.0, lme4 version 1.1-6, in Windows 7
+ddat = read.delim("doramiR.txt")
+
+# I purposely threw in some NA's, originally to show how
+# by-participant and by-item means need not be the same
+
+ddat = na.omit(ddat)
+
+# Fixed factors still look pretty balanced
+
+xtabs(~Education+SynCat+Freq, data=ddat)
+
+# , , Freq = High
+#
+#             SynCat
+# Education    Noun Verb
+#   College      48   49
+#   HighSchool   47   48
+#
+# , , Freq = Low
+#
+#             SynCat
+# Education    Noun Verb
+#   College      48   50
+#   HighSchool   49   47
+
+# I wanted the interactions to work as they do in ANOVA, rather than
+# partially disappearing into the intercept as they do with R's default
+# dummy (treatment) coding for factors, so I use effect (sum) coding
+# - but this isn't responsible for the weird results, as further
+# experiments showed (I leave this for the interested reader)
+
+contrasts(ddat$Education) = contr.sum(levels(ddat$Education)) # 1 = College
+contrasts(ddat$SynCat) = contr.sum(levels(ddat$SynCat)) # 1 = Noun
+contrasts(ddat$Freq) = contr.sum(levels(ddat$Freq)) # 1 = High
+
+# The maximal model, with fixed factors grouped as they should be,
+# following Barr et al. (2013, p. 275): "In most cases, one should also have
+# by-unit random slopes for any interactions where all factors comprising the
+# interaction are within-unit; if any one factor involved in the interaction is
+# between-unit, then the random slope associated with that interaction cannot
+# be estimated, and is not needed."
+
+ddat.lmer.max = lmer(RT~Education*SynCat*Freq # Fixed part
+  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat) # Random part
+summary(ddat.lmer.max)
+
+# Nothing but frequency is significant - I did that on purpose, because I'm
+# kind of a jerk. The only weird thing in this summary are the super-high
+# random correlations for SynCat and Freq, which I guess happen because
+# I didn't create this fake data set with LME in mind. These correlations
+# seem to be responsible for another curiosity, namely that the REML
+# algorithm fails to converge when running a by-participants-only analysis,
+# without the random Item factor (which I guess increases the proportion of
+# the random "collinearity" enough to choke REML). I'm not sure, but I
+# don't think this is relevant to the factor "bug"....
+
+# Linear mixed model fit by REML ['lmerMod']
+# Formula: RT ~ Education * SynCat * Freq + ((SynCat * Freq) | Participant) +
+#     (Education | Item)
+#    Data: ddat
+#
+# REML criterion at convergence: 5016.7
+#
+# Scaled residuals:
+#     Min      1Q  Median      3Q     Max
+# -1.8514 -0.6317 -0.2075  0.4085  3.9700
+#
+# Random effects:
+#  Groups      Name          Variance Std.Dev. Corr
+#  Participant (Intercept)     635.1   25.20
+#              SynCat1         239.3   15.47    1.00
+#              Freq1           185.0   13.60   -1.00 -0.99
+#              SynCat1:Freq1  1095.8   33.10    0.05  0.13  0.03
+#  Item        (Intercept)    1188.2   34.47
+#              Education1      844.6   29.06   -0.33
+#  Residual                  27146.5  164.76
+# Number of obs: 386, groups: Participant, 20; Item, 20
+#
+# Fixed effects:
+#                          Estimate Std. Error t value
+# (Intercept)              742.9591    12.7177   58.42
+# Education1                -0.4537    12.0234   -0.04
+# SynCat1                   18.4146    11.9171    1.55
+# Freq1                    -30.6700    11.8029   -2.60
+# Education1:SynCat1         1.1824    11.1732    0.11
+# Education1:Freq1          17.7279    11.0513    1.60
+# SynCat1:Freq1              5.7752    13.5956    0.42
+# Education1:SynCat1:Freq1  -3.0658    12.9484   -0.24
+#
+# Correlation of Fixed Effects:
+#             (Intr) Edctn1 SynCt1 Freq1  Ed1:SC1 Ed1:F1 SC1:F1
+# Education1  -0.114
+# SynCat1      0.131  0.006
+# Freq1       -0.112  0.000 -0.071
+# Edctn1:SyC1  0.006  0.148 -0.131 -0.006
+# Edctn1:Frq1  0.000 -0.126 -0.006 -0.134 -0.081
+# SynCt1:Frq1  0.016 -0.005  0.023  0.007  0.000   0.006
+# Edc1:SC1:F1 -0.005  0.017  0.000  0.005  0.026   0.007 -0.099
+
+# Now I try to get a p value for Freq only, using a likelihood ratio test:
+# I triple-checked this syntax in simpler cases, and I'm pretty sure it's right.
+
+ddat.lmer.noFreq = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+
+# But when running this, the chi-squared value is 0, since the two models
+# are somehow considered to be identical:
+
+anova(ddat.lmer.noFreq, ddat.lmer.max)
+
+#                  Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
+# ddat.lmer.noFreq 22 5114.4 5201.5 -2535.2   5070.4
+# ddat.lmer.max    22 5114.4 5201.5 -2535.2   5070.4     0      0  < 2.2e-16 ***
+
+# Looking at the no-Freq results shows the problem:
+# Education adds two extra levels in its interaction with Freq:
+#  Education(-1) [implicit reference level]
+#  Education1
+#  EducationCollege
+#  EducationHighSchool
+
+summary(ddat.lmer.noFreq)
+
+# Fixed effects:
+#                           Estimate Std. Error t value
+# (Intercept)               742.9591    12.7177   58.42
+# Education1                 -0.4537    12.0234   -0.04
+# SynCat1                    18.4146    11.9172    1.55
+# Education1:SynCat1          1.1824    11.1732    0.11
+# EducationCollege:Freq1    -12.9422    15.0472   -0.86
+# EducationHighSchool:Freq1 -48.3979    17.2181   -2.81
+# SynCat1:Freq1               5.7752    13.5956    0.42
+# Education1:SynCat1:Freq1   -3.0658    12.9484   -0.24
+
+# The problem is fixed by recoding Education by hand:
+
+ddat$Education = 2*(ddat$Education=="College")-1
+
+# Then start over again:
+
+ddat.lmer.max.fix = lmer(RT~Education*SynCat*Freq
+  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+summary(ddat.lmer.max.fix)
+
+# Same as before - so far so good
+
+# Fixed effects:
+#                         Estimate Std. Error t value
+# (Intercept)             742.9591    12.7177   58.42
+# Education                -0.4537    12.0234   -0.04
+# SynCat1                  18.4146    11.9171    1.55
+# Freq1                   -30.6700    11.8029   -2.60
+# Education:SynCat1         1.1824    11.1732    0.11
+# Education:Freq1          17.7279    11.0513    1.60
+# SynCat1:Freq1             5.7752    13.5956    0.42
+# Education:SynCat1:Freq1  -3.0658    12.9484   -0.24
+
+# Recreate no-Freq model (same syntax as before):
+
+ddat.lmer.noFreq.fix = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+
+# No-Freq model looks OK now:
+
+summary(ddat.lmer.noFreq.fix)
+
+# Fixed effects:
+#                         Estimate Std. Error t value
+# (Intercept)             739.4937    14.2179   52.01
+# Education                -0.4382    12.1119   -0.04
+# SynCat1                  16.4284    13.5346    1.21
+# Education:SynCat1         0.9499    11.2388    0.08
+# Education:Freq1          13.9567    11.1204    1.26
+# SynCat1:Freq1             6.0047    15.0334    0.40
+# Education:SynCat1:Freq1  -2.9103    12.9739   -0.22
+
+# Run likelihood ratio test
+
+anova(ddat.lmer.noFreq.fix, ddat.lmer.max.fix)
+
+#                Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)
+# ddat.lmer.noFreq.fix 21 5119.3 5202.4 -2538.7 5077.3
+# ddat.lmer.max.fix    22 5114.4 5201.5 -2535.2   5070.4 6.8956  1  0.008641 **
+
+# That gives a p value close to what you get for the t = z method
+
+nrow(ddat) # 386: Central Limit Theorem should help, if df relates mainly to n
+2*pnorm(-2.60) # p = 0.009322376
+
+
+So there you go - is the bug in lmer or in my head?
+
+-- 
+James Myers
+Graduate Institute of Linguistics
+National Chung Cheng University
+168 University Road, Min-Hsiung
+Chia-Yi 62102
+TAIWAN
+Email:  Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+Phone:  886-5-242-8251
+Fax:    886-5-272-1654
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu May  8 05:35:12 2014
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Thu, 08 May 2014 01:35:12 -0400
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <536AFF8F.8090805@ccu.edu.tw>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw>
+Message-ID: <CA+tkQ_OG+B50VBeJwROoYwjpf3k7ihWncrvOWVbUdiMcyKKboQ@mail.gmail.com>
+
+Hey jm,
+
+Well, you're not crazy. But it's not unique to lmer (the same thing happens
+in plain lm), so it has something to do with the way contrasts are handled
+with factors.  Note also that order matters: if you switch the relevant
+part of the formula from (Education*SynCat):Freq to
+(SynCat*Education):Freq, then you get the SynCat factor behaving in the
+weird "split" way instead.  Same thing if you spell out each parameter
+long-ways (i.e., without the * shorthand).  Why it should matter which one
+comes first is beyond me.  Finally, the fact that you are setting contrasts
+seems irrelevant, because if you leave it all as "treatment" coding, you
+still get an analogous pattern.
+
+So the issue, whatever it is, is not in your head, nor is it in lmer (or at
+least, not uniquely) -- it's in the way factors (by which I mean the R data
+class) are handled in the structure of the model.  It frankly gives me a
+headache to try to interpret what all the coefficients actually mean in the
+model without the "main effect" of Freq, but I can see why you're doing it
+(as a practical workaround to get a p-value), and I think that makes sense
+from that point of view.
+
+I guess the moral of the story is that factors can have some unexpected
+behavior (at least, unexpected to you or me) when you start dropping simple
+effects but retain interactions.  Maybe this behavior makes sense
+("feature" rather than "bug") to the authors, once you start thinking about
+more general cases, like factors with many levels. But when you get down to
+it, I think numeric coding of variables is the best way to exert absolute
+control.
+
+cheers,
+-scott
+
+
+On Wed, May 7, 2014 at 11:52 PM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+
+>
+> I'm teaching stats this semester and was trying to be all Barr-orthodox in
+> my LME handout, so I played around with some fake data that I created
+> somehow or other in 2008, originally designed for teaching minF'. But when
+> trying to use likelihood ratio tests to test the significance of one
+> factor, I got a bizarre result: in the reduced model, one of the factors
+> was treated as if it had four levels in its interaction with the removed
+> factor, when actually it has only two. The problem disappears if this
+> factor is recoded by hand to a numerical variable using effect (sum) coding
+> (-1 vs. 1).
+>
+> I wasn't able to replicate this bizarre result in simpler data, so let me
+> just show you using the original fake data set, which is here:
+>
+> http://www.ccunix.ccu.edu.tw/~lngproc/doramiR.txt
+>
+> This describes a fake experiment in which Dorami (who is, of course, the
+> sister of Doraemon - no idea why all sorts of crap manga get translated
+> into English, but not this classic - maybe because there's no blood or
+> cheesecake) had a bunch of people with either a high school or college
+> education respond (giving RTs) to a bunch of words: nouns and verbs, of
+> high and low frequency (fully crossed). Every person gets words of all four
+> types, so syntactic category and frequency are grouped by participant, and
+> every item is responded to by people of both education levels, so education
+> is grouped by item. (This is not a design addressed by Barr et al. 2013,
+> since they're cognitive psychologists, not social or personality
+> psychologists.)
+>
+> Let's run the analysis, shall we?
+>
+> # Load'er up
+>
+> library(lme4) # I'm using R version 3.1.0, lme4 version 1.1-6, in Windows 7
+> ddat = read.delim("doramiR.txt")
+>
+> # I purposely threw in some NA's, originally to show how
+> # by-participant and by-item means need not be the same
+>
+> ddat = na.omit(ddat)
+>
+> # Fixed factors still look pretty balanced
+>
+> xtabs(~Education+SynCat+Freq, data=ddat)
+>
+> # , , Freq = High
+> #
+> #             SynCat
+> # Education    Noun Verb
+> #   College      48   49
+> #   HighSchool   47   48
+> #
+> # , , Freq = Low
+> #
+> #             SynCat
+> # Education    Noun Verb
+> #   College      48   50
+> #   HighSchool   49   47
+>
+> # I wanted the interactions to work as they do in ANOVA, rather than
+> # partially disappearing into the intercept as they do with R's default
+> # dummy (treatment) coding for factors, so I use effect (sum) coding
+> # - but this isn't responsible for the weird results, as further
+> # experiments showed (I leave this for the interested reader)
+>
+> contrasts(ddat$Education) = contr.sum(levels(ddat$Education)) # 1 =
+> College
+> contrasts(ddat$SynCat) = contr.sum(levels(ddat$SynCat)) # 1 = Noun
+> contrasts(ddat$Freq) = contr.sum(levels(ddat$Freq)) # 1 = High
+>
+> # The maximal model, with fixed factors grouped as they should be,
+> # following Barr et al. (2013, p. 275): "In most cases, one should also
+> have
+> # by-unit random slopes for any interactions where all factors comprising
+> the
+> # interaction are within-unit; if any one factor involved in the
+> interaction is
+> # between-unit, then the random slope associated with that interaction
+> cannot
+> # be estimated, and is not needed."
+>
+> ddat.lmer.max = lmer(RT~Education*SynCat*Freq # Fixed part
+>  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat) # Random part
+> summary(ddat.lmer.max)
+>
+> # Nothing but frequency is significant - I did that on purpose, because I'm
+> # kind of a jerk. The only weird thing in this summary are the super-high
+> # random correlations for SynCat and Freq, which I guess happen because
+> # I didn't create this fake data set with LME in mind. These correlations
+> # seem to be responsible for another curiosity, namely that the REML
+> # algorithm fails to converge when running a by-participants-only analysis,
+> # without the random Item factor (which I guess increases the proportion of
+> # the random "collinearity" enough to choke REML). I'm not sure, but I
+> # don't think this is relevant to the factor "bug"....
+>
+> # Linear mixed model fit by REML ['lmerMod']
+> # Formula: RT ~ Education * SynCat * Freq + ((SynCat * Freq) |
+> Participant) +
+> #     (Education | Item)
+> #    Data: ddat
+> #
+> # REML criterion at convergence: 5016.7
+> #
+> # Scaled residuals:
+> #     Min      1Q  Median      3Q     Max
+> # -1.8514 -0.6317 -0.2075  0.4085  3.9700
+> #
+> # Random effects:
+> #  Groups      Name          Variance Std.Dev. Corr
+> #  Participant (Intercept)     635.1   25.20
+> #              SynCat1         239.3   15.47    1.00
+> #              Freq1           185.0   13.60   -1.00 -0.99
+> #              SynCat1:Freq1  1095.8   33.10    0.05  0.13  0.03
+> #  Item        (Intercept)    1188.2   34.47
+> #              Education1      844.6   29.06   -0.33
+> #  Residual                  27146.5  164.76
+> # Number of obs: 386, groups: Participant, 20; Item, 20
+> #
+> # Fixed effects:
+> #                          Estimate Std. Error t value
+> # (Intercept)              742.9591    12.7177   58.42
+> # Education1                -0.4537    12.0234   -0.04
+> # SynCat1                   18.4146    11.9171    1.55
+> # Freq1                    -30.6700    11.8029   -2.60
+> # Education1:SynCat1         1.1824    11.1732    0.11
+> # Education1:Freq1          17.7279    11.0513    1.60
+> # SynCat1:Freq1              5.7752    13.5956    0.42
+> # Education1:SynCat1:Freq1  -3.0658    12.9484   -0.24
+> #
+> # Correlation of Fixed Effects:
+> #             (Intr) Edctn1 SynCt1 Freq1  Ed1:SC1 Ed1:F1 SC1:F1
+> # Education1  -0.114
+> # SynCat1      0.131  0.006
+> # Freq1       -0.112  0.000 -0.071
+> # Edctn1:SyC1  0.006  0.148 -0.131 -0.006
+> # Edctn1:Frq1  0.000 -0.126 -0.006 -0.134 -0.081
+> # SynCt1:Frq1  0.016 -0.005  0.023  0.007  0.000   0.006
+> # Edc1:SC1:F1 -0.005  0.017  0.000  0.005  0.026   0.007 -0.099
+>
+> # Now I try to get a p value for Freq only, using a likelihood ratio test:
+> # I triple-checked this syntax in simpler cases, and I'm pretty sure it's
+> right.
+>
+> ddat.lmer.noFreq = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+>  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+>
+> # But when running this, the chi-squared value is 0, since the two models
+> # are somehow considered to be identical:
+>
+> anova(ddat.lmer.noFreq, ddat.lmer.max)
+>
+> #                  Df    AIC    BIC  logLik deviance Chisq Chi Df
+> Pr(>Chisq)
+> # ddat.lmer.noFreq 22 5114.4 5201.5 -2535.2 5070.4
+> # ddat.lmer.max    22 5114.4 5201.5 -2535.2 5070.4     0      0  <
+> 2.2e-16 ***
+>
+> # Looking at the no-Freq results shows the problem:
+> # Education adds two extra levels in its interaction with Freq:
+> #  Education(-1) [implicit reference level]
+> #  Education1
+> #  EducationCollege
+> #  EducationHighSchool
+>
+> summary(ddat.lmer.noFreq)
+>
+> # Fixed effects:
+> #                           Estimate Std. Error t value
+> # (Intercept)               742.9591    12.7177   58.42
+> # Education1                 -0.4537    12.0234   -0.04
+> # SynCat1                    18.4146    11.9172    1.55
+> # Education1:SynCat1          1.1824    11.1732    0.11
+> # EducationCollege:Freq1    -12.9422    15.0472   -0.86
+> # EducationHighSchool:Freq1 -48.3979    17.2181   -2.81
+> # SynCat1:Freq1               5.7752    13.5956    0.42
+> # Education1:SynCat1:Freq1   -3.0658    12.9484   -0.24
+>
+> # The problem is fixed by recoding Education by hand:
+>
+> ddat$Education = 2*(ddat$Education=="College")-1
+>
+> # Then start over again:
+>
+> ddat.lmer.max.fix = lmer(RT~Education*SynCat*Freq
+>  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+> summary(ddat.lmer.max.fix)
+>
+> # Same as before - so far so good
+>
+> # Fixed effects:
+> #                         Estimate Std. Error t value
+> # (Intercept)             742.9591    12.7177   58.42
+> # Education                -0.4537    12.0234   -0.04
+> # SynCat1                  18.4146    11.9171    1.55
+> # Freq1                   -30.6700    11.8029   -2.60
+> # Education:SynCat1         1.1824    11.1732    0.11
+> # Education:Freq1          17.7279    11.0513    1.60
+> # SynCat1:Freq1             5.7752    13.5956    0.42
+> # Education:SynCat1:Freq1  -3.0658    12.9484   -0.24
+>
+> # Recreate no-Freq model (same syntax as before):
+>
+> ddat.lmer.noFreq.fix = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+>  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+>
+> # No-Freq model looks OK now:
+>
+> summary(ddat.lmer.noFreq.fix)
+>
+> # Fixed effects:
+> #                         Estimate Std. Error t value
+> # (Intercept)             739.4937    14.2179   52.01
+> # Education                -0.4382    12.1119   -0.04
+> # SynCat1                  16.4284    13.5346    1.21
+> # Education:SynCat1         0.9499    11.2388    0.08
+> # Education:Freq1          13.9567    11.1204    1.26
+> # SynCat1:Freq1             6.0047    15.0334    0.40
+> # Education:SynCat1:Freq1  -2.9103    12.9739   -0.22
+>
+> # Run likelihood ratio test
+>
+> anova(ddat.lmer.noFreq.fix, ddat.lmer.max.fix)
+>
+> #                Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)
+> # ddat.lmer.noFreq.fix 21 5119.3 5202.4 -2538.7 5077.3
+> # ddat.lmer.max.fix    22 5114.4 5201.5 -2535.2   5070.4 6.8956  1
+>  0.008641 **
+>
+> # That gives a p value close to what you get for the t = z method
+>
+> nrow(ddat) # 386: Central Limit Theorem should help, if df relates mainly
+> to n
+> 2*pnorm(-2.60) # p = 0.009322376
+>
+>
+> So there you go - is the bug in lmer or in my head?
+>
+> --
+> James Myers
+> Graduate Institute of Linguistics
+> National Chung Cheng University
+> 168 University Road, Min-Hsiung
+> Chia-Yi 62102
+> TAIWAN
+> Email:  Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+> Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+> Phone:  886-5-242-8251
+> Fax:    886-5-272-1654
+>
+
+From lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org  Thu May  8 06:00:58 2014
+From: lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org (Lngmyers)
+Date: Thu, 08 May 2014 14:00:58 +0800
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <CA+tkQ_OG+B50VBeJwROoYwjpf3k7ihWncrvOWVbUdiMcyKKboQ@mail.gmail.com>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com><67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu><536AFF8F.8090805@ccu.edu.tw> <CA+tkQ_OG+B50VBeJwROoYwjpf3k7ihWncrvOWVbUdiMcyKKboQ@mail.gmail.com>
+Message-ID: <536B1D9A.9000003@ccu.edu.tw>
+
+
+Thanks for joining the game so quickly. Yeah, I hate factors - I always turn 
+them into numbers by hand before I run anything. I also try to design my 
+experiments to avoid all fixed factors with more than two levels (numerical 
+variables I don't mind). Why would somebody intentionally design an experiment 
+where they have to rely on planned comparisons or post-hocs? - jm
+
+On 2014/5/8 下午 01:35, Scott Jackson wrote:
+> Hey jm,
+>
+> Well, you're not crazy. But it's not unique to lmer (the same thing happens in
+> plain lm), so it has something to do with the way contrasts are handled with
+> factors.  Note also that order matters: if you switch the relevant part of the
+> formula from (Education*SynCat):Freq to (SynCat*Education):Freq, then you get
+> the SynCat factor behaving in the weird "split" way instead.  Same thing if you
+> spell out each parameter long-ways (i.e., without the * shorthand).  Why it
+> should matter which one comes first is beyond me.  Finally, the fact that you
+> are setting contrasts seems irrelevant, because if you leave it all as
+> "treatment" coding, you still get an analogous pattern.
+>
+> So the issue, whatever it is, is not in your head, nor is it in lmer (or at
+> least, not uniquely) -- it's in the way factors (by which I mean the R data
+> class) are handled in the structure of the model.  It frankly gives me a
+> headache to try to interpret what all the coefficients actually mean in the
+> model without the "main effect" of Freq, but I can see why you're doing it (as a
+> practical workaround to get a p-value), and I think that makes sense from that
+> point of view.
+>
+> I guess the moral of the story is that factors can have some unexpected behavior
+> (at least, unexpected to you or me) when you start dropping simple effects but
+> retain interactions.  Maybe this behavior makes sense ("feature" rather than
+> "bug") to the authors, once you start thinking about more general cases, like
+> factors with many levels. But when you get down to it, I think numeric coding of
+> variables is the best way to exert absolute control.
+>
+> cheers,
+> -scott
+>
+>
+> On Wed, May 7, 2014 at 11:52 PM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+> <mailto:lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org>> wrote:
+>
+>
+>     I'm teaching stats this semester and was trying to be all Barr-orthodox in
+>     my LME handout, so I played around with some fake data that I created
+>     somehow or other in 2008, originally designed for teaching minF'. But when
+>     trying to use likelihood ratio tests to test the significance of one factor,
+>     I got a bizarre result: in the reduced model, one of the factors was treated
+>     as if it had four levels in its interaction with the removed factor, when
+>     actually it has only two. The problem disappears if this factor is recoded
+>     by hand to a numerical variable using effect (sum) coding (-1 vs. 1).
+>
+>     I wasn't able to replicate this bizarre result in simpler data, so let me
+>     just show you using the original fake data set, which is here:
+>
+>     http://www.ccunix.ccu.edu.tw/~__lngproc/doramiR.txt
+>     <http://www.ccunix.ccu.edu.tw/~lngproc/doramiR.txt>
+>
+>     This describes a fake experiment in which Dorami (who is, of course, the
+>     sister of Doraemon - no idea why all sorts of crap manga get translated into
+>     English, but not this classic - maybe because there's no blood or
+>     cheesecake) had a bunch of people with either a high school or college
+>     education respond (giving RTs) to a bunch of words: nouns and verbs, of high
+>     and low frequency (fully crossed). Every person gets words of all four
+>     types, so syntactic category and frequency are grouped by participant, and
+>     every item is responded to by people of both education levels, so education
+>     is grouped by item. (This is not a design addressed by Barr et al. 2013,
+>     since they're cognitive psychologists, not social or personality psychologists.)
+>
+>     Let's run the analysis, shall we?
+>
+>     # Load'er up
+>
+>     library(lme4) # I'm using R version 3.1.0, lme4 version 1.1-6, in Windows 7
+>     ddat = read.delim("doramiR.txt")
+>
+>     # I purposely threw in some NA's, originally to show how
+>     # by-participant and by-item means need not be the same
+>
+>     ddat = na.omit(ddat)
+>
+>     # Fixed factors still look pretty balanced
+>
+>     xtabs(~Education+SynCat+Freq, data=ddat)
+>
+>     # , , Freq = High
+>     #
+>     #             SynCat
+>     # Education    Noun Verb
+>     #   College      48   49
+>     #   HighSchool   47   48
+>     #
+>     # , , Freq = Low
+>     #
+>     #             SynCat
+>     # Education    Noun Verb
+>     #   College      48   50
+>     #   HighSchool   49   47
+>
+>     # I wanted the interactions to work as they do in ANOVA, rather than
+>     # partially disappearing into the intercept as they do with R's default
+>     # dummy (treatment) coding for factors, so I use effect (sum) coding
+>     # - but this isn't responsible for the weird results, as further
+>     # experiments showed (I leave this for the interested reader)
+>
+>     contrasts(ddat$Education) = contr.sum(levels(ddat$__Education)) # 1 = College
+>     contrasts(ddat$SynCat) = contr.sum(levels(ddat$SynCat)) # 1 = Noun
+>     contrasts(ddat$Freq) = contr.sum(levels(ddat$Freq)) # 1 = High
+>
+>     # The maximal model, with fixed factors grouped as they should be,
+>     # following Barr et al. (2013, p. 275): "In most cases, one should also have
+>     # by-unit random slopes for any interactions where all factors comprising the
+>     # interaction are within-unit; if any one factor involved in the interaction is
+>     # between-unit, then the random slope associated with that interaction cannot
+>     # be estimated, and is not needed."
+>
+>     ddat.lmer.max = lmer(RT~Education*SynCat*Freq # Fixed part
+>       +((SynCat*Freq)|Participant)+(__Education|Item), data = ddat) # Random part
+>     summary(ddat.lmer.max)
+>
+>     # Nothing but frequency is significant - I did that on purpose, because I'm
+>     # kind of a jerk. The only weird thing in this summary are the super-high
+>     # random correlations for SynCat and Freq, which I guess happen because
+>     # I didn't create this fake data set with LME in mind. These correlations
+>     # seem to be responsible for another curiosity, namely that the REML
+>     # algorithm fails to converge when running a by-participants-only analysis,
+>     # without the random Item factor (which I guess increases the proportion of
+>     # the random "collinearity" enough to choke REML). I'm not sure, but I
+>     # don't think this is relevant to the factor "bug"....
+>
+>     # Linear mixed model fit by REML ['lmerMod']
+>     # Formula: RT ~ Education * SynCat * Freq + ((SynCat * Freq) | Participant) +
+>     #     (Education | Item)
+>     #    Data: ddat
+>     #
+>     # REML criterion at convergence: 5016.7
+>     #
+>     # Scaled residuals:
+>     #     Min      1Q  Median      3Q     Max
+>     # -1.8514 -0.6317 -0.2075  0.4085  3.9700
+>     #
+>     # Random effects:
+>     #  Groups      Name          Variance Std.Dev. Corr
+>     #  Participant (Intercept)     635.1   25.20
+>     #              SynCat1         239.3   15.47    1.00
+>     #              Freq1           185.0   13.60   -1.00 -0.99
+>     #              SynCat1:Freq1  1095.8   33.10    0.05  0.13  0.03
+>     #  Item        (Intercept)    1188.2   34.47
+>     #              Education1      844.6   29.06   -0.33
+>     #  Residual                  27146.5  164.76
+>     # Number of obs: 386, groups: Participant, 20; Item, 20
+>     #
+>     # Fixed effects:
+>     #                          Estimate Std. Error t value
+>     # (Intercept)              742.9591    12.7177   58.42
+>     # Education1                -0.4537    12.0234   -0.04
+>     # SynCat1                   18.4146    11.9171    1.55
+>     # Freq1                    -30.6700    11.8029   -2.60
+>     # Education1:SynCat1         1.1824    11.1732    0.11
+>     # Education1:Freq1          17.7279    11.0513    1.60
+>     # SynCat1:Freq1              5.7752    13.5956    0.42
+>     # Education1:SynCat1:Freq1  -3.0658    12.9484   -0.24
+>     #
+>     # Correlation of Fixed Effects:
+>     #             (Intr) Edctn1 SynCt1 Freq1  Ed1:SC1 Ed1:F1 SC1:F1
+>     # Education1  -0.114
+>     # SynCat1      0.131  0.006
+>     # Freq1       -0.112  0.000 -0.071
+>     # Edctn1:SyC1  0.006  0.148 -0.131 -0.006
+>     # Edctn1:Frq1  0.000 -0.126 -0.006 -0.134 -0.081
+>     # SynCt1:Frq1  0.016 -0.005  0.023  0.007  0.000   0.006
+>     # Edc1:SC1:F1 -0.005  0.017  0.000  0.005  0.026   0.007 -0.099
+>
+>     # Now I try to get a p value for Freq only, using a likelihood ratio test:
+>     # I triple-checked this syntax in simpler cases, and I'm pretty sure it's right.
+>
+>     ddat.lmer.noFreq = lmer(RT~ (Education*SynCat)+(Education*__SynCat):Freq
+>       +((SynCat*Freq)|Participant)+(__Education|Item), data = ddat)
+>
+>     # But when running this, the chi-squared value is 0, since the two models
+>     # are somehow considered to be identical:
+>
+>     anova(ddat.lmer.noFreq, ddat.lmer.max)
+>
+>     #                  Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
+>     # ddat.lmer.noFreq 22 5114.4 5201.5 -2535.2 5070.4 <tel:2535.2%20%20%205070.4>
+>     # ddat.lmer.max    22 5114.4 5201.5 -2535.2 5070.4
+>     <tel:2535.2%20%20%205070.4>     0      0  < 2.2e-16 ***
+>
+>     # Looking at the no-Freq results shows the problem:
+>     # Education adds two extra levels in its interaction with Freq:
+>     #  Education(-1) [implicit reference level]
+>     #  Education1
+>     #  EducationCollege
+>     #  EducationHighSchool
+>
+>     summary(ddat.lmer.noFreq)
+>
+>     # Fixed effects:
+>     #                           Estimate Std. Error t value
+>     # (Intercept)               742.9591    12.7177   58.42
+>     # Education1                 -0.4537    12.0234   -0.04
+>     # SynCat1                    18.4146    11.9172    1.55
+>     # Education1:SynCat1          1.1824    11.1732    0.11
+>     # EducationCollege:Freq1    -12.9422    15.0472   -0.86
+>     # EducationHighSchool:Freq1 -48.3979    17.2181   -2.81
+>     # SynCat1:Freq1               5.7752    13.5956    0.42
+>     # Education1:SynCat1:Freq1   -3.0658    12.9484   -0.24
+>
+>     # The problem is fixed by recoding Education by hand:
+>
+>     ddat$Education = 2*(ddat$Education=="College")-__1
+>
+>     # Then start over again:
+>
+>     ddat.lmer.max.fix = lmer(RT~Education*SynCat*Freq
+>       +((SynCat*Freq)|Participant)+(__Education|Item), data = ddat)
+>     summary(ddat.lmer.max.fix)
+>
+>     # Same as before - so far so good
+>
+>     # Fixed effects:
+>     #                         Estimate Std. Error t value
+>     # (Intercept)             742.9591    12.7177   58.42
+>     # Education                -0.4537    12.0234   -0.04
+>     # SynCat1                  18.4146    11.9171    1.55
+>     # Freq1                   -30.6700    11.8029   -2.60
+>     # Education:SynCat1         1.1824    11.1732    0.11
+>     # Education:Freq1          17.7279    11.0513    1.60
+>     # SynCat1:Freq1             5.7752    13.5956    0.42
+>     # Education:SynCat1:Freq1  -3.0658    12.9484   -0.24
+>
+>     # Recreate no-Freq model (same syntax as before):
+>
+>     ddat.lmer.noFreq.fix = lmer(RT~ (Education*SynCat)+(Education*__SynCat):Freq
+>       +((SynCat*Freq)|Participant)+(__Education|Item), data = ddat)
+>
+>     # No-Freq model looks OK now:
+>
+>     summary(ddat.lmer.noFreq.fix)
+>
+>     # Fixed effects:
+>     #                         Estimate Std. Error t value
+>     # (Intercept)             739.4937    14.2179   52.01
+>     # Education                -0.4382    12.1119   -0.04
+>     # SynCat1                  16.4284    13.5346    1.21
+>     # Education:SynCat1         0.9499    11.2388    0.08
+>     # Education:Freq1          13.9567    11.1204    1.26
+>     # SynCat1:Freq1             6.0047    15.0334    0.40
+>     # Education:SynCat1:Freq1  -2.9103    12.9739   -0.22
+>
+>     # Run likelihood ratio test
+>
+>     anova(ddat.lmer.noFreq.fix, ddat.lmer.max.fix)
+>
+>     #                Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)
+>     # ddat.lmer.noFreq.fix 21 5119.3 5202.4 -2538.7 5077.3 <tel:2538.7%205077.3>
+>     # ddat.lmer.max.fix    22 5114.4 5201.5 -2535.2   5070.4 6.8956  1  0.008641 **
+>
+>     # That gives a p value close to what you get for the t = z method
+>
+>     nrow(ddat) # 386: Central Limit Theorem should help, if df relates mainly to n
+>     2*pnorm(-2.60) # p = 0.009322376
+>
+>
+>     So there you go - is the bug in lmer or in my head?
+>
+>     --
+>     James Myers
+>     Graduate Institute of Linguistics
+>     National Chung Cheng University
+>     168 University Road, Min-Hsiung
+>     Chia-Yi 62102
+>     TAIWAN
+>     Email: Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org <mailto:Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org>
+>     Web: http://www.ccunix.ccu.edu.tw/~__lngmyers/
+>     <http://www.ccunix.ccu.edu.tw/~lngmyers/>
+>     Phone:  886-5-242-8251
+>     Fax:    886-5-272-1654
+>
+>
+
+-- 
+James Myers
+Graduate Institute of Linguistics
+National Chung Cheng University
+168 University Road, Min-Hsiung
+Chia-Yi 62102
+TAIWAN
+Email:  Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+Phone:  886-5-242-8251
+Fax:    886-5-272-1654
+
+From njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org  Thu May  8 11:16:05 2014
+From: njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org (Nathaniel Smith)
+Date: Thu, 08 May 2014 12:16:05 +0100
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <536AFF8F.8090805@ccu.edu.tw>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw>
+Message-ID: <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com>
+
+On Thu, May 8, 2014 at 4:52 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+> I'm teaching stats this semester and was trying to be all Barr-orthodox in
+> # Now I try to get a p value for Freq only, using a likelihood ratio test:
+> # I triple-checked this syntax in simpler cases, and I'm pretty sure it's
+> right.
+>
+> ddat.lmer.noFreq = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+>  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+>
+> # But when running this, the chi-squared value is 0, since the two models
+> # are somehow considered to be identical:
+>
+> anova(ddat.lmer.noFreq, ddat.lmer.max)
+>
+> #                  Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
+> # ddat.lmer.noFreq 22 5114.4 5201.5 -2535.2 5070.4
+> # ddat.lmer.max    22 5114.4 5201.5 -2535.2 5070.4     0      0  < 2.2e-16
+> ***
+>
+> # Looking at the no-Freq results shows the problem:
+> # Education adds two extra levels in its interaction with Freq:
+> #  Education(-1) [implicit reference level]
+> #  Education1
+> #  EducationCollege
+> #  EducationHighSchool
+>
+> summary(ddat.lmer.noFreq)
+>
+> # Fixed effects:
+> #                           Estimate Std. Error t value
+> # (Intercept)               742.9591    12.7177   58.42
+> # Education1                 -0.4537    12.0234   -0.04
+> # SynCat1                    18.4146    11.9172    1.55
+> # Education1:SynCat1          1.1824    11.1732    0.11
+> # EducationCollege:Freq1    -12.9422    15.0472   -0.86
+> # EducationHighSchool:Freq1 -48.3979    17.2181   -2.81
+> # SynCat1:Freq1               5.7752    13.5956    0.42
+> # Education1:SynCat1:Freq1   -3.0658    12.9484   -0.24
+
+This isn't a bug in lmer, but rather a (extremely reasonable)
+misunderstanding about how formulas work. Unfortunately most docs
+don't try to explain the principles underlying formula interpretation
+and just rely on people picking it up from examples...
+
+The way to think about a formula like
+  y ~ 1 + Education + SynCat + Education:SynCat
+is that R *starts out* assuming dummy coding for everything. What that
+formula means is that you want an intercept, and you want to allow the
+predicted value of 'y' to be different for each level of Education,
+and to be different for each level of SynCat, and to be different for
+each combination of levels of Education & SynCat. (It may help to type
+'Education:SynCat' at a regular prompt, not in a formula, and see what
+you get.)
+
+So that's the overall model we've asked R to fit. Now, as a second
+step, R tries to figure out how to code it. If it just uses dummy
+coding everywhere, then that will create a redundant
+(overparametrized) model, which would be a bit annoying. In
+particular, that Education:SynCat term encompasses *all* of the other
+terms, so we could drop any subset of the other terms from our formula
+and R would still fit the same overall model. So R doesn't use those
+terms to decide what model to fit, it just uses them to decide what
+parametrization to use. The way this works is, R goes through from
+left to right (after sorting low-order interactions before high-order
+interactions), and for each term it asks "do I need to switch any of
+these factors from dummy coding to contrast coding in order to avoid
+redundancy with the stuff to its left?"
+
+In this case, the answer is yes, every factor in every term needs to
+use contrast coding, so that's what R does. This is why a formula like
+"~ Education" (which is implicitly expanded to "~ 1 + Education")
+gives you contrast coding, but a formula like "~ 0 + Education" gives
+you dummy coding. And the same logic explains how R interprets other
+formulas like "~ 1 + Education + Education:SynCat" or "~ 0 + Education
++ Education:SynCat" or "~ 0 + Education:SynCat" -- these all give "the
+same model" in the sense that they all create design matrices with the
+same column space, but they encode it differently. (However, if you
+try "~1 + Education:SynCat" you actually will get an overparametrized
+model, because R is buggy!)
+
+The fixed effect part second model expands to
+
+~ 1 + Education + SynCat + Education:SynCat + Education:Freq +
+SynCat:Freq + Education:SynCat:Freq
+
+notice that the 1 + Education + Education:Freq part of this is exactly
+like one of the smaller models I used as an example above. R notices
+that you want all combinations of Education:Freq to affect the result,
+and since Freq does not otherwise appear in the model, the only way to
+accomplish this is to use dummy coding for Education.
+
+I can't off the top of my head think of a better way to fit the
+restricted model you were trying to fit than to escape R's coding
+system entirely by coding it by hand, as you did. I don't really think
+this should be considered a flaw in R's coding system, though, because
+the model you want to fit violates the principle of marginality and
+AFAICT makes no sense (in that it imposes a complicated and
+implausible constraint on the fitted model -- your final "by-hand"
+model isn't testing for a main effect or an interaction, it's testing
+some sort of weird constraint that I can't even figure out and that
+depends on the details of your coding scheme, like "does Freq matter
+for this specific combination of Education and SynCat but not this
+other one" -- something like that). Generally if you want to check for
+whether Freq matters, you should compare to a model where Freq has
+been removed entirely, and only check for main effects after first
+removing interactions (this is the "principle of marginality").
+
+-- 
+Nathaniel J. Smith
+Postdoctoral researcher - Informatics - University of Edinburgh
+http://vorpus.org
+
+From njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org  Thu May  8 11:29:23 2014
+From: njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org (Nathaniel Smith)
+Date: Thu, 08 May 2014 12:29:23 +0100
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com>
+Message-ID: <CAPJVwBkrbeXOg-kM0TT99UmUP+uzyVNxWSzPXzUdFf9voTXyCw@mail.gmail.com>
+
+Forgot to say: if anyone wants to really understand the details here,
+the best document I know is:
+  http://patsy.readthedocs.org/en/latest/formulas.html
+
+(Caveat 1: I wrote it, so I would think that, wouldn't I? Caveat 2: it
+actually describes how a Python library called "patsy" interprets
+formulas, not how R does. They're very closely related, and in
+particular the underlying theory is identical, but there are
+differences:
+   http://patsy.readthedocs.org/en/latest/R-comparison.html#r-comparison
+)
+
+-n
+
+On Thu, May 8, 2014 at 12:16 PM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+> On Thu, May 8, 2014 at 4:52 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+>> I'm teaching stats this semester and was trying to be all Barr-orthodox in
+>> # Now I try to get a p value for Freq only, using a likelihood ratio test:
+>> # I triple-checked this syntax in simpler cases, and I'm pretty sure it's
+>> right.
+>>
+>> ddat.lmer.noFreq = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+>>  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+>>
+>> # But when running this, the chi-squared value is 0, since the two models
+>> # are somehow considered to be identical:
+>>
+>> anova(ddat.lmer.noFreq, ddat.lmer.max)
+>>
+>> #                  Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
+>> # ddat.lmer.noFreq 22 5114.4 5201.5 -2535.2 5070.4
+>> # ddat.lmer.max    22 5114.4 5201.5 -2535.2 5070.4     0      0  < 2.2e-16
+>> ***
+>>
+>> # Looking at the no-Freq results shows the problem:
+>> # Education adds two extra levels in its interaction with Freq:
+>> #  Education(-1) [implicit reference level]
+>> #  Education1
+>> #  EducationCollege
+>> #  EducationHighSchool
+>>
+>> summary(ddat.lmer.noFreq)
+>>
+>> # Fixed effects:
+>> #                           Estimate Std. Error t value
+>> # (Intercept)               742.9591    12.7177   58.42
+>> # Education1                 -0.4537    12.0234   -0.04
+>> # SynCat1                    18.4146    11.9172    1.55
+>> # Education1:SynCat1          1.1824    11.1732    0.11
+>> # EducationCollege:Freq1    -12.9422    15.0472   -0.86
+>> # EducationHighSchool:Freq1 -48.3979    17.2181   -2.81
+>> # SynCat1:Freq1               5.7752    13.5956    0.42
+>> # Education1:SynCat1:Freq1   -3.0658    12.9484   -0.24
+>
+> This isn't a bug in lmer, but rather a (extremely reasonable)
+> misunderstanding about how formulas work. Unfortunately most docs
+> don't try to explain the principles underlying formula interpretation
+> and just rely on people picking it up from examples...
+>
+> The way to think about a formula like
+>   y ~ 1 + Education + SynCat + Education:SynCat
+> is that R *starts out* assuming dummy coding for everything. What that
+> formula means is that you want an intercept, and you want to allow the
+> predicted value of 'y' to be different for each level of Education,
+> and to be different for each level of SynCat, and to be different for
+> each combination of levels of Education & SynCat. (It may help to type
+> 'Education:SynCat' at a regular prompt, not in a formula, and see what
+> you get.)
+>
+> So that's the overall model we've asked R to fit. Now, as a second
+> step, R tries to figure out how to code it. If it just uses dummy
+> coding everywhere, then that will create a redundant
+> (overparametrized) model, which would be a bit annoying. In
+> particular, that Education:SynCat term encompasses *all* of the other
+> terms, so we could drop any subset of the other terms from our formula
+> and R would still fit the same overall model. So R doesn't use those
+> terms to decide what model to fit, it just uses them to decide what
+> parametrization to use. The way this works is, R goes through from
+> left to right (after sorting low-order interactions before high-order
+> interactions), and for each term it asks "do I need to switch any of
+> these factors from dummy coding to contrast coding in order to avoid
+> redundancy with the stuff to its left?"
+>
+> In this case, the answer is yes, every factor in every term needs to
+> use contrast coding, so that's what R does. This is why a formula like
+> "~ Education" (which is implicitly expanded to "~ 1 + Education")
+> gives you contrast coding, but a formula like "~ 0 + Education" gives
+> you dummy coding. And the same logic explains how R interprets other
+> formulas like "~ 1 + Education + Education:SynCat" or "~ 0 + Education
+> + Education:SynCat" or "~ 0 + Education:SynCat" -- these all give "the
+> same model" in the sense that they all create design matrices with the
+> same column space, but they encode it differently. (However, if you
+> try "~1 + Education:SynCat" you actually will get an overparametrized
+> model, because R is buggy!)
+>
+> The fixed effect part second model expands to
+>
+> ~ 1 + Education + SynCat + Education:SynCat + Education:Freq +
+> SynCat:Freq + Education:SynCat:Freq
+>
+> notice that the 1 + Education + Education:Freq part of this is exactly
+> like one of the smaller models I used as an example above. R notices
+> that you want all combinations of Education:Freq to affect the result,
+> and since Freq does not otherwise appear in the model, the only way to
+> accomplish this is to use dummy coding for Education.
+>
+> I can't off the top of my head think of a better way to fit the
+> restricted model you were trying to fit than to escape R's coding
+> system entirely by coding it by hand, as you did. I don't really think
+> this should be considered a flaw in R's coding system, though, because
+> the model you want to fit violates the principle of marginality and
+> AFAICT makes no sense (in that it imposes a complicated and
+> implausible constraint on the fitted model -- your final "by-hand"
+> model isn't testing for a main effect or an interaction, it's testing
+> some sort of weird constraint that I can't even figure out and that
+> depends on the details of your coding scheme, like "does Freq matter
+> for this specific combination of Education and SynCat but not this
+> other one" -- something like that). Generally if you want to check for
+> whether Freq matters, you should compare to a model where Freq has
+> been removed entirely, and only check for main effects after first
+> removing interactions (this is the "principle of marginality").
+>
+> --
+> Nathaniel J. Smith
+> Postdoctoral researcher - Informatics - University of Edinburgh
+> http://vorpus.org
+
+
+
+-- 
+Nathaniel J. Smith
+Postdoctoral researcher - Informatics - University of Edinburgh
+http://vorpus.org
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu May  8 11:40:03 2014
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Thu, 08 May 2014 07:40:03 -0400
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com>
+Message-ID: <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com>
+
+This is a great explanation, Nathaniel.  I've gotten too little sleep and
+can't muster the self-control to avoid chipping in another two cents, sorry:
+
+I also agree with you that the smaller model "makes no sense," in the sense
+that I have a helluva time wrapping my head around the interpretation of
+*any* of the coefficients, and it does not seem like a reasonable model on
+its own.  However, the "main effect" (since it's coded with sum coding) of
+Freq in the full model is the parameter of interest in the full model, and
+it makes sense to want to test the hypothesis that, in the context of the
+full model, there is an overall significant effect of the Freq manipulation
+(or more precisely, see if one can reject the null hypothesis that there is
+no effect).  And this is distinct from removing Freq entirely from the
+model, which would be testing the hypothesis that Freq doesn't matter at
+all.
+
+But I think JM's purpose here is to use a model-comparison LRT for testing
+this hypothesis, basically to get around the "problem of no p-value" for
+the original estimate.  I don't see any problems with this per se, though
+it does hint at the overall lack of a standard approach to hypothesis
+testing in NHST when lmer doesn't give p-values.  I mean, the original
+effect had a t of -2.6, which is very clearly significant at p < .05.  But
+if an analyst would like to get a more precise p-value without having to
+choose among the various options for computing df's for this kind of model,
+and do so in a way that can be applied to other arbitrary hypothesis tests
+in a consistent way (i.e., using LRT's for *all* tests of interest), then I
+think this kind of model comparison makes sense.
+
+But yeah, I agree that the model itself is kinda wonky, taken as-is, and
+R's under-the-hood dummy-coding isn't inherently flawed by taking this
+approach to specification.  Basically R has to do a little mind-reading
+with the dummy-coding, but this doesn't work for every case, like this one.
+
+
+On Thu, May 8, 2014 at 7:16 AM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+
+> On Thu, May 8, 2014 at 4:52 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+> > I'm teaching stats this semester and was trying to be all Barr-orthodox
+> in
+> > # Now I try to get a p value for Freq only, using a likelihood ratio
+> test:
+> > # I triple-checked this syntax in simpler cases, and I'm pretty sure it's
+> > right.
+> >
+> > ddat.lmer.noFreq = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+> >  +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+> >
+> > # But when running this, the chi-squared value is 0, since the two models
+> > # are somehow considered to be identical:
+> >
+> > anova(ddat.lmer.noFreq, ddat.lmer.max)
+> >
+> > #                  Df    AIC    BIC  logLik deviance Chisq Chi Df
+> Pr(>Chisq)
+> > # ddat.lmer.noFreq 22 5114.4 5201.5 -2535.2 5070.4
+> > # ddat.lmer.max    22 5114.4 5201.5 -2535.2 5070.4     0      0  <
+> 2.2e-16
+> > ***
+> >
+> > # Looking at the no-Freq results shows the problem:
+> > # Education adds two extra levels in its interaction with Freq:
+> > #  Education(-1) [implicit reference level]
+> > #  Education1
+> > #  EducationCollege
+> > #  EducationHighSchool
+> >
+> > summary(ddat.lmer.noFreq)
+> >
+> > # Fixed effects:
+> > #                           Estimate Std. Error t value
+> > # (Intercept)               742.9591    12.7177   58.42
+> > # Education1                 -0.4537    12.0234   -0.04
+> > # SynCat1                    18.4146    11.9172    1.55
+> > # Education1:SynCat1          1.1824    11.1732    0.11
+> > # EducationCollege:Freq1    -12.9422    15.0472   -0.86
+> > # EducationHighSchool:Freq1 -48.3979    17.2181   -2.81
+> > # SynCat1:Freq1               5.7752    13.5956    0.42
+> > # Education1:SynCat1:Freq1   -3.0658    12.9484   -0.24
+>
+> This isn't a bug in lmer, but rather a (extremely reasonable)
+> misunderstanding about how formulas work. Unfortunately most docs
+> don't try to explain the principles underlying formula interpretation
+> and just rely on people picking it up from examples...
+>
+> The way to think about a formula like
+>   y ~ 1 + Education + SynCat + Education:SynCat
+> is that R *starts out* assuming dummy coding for everything. What that
+> formula means is that you want an intercept, and you want to allow the
+> predicted value of 'y' to be different for each level of Education,
+> and to be different for each level of SynCat, and to be different for
+> each combination of levels of Education & SynCat. (It may help to type
+> 'Education:SynCat' at a regular prompt, not in a formula, and see what
+> you get.)
+>
+> So that's the overall model we've asked R to fit. Now, as a second
+> step, R tries to figure out how to code it. If it just uses dummy
+> coding everywhere, then that will create a redundant
+> (overparametrized) model, which would be a bit annoying. In
+> particular, that Education:SynCat term encompasses *all* of the other
+> terms, so we could drop any subset of the other terms from our formula
+> and R would still fit the same overall model. So R doesn't use those
+> terms to decide what model to fit, it just uses them to decide what
+> parametrization to use. The way this works is, R goes through from
+> left to right (after sorting low-order interactions before high-order
+> interactions), and for each term it asks "do I need to switch any of
+> these factors from dummy coding to contrast coding in order to avoid
+> redundancy with the stuff to its left?"
+>
+> In this case, the answer is yes, every factor in every term needs to
+> use contrast coding, so that's what R does. This is why a formula like
+> "~ Education" (which is implicitly expanded to "~ 1 + Education")
+> gives you contrast coding, but a formula like "~ 0 + Education" gives
+> you dummy coding. And the same logic explains how R interprets other
+> formulas like "~ 1 + Education + Education:SynCat" or "~ 0 + Education
+> + Education:SynCat" or "~ 0 + Education:SynCat" -- these all give "the
+> same model" in the sense that they all create design matrices with the
+> same column space, but they encode it differently. (However, if you
+> try "~1 + Education:SynCat" you actually will get an overparametrized
+> model, because R is buggy!)
+>
+> The fixed effect part second model expands to
+>
+> ~ 1 + Education + SynCat + Education:SynCat + Education:Freq +
+> SynCat:Freq + Education:SynCat:Freq
+>
+> notice that the 1 + Education + Education:Freq part of this is exactly
+> like one of the smaller models I used as an example above. R notices
+> that you want all combinations of Education:Freq to affect the result,
+> and since Freq does not otherwise appear in the model, the only way to
+> accomplish this is to use dummy coding for Education.
+>
+> I can't off the top of my head think of a better way to fit the
+> restricted model you were trying to fit than to escape R's coding
+> system entirely by coding it by hand, as you did. I don't really think
+> this should be considered a flaw in R's coding system, though, because
+> the model you want to fit violates the principle of marginality and
+> AFAICT makes no sense (in that it imposes a complicated and
+> implausible constraint on the fitted model -- your final "by-hand"
+> model isn't testing for a main effect or an interaction, it's testing
+> some sort of weird constraint that I can't even figure out and that
+> depends on the details of your coding scheme, like "does Freq matter
+> for this specific combination of Education and SynCat but not this
+> other one" -- something like that). Generally if you want to check for
+> whether Freq matters, you should compare to a model where Freq has
+> been removed entirely, and only check for main effects after first
+> removing interactions (this is the "principle of marginality").
+>
+> --
+> Nathaniel J. Smith
+> Postdoctoral researcher - Informatics - University of Edinburgh
+> http://vorpus.org
+>
+
+From njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org  Thu May  8 12:45:03 2014
+From: njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org (Nathaniel Smith)
+Date: Thu, 08 May 2014 13:45:03 +0100
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com>
+Message-ID: <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com>
+
+On Thu, May 8, 2014 at 12:40 PM, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> This is a great explanation, Nathaniel.  I've gotten too little sleep and
+> can't muster the self-control to avoid chipping in another two cents, sorry:
+>
+> I also agree with you that the smaller model "makes no sense," in the sense
+> that I have a helluva time wrapping my head around the interpretation of
+> *any* of the coefficients, and it does not seem like a reasonable model on
+> its own.  However, the "main effect" (since it's coded with sum coding) of
+> Freq in the full model is the parameter of interest in the full model, and
+> it makes sense to want to test the hypothesis that, in the context of the
+> full model, there is an overall significant effect of the Freq manipulation
+> (or more precisely, see if one can reject the null hypothesis that there is
+> no effect).  And this is distinct from removing Freq entirely from the
+> model, which would be testing the hypothesis that Freq doesn't matter at
+> all.
+
+What is the difference between testing whether the "Freq manipulation"
+has an effect, and testing whether "Freq doesn't matter at all"?
+
+This isn't just an issue of the particular details of this model, it's
+a fundamental problem that main effects simply cannot be interpreted
+as being "main" when there are also interactions present. Including
+Education:Freq and SynCat:Freq means that you are assuming that the
+effect of Freq can vary depending on the levels of Education and
+SynCat. It doesn't make much sense to assume that Freq's effect can
+vary while simultaneously testing the hypothesis that it has no
+effect.
+
+I think in practice you end up testing some hypothesis that looks
+like: "if I calculate the Freq effect for each subgroup of my
+population (as defined by combinations of the other factors), and then
+take some weighted average of these different frequency effects, then
+I test whether that weighted average is zero". And the weights depend
+in a complicated way on what coding system is used, how many data
+points you have in each cell, etc. Like you might turn out to be
+testing whether the sum of the Freq effects in the
+Education=HighSchool:SynCat=Noun group and the
+Education=College:SynCat=Verb group is equal to 0.73 times the Freq
+effect in the Education=HighSchool:SynCat=Verb group, or something
+like that.
+These are very very rarely the kinds of hypotheses that you actually
+want to test.
+
+-- 
+Nathaniel J. Smith
+Postdoctoral researcher - Informatics - University of Edinburgh
+http://vorpus.org
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu May  8 13:34:03 2014
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Thu, 08 May 2014 09:34:03 -0400
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com> <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com>
+Message-ID: <CA+tkQ_ME2b5N0LkaUmNs-2WC7btaZR1ZnAJBS-ZmD__aTESC_Q@mail.gmail.com>
+
+Well, I think it's just analogous to testing a main effect in an ANOVA that
+also has interactions specified.  The way people treat interpretation of
+ANOVAs is that they look at interactions, and if those are not significant,
+you interpret the main effects.  If interactions are significant, then
+interpretation of main effects is tricky at best, but mostly incoherent, or
+at least opaque, as you point out (and I agree!).  But I think the "main
+effect" parameter in the full model has a pretty clear interpretation,
+which is just the marginal effect estimate collapsing across the
+interactions, etc.  I'm on the side of the fence that believes if you have
+enough data, you should be fitting as complex a model as makes sense, and
+interpreting from there.  For example, in this case, one of the interaction
+terms is marginal (i.e., big-ish, but not "significant").  Removing too
+many of these can get you pretty biased results, and I'd put more stock in
+the "main effect" estimate that takes these into account rather than an
+estimate from a model that drops all the interactions because they don't
+hit p < .05.  Of course, overfitting is something to watch out for, too,
+but blind model-selection by p-value is rarely a great idea.  It's the same
+principle for leaving in regression coefficients in a plain multiple
+regression, even if those coefs don't hit p < .05, because overall that
+model should provide better estimates of the effects that you are
+interested in.
+
+So if the goal is to get the best estimates for any given effect, sticking
+with the biggest model possible makes sense (with the caveat of possible
+overfitting).  JM's problem (I'm guessing) is just that he'd like to get a
+p-value for that estimate of the marginal effect of Freq across various
+(potential) interactions.  I think his model-comparison LRT approach is as
+good as any other, where alternative methods are to use a t > 2 == p < .05
+rule of thumb, or to pick one of the methods for estimating a df for the
+t-test on the parameter (like SAS/SPSS/etc. do).
+
+Or am I missing something?  I do see your point about the need to think
+about what the marginal estimate is marginal over, especially with
+unbalanced data.  JM's data was still relatively balanced.  But I think
+this is only really a problem if he wanted to actually interpret the coefs
+in the weird subset model, which I do not think is the case.
+
+But if I'm missing something, I'd be happy to hear it.
+
+
+
+On Thu, May 8, 2014 at 8:45 AM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+
+> On Thu, May 8, 2014 at 12:40 PM, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> > This is a great explanation, Nathaniel.  I've gotten too little sleep and
+> > can't muster the self-control to avoid chipping in another two cents,
+> sorry:
+> >
+> > I also agree with you that the smaller model "makes no sense," in the
+> sense
+> > that I have a helluva time wrapping my head around the interpretation of
+> > *any* of the coefficients, and it does not seem like a reasonable model
+> on
+> > its own.  However, the "main effect" (since it's coded with sum coding)
+> of
+> > Freq in the full model is the parameter of interest in the full model,
+> and
+> > it makes sense to want to test the hypothesis that, in the context of the
+> > full model, there is an overall significant effect of the Freq
+> manipulation
+> > (or more precisely, see if one can reject the null hypothesis that there
+> is
+> > no effect).  And this is distinct from removing Freq entirely from the
+> > model, which would be testing the hypothesis that Freq doesn't matter at
+> > all.
+>
+> What is the difference between testing whether the "Freq manipulation"
+> has an effect, and testing whether "Freq doesn't matter at all"?
+>
+> This isn't just an issue of the particular details of this model, it's
+> a fundamental problem that main effects simply cannot be interpreted
+> as being "main" when there are also interactions present. Including
+> Education:Freq and SynCat:Freq means that you are assuming that the
+> effect of Freq can vary depending on the levels of Education and
+> SynCat. It doesn't make much sense to assume that Freq's effect can
+> vary while simultaneously testing the hypothesis that it has no
+> effect.
+>
+> I think in practice you end up testing some hypothesis that looks
+> like: "if I calculate the Freq effect for each subgroup of my
+> population (as defined by combinations of the other factors), and then
+> take some weighted average of these different frequency effects, then
+> I test whether that weighted average is zero". And the weights depend
+> in a complicated way on what coding system is used, how many data
+> points you have in each cell, etc. Like you might turn out to be
+> testing whether the sum of the Freq effects in the
+> Education=HighSchool:SynCat=Noun group and the
+> Education=College:SynCat=Verb group is equal to 0.73 times the Freq
+> effect in the Education=HighSchool:SynCat=Verb group, or something
+> like that.
+> These are very very rarely the kinds of hypotheses that you actually
+> want to test.
+>
+> --
+> Nathaniel J. Smith
+> Postdoctoral researcher - Informatics - University of Edinburgh
+> http://vorpus.org
+>
+
+From henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org  Thu May  8 14:26:31 2014
+From: henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org (Henrik Singmann)
+Date: Thu, 08 May 2014 16:26:31 +0200
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <536AFF8F.8090805@ccu.edu.tw>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw>
+Message-ID: <536B9417.3060401@psychologie.uni-freiburg.de>
+
+
+
+Hi James,
+
+like others have said, this is by design of how R treats formulas. I had this exact questions some time ago and asked on SO on how to avoid this: http://stackoverflow.com/q/11335923/289572
+
+Out of this discussion I developed the mixed function in the afex package which circumvents this problem by manually altering the model matrix. This function gives you the p-values right away and replicates your results (with one caveat described below).
+
+require(afex)
+
+ddat = read.delim("http://www.ccunix.ccu.edu.tw/~lngproc/doramiR.txt")
+ddat = na.omit(ddat)
+contrasts(ddat$Education) = contr.sum(levels(ddat$Education)) # 1 = College
+contrasts(ddat$SynCat) = contr.sum(levels(ddat$SynCat)) # 1 = Noun
+contrasts(ddat$Freq) = contr.sum(levels(ddat$Freq)) # 1 = High
+
+m1 <- mixed(RT~Education*SynCat*Freq+((SynCat*Freq)|Participant)+(Education|Item), data = ddat, method = "LRT", check.contrasts=FALSE)
+m1
+
+##                  Effect df.large df.small chisq df p.value
+## 1             Education       22       21  0.00  1     .97
+## 2                SynCat       22       21  2.71  1     .10
+## 3                  Freq       22       21  9.64  1    .002
+## 4      Education:SynCat       22       21  0.02  1     .90
+## 5        Education:Freq       22       21  2.90  1     .09
+## 6           SynCat:Freq       22       21  0.20  1     .65
+## 7 Education:SynCat:Freq       22       21  0.07  1     .79
+
+## Warning message:
+## In print.mixed(list(anova.table = list(Effect = c("Education", "SynCat",  :
+##   lme4 reported (at least) the following warnings for 'Freq':
+##   * Model failed to converge with max|grad| = 26.6937 (tol = 0.002)
+##   * Model failed to converge: degenerate  Hessian with 1 negative eigenvalues
+
+
+# this replicates your results when fitting with REML = FALSE
+ddat$Education = 2*(ddat$Education=="College")-1
+ddat.lmer.max.fix = lmer(RT~Education*SynCat*Freq+((SynCat*Freq)|Participant)+(Education|Item), data = ddat, REML = FALSE)
+ddat.lmer.noFreq.fix = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq+((SynCat*Freq)|Participant)+(Education|Item),REML=FALSE, data = ddat)
+
+anova(ddat.lmer.noFreq.fix, ddat.lmer.max.fix)
+## Data: ddat
+## Models:
+## ddat.lmer.noFreq.fix: RT ~ (Education * SynCat) + (Education * SynCat):Freq + ((SynCat *
+## ddat.lmer.noFreq.fix:     Freq) | Participant) + (Education | Item)
+## ddat.lmer.max.fix: RT ~ Education * SynCat * Freq + ((SynCat * Freq) | Participant) +
+## ddat.lmer.max.fix:     (Education | Item)
+##                      Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)
+## ddat.lmer.noFreq.fix 21 5122.1 5205.1 -2540.0   5080.1
+## ddat.lmer.max.fix    22 5114.4 5201.5 -2535.2   5070.4 9.6422      1   0.001902 **
+## ---
+## Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+Why the results change when using REML = TRUE versus refitting them automatically when handing the models over to anova() is beyond my current knowledge but I intend to ask on the lme4 list.
+
+Cheers,
+Henrik
+
+PS: I will only irregularly check my mails in the next days.
+
+
+Am 08.05.2014 05:52, schrieb Lngmyers:
+>
+> I'm teaching stats this semester and was trying to be all Barr-orthodox in my LME handout, so I played around with some fake data that I created somehow or other in 2008, originally designed for teaching minF'. But when trying to use likelihood ratio tests to test the significance of one factor, I got a bizarre result: in the reduced model, one of the factors was treated as if it had four levels in its interaction with the removed factor, when actually it has only two. The problem disappears if this factor is recoded by hand to a numerical variable using effect (sum) coding (-1 vs. 1).
+>
+> I wasn't able to replicate this bizarre result in simpler data, so let me just show you using the original fake data set, which is here:
+>
+> http://www.ccunix.ccu.edu.tw/~lngproc/doramiR.txt
+>
+> This describes a fake experiment in which Dorami (who is, of course, the sister of Doraemon - no idea why all sorts of crap manga get translated into English, but not this classic - maybe because there's no blood or cheesecake) had a bunch of people with either a high school or college education respond (giving RTs) to a bunch of words: nouns and verbs, of high and low frequency (fully crossed). Every person gets words of all four types, so syntactic category and frequency are grouped by participant, and every item is responded to by people of both education levels, so education is grouped by item. (This is not a design addressed by Barr et al. 2013, since they're cognitive psychologists, not social or personality psychologists.)
+>
+> Let's run the analysis, shall we?
+>
+> # Load'er up
+>
+> library(lme4) # I'm using R version 3.1.0, lme4 version 1.1-6, in Windows 7
+> ddat = read.delim("doramiR.txt")
+>
+> # I purposely threw in some NA's, originally to show how
+> # by-participant and by-item means need not be the same
+>
+> ddat = na.omit(ddat)
+>
+> # Fixed factors still look pretty balanced
+>
+> xtabs(~Education+SynCat+Freq, data=ddat)
+>
+> # , , Freq = High
+> #
+> #             SynCat
+> # Education    Noun Verb
+> #   College      48   49
+> #   HighSchool   47   48
+> #
+> # , , Freq = Low
+> #
+> #             SynCat
+> # Education    Noun Verb
+> #   College      48   50
+> #   HighSchool   49   47
+>
+> # I wanted the interactions to work as they do in ANOVA, rather than
+> # partially disappearing into the intercept as they do with R's default
+> # dummy (treatment) coding for factors, so I use effect (sum) coding
+> # - but this isn't responsible for the weird results, as further
+> # experiments showed (I leave this for the interested reader)
+>
+> contrasts(ddat$Education) = contr.sum(levels(ddat$Education)) # 1 = College
+> contrasts(ddat$SynCat) = contr.sum(levels(ddat$SynCat)) # 1 = Noun
+> contrasts(ddat$Freq) = contr.sum(levels(ddat$Freq)) # 1 = High
+>
+> # The maximal model, with fixed factors grouped as they should be,
+> # following Barr et al. (2013, p. 275): "In most cases, one should also have
+> # by-unit random slopes for any interactions where all factors comprising the
+> # interaction are within-unit; if any one factor involved in the interaction is
+> # between-unit, then the random slope associated with that interaction cannot
+> # be estimated, and is not needed."
+>
+> ddat.lmer.max = lmer(RT~Education*SynCat*Freq # Fixed part
+>   +((SynCat*Freq)|Participant)+(Education|Item), data = ddat) # Random part
+> summary(ddat.lmer.max)
+>
+> # Nothing but frequency is significant - I did that on purpose, because I'm
+> # kind of a jerk. The only weird thing in this summary are the super-high
+> # random correlations for SynCat and Freq, which I guess happen because
+> # I didn't create this fake data set with LME in mind. These correlations
+> # seem to be responsible for another curiosity, namely that the REML
+> # algorithm fails to converge when running a by-participants-only analysis,
+> # without the random Item factor (which I guess increases the proportion of
+> # the random "collinearity" enough to choke REML). I'm not sure, but I
+> # don't think this is relevant to the factor "bug"....
+>
+> # Linear mixed model fit by REML ['lmerMod']
+> # Formula: RT ~ Education * SynCat * Freq + ((SynCat * Freq) | Participant) +
+> #     (Education | Item)
+> #    Data: ddat
+> #
+> # REML criterion at convergence: 5016.7
+> #
+> # Scaled residuals:
+> #     Min      1Q  Median      3Q     Max
+> # -1.8514 -0.6317 -0.2075  0.4085  3.9700
+> #
+> # Random effects:
+> #  Groups      Name          Variance Std.Dev. Corr
+> #  Participant (Intercept)     635.1   25.20
+> #              SynCat1         239.3   15.47    1.00
+> #              Freq1           185.0   13.60   -1.00 -0.99
+> #              SynCat1:Freq1  1095.8   33.10    0.05  0.13  0.03
+> #  Item        (Intercept)    1188.2   34.47
+> #              Education1      844.6   29.06   -0.33
+> #  Residual                  27146.5  164.76
+> # Number of obs: 386, groups: Participant, 20; Item, 20
+> #
+> # Fixed effects:
+> #                          Estimate Std. Error t value
+> # (Intercept)              742.9591    12.7177   58.42
+> # Education1                -0.4537    12.0234   -0.04
+> # SynCat1                   18.4146    11.9171    1.55
+> # Freq1                    -30.6700    11.8029   -2.60
+> # Education1:SynCat1         1.1824    11.1732    0.11
+> # Education1:Freq1          17.7279    11.0513    1.60
+> # SynCat1:Freq1              5.7752    13.5956    0.42
+> # Education1:SynCat1:Freq1  -3.0658    12.9484   -0.24
+> #
+> # Correlation of Fixed Effects:
+> #             (Intr) Edctn1 SynCt1 Freq1  Ed1:SC1 Ed1:F1 SC1:F1
+> # Education1  -0.114
+> # SynCat1      0.131  0.006
+> # Freq1       -0.112  0.000 -0.071
+> # Edctn1:SyC1  0.006  0.148 -0.131 -0.006
+> # Edctn1:Frq1  0.000 -0.126 -0.006 -0.134 -0.081
+> # SynCt1:Frq1  0.016 -0.005  0.023  0.007  0.000   0.006
+> # Edc1:SC1:F1 -0.005  0.017  0.000  0.005  0.026   0.007 -0.099
+>
+> # Now I try to get a p value for Freq only, using a likelihood ratio test:
+> # I triple-checked this syntax in simpler cases, and I'm pretty sure it's right.
+>
+> ddat.lmer.noFreq = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+>   +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+>
+> # But when running this, the chi-squared value is 0, since the two models
+> # are somehow considered to be identical:
+>
+> anova(ddat.lmer.noFreq, ddat.lmer.max)
+>
+> #                  Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
+> # ddat.lmer.noFreq 22 5114.4 5201.5 -2535.2   5070.4
+> # ddat.lmer.max    22 5114.4 5201.5 -2535.2   5070.4     0      0  < 2.2e-16 ***
+>
+> # Looking at the no-Freq results shows the problem:
+> # Education adds two extra levels in its interaction with Freq:
+> #  Education(-1) [implicit reference level]
+> #  Education1
+> #  EducationCollege
+> #  EducationHighSchool
+>
+> summary(ddat.lmer.noFreq)
+>
+> # Fixed effects:
+> #                           Estimate Std. Error t value
+> # (Intercept)               742.9591    12.7177   58.42
+> # Education1                 -0.4537    12.0234   -0.04
+> # SynCat1                    18.4146    11.9172    1.55
+> # Education1:SynCat1          1.1824    11.1732    0.11
+> # EducationCollege:Freq1    -12.9422    15.0472   -0.86
+> # EducationHighSchool:Freq1 -48.3979    17.2181   -2.81
+> # SynCat1:Freq1               5.7752    13.5956    0.42
+> # Education1:SynCat1:Freq1   -3.0658    12.9484   -0.24
+>
+> # The problem is fixed by recoding Education by hand:
+>
+> ddat$Education = 2*(ddat$Education=="College")-1
+>
+> # Then start over again:
+>
+> ddat.lmer.max.fix = lmer(RT~Education*SynCat*Freq
+>   +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+> summary(ddat.lmer.max.fix)
+>
+> # Same as before - so far so good
+>
+> # Fixed effects:
+> #                         Estimate Std. Error t value
+> # (Intercept)             742.9591    12.7177   58.42
+> # Education                -0.4537    12.0234   -0.04
+> # SynCat1                  18.4146    11.9171    1.55
+> # Freq1                   -30.6700    11.8029   -2.60
+> # Education:SynCat1         1.1824    11.1732    0.11
+> # Education:Freq1          17.7279    11.0513    1.60
+> # SynCat1:Freq1             5.7752    13.5956    0.42
+> # Education:SynCat1:Freq1  -3.0658    12.9484   -0.24
+>
+> # Recreate no-Freq model (same syntax as before):
+>
+> ddat.lmer.noFreq.fix = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+>   +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+>
+> # No-Freq model looks OK now:
+>
+> summary(ddat.lmer.noFreq.fix)
+>
+> # Fixed effects:
+> #                         Estimate Std. Error t value
+> # (Intercept)             739.4937    14.2179   52.01
+> # Education                -0.4382    12.1119   -0.04
+> # SynCat1                  16.4284    13.5346    1.21
+> # Education:SynCat1         0.9499    11.2388    0.08
+> # Education:Freq1          13.9567    11.1204    1.26
+> # SynCat1:Freq1             6.0047    15.0334    0.40
+> # Education:SynCat1:Freq1  -2.9103    12.9739   -0.22
+>
+> # Run likelihood ratio test
+>
+> anova(ddat.lmer.noFreq.fix, ddat.lmer.max.fix)
+>
+> #                Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(>Chisq)
+> # ddat.lmer.noFreq.fix 21 5119.3 5202.4 -2538.7 5077.3
+> # ddat.lmer.max.fix    22 5114.4 5201.5 -2535.2   5070.4 6.8956  1  0.008641 **
+>
+> # That gives a p value close to what you get for the t = z method
+>
+> nrow(ddat) # 386: Central Limit Theorem should help, if df relates mainly to n
+> 2*pnorm(-2.60) # p = 0.009322376
+>
+>
+> So there you go - is the bug in lmer or in my head?
+>
+
+-- 
+Dipl. Psych. Henrik Singmann
+PhD Student
+Albert-Ludwigs-Universität Freiburg, Germany
+http://www.psychologie.uni-freiburg.de/Members/singmann
+
+From njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org  Thu May  8 16:23:38 2014
+From: njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org (Nathaniel Smith)
+Date: Thu, 08 May 2014 17:23:38 +0100
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <CA+tkQ_ME2b5N0LkaUmNs-2WC7btaZR1ZnAJBS-ZmD__aTESC_Q@mail.gmail.com>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com> <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com> <CA+tkQ_ME2b5N0LkaUmNs-2WC7btaZR1ZnAJBS-ZmD__aTESC_Q@mail.gmail.com>
+Message-ID: <CAPJVwB=0Drd9aJFjZfdp9RbEN8eLuZ7tKvR4o7H-jd7MUb=d+Q@mail.gmail.com>
+
+On Thu, May 8, 2014 at 2:34 PM, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> Well, I think it's just analogous to testing a main effect in an ANOVA that
+> also has interactions specified.  The way people treat interpretation of
+> ANOVAs is that they look at interactions, and if those are not significant,
+> you interpret the main effects.  If interactions are significant, then
+> interpretation of main effects is tricky at best, but mostly incoherent, or
+> at least opaque, as you point out (and I agree!).  But I think the "main
+> effect" parameter in the full model has a pretty clear interpretation, which
+> is just the marginal effect estimate collapsing across the interactions,
+> etc.
+
+Having reviewed a bit, right, if you're careful (choosing the right
+coding scheme etc.) then you can set up your design matrix in such a
+way that the "main effect" parameter is estimating some well-defined
+quantity. But I'm still pretty skeptical that this particular quantity
+will be of scientific interest. In particular, it usually cannot be
+generalized to make predictions about even closely related
+experimental designs, because when you marginalize out the other
+effects, you assume some particular distribution over them. Knowing
+the marginal effect of Freq in a population with this particular mix
+of education levels, syntactic type exposures, etc., doesn't tell you
+anything about the effect of Freq in any particular person, or even
+about the marginal effect in other populations where these quantities
+are differently distributed.
+
+> I'm on the side of the fence that believes if you have enough data,
+> you should be fitting as complex a model as makes sense, and interpreting
+> from there.  For example, in this case, one of the interaction terms is
+> marginal (i.e., big-ish, but not "significant").  Removing too many of these
+> can get you pretty biased results, and I'd put more stock in the "main
+> effect" estimate that takes these into account rather than an estimate from
+> a model that drops all the interactions because they don't hit p < .05.  Of
+> course, overfitting is something to watch out for, too, but blind
+> model-selection by p-value is rarely a great idea.  It's the same principle
+> for leaving in regression coefficients in a plain multiple regression, even
+> if those coefs don't hit p < .05, because overall that model should provide
+> better estimates of the effects that you are interested in.
+>
+> So if the goal is to get the best estimates for any given effect, sticking
+> with the biggest model possible makes sense (with the caveat of possible
+> overfitting).
+
+Yes, definitely. I usually compare the full model to the one where the
+factor doesn't appear at all ("does this factor matter at all?"), and
+to the model that only has a main effect ("does this factor interact
+with other factors?"). Those are both tests against the full model, so
+we never have to "accept the null" by throwing out non-significant
+terms, and AFAICT they are sensible ways to test the main questions
+that psychologists usually care about.
+
+> JM's problem (I'm guessing) is just that he'd like to get a
+> p-value for that estimate of the marginal effect of Freq across various
+> (potential) interactions.
+
+I just think that *really* wanting such a thing is sufficiently
+unusual that if you do want it, you should have a clear, articulable
+reason for why.
+
+That said, and to answer one of the original questions in the thread
+-- if you really do want this, then the Anova function in the 'car'
+package is documented to work on lme4 models, and accepts a type="III"
+argument, so this might be the simplest and most elegant way to do
+this strange thing ;-).
+
+-n
+
+-- 
+Nathaniel J. Smith
+Postdoctoral researcher - Informatics - University of Edinburgh
+http://vorpus.org
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu May  8 20:21:37 2014
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 08 May 2014 20:21:37 +0000
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <CAPJVwBkrbeXOg-kM0TT99UmUP+uzyVNxWSzPXzUdFf9voTXyCw@mail.gmail.com>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CAPJVwBkrbeXOg-kM0TT99UmUP+uzyVNxWSzPXzUdFf9voTXyCw@mail.gmail.com>
+Message-ID: <4AADD560-92FD-4368-8CD2-A808F1EEDC26@ucsd.edu>
+
+A possibly useful follow-up: I find that Chapter 2 of Chambers & Hastie, is an extremely useful read:
+
+@incollection{chambers-hastie:1991statisticalModels,
+	Author = {John M. Chambers and Trevor J. Hastie},
+	Chapter = {2},
+	Crossref = {chambers-hastie:1991},
+	Date-Added = {2013-06-11 21:01:02 +0000},
+	Date-Modified = {2013-06-11 21:02:28 +0000},
+	Pages = {13--44},
+	Title = {Statistical Models}}
+
+Roger
+
+
+
+
+On May 8, 2014, at 4:29 AM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+
+> Forgot to say: if anyone wants to really understand the details here,
+> the best document I know is:
+>  http://patsy.readthedocs.org/en/latest/formulas.html
+> 
+> (Caveat 1: I wrote it, so I would think that, wouldn't I? Caveat 2: it
+> actually describes how a Python library called "patsy" interprets
+> formulas, not how R does. They're very closely related, and in
+> particular the underlying theory is identical, but there are
+> differences:
+>   http://patsy.readthedocs.org/en/latest/R-comparison.html#r-comparison
+> )
+> 
+> -n
+> 
+> On Thu, May 8, 2014 at 12:16 PM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+>> On Thu, May 8, 2014 at 4:52 AM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+>>> I'm teaching stats this semester and was trying to be all Barr-orthodox in
+>>> # Now I try to get a p value for Freq only, using a likelihood ratio test:
+>>> # I triple-checked this syntax in simpler cases, and I'm pretty sure it's
+>>> right.
+>>> 
+>>> ddat.lmer.noFreq = lmer(RT~ (Education*SynCat)+(Education*SynCat):Freq
+>>> +((SynCat*Freq)|Participant)+(Education|Item), data = ddat)
+>>> 
+>>> # But when running this, the chi-squared value is 0, since the two models
+>>> # are somehow considered to be identical:
+>>> 
+>>> anova(ddat.lmer.noFreq, ddat.lmer.max)
+>>> 
+>>> #                  Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
+>>> # ddat.lmer.noFreq 22 5114.4 5201.5 -2535.2 5070.4
+>>> # ddat.lmer.max    22 5114.4 5201.5 -2535.2 5070.4     0      0  < 2.2e-16
+>>> ***
+>>> 
+>>> # Looking at the no-Freq results shows the problem:
+>>> # Education adds two extra levels in its interaction with Freq:
+>>> #  Education(-1) [implicit reference level]
+>>> #  Education1
+>>> #  EducationCollege
+>>> #  EducationHighSchool
+>>> 
+>>> summary(ddat.lmer.noFreq)
+>>> 
+>>> # Fixed effects:
+>>> #                           Estimate Std. Error t value
+>>> # (Intercept)               742.9591    12.7177   58.42
+>>> # Education1                 -0.4537    12.0234   -0.04
+>>> # SynCat1                    18.4146    11.9172    1.55
+>>> # Education1:SynCat1          1.1824    11.1732    0.11
+>>> # EducationCollege:Freq1    -12.9422    15.0472   -0.86
+>>> # EducationHighSchool:Freq1 -48.3979    17.2181   -2.81
+>>> # SynCat1:Freq1               5.7752    13.5956    0.42
+>>> # Education1:SynCat1:Freq1   -3.0658    12.9484   -0.24
+>> 
+>> This isn't a bug in lmer, but rather a (extremely reasonable)
+>> misunderstanding about how formulas work. Unfortunately most docs
+>> don't try to explain the principles underlying formula interpretation
+>> and just rely on people picking it up from examples...
+>> 
+>> The way to think about a formula like
+>>  y ~ 1 + Education + SynCat + Education:SynCat
+>> is that R *starts out* assuming dummy coding for everything. What that
+>> formula means is that you want an intercept, and you want to allow the
+>> predicted value of 'y' to be different for each level of Education,
+>> and to be different for each level of SynCat, and to be different for
+>> each combination of levels of Education & SynCat. (It may help to type
+>> 'Education:SynCat' at a regular prompt, not in a formula, and see what
+>> you get.)
+>> 
+>> So that's the overall model we've asked R to fit. Now, as a second
+>> step, R tries to figure out how to code it. If it just uses dummy
+>> coding everywhere, then that will create a redundant
+>> (overparametrized) model, which would be a bit annoying. In
+>> particular, that Education:SynCat term encompasses *all* of the other
+>> terms, so we could drop any subset of the other terms from our formula
+>> and R would still fit the same overall model. So R doesn't use those
+>> terms to decide what model to fit, it just uses them to decide what
+>> parametrization to use. The way this works is, R goes through from
+>> left to right (after sorting low-order interactions before high-order
+>> interactions), and for each term it asks "do I need to switch any of
+>> these factors from dummy coding to contrast coding in order to avoid
+>> redundancy with the stuff to its left?"
+>> 
+>> In this case, the answer is yes, every factor in every term needs to
+>> use contrast coding, so that's what R does. This is why a formula like
+>> "~ Education" (which is implicitly expanded to "~ 1 + Education")
+>> gives you contrast coding, but a formula like "~ 0 + Education" gives
+>> you dummy coding. And the same logic explains how R interprets other
+>> formulas like "~ 1 + Education + Education:SynCat" or "~ 0 + Education
+>> + Education:SynCat" or "~ 0 + Education:SynCat" -- these all give "the
+>> same model" in the sense that they all create design matrices with the
+>> same column space, but they encode it differently. (However, if you
+>> try "~1 + Education:SynCat" you actually will get an overparametrized
+>> model, because R is buggy!)
+>> 
+>> The fixed effect part second model expands to
+>> 
+>> ~ 1 + Education + SynCat + Education:SynCat + Education:Freq +
+>> SynCat:Freq + Education:SynCat:Freq
+>> 
+>> notice that the 1 + Education + Education:Freq part of this is exactly
+>> like one of the smaller models I used as an example above. R notices
+>> that you want all combinations of Education:Freq to affect the result,
+>> and since Freq does not otherwise appear in the model, the only way to
+>> accomplish this is to use dummy coding for Education.
+>> 
+>> I can't off the top of my head think of a better way to fit the
+>> restricted model you were trying to fit than to escape R's coding
+>> system entirely by coding it by hand, as you did. I don't really think
+>> this should be considered a flaw in R's coding system, though, because
+>> the model you want to fit violates the principle of marginality and
+>> AFAICT makes no sense (in that it imposes a complicated and
+>> implausible constraint on the fitted model -- your final "by-hand"
+>> model isn't testing for a main effect or an interaction, it's testing
+>> some sort of weird constraint that I can't even figure out and that
+>> depends on the details of your coding scheme, like "does Freq matter
+>> for this specific combination of Education and SynCat but not this
+>> other one" -- something like that). Generally if you want to check for
+>> whether Freq matters, you should compare to a model where Freq has
+>> been removed entirely, and only check for main effects after first
+>> removing interactions (this is the "principle of marginality").
+>> 
+>> --
+>> Nathaniel J. Smith
+>> Postdoctoral researcher - Informatics - University of Edinburgh
+>> http://vorpus.org
+> 
+> 
+> 
+> -- 
+> Nathaniel J. Smith
+> Postdoctoral researcher - Informatics - University of Edinburgh
+> http://vorpus.org
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu May  8 21:14:32 2014
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 08 May 2014 21:14:32 +0000
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <CAPJVwB=0Drd9aJFjZfdp9RbEN8eLuZ7tKvR4o7H-jd7MUb=d+Q@mail.gmail.com>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com> <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com> <CA+tkQ_ME2b5N0LkaUmNs-2WC7btaZR1ZnAJBS-ZmD__aTESC_Q@mail.gmail.com> <CAPJVwB=0Drd9aJFjZfdp9RbEN8eLuZ7tKvR4o7H-jd7MUb=d+Q@mail.gmail.com>
+Message-ID: <43769DFE-5A2E-4CDD-A42C-74FA99FE86E3@ucsd.edu>
+
+
+
+
+On May 8, 2014, at 9:23 AM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+
+> On Thu, May 8, 2014 at 2:34 PM, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>> Well, I think it's just analogous to testing a main effect in an ANOVA that
+>> also has interactions specified.  The way people treat interpretation of
+>> ANOVAs is that they look at interactions, and if those are not significant,
+>> you interpret the main effects.  If interactions are significant, then
+>> interpretation of main effects is tricky at best, but mostly incoherent, or
+>> at least opaque, as you point out (and I agree!).  But I think the "main
+>> effect" parameter in the full model has a pretty clear interpretation, which
+>> is just the marginal effect estimate collapsing across the interactions,
+>> etc.
+> 
+> Having reviewed a bit, right, if you're careful (choosing the right
+> coding scheme etc.) then you can set up your design matrix in such a
+> way that the "main effect" parameter is estimating some well-defined
+> quantity. But I'm still pretty skeptical that this particular quantity
+> will be of scientific interest.
+
+A second possibly useful follow-up: I agree with Nathaniel that it is probably more often than not the case that a main effect of X is of fundamental scientific interest when X also interacts with other terms in one’s model, and one can sometimes get into quite a bit of trouble when one tries to interpret main effects in this situation.  But since there *are* circumstances where it makes sense to interpret these main effects, it can be useful to know how to set up one’s design matrix to do this.  I have a short write-up describing how to do this that I’ve previously shared with a few parties, and since this conversation (and other recent ones) suggests that knowing how to do this would be of interest, I’ve now put it up online:
+
+  http://idiom.ucsd.edu/~rlevy/papers/levy-2013-mainEffects.pdf
+
+Best
+
+Roger
+
+
+> In particular, it usually cannot be
+> generalized to make predictions about even closely related
+> experimental designs, because when you marginalize out the other
+> effects, you assume some particular distribution over them. Knowing
+> the marginal effect of Freq in a population with this particular mix
+> of education levels, syntactic type exposures, etc., doesn't tell you
+> anything about the effect of Freq in any particular person, or even
+> about the marginal effect in other populations where these quantities
+> are differently distributed.
+> 
+>> I'm on the side of the fence that believes if you have enough data,
+>> you should be fitting as complex a model as makes sense, and interpreting
+>> from there.  For example, in this case, one of the interaction terms is
+>> marginal (i.e., big-ish, but not "significant").  Removing too many of these
+>> can get you pretty biased results, and I'd put more stock in the "main
+>> effect" estimate that takes these into account rather than an estimate from
+>> a model that drops all the interactions because they don't hit p < .05.  Of
+>> course, overfitting is something to watch out for, too, but blind
+>> model-selection by p-value is rarely a great idea.  It's the same principle
+>> for leaving in regression coefficients in a plain multiple regression, even
+>> if those coefs don't hit p < .05, because overall that model should provide
+>> better estimates of the effects that you are interested in.
+>> 
+>> So if the goal is to get the best estimates for any given effect, sticking
+>> with the biggest model possible makes sense (with the caveat of possible
+>> overfitting).
+> 
+> Yes, definitely. I usually compare the full model to the one where the
+> factor doesn't appear at all ("does this factor matter at all?"), and
+> to the model that only has a main effect ("does this factor interact
+> with other factors?"). Those are both tests against the full model, so
+> we never have to "accept the null" by throwing out non-significant
+> terms, and AFAICT they are sensible ways to test the main questions
+> that psychologists usually care about.
+> 
+>> JM's problem (I'm guessing) is just that he'd like to get a
+>> p-value for that estimate of the marginal effect of Freq across various
+>> (potential) interactions.
+> 
+> I just think that *really* wanting such a thing is sufficiently
+> unusual that if you do want it, you should have a clear, articulable
+> reason for why.
+> 
+> That said, and to answer one of the original questions in the thread
+> -- if you really do want this, then the Anova function in the 'car'
+> package is documented to work on lme4 models, and accepts a type="III"
+> argument, so this might be the simplest and most elegant way to do
+> this strange thing ;-).
+> 
+> -n
+> 
+> -- 
+> Nathaniel J. Smith
+> Postdoctoral researcher - Informatics - University of Edinburgh
+> http://vorpus.org
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu May  8 21:32:43 2014
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 08 May 2014 21:32:43 +0000
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <43769DFE-5A2E-4CDD-A42C-74FA99FE86E3-XkckGZ689+c@public.gmane.org>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com> <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com> <CA+tkQ_ME2b5N0LkaUmNs-2WC7btaZR1ZnAJBS-ZmD__aTESC_Q@mail.gmail.com> <CAPJVwB=0Drd9aJFjZfdp9RbEN8eLuZ7tKvR4o7H-jd7MUb=d+Q@mail.gmail.com> <43769DFE-5A2E-4CDD-A42C-74FA99FE86E3@ucsd.edu>
+Message-ID: <0367A739-FC30-4F52-B13B-C86E2341EC7D@ucsd.edu>
+
+
+On May 8, 2014, at 2:14 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+
+> 
+> 
+> 
+> On May 8, 2014, at 9:23 AM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+> 
+>> On Thu, May 8, 2014 at 2:34 PM, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>>> Well, I think it's just analogous to testing a main effect in an ANOVA that
+>>> also has interactions specified.  The way people treat interpretation of
+>>> ANOVAs is that they look at interactions, and if those are not significant,
+>>> you interpret the main effects.  If interactions are significant, then
+>>> interpretation of main effects is tricky at best, but mostly incoherent, or
+>>> at least opaque, as you point out (and I agree!).  But I think the "main
+>>> effect" parameter in the full model has a pretty clear interpretation, which
+>>> is just the marginal effect estimate collapsing across the interactions,
+>>> etc.
+>> 
+>> Having reviewed a bit, right, if you're careful (choosing the right
+>> coding scheme etc.) then you can set up your design matrix in such a
+>> way that the "main effect" parameter is estimating some well-defined
+>> quantity. But I'm still pretty skeptical that this particular quantity
+>> will be of scientific interest.
+> 
+> A second possibly useful follow-up: I agree with Nathaniel that it is probably more often than not the case that a main effect of X is of fundamental scientific interest when X also interacts
+                                        ^
+                           Correction: NOT   (thanks Daniel Ezra Johnson!)
+
+>  with other terms in one’s model, and one can sometimes get into quite a bit of trouble when one tries to interpret main effects in this situation.  But since there *are* circumstances where it makes sense to interpret these main effects, it can be useful to know how to set up one’s design matrix to do this.  I have a short write-up describing how to do this that I’ve previously shared with a few parties, and since this conversation (and other recent ones) suggests that knowing how to do this would be of interest, I’ve now put it up online:
+> 
+>  http://idiom.ucsd.edu/~rlevy/papers/levy-2013-mainEffects.pdf
+> 
+> Best
+> 
+> Roger
+> 
+> 
+>> In particular, it usually cannot be
+>> generalized to make predictions about even closely related
+>> experimental designs, because when you marginalize out the other
+>> effects, you assume some particular distribution over them. Knowing
+>> the marginal effect of Freq in a population with this particular mix
+>> of education levels, syntactic type exposures, etc., doesn't tell you
+>> anything about the effect of Freq in any particular person, or even
+>> about the marginal effect in other populations where these quantities
+>> are differently distributed.
+>> 
+>>> I'm on the side of the fence that believes if you have enough data,
+>>> you should be fitting as complex a model as makes sense, and interpreting
+>>> from there.  For example, in this case, one of the interaction terms is
+>>> marginal (i.e., big-ish, but not "significant").  Removing too many of these
+>>> can get you pretty biased results, and I'd put more stock in the "main
+>>> effect" estimate that takes these into account rather than an estimate from
+>>> a model that drops all the interactions because they don't hit p < .05.  Of
+>>> course, overfitting is something to watch out for, too, but blind
+>>> model-selection by p-value is rarely a great idea.  It's the same principle
+>>> for leaving in regression coefficients in a plain multiple regression, even
+>>> if those coefs don't hit p < .05, because overall that model should provide
+>>> better estimates of the effects that you are interested in.
+>>> 
+>>> So if the goal is to get the best estimates for any given effect, sticking
+>>> with the biggest model possible makes sense (with the caveat of possible
+>>> overfitting).
+>> 
+>> Yes, definitely. I usually compare the full model to the one where the
+>> factor doesn't appear at all ("does this factor matter at all?"), and
+>> to the model that only has a main effect ("does this factor interact
+>> with other factors?"). Those are both tests against the full model, so
+>> we never have to "accept the null" by throwing out non-significant
+>> terms, and AFAICT they are sensible ways to test the main questions
+>> that psychologists usually care about.
+>> 
+>>> JM's problem (I'm guessing) is just that he'd like to get a
+>>> p-value for that estimate of the marginal effect of Freq across various
+>>> (potential) interactions.
+>> 
+>> I just think that *really* wanting such a thing is sufficiently
+>> unusual that if you do want it, you should have a clear, articulable
+>> reason for why.
+>> 
+>> That said, and to answer one of the original questions in the thread
+>> -- if you really do want this, then the Anova function in the 'car'
+>> package is documented to work on lme4 models, and accepts a type="III"
+>> argument, so this might be the simplest and most elegant way to do
+>> this strange thing ;-).
+>> 
+>> -n
+>> 
+>> -- 
+>> Nathaniel J. Smith
+>> Postdoctoral researcher - Informatics - University of Edinburgh
+>> http://vorpus.org
+>
+
+From lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org  Fri May  9 01:53:31 2014
+From: lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org (Lngmyers)
+Date: Fri, 09 May 2014 09:53:31 +0800
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <43769DFE-5A2E-4CDD-A42C-74FA99FE86E3-XkckGZ689+c@public.gmane.org>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com> <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com> <CA+tkQ_ME2b5N0LkaUmNs-2WC7btaZR1ZnAJBS-ZmD__aTESC_Q@mail.gmail.com> <CAPJVwB=0Drd9aJFjZfdp9RbEN8eLuZ7tKvR4o7H-jd7MUb=d+Q@mail.gmail.com> <43769DFE-5A2E-4CDD-A42C-74FA99FE86E3@ucsd.edu>
+Message-ID: <536C351B.5000306@ccu.edu.tw>
+
+
+As usual, I'm late to the party (time zones etc). But thanks, all, for the rich 
+discussion sparked by my stupid question (though really, it's a shame that the 
+"Doraemon" comic hasn't been translated into English). I look forward to trying 
+out Henrik Singmann's afex package and reading the refs written and/or suggested 
+by Roger Levy.
+
+I just want to reiterate that whatever the experts eventually settle on (it 
+always amuses me, as a former math BA, how unscientific statistics is), you 
+GOTTA be able to test x1, x2, and x1:x2 - all of them - in a y ~ x1*x2 model. So 
+much in psycholinguistics depends on it, like the additive method of Sternberg 
+for testing the independence of cognitive processes.
+
+At the same time, it must also be legit, in principle, to test interactions 
+without testing main effects, since that's basically what the two-way 
+chi-squared test does:
+
+mat = matrix(c(9,1,1,9), ncol = 2)
+chisq.test(mat)$p.value
+
+y=c(9,1,1,9); x1=c(-1,-1,1,1); x2=c(-1,1,-1,1)
+summary(glm(y~x1*x2,family=poisson))$coefficients["x1:x2","Pr(>|z|)"]/2
+
+- jm
+
+On 2014/5/9 05:14 am, Levy, Roger wrote:
+>
+>
+>
+> On May 8, 2014, at 9:23 AM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+>
+>> On Thu, May 8, 2014 at 2:34 PM, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>>> Well, I think it's just analogous to testing a main effect in an ANOVA that
+>>> also has interactions specified.  The way people treat interpretation of
+>>> ANOVAs is that they look at interactions, and if those are not significant,
+>>> you interpret the main effects.  If interactions are significant, then
+>>> interpretation of main effects is tricky at best, but mostly incoherent, or
+>>> at least opaque, as you point out (and I agree!).  But I think the "main
+>>> effect" parameter in the full model has a pretty clear interpretation, which
+>>> is just the marginal effect estimate collapsing across the interactions,
+>>> etc.
+>>
+>> Having reviewed a bit, right, if you're careful (choosing the right
+>> coding scheme etc.) then you can set up your design matrix in such a
+>> way that the "main effect" parameter is estimating some well-defined
+>> quantity. But I'm still pretty skeptical that this particular quantity
+>> will be of scientific interest.
+>
+> A second possibly useful follow-up: I agree with Nathaniel that it is probably more often than not the case that a main effect of X is of fundamental scientific interest when X also interacts with other terms in one’s model, and one can sometimes get into quite a bit of trouble when one tries to interpret main effects in this situation.  But since there *are* circumstances where it makes sense to interpret these main effects, it can be useful to know how to set up one’s design matrix to do this.  I have a short write-up describing how to do this that I’ve previously shared with a few parties, and since this conversation (and other recent ones) suggests that knowing how to do this would be of interest, I’ve now put it up online:
+>
+>    http://idiom.ucsd.edu/~rlevy/papers/levy-2013-mainEffects.pdf
+>
+> Best
+>
+> Roger
+>
+>
+>> In particular, it usually cannot be
+>> generalized to make predictions about even closely related
+>> experimental designs, because when you marginalize out the other
+>> effects, you assume some particular distribution over them. Knowing
+>> the marginal effect of Freq in a population with this particular mix
+>> of education levels, syntactic type exposures, etc., doesn't tell you
+>> anything about the effect of Freq in any particular person, or even
+>> about the marginal effect in other populations where these quantities
+>> are differently distributed.
+>>
+>>> I'm on the side of the fence that believes if you have enough data,
+>>> you should be fitting as complex a model as makes sense, and interpreting
+>>> from there.  For example, in this case, one of the interaction terms is
+>>> marginal (i.e., big-ish, but not "significant").  Removing too many of these
+>>> can get you pretty biased results, and I'd put more stock in the "main
+>>> effect" estimate that takes these into account rather than an estimate from
+>>> a model that drops all the interactions because they don't hit p < .05.  Of
+>>> course, overfitting is something to watch out for, too, but blind
+>>> model-selection by p-value is rarely a great idea.  It's the same principle
+>>> for leaving in regression coefficients in a plain multiple regression, even
+>>> if those coefs don't hit p < .05, because overall that model should provide
+>>> better estimates of the effects that you are interested in.
+>>>
+>>> So if the goal is to get the best estimates for any given effect, sticking
+>>> with the biggest model possible makes sense (with the caveat of possible
+>>> overfitting).
+>>
+>> Yes, definitely. I usually compare the full model to the one where the
+>> factor doesn't appear at all ("does this factor matter at all?"), and
+>> to the model that only has a main effect ("does this factor interact
+>> with other factors?"). Those are both tests against the full model, so
+>> we never have to "accept the null" by throwing out non-significant
+>> terms, and AFAICT they are sensible ways to test the main questions
+>> that psychologists usually care about.
+>>
+>>> JM's problem (I'm guessing) is just that he'd like to get a
+>>> p-value for that estimate of the marginal effect of Freq across various
+>>> (potential) interactions.
+>>
+>> I just think that *really* wanting such a thing is sufficiently
+>> unusual that if you do want it, you should have a clear, articulable
+>> reason for why.
+>>
+>> That said, and to answer one of the original questions in the thread
+>> -- if you really do want this, then the Anova function in the 'car'
+>> package is documented to work on lme4 models, and accepts a type="III"
+>> argument, so this might be the simplest and most elegant way to do
+>> this strange thing ;-).
+>>
+>> -n
+>>
+>> --
+>> Nathaniel J. Smith
+>> Postdoctoral researcher - Informatics - University of Edinburgh
+>> http://vorpus.org
+>
+>
+>
+>
+>
+
+-- 
+James Myers
+Graduate Institute of Linguistics
+National Chung Cheng University
+168 University Road, Min-Hsiung
+Chia-Yi 62102
+TAIWAN
+Email:  Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+Phone:  886-5-242-8251
+Fax:    886-5-272-1654
+
+From rlevy-XkckGZ689+c at public.gmane.org  Fri May  9 19:08:52 2014
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Fri, 09 May 2014 19:08:52 +0000
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <536C351B.5000306@ccu.edu.tw>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com> <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com> <CA+tkQ_ME2b5N0LkaUmNs-2WC7btaZR1ZnAJBS-ZmD__aTESC_Q@mail.gmail.com> <CAPJVwB=0Drd9aJFjZfdp9RbEN8eLuZ7tKvR4o7H-jd7MUb=d+Q@mail.gmail.com> <43769DFE-5A2E-4CDD-A42C-74FA99FE86E3@ucsd.edu> <536C351B.5000306@ccu.edu.tw>
+Message-ID: <149068D3-F48D-4ECA-BE52-0C6F6BDCB786@ucsd.edu>
+
+Hi James,
+
+On May 8, 2014, at 6:53 PM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+
+> 
+> As usual, I'm late to the party (time zones etc). But thanks, all, for the rich discussion sparked by my stupid question (though really, it's a shame that the "Doraemon" comic hasn't been translated into English). I look forward to trying out Henrik Singmann's afex package and reading the refs written and/or suggested by Roger Levy.
+> 
+> I just want to reiterate that whatever the experts eventually settle on (it always amuses me, as a former math BA, how unscientific statistics is), you GOTTA be able to test x1, x2, and x1:x2 - all of them - in a y ~ x1*x2 model. So much in psycholinguistics depends on it, like the additive method of Sternberg for testing the independence of cognitive processes.
+
+Just a follow-up on this.  First, if you sum-code both x1 and x2, then for those of (x1,x2) that are dichotomous you will be able to interpret their parameter estimate and associated significance levels in the y ~ x1*x2 models in the way that you want — as the “main effect” in the presence of the interaction.  (I think you know this already but it bears reiterating.)
+
+If one or both of (x1,x2) has three or more levels and you want to do an omnibus test on its main effect in the presence of the interaction — that’s exactly what my writeup is about.
+
+> At the same time, it must also be legit, in principle, to test interactions without testing main effects, since that's basically what the two-way chi-squared test does:
+> 
+> mat = matrix(c(9,1,1,9), ncol = 2)
+> chisq.test(mat)$p.value
+
+Wait: this chi-squared test is testing the interaction, not the main effects.
+
+> 
+> y=c(9,1,1,9); x1=c(-1,-1,1,1); x2=c(-1,1,-1,1)
+> summary(glm(y~x1*x2,family=poisson))$coefficients["x1:x2","Pr(>|z|)"]/2
+
+This model *is* "testing the main effects in the presence of an interaction”.  However — and this is very important!!! — it is not at all clear what meanings these "main effects” have.  Whatever they are, they are *not* the same thing as the main effects in a y~x1+x2 model.  Here’s an example of this:
+
+
+> dat <- data.frame(y=c(rep(0,10),rep(1,90),rep(0,90),rep(1,10),rep(0,40),rep(1,60),rep(0,50),rep(1,50)), x1=rep(c(-1,-1,1,1),each=100), x2=rep(c(-1,1,-1,1),each=100))
+> summary(glm(y~x1*x2,data=dat,family="binomial"))
+[…]
+Coefficients:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)   0.1014     0.1378   0.736    0.462    
+x1            0.1014     0.1378   0.736    0.462    
+x2           -1.2000     0.1378  -8.708  < 2e-16 ***
+x1:x2         0.9972     0.1378   7.237  4.6e-13 ***
+[…]
+> summary(glm(y~x1+x2,data=dat,family="binomial"))
+[…]Coefficients:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)   0.1261     0.1125   1.120    0.263    
+x1            0.1261     0.1125   1.120    0.263    
+x2           -0.9765     0.1127  -8.665   <2e-16 ***
+[…]
+
+Note that the x1 and x2 main effects (and the intercept too!) have different parameter estimates in the presence of the interaction than in the absence of the interaction.  This follows from the nonlinearity in the relationship between the linking function and the mean of the response variable.  It is only in the special case of linear models that you can even talk about the main effects (and indeed any interactions of terms lower than the highest-order interaction containing those terms) as potentially having the same meaning in models with and without a higher-order interaction.
+
+Roger
+
+> 
+> - jm
+> 
+> On 2014/5/9 05:14 am, Levy, Roger wrote:
+>> 
+>> 
+>> 
+>> On May 8, 2014, at 9:23 AM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+>> 
+>>> On Thu, May 8, 2014 at 2:34 PM, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>>>> Well, I think it's just analogous to testing a main effect in an ANOVA that
+>>>> also has interactions specified.  The way people treat interpretation of
+>>>> ANOVAs is that they look at interactions, and if those are not significant,
+>>>> you interpret the main effects.  If interactions are significant, then
+>>>> interpretation of main effects is tricky at best, but mostly incoherent, or
+>>>> at least opaque, as you point out (and I agree!).  But I think the "main
+>>>> effect" parameter in the full model has a pretty clear interpretation, which
+>>>> is just the marginal effect estimate collapsing across the interactions,
+>>>> etc.
+>>> 
+>>> Having reviewed a bit, right, if you're careful (choosing the right
+>>> coding scheme etc.) then you can set up your design matrix in such a
+>>> way that the "main effect" parameter is estimating some well-defined
+>>> quantity. But I'm still pretty skeptical that this particular quantity
+>>> will be of scientific interest.
+>> 
+>> A second possibly useful follow-up: I agree with Nathaniel that it is probably more often than not the case that a main effect of X is of fundamental scientific interest when X also interacts with other terms in one’s model, and one can sometimes get into quite a bit of trouble when one tries to interpret main effects in this situation.  But since there *are* circumstances where it makes sense to interpret these main effects, it can be useful to know how to set up one’s design matrix to do this.  I have a short write-up describing how to do this that I’ve previously shared with a few parties, and since this conversation (and other recent ones) suggests that knowing how to do this would be of interest, I’ve now put it up online:
+>> 
+>>   http://idiom.ucsd.edu/~rlevy/papers/levy-2013-mainEffects.pdf
+>> 
+>> Best
+>> 
+>> Roger
+>> 
+>> 
+>>> In particular, it usually cannot be
+>>> generalized to make predictions about even closely related
+>>> experimental designs, because when you marginalize out the other
+>>> effects, you assume some particular distribution over them. Knowing
+>>> the marginal effect of Freq in a population with this particular mix
+>>> of education levels, syntactic type exposures, etc., doesn't tell you
+>>> anything about the effect of Freq in any particular person, or even
+>>> about the marginal effect in other populations where these quantities
+>>> are differently distributed.
+>>> 
+>>>> I'm on the side of the fence that believes if you have enough data,
+>>>> you should be fitting as complex a model as makes sense, and interpreting
+>>>> from there.  For example, in this case, one of the interaction terms is
+>>>> marginal (i.e., big-ish, but not "significant").  Removing too many of these
+>>>> can get you pretty biased results, and I'd put more stock in the "main
+>>>> effect" estimate that takes these into account rather than an estimate from
+>>>> a model that drops all the interactions because they don't hit p < .05.  Of
+>>>> course, overfitting is something to watch out for, too, but blind
+>>>> model-selection by p-value is rarely a great idea.  It's the same principle
+>>>> for leaving in regression coefficients in a plain multiple regression, even
+>>>> if those coefs don't hit p < .05, because overall that model should provide
+>>>> better estimates of the effects that you are interested in.
+>>>> 
+>>>> So if the goal is to get the best estimates for any given effect, sticking
+>>>> with the biggest model possible makes sense (with the caveat of possible
+>>>> overfitting).
+>>> 
+>>> Yes, definitely. I usually compare the full model to the one where the
+>>> factor doesn't appear at all ("does this factor matter at all?"), and
+>>> to the model that only has a main effect ("does this factor interact
+>>> with other factors?"). Those are both tests against the full model, so
+>>> we never have to "accept the null" by throwing out non-significant
+>>> terms, and AFAICT they are sensible ways to test the main questions
+>>> that psychologists usually care about.
+>>> 
+>>>> JM's problem (I'm guessing) is just that he'd like to get a
+>>>> p-value for that estimate of the marginal effect of Freq across various
+>>>> (potential) interactions.
+>>> 
+>>> I just think that *really* wanting such a thing is sufficiently
+>>> unusual that if you do want it, you should have a clear, articulable
+>>> reason for why.
+>>> 
+>>> That said, and to answer one of the original questions in the thread
+>>> -- if you really do want this, then the Anova function in the 'car'
+>>> package is documented to work on lme4 models, and accepts a type="III"
+>>> argument, so this might be the simplest and most elegant way to do
+>>> this strange thing ;-).
+>>> 
+>>> -n
+>>> 
+>>> --
+>>> Nathaniel J. Smith
+>>> Postdoctoral researcher - Informatics - University of Edinburgh
+>>> http://vorpus.org
+>> 
+>> 
+>> 
+>> 
+>> 
+> 
+> -- 
+> James Myers
+> Graduate Institute of Linguistics
+> National Chung Cheng University
+> 168 University Road, Min-Hsiung
+> Chia-Yi 62102
+> TAIWAN
+> Email:  Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+> Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+> Phone:  886-5-242-8251
+> Fax:    886-5-272-1654
+
+From lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org  Sat May 10 10:05:17 2014
+From: lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org (Lngmyers)
+Date: Sat, 10 May 2014 18:05:17 +0800
+Subject: Re: bug in lmer or in my head?
+In-Reply-To: <149068D3-F48D-4ECA-BE52-0C6F6BDCB786-XkckGZ689+c@public.gmane.org>
+References: <CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com> <67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu> <536AFF8F.8090805@ccu.edu.tw> <CAPJVwBmBABG1ikMdOk27pOu31u6FLJzWG1ptOrdT3jOENPoMiA@mail.gmail.com> <CA+tkQ_MyT0H-cbmV7FPz-JZuStU6v+69wnWE33DD_S72puti_Q@mail.gmail.com> <CAPJVwBmh524QxmGjNknFgX-5C8BcoBbO9v5_yqUgCop1_URHnw@mail.gmail.com> <CA+tkQ_ME2b5N0LkaUmNs-2WC7btaZR1ZnAJBS-ZmD__aTESC_Q@mail.gmail.com> <CAPJVwB=0Drd9aJFjZfdp9RbEN8eLuZ7tKvR4o7H-jd7MUb=d+Q@mail.gmail.com> <43769DFE-5A2E-4CDD-A42C-74FA99FE86E3@ucsd.edu> <536C351B.5000306@ccu.edu.tw> <149068D3-F48D-4ECA-BE52-0C6F6BDCB786@ucsd.edu>
+Message-ID: <536DF9DD.9040600@ccu.edu.tw>
+
+
+On 2014/5/10 03:08 am, Levy, Roger wrote:
+> Hi James,
+>
+> On May 8, 2014, at 6:53 PM, Lngmyers <lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org> wrote:
+
+>> I just want to reiterate that whatever the experts eventually settle on (it
+>> always amuses me, as a former math BA, how unscientific statistics is), you
+>> GOTTA be able to test x1, x2, and x1:x2 - all of them - in a y ~ x1*x2
+>> model. So much in psycholinguistics depends on it, like the additive method
+>> of Sternberg for testing the independence of cognitive processes.
+>
+> Just a follow-up on this.  First, if you sum-code both x1 and x2, then for
+> those of (x1,x2) that are dichotomous you will be able to interpret their
+> parameter estimate and associated significance levels in the y ~ x1*x2 models
+> in the way that you want — as the “main effect” in the presence of the
+> interaction.  (I think you know this already but it bears reiterating.)
+
+I've used nothing but effect coding since I read about it in Kirk's experimental 
+design textbook many years ago (which is also why I call it "effect coding"). 
+Dummy coding is aptly named, in my opinion.
+
+> If one or both of (x1,x2) has three or more levels and you want to do an
+> omnibus test on its main effect in the presence of the interaction — that’s
+> exactly what my writeup is about.
+>
+>> At the same time, it must also be legit, in principle, to test interactions
+>> without testing main effects, since that's basically what the two-way
+>> chi-squared test does:
+>>
+>> mat = matrix(c(9,1,1,9), ncol = 2) chisq.test(mat)$p.value
+>
+> Wait: this chi-squared test is testing the interaction, not the main
+> effects.
+
+That was actually my rhetorical point. Earlier in the discussion it had been 
+noted that it's bad for models to include interactions without also including 
+the main effects, and I gave this as a counterargument (whether it's a valid 
+counterargument is another question).
+
+>> y=c(9,1,1,9); x1=c(-1,-1,1,1); x2=c(-1,1,-1,1)
+>> summary(glm(y~x1*x2,family=poisson))$coefficients["x1:x2","Pr(>|z|)"]/2
+
+BTW I shouldn't have divided by 2 here - I clicked SEND too early. The two 
+interaction tests are actually related as shown in the plot generated by the R 
+code below - I assume the noisiness comes from the "main effects" (which 
+actually aren't) in the Poisson regression:
+
+B = 1000
+chi.X2 = numeric(B)
+pois.z = numeric(B)
+for (i in 1:B) {
+  # Fake data
+  obs = sample(50,4)
+  # chi-squared test statistic for interaction
+  mat = matrix(obs, ncol = 2)
+  chi2 = chisq.test(mat)
+  chi.X2[i] = chi2$statistic
+  # Poisson regression (Wald) statistic for interaction
+  y=obs; x1=c(-1,-1,1,1); x2=c(-1,1,-1,1)
+  pois = summary(glm(y~x1*x2,family=poisson))
+  pois.z[i] = pois$coefficients["x1:x2","z value"]
+}
+plot(pois.z,chi.X2)
+
+You can see why I left mathematics for linguistics - I'm bad at reasoning things 
+out from first principles, but always go for an empirical approach first. Same 
+reason I gave up generative linguistics for psycholinguistics....
+
+> This model *is* "testing the main effects in the presence of an interaction”.
+> However — and this is very important!!! — it is not at all clear what
+> meanings these "main effects” have.  Whatever they are, they are *not* the
+> same thing as the main effects in a y~x1+x2 model.  Here’s an example of
+> this:
+>
+>
+>> dat <-
+>> data.frame(y=c(rep(0,10),rep(1,90),rep(0,90),rep(1,10),rep(0,40),rep(1,60),rep(0,50),rep(1,50)),
+>> x1=rep(c(-1,-1,1,1),each=100), x2=rep(c(-1,1,-1,1),each=100))
+>> summary(glm(y~x1*x2,data=dat,family="binomial"))
+> […] Coefficients: Estimate Std. Error z value Pr(>|z|) (Intercept)   0.1014
+> 0.1378   0.736    0.462 x1            0.1014     0.1378   0.736    0.462 x2
+> -1.2000     0.1378  -8.708  < 2e-16 *** x1:x2         0.9972     0.1378
+> 7.237  4.6e-13 *** […]
+>> summary(glm(y~x1+x2,data=dat,family="binomial"))
+> […]Coefficients: Estimate Std. Error z value Pr(>|z|) (Intercept)   0.1261
+> 0.1125   1.120    0.263 x1            0.1261     0.1125   1.120    0.263 x2
+> -0.9765     0.1127  -8.665   <2e-16 *** […]
+>
+> Note that the x1 and x2 main effects (and the intercept too!) have different
+> parameter estimates in the presence of the interaction than in the absence of
+> the interaction.  This follows from the nonlinearity in the relationship
+> between the linking function and the mean of the response variable.  It is
+> only in the special case of linear models that you can even talk about the
+> main effects (and indeed any interactions of terms lower than the
+> highest-order interaction containing those terms) as potentially having the
+> same meaning in models with and without a higher-order interaction.
+
+I hadn't tried this - and indeed, it's very important to know! Makes sense once 
+you think about it, though. Most of my recent research deals with interacting 
+numerical variables anyway, where "funny" stuff happens all the time, even in 
+linear models, and I haven't actually been trying to make any Sternbergian 
+arguments.
+
+- jm
+
+ps - TL;DR: In my head.
+
+From Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org  Tue May 20 02:18:32 2014
+From: Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org (Paul Warren)
+Date: Tue, 20 May 2014 02:18:32 +0000
+Subject: MEMs with ordinal data
+Message-ID: <2C47C2ADFE759B42A9AA4DB25A3335EE47BEAE46@STAWINCOX10MBX2.staff.vuw.ac.nz>
+
+Hi all
+
+I have a doctoral student who is working with ordinal data (acceptability judgements from employers of migrant workers' pronunciation) with ordinal predictors (9-point ratings of various pronunciation features). He's been using clmm for the ordinal DV, but we're having difficulty getting stable models because of multicollinearity between the predictors (at least, that is what we think the problem is - the warning is of rank deficiency, resulting in clmm dropping one or more coefficient from the model). I've suggested centering the predictors (e.g. using Florian Jaeger's myCenter() ), but my concern is that this turns ordinal into numeric. I'm not sure how big a concern this is, given that the ratings are on a linear scale of 1-9, but I have read some fairly strong warnings about ordinal vs numeric (e.g. pj.freefaculty.org/Papers/MidWest09/Midwest09.pdf).
+
+Does anyone have advice around building models with ordinal DVs and ordinal predictors?
+
+Paul
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue May 20 11:52:09 2014
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Tue, 20 May 2014 07:52:09 -0400
+Subject: Re: MEMs with ordinal data
+In-Reply-To: <2C47C2ADFE759B42A9AA4DB25A3335EE47BEAE46@STAWINCOX10MBX2.staff.vuw.ac.nz>
+References: <2C47C2ADFE759B42A9AA4DB25A3335EE47BEAE46@STAWINCOX10MBX2.staff.vuw.ac.nz>
+Message-ID: <CA+tkQ_M73AvuCFPAuAtCoaFgzsuiVBOgMiYH0om-JZbe=tbT=Q@mail.gmail.com>
+
+Short reply asking for more info: what does the distribution of the DV look
+like?  In my experience, this is more important than (say) the number of
+ordinal categories when analyzing as if it were continuous.  And what are
+the ordinal predictors like?  Is this an experimental design with ordinal
+factors, or an observational/pseudo-experimental design with a bunch of
+variables?  What do the predictor distributions looks like?
+
+
+On Mon, May 19, 2014 at 10:18 PM, Paul Warren <Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org> wrote:
+
+>  Hi all
+>
+> I have a doctoral student who is working with ordinal data (acceptability
+> judgements from employers of migrant workers' pronunciation) with ordinal
+> predictors (9-point ratings of various pronunciation features). He's been
+> using clmm for the ordinal DV, but we're having difficulty getting stable
+> models because of multicollinearity between the predictors (at least, that
+> is what we think the problem is - the warning is of rank deficiency,
+> resulting in clmm dropping one or more coefficient from the model). I've
+> suggested centering the predictors (e.g. using Florian Jaeger's myCenter()
+> ), but my concern is that this turns ordinal into numeric. I'm not sure how
+> big a concern this is, given that the ratings are on a linear scale of 1-9,
+> but I have read some fairly strong warnings about ordinal vs numeric (e.g.
+> pj.freefaculty.org/Papers/MidWest09/Midwest09.pdf).
+>
+> Does anyone have advice around building models with ordinal DVs and
+> ordinal predictors?
+>
+>   Paul
+>
+>
+>
+
+From njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org  Tue May 20 13:18:27 2014
+From: njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org (Nathaniel Smith)
+Date: Tue, 20 May 2014 14:18:27 +0100
+Subject: Re: MEMs with ordinal data
+In-Reply-To: <2C47C2ADFE759B42A9AA4DB25A3335EE47BEAE46@STAWINCOX10MBX2.staff.vuw.ac.nz>
+References: <2C47C2ADFE759B42A9AA4DB25A3335EE47BEAE46@STAWINCOX10MBX2.staff.vuw.ac.nz>
+Message-ID: <CAPJVwBk2bZd++fUwy=DhGTCGbmtggACK5ajiSkeOGf3npmGBgQ@mail.gmail.com>
+
+On Tue, May 20, 2014 at 3:18 AM, Paul Warren <Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org> wrote:
+> Hi all
+>
+> I have a doctoral student who is working with ordinal data (acceptability
+> judgements from employers of migrant workers' pronunciation) with ordinal
+> predictors (9-point ratings of various pronunciation features). He's been
+> using clmm for the ordinal DV, but we're having difficulty getting stable
+> models because of multicollinearity between the predictors (at least, that
+> is what we think the problem is - the warning is of rank deficiency,
+> resulting in clmm dropping one or more coefficient from the model). I've
+> suggested centering the predictors (e.g. using Florian Jaeger's myCenter()
+> ), but my concern is that this turns ordinal into numeric. I'm not sure how
+> big a concern this is, given that the ratings are on a linear scale of 1-9,
+> but I have read some fairly strong warnings about ordinal vs numeric (e.g.
+> pj.freefaculty.org/Papers/MidWest09/Midwest09.pdf).
+
+I don't know how much data you have, but trying to separately estimate
+the effect of each and every possible rating for each possible value
+of each different rating does seem like a lot to ask of a typical
+psycholinguistic data set. (Do you even have observations at every
+value of all the rating scales? If not then that'll be your
+collinearity problem right there...)
+
+Treating ordinal variables as numeric *per se* isn't problematic --
+the problem discussed in that paper is about what happens if you treat
+ordinal variables as *linear* (i.e., assuming that on your scale the
+difference between 1 and 2 is the same as the difference between 4 and
+5 or 8 and 9.). But it might make sense to treat it as numeric but
+with possible non-linearities -- e.g. treating it as numeric with a
+9th order polynomial model or a 9 dof spline basis will give identical
+results as if you treat it as ordinal. But non-linear models also give
+you the option of using, say, 3 degrees of freedom, which is probably
+enough to capture the broad shape of whatever non-linearities are in
+your rating scale, but still allow for pooling data between similar
+observations.
+
+Normally I'd suggest using mgcv here, but I don't know that it has any
+support for ordinal DVs. A simple workaround that might work okay
+would be to use the standard R 'bs' function (in the 'splines'
+library), something like 'y ~ bs(my_ordinal_as_numeric, dof)', where
+'dof' is a number between 1 and 8.
+
+-n
+
+-- 
+Nathaniel J. Smith
+Postdoctoral researcher - Informatics - University of Edinburgh
+http://vorpus.org
+
+From Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org  Wed May 21 08:06:49 2014
+From: Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org (Paul Warren)
+Date: Wed, 21 May 2014 08:06:49 +0000
+Subject: Re: MEMs with ordinal data
+In-Reply-To: <CA+tkQ_M73AvuCFPAuAtCoaFgzsuiVBOgMiYH0om-JZbe=tbT=Q@mail.gmail.com>
+References: <2C47C2ADFE759B42A9AA4DB25A3335EE47BEAE46@STAWINCOX10MBX2.staff.vuw.ac.nz> <CA+tkQ_M73AvuCFPAuAtCoaFgzsuiVBOgMiYH0om-JZbe=tbT=Q@mail.gmail.com>
+Message-ID: <2C47C2ADFE759B42A9AA4DB25A3335EE47BF0451@STAWINCOX10MBX2.staff.vuw.ac.nz>
+
+thanks Scott
+
+the data come from an on-line Qualtrics survey in which employers heard speech samples from migrants and rated them on 9-point scales for 'acceptability for employment' (the DV of interest) as well as on 9-point pronunciation scales such as 'intonation', 'lexical stress', etc., and the aim now is to determine the extent to which the pronunciation ratings are good predictors of the 'acceptability' rating. There are also expert ratings of pronunciation features from experienced ESOL teachers that will be used in a separate analysis (again with the 'acceptability' rating as the DV).
+The speech data come from 40 speakers, and there were 95 employers who carried out the ratings, but in 2 groups - all groups rated for 'acceptabilty' but one group rated for the pronunciation features while the other rated  'attitudinal' type features like 'friendliness'. The two groups are being treated separately for this initial analysis. As the task is very time consuming, each employer only rated a subset of the speakers in their group, with selection designed to ensure as even a distribution as possible.
+Employer and Speaker are treated as random effects.
+
+hope that helps
+Paul
+________________________________
+From: Scott Jackson [scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+Sent: Tuesday, 20 May 2014 11:52 p.m.
+To: Paul Warren
+Cc: ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+Subject: Re: [R-lang] MEMs with ordinal data
+
+Short reply asking for more info: what does the distribution of the DV look like?  In my experience, this is more important than (say) the number of ordinal categories when analyzing as if it were continuous.  And what are the ordinal predictors like?  Is this an experimental design with ordinal factors, or an observational/pseudo-experimental design with a bunch of variables?  What do the predictor distributions looks like?
+
+
+On Mon, May 19, 2014 at 10:18 PM, Paul Warren <Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org<mailto:Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org>> wrote:
+Hi all
+
+I have a doctoral student who is working with ordinal data (acceptability judgements from employers of migrant workers' pronunciation) with ordinal predictors (9-point ratings of various pronunciation features). He's been using clmm for the ordinal DV, but we're having difficulty getting stable models because of multicollinearity between the predictors (at least, that is what we think the problem is - the warning is of rank deficiency, resulting in clmm dropping one or more coefficient from the model). I've suggested centering the predictors (e.g. using Florian Jaeger's myCenter() ), but my concern is that this turns ordinal into numeric. I'm not sure how big a concern this is, given that the ratings are on a linear scale of 1-9, but I have read some fairly strong warnings about ordinal vs numeric (e.g. pj.freefaculty.org/Papers/MidWest09/Midwest09.pdf<http://pj.freefaculty.org/Papers/MidWest09/Midwest09.pdf>).
+
+Does anyone have advice around building models with ordinal DVs and ordinal predictors?
+
+Paul
+
+From danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed May 21 08:43:42 2014
+From: danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Daniel Ezra Johnson)
+Date: Wed, 21 May 2014 09:43:42 +0100
+Subject: Re: MEMs with ordinal data
+In-Reply-To: <2C47C2ADFE759B42A9AA4DB25A3335EE47BF0451@STAWINCOX10MBX2.staff.vuw.ac.nz>
+References: <2C47C2ADFE759B42A9AA4DB25A3335EE47BEAE46@STAWINCOX10MBX2.staff.vuw.ac.nz> <CA+tkQ_M73AvuCFPAuAtCoaFgzsuiVBOgMiYH0om-JZbe=tbT=Q@mail.gmail.com> <2C47C2ADFE759B42A9AA4DB25A3335EE47BF0451@STAWINCOX10MBX2.staff.vuw.ac.nz>
+Message-ID: <F881908E-E02D-4165-A5EF-3C44F2E9E904@gmail.com>
+
+How is an ordinal predictor supposed to function in a regression? I don't understand how you could quantify the effect of an ordinal predictor in a single coefficient.
+
+Dan
+
+> On 21 May 2014, at 09:06, Paul Warren <Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org> wrote:
+> 
+> thanks Scott
+> 
+> the data come from an on-line Qualtrics survey in which employers heard speech samples from migrants and rated them on 9-point scales for 'acceptability for employment' (the DV of interest) as well as on 9-point pronunciation scales such as 'intonation', 'lexical stress', etc., and the aim now is to determine the extent to which the pronunciation ratings are good predictors of the 'acceptability' rating. There are also expert ratings of pronunciation features from experienced ESOL teachers that will be used in a separate analysis (again with the 'acceptability' rating as the DV). 
+> The speech data come from 40 speakers, and there were 95 employers who carried out the ratings, but in 2 groups - all groups rated for 'acceptabilty' but one group rated for the pronunciation features while the other rated  'attitudinal' type features like 'friendliness'. The two groups are being treated separately for this initial analysis. As the task is very time consuming, each employer only rated a subset of the speakers in their group, with selection designed to ensure as even a distribution as possible.
+> Employer and Speaker are treated as random effects.
+> 
+> hope that helps
+> Paul
+> From: Scott Jackson [scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+> Sent: Tuesday, 20 May 2014 11:52 p.m.
+> To: Paul Warren
+> Cc: ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> Subject: Re: [R-lang] MEMs with ordinal data
+> 
+> Short reply asking for more info: what does the distribution of the DV look like?  In my experience, this is more important than (say) the number of ordinal categories when analyzing as if it were continuous.  And what are the ordinal predictors like?  Is this an experimental design with ordinal factors, or an observational/pseudo-experimental design with a bunch of variables?  What do the predictor distributions looks like?
+> 
+> 
+>> On Mon, May 19, 2014 at 10:18 PM, Paul Warren <Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org> wrote:
+>> Hi all
+>> 
+>> I have a doctoral student who is working with ordinal data (acceptability judgements from employers of migrant workers' pronunciation) with ordinal predictors (9-point ratings of various pronunciation features). He's been using clmm for the ordinal DV, but we're having difficulty getting stable models because of multicollinearity between the predictors (at least, that is what we think the problem is - the warning is of rank deficiency, resulting in clmm dropping one or more coefficient from the model). I've suggested centering the predictors (e.g. using Florian Jaeger's myCenter() ), but my concern is that this turns ordinal into numeric. I'm not sure how big a concern this is, given that the ratings are on a linear scale of 1-9, but I have read some fairly strong warnings about ordinal vs numeric (e.g. pj.freefaculty.org/Papers/MidWest09/Midwest09.pdf).
+>> 
+>> Does anyone have advice around building models with ordinal DVs and ordinal predictors?
+>> 
+>> Paul
+>
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed May 21 13:06:01 2014
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Wed, 21 May 2014 09:06:01 -0400
+Subject: Re: MEMs with ordinal data
+In-Reply-To: <F881908E-E02D-4165-A5EF-3C44F2E9E904@gmail.com>
+References: <2C47C2ADFE759B42A9AA4DB25A3335EE47BEAE46@STAWINCOX10MBX2.staff.vuw.ac.nz> <CA+tkQ_M73AvuCFPAuAtCoaFgzsuiVBOgMiYH0om-JZbe=tbT=Q@mail.gmail.com> <2C47C2ADFE759B42A9AA4DB25A3335EE47BF0451@STAWINCOX10MBX2.staff.vuw.ac.nz> <F881908E-E02D-4165-A5EF-3C44F2E9E904@gmail.com>
+Message-ID: <CA+tkQ_PEcWQHOT07qZ_+Nzs=eUaH=DcA6HOEXAjvfspYQBc-RQ@mail.gmail.com>
+
+Here are my thoughts, hope they help.
+
+- First, plot your data.  Look at lots and lots of plots.  Histograms with
+binwidth = 1 should give you nice charts for each variable (DV and
+predictors) that give you a sense of distributions.  It may be that some
+values of the scales are never used, or used incredibly rarely (like twice
+or something), and that could cause problems for the clmm.  At least in the
+DV.  Weird distributions in the predictors may end up making interpretation
+harder, but shouldn't really impact the model's ability to reach a fit.
+- Look at bivariate plots by using jitter or a heatmap or something,
+because otherwise overplotting will obscure anything interesting.
+- I'm recommending lots and lots of plots because I'm assuming this is a
+new type of data collection (i.e., you haven't been using this instrument
+for a long time), and it may be that there are some weird things going on
+that you should find out about, before you even worry about fitting models.
+- If you're going to center (which is nearly always a good idea), I would
+actually recommend centering at value 5 (the middle of your scale) rather
+than the empirical mean.  There's nothing special about mean-centering
+that's so much better for fitting purposes compared to this, and centering
+to the middle of your scale will make things easier to interpret (I think),
+especially if your middle value has some kind of meaningful label.
+- Double-check how you're splitting the data for analysis based on the two
+Employer groups.  For example, use something like droplevels() to make sure
+that when you analyze one group, it's only estimating the random effects of
+Employer that are in that one group, as opposed to all of the levels of
+Employer.
+- It sounds like the design is basically a planned missing data design.
+ How many people did each Employer rate?  This might end up being the main
+culprit for the rank deficiency, depending on how much data ended up in
+each combination of speakers and employers, etc.  Ultimately you may want
+to consider a more thorough method for handling the missingness.  Multiple
+imputation is the "gold standard", at least in my experience.  The "mice"
+package is one of the better ones, and the documentation is pretty good,
+especially if you track down his papers on it.  If you go this route and
+run into trouble at the "pooling" step (that is, pooling results across the
+imputations), let me know, I may have some code that can help.  But there
+may also be a reasonable version of hot-decking or other type of single
+imputation that will get you good results.  It might be worth it to try a
+simple imputation method first, just to see if this helps address the rank
+deficiency issue, before you worry too much about the most appropriate
+imputation method.  A simple "hotdeck" just fills in a missing value with a
+value that's drawn from the observed responses.  So if Employer 5 didn't
+rate Speaker 6, then you fill in those values by pulling randomly from the
+values that were observed for Speaker 6 (i.e., from the other Employers).
+ This is miles better than mean replacement (for one, it preserves the
+overall distribution of responses compared to the observed distribution),
+and may help with the rank deficiency.  But it's probably not the best
+final solution for the analysis.  Just something to try as an initial step.
+- I don't think there's a problem with treating the predictors as numeric
+per se, but the plotting may reveal some things that make you re-think how
+to represent them.  In general, for any kind of regression, there are no
+real distributional assumptions about the predictors.  So as long as a "one
+unit change" on a predictor seems meaningful (which you may re-evaluate
+after seeing the plots), then I don't see a problem treating the predictors
+as numerical.  That paper you linked to gives a nice example of when this
+isn't the case, namely that the scale is really better understood as a
+scale of political extremity rather than a scale of "Republican-ness".
+ This may also be the case with some of your scales, but maybe not all of
+them.  Looking at lots of plots and thinking very hard are really your best
+tools here, and I think will be better than trying to sort out the results
+of a complicated fitted model with a jillion dummy-coded categorical
+predictors.
+- For collinearity issues, it may end up being best to just combine some
+scales.  This is common in lots of different kinds of measurement
+instruments, where groups of items represent multiple indicators or facets
+of some underlying scale or factors.  You may have in fact designed the
+items in this way, either on purpose or by accident.  I mean, if you have a
+lot of "attitudinal" items, then maybe these could be grouped in some way,
+like 5 items that deal with work attitudes, 5 items that deal with social
+attitudes, or whatever.  And if you end up combining items that also end up
+highly related empirically, then that should help with the worst of the
+collinearity.
+
+Hope that helps, and good luck!  It sounds like a very rich data set, so I
+would highly recommend exploring it carefully with lots of visualization
+before jumping ahead prematurely to hypothesis-testing.
+-scott
+
+
+
+
+On Wed, May 21, 2014 at 4:43 AM, Daniel Ezra Johnson <
+danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> How is an ordinal predictor supposed to function in a regression? I don't
+> understand how you could quantify the effect of an ordinal predictor in a
+> single coefficient.
+>
+> Dan
+>
+> On 21 May 2014, at 09:06, Paul Warren <Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org> wrote:
+>
+> thanks Scott
+>
+> the data come from an on-line Qualtrics survey in which employers heard
+> speech samples from migrants and rated them on 9-point scales for
+> 'acceptability for employment' (the DV of interest) as well as on 9-point
+> pronunciation scales such as 'intonation', 'lexical stress', etc., and the
+> aim now is to determine the extent to which the pronunciation ratings are
+> good predictors of the 'acceptability' rating. There are also expert
+> ratings of pronunciation features from experienced ESOL teachers that will
+> be used in a separate analysis (again with the 'acceptability' rating as
+> the DV).
+> The speech data come from 40 speakers, and there were 95 employers who
+> carried out the ratings, but in 2 groups - all groups rated for
+> 'acceptabilty' but one group rated for the pronunciation features while the
+> other rated  'attitudinal' type features like 'friendliness'. The two
+> groups are being treated separately for this initial analysis. As the task
+> is very time consuming, each employer only rated a subset of the speakers
+> in their group, with selection designed to ensure as even a distribution as
+> possible.
+> Employer and Speaker are treated as random effects.
+>
+> hope that helps
+> Paul
+>     ------------------------------
+> *From:* Scott Jackson [scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+> *Sent:* Tuesday, 20 May 2014 11:52 p.m.
+> *To:* Paul Warren
+> *Cc:* ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> *Subject:* Re: [R-lang] MEMs with ordinal data
+>
+>   Short reply asking for more info: what does the distribution of the DV
+> look like?  In my experience, this is more important than (say) the number
+> of ordinal categories when analyzing as if it were continuous.  And what
+> are the ordinal predictors like?  Is this an experimental design with
+> ordinal factors, or an observational/pseudo-experimental design with a
+> bunch of variables?  What do the predictor distributions looks like?
+>
+>
+> On Mon, May 19, 2014 at 10:18 PM, Paul Warren <Paul.Warren-O5iVTVtUEt6lVyrhU4qvOw at public.gmane.org>wrote:
+>
+>>  Hi all
+>>
+>> I have a doctoral student who is working with ordinal data
+>> (acceptability judgements from employers of migrant workers' pronunciation)
+>> with ordinal predictors (9-point ratings of various pronunciation
+>> features). He's been using clmm for the ordinal DV, but we're having
+>> difficulty getting stable models because of multicollinearity between the
+>> predictors (at least, that is what we think the problem is - the warning is
+>> of rank deficiency, resulting in clmm dropping one or more coefficient from
+>> the model). I've suggested centering the predictors (e.g. using Florian
+>> Jaeger's myCenter() ), but my concern is that this turns ordinal into
+>> numeric. I'm not sure how big a concern this is, given that the ratings are
+>> on a linear scale of 1-9, but I have read some fairly strong warnings about
+>> ordinal vs numeric (e.g.
+>> pj.freefaculty.org/Papers/MidWest09/Midwest09.pdf).
+>>
+>> Does anyone have advice around building models with ordinal DVs and
+>> ordinal predictors?
+>>
+>>   Paul
+>>
+>>
+>>
+>
+

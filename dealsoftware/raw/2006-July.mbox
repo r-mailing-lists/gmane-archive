@@ -1,0 +1,797 @@
+From mfranz at tuebingen.mpg.de  Wed Jul 19 14:34:20 2006
+From: mfranz at tuebingen.mpg.de (Markus Franz)
+Date: Wed, 19 Jul 2006 16:34:20 +0200
+Subject: bad heuristic result?
+Message-ID: <44BE42EC.9060306@tuebingen.mpg.de>
+
+hi all,
+
+i stumbled upon some odd behavior of heuristic(). i generate some fake 
+data (following a model, i would like to test on real data, but am not 
+sure, if the interactions i assume will be found) and learn a bayesian 
+network with deal on this data. The heuristic method indeed finds a 
+model very similar to the one used to generate the data, but with a 
+peculiar set of parameters (i.e. the number of generated samples, 
+standard deviations,...), the network returned by heuristic() clearly is 
+_not_ the best one. i find this especially disturbing, as e.g. 
+generating 1000 or 4000 samples instead of 2000 results in the "optimal" 
+network being returned. has anyone else observed such behavior or might 
+enlighten me as of why this happens? i need to know, if i can rely on 
+this method before i get started with my more complex models...
+
+thanks
+
+markus
+
+
+-------------------------------------------------------------------------------------------------------------------- 
+
+
+library(deal)
+
+nData<-2000
+ngGroups<-20
+ncGroups<-4
+
+#generate the values of the two discrete variables
+gGroup<-round(runif(nData,1,ngGroups),0)
+cGroup<-round(runif(nData,1,ncGroups),0)
+
+#generate means for all group combinations (used for TF)
+muTF<-runif(ngGroups*ncGroups,1,5)
+muTF<-matrix(muTF,ncol=ncGroups)
+
+#generate TF values
+TF<-numeric(nData)
+for (i in 1:nData){
+   TF[i]<-rnorm(1,muTF[gGroup[i],cGroup[i]],0.5)
+}
+
+#generate means for all gGroups (used for s)
+muS<-runif(ngGroups,0,0.3)
+
+#generate s values
+s<-numeric(nData)
+for(i in 1:nData){
+   s[i]<-rnorm(1,muS[gGroup[i]],0.02)
+}
+
+
+#generate c
+L<-runif(ncGroups,0,1)
+c<-numeric(nData)
+for (i in 1:nData)c[i]<-L[cGroup[i]]
+
+#generate response values (including error)
+response<-(rnorm(nData,0,1)+TF+c-s)
+
+#BN-stuff
+test<-data.frame(as.factor(gGroup),as.factor(cGroup),TF,s,response)
+test.nw<-network(test)
+test.prior<-jointprior(test.nw)
+test.nw<-getnetwork(learn(test.nw,test,test.prior))
+test.search<-autosearch(test.nw,test,test.prior,trace=T)
+test.heuristic<-heuristic(getnetwork(test.search),test,test.prior,restart=3,degree=10,trace=TRUE,trylist=gettrylist(test.search)) 
+
+test.bestNW<-getnetwork(test.heuristic)
+plot(test.bestNW)
+
+
+------------------------ Yahoo! Groups Sponsor --------------------~--> 
+Check out the new improvements in Yahoo! Groups email.
+http://us.click.yahoo.com/6pRQfA/fOaOAA/yQLSAA/AIYolB/TM
+--------------------------------------------------------------------~->
+
+From promdresses12 at yahoo.com  Wed Jul 19 13:47:47 2006
+From: promdresses12 at yahoo.com (sarah ahmed)
+Date: Wed, 19 Jul 2006 06:47:47 -0700
+Subject: newbie
+Message-ID: <20060719134747.77995.qmail@web55801.mail.re3.yahoo.com>
+
+Hi Friends!
+  Sometimes u just cant predict what ur gonna find in ur mail! Just
+opened my mail n guess what? voip ! 
+   
+   Check it out
+   
+  
+Have fun Guys, i think am gonna love it here, i just hope somebody
+sends me a mail soon!
+  
+
+
+   Join the largest Artificial Life Group on the Internet today
+  http://groups.yahoo.com/group/voipip
+
+ __________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
+ 		
+---------------------------------
+How low will we go? Check out Yahoo! Messengers low  PC-to-Phone call rates.
+
+From mfranz at tuebingen.mpg.de  Mon Jul 24 11:43:34 2006
+From: mfranz at tuebingen.mpg.de (markuswfranz)
+Date: Mon, 24 Jul 2006 11:43:34 -0000
+Subject: Bad probability tables?
+Message-ID: <ea2bp6+8fhd@eGroups.com>
+
+hi again,
+
+i still hope for comments on my last question, alas i stumbled upon
+further problems. please consider the following data generated using the
+deal savenet() method:
+
+%Created by deal, Thu Jul 20 18:05:08 2006
+%deal is Copyright (C) 2002-2004  Susanne Gammelgaard B¯ttcher, Claus
+Dethlefsen
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+net
+{
+     node_size = (40 40);
+}
+
+discrete node cond
+{
+     states = ( "Lin" "Neutral" "Stab" );
+     label = "cond";
+     position = ( 111.4413 299.7409 );
+}
+
+discrete node gene
+{
+     states = ( "c" "t" "c+t" "c-t" "0" );
+     label = "gene";
+     position = ( 36.72363 153.0992 );
+}
+
+continuous node seq
+{
+     label = "seq";
+     position = ( 153.0992 36.72363 );
+}
+
+continuous node TF
+{
+     label = "TF";
+     position = ( 299.7409 111.4413 );
+}
+
+continuous node Expr
+{
+     label = "Expr";
+     position = ( 273.9949 273.9949 );
+}
+
+
+potential ( cond )
+{
+     data=(0.3230769 0.3315136 0.3454094);
+}
+
+potential ( gene | cond   )
+{
+     data=(
+     0.4992636 0.3843888 0.1163476 0.4876923 0.4123077         % :Lin
+     0.1 0.6113161 0.3136531 0.07503075 0.07815631         % :Neutral
+     0.2865731 0.6352705 0.07977528 0.2988764 0.6213483         % :Stab
+     );
+}
+
+potential ( seq | gene   )
+{
+     data=(
+         normal (  0.952028,  0.9567803 )     % :c
+     normal (  0.01664578,  1.069056 )     % :t
+     normal (  0.9795944,  1.080571 )     % :c+t
+     normal (  0.989383,  0.9677621 )     % :c-t
+     normal (  0.03724805,  1.004171 )     % :0
+     );
+}
+
+potential ( TF | gene   )
+{
+     data=(
+         normal (  0.0730041,  1.034474 )     % :c
+     normal (  0.9513983,  1.006498 )     % :t
+     normal (  1.018779,  1.047757 )     % :c+t
+     normal (  0.9574765,  1.064237 )     % :c-t
+     normal (  0.009763924,  0.9496944 )     % :0
+     );
+}
+
+potential ( Expr | gene  seq  TF   )
+{
+     data=(
+         normal (  -0.001812927+1.002217 * seq+0.00516677 * TF, 
+0.04862798 )     % :c
+     normal (  0.0007989178-0.003115924 * seq+1.006127 * TF,  0.05251499
+)     % :t
+     normal (  0.000149588+0.5002583 * seq+0.4945506 * TF,  0.04970229 )
+% :c+t
+     normal (  -0.07799925+0.7012835 * seq-0.6561986 * TF,  0.4172805 )
+% :c-t
+     normal (  -0.007082273+0.006636849 * seq+0.002752811 * TF, 
+0.04286846 )     % :0
+     );
+}
+
+
+I focus on the node labeled "gene" (discrete, 5 possible states), which
+should be dependent on the node labeled "cond" (discrete, 3 possible
+states). This conditional relationship is also mentioned in the .net
+file ("potential ( gene | cond )"). Yet the table does not look very
+convincing, as neither rows (as i would expect) nor columns sum up to
+1.0. By looking further into this in R, i found the following (nw.best
+is the network i actually exported using savenet()):
+
+> nw.best$nodes$gene$prob
+                 c         t        c+t        c-t          0
+Lin     0.4992636 0.4876923 0.61131611 0.07815631 0.07977528
+Neutral 0.3843888 0.4123077 0.31365314 0.28657315 0.29887640
+Stab    0.1163476 0.1000000 0.07503075 0.63527054 0.62134831
+
+So there i have colsums 1.0. But to correctly reflect the relationship
+(also shown as arrow from "cond" to "gene" in the plot of nw.best) there
+should be rowsums, if i am not mistaken. Any ideas where i am wrong or
+if this indeed is a wrong calculation of deal?
+The exporting method obviously swaps the table around (columns become
+rows, but there are only 3...). I already know, that the .net format
+allows for continuous specification of such tables, but nevertheless, as
+i understand bayesian networks, there should be 5 consecutive entries
+summing up to 1.0, to reflect the actual dependency.
+
+thanks
+
+markus
+
+From r.birnie at leeds.ac.uk  Thu Jul 27 11:13:31 2006
+From: r.birnie at leeds.ac.uk (birnie_richard)
+Date: Thu, 27 Jul 2006 11:13:31 -0000
+Subject: error with jointprior function
+Message-ID: <eaa74r+fo1q@eGroups.com>
+
+Dear all,
+
+Is there an upper limit on the number of variables deal is able to
+cope with? I am attempting to use deal to construct a Bayesian network
+to investigate whether relationships exist between gains and losses of
+specific chromosomal regions. I have whole genome CGH data that
+describes gain/loss of 813 distinct regions of the genome in 416
+cases. I load this as a dataframe with
+>P.27.7 <- read.delim(filename, header=T, row.names=1)
+resulting in a dataframe with 813 rows and 416 columns.
+
+Examining the structure of this object with str(P.27.7) returns
+`data.frame':   416 obs. of  813 variables:
+followed by a list of the 813 variables. The variables are all
+factors. Theoretically there are 4 possible states for each variable
+gain(G), loss(L), No change(NC) and amplification(AMP). However not
+all varaibles have instances of all 4 states so some variables are
+listed as factor with 4 states and some are factor with 3 states.
+
+>P.27.7.inw <- network(P.27.7) #runs without error but then
+> P.27.7.prior <- jointprior(P.27.7.inw)
+returns
+Error in array(1, Dim) : 'dim' specifies too large an array
+
+Hence my question, is there an upper limit to the number of variables
+that can be handled by deal?
+For information purposes:
+> traceback()
+4: stop("'dim' specifies too large an array")
+3: array(1, Dim)
+2: jointdisc(nw, timetrace = timetrace)
+1: jointprior(P.27.7.inw)
+
+> sessionInfo()
+R version 2.2.1, 2005-12-20, i686-redhat-linux-gnu
+
+attached base packages:
+[1] "tcltk"     "methods"   "stats"     "graphics"  "grDevices" "utils"   
+[7] "datasets"  "base"    
+
+other attached packages:
+        deal dynamicGraph
+    "1.2-27"    "0.2.0.2"
+
+If any more debugging info is required please be specific what is
+needed. I'm fairly new to R so I'm still learning how to debug but if
+you tell me what functions you need the output from I'll post it.
+
+best regards,
+Richard
+
+Dr Richard Birnie
+Scientific Officer
+Section of Pathology and Tumour Biology
+Welcome Brenner Building, LIMM
+St James University Hospital
+Beckett St, Leeds, LS9 7TF
+Tel:0113 3438624
+e-mail: r.birnie at leeds.ac.uk
+
+From r.birnie at leeds.ac.uk  Sun Jul 30 14:06:48 2006
+From: r.birnie at leeds.ac.uk (Richard Birnie)
+Date: Sun, 30 Jul 2006 15:06:48 +0100
+Subject: RE: error with jointprior function
+References: <20060728185527.44285.qmail@web52604.mail.yahoo.com>
+Message-ID: <C6AC304539F43C4196253FD94B7960F307AFB7@HERMES2.ds.leeds.ac.uk>
+
+Hi Wei,
+
+Thanks for your advice. Address limits and such things are well beyond my level of programming knowledge. At least it's stopped me wasting time on an impossible proposition. With regard to my purpose. My interest is in the progression of colorectal cancer through normal-adenoma-carcinoma-metastasis and the chromosome level changes that drive this progression. The dataset I described contains examples of all 4 stages, within this there are 59 particularly interesting cases where I have at least 3 of 4 stages from the same patient. 
+
+At the moment I am investigating whether the different chromosomal changes that occur are really independent events or whether, for example, a change at site X increases the likelihood of a change at site Y. So I thought it might be interesting to see if I could use data to develop a network structure that described these relationships.To put it another way each of the 813 variables represents a region of the human genome, I would like to know if it is possible to predict the state of a given site(variable) if the states of some(all?) of the other sites(variables are known). Any thoughts on how to approach this?
+
+You mentioned using BDe score if my variables are all categorical. They are so this might be a possible approach. I don't recognise the term BDe, could you recommend a reference(s). Is this something that is available in deal or should I be looking at one of the other R packages for Bayesian statistics.
+
+If I make any progress I'll certainly keep you posted.
+best regards,
+Richard
+
+
+
+-----Original Message-----
+From: wei luo [mailto:weiluosfu at yahoo.com]
+Sent: Fri 7/28/2006 19:55
+To: Richard Birnie
+Subject: RE: [dealsoftware] error with jointprior function
+ 
+Hi Richard,
+
+Sorry that my previous answer kind of misled you;
+actually I believe that every computer program treats
+4^813 ~ 64*10^486 as infinity. So it is hopeless to
+compute a joint distribution of that many variables.
+
+On the other hand, R does impose a limit on memory
+usage: 
+"There are also limits on individual objects.  On all
+versions of R, the maximum length (number of elements)
+of a vector is 2^31 - 1 ~ 2*10^9, as lengths are
+stored as signed integers.  In addition, the storage
+space cannot exceed the address limit, and if you try
+to exceed that limit, the error message begins 'cannot
+allocate vector of length'. The number of characters
+in a character string is in theory only limited by the
+address space."
+
+I am not sure about your purpose, but you might be
+interested in using the BDe score instead to learn a
+Bayesian network, provided that all your variables are
+discrete (categorical). With BDe, to specify priors
+over parameters, you only need to specify an
+equivalent sample size. As to structures, a uniform
+prior is normally assumed.
+
+Finally, if you are counting a sparse high-dimensional
+table, a Hash-table often works quite well.
+
+If possible, could you please keep me updated on
+solutions you found or received?
+
+
+Good luck,
+
+Wei
+
+
+
+--- Richard Birnie <R.Birnie at leeds.ac.uk> wrote:
+
+> Thanks for the response Wei,
+> 
+> Really this just removes my question by a step. Do
+> you know if there is an upper limit to the size of
+> the array that can be defined by R irrespective of
+> the package used, and am I likely to be exceeding
+> this or is there a work around? 
+> 
+> regards,
+> Richard
+> 
+> 
+> 
+> 
+> 
+> -----Original Message-----
+> From: wei luo [mailto:weiluosfu at yahoo.com]
+> Sent: Thu 7/27/2006 21:03
+> To: Richard Birnie
+> Subject: Re: [dealsoftware] error with jointprior
+> function
+>  
+> Hi Richard,
+> 
+> That seems more like a problem with defining a huge
+> array in R --- 4**813 is a big number after all. 
+> 
+> Cheers,
+> 
+> Wei
+> 
+> 
+> --- birnie_richard <r.birnie at leeds.ac.uk> wrote:
+> 
+> > Dear all,
+> > 
+> > Is there an upper limit on the number of variables
+> > deal is able to
+> > cope with? I am attempting to use deal to
+> construct
+> > a Bayesian network
+> > to investigate whether relationships exist between
+> > gains and losses of
+> > specific chromosomal regions. I have whole genome
+> > CGH data that
+> > describes gain/loss of 813 distinct regions of the
+> > genome in 416
+> > cases. I load this as a dataframe with
+> > >P.27.7 <- read.delim(filename, header=T,
+> > row.names=1)
+> > resulting in a dataframe with 813 rows and 416
+> > columns.
+> > 
+> > Examining the structure of this object with
+> > str(P.27.7) returns
+> > `data.frame':   416 obs. of  813 variables:
+> > followed by a list of the 813 variables. The
+> > variables are all
+> > factors. Theoretically there are 4 possible states
+> > for each variable
+> > gain(G), loss(L), No change(NC) and
+> > amplification(AMP). However not
+> > all varaibles have instances of all 4 states so
+> some
+> > variables are
+> > listed as factor with 4 states and some are factor
+> > with 3 states.
+> > 
+> > >P.27.7.inw <- network(P.27.7) #runs without error
+> > but then
+> > > P.27.7.prior <- jointprior(P.27.7.inw)
+> > returns
+> > Error in array(1, Dim) : 'dim' specifies too large
+> > an array
+> > 
+> > Hence my question, is there an upper limit to the
+> > number of variables
+> > that can be handled by deal?
+> > For information purposes:
+> > > traceback()
+> > 4: stop("'dim' specifies too large an array")
+> > 3: array(1, Dim)
+> > 2: jointdisc(nw, timetrace = timetrace)
+> > 1: jointprior(P.27.7.inw)
+> > 
+> > > sessionInfo()
+> > R version 2.2.1, 2005-12-20, i686-redhat-linux-gnu
+> > 
+> > attached base packages:
+> > [1] "tcltk"     "methods"   "stats"     "graphics"
+> 
+> > "grDevices" "utils"   
+> > [7] "datasets"  "base"    
+> > 
+> > other attached packages:
+> >         deal dynamicGraph
+> >     "1.2-27"    "0.2.0.2"
+> > 
+> > If any more debugging info is required please be
+> > specific what is
+> > needed. I'm fairly new to R so I'm still learning
+> > how to debug but if
+> > you tell me what functions you need the output
+> from
+> > I'll post it.
+> > 
+> > best regards,
+> > Richard
+> > 
+> > Dr Richard Birnie
+> > Scientific Officer
+> > Section of Pathology and Tumour Biology
+> > Welcome Brenner Building, LIMM
+> > St James University Hospital
+> > Beckett St, Leeds, LS9 7TF
+> > Tel:0113 3438624
+> > e-mail: r.birnie at leeds.ac.uk
+> > 
+> > 
+> > 
+> > 
+> > 
+> > 
+> > 
+> >  
+> > Yahoo! Groups Links
+> > 
+> > 
+> >     dealsoftware-unsubscribe at yahoogroups.com
+> > 
+> >  
+> > 
+> > 
+> > 
+> 
+> 
+> __________________________________________________
+> Do You Yahoo!?
+> Tired of spam?  Yahoo! Mail has the best spam
+> protection around 
+> http://mail.yahoo.com 
+> 
+> 
+
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com
+
+From r.birnie at leeds.ac.uk  Mon Jul 31 09:32:38 2006
+From: r.birnie at leeds.ac.uk (Richard Birnie)
+Date: Mon, 31 Jul 2006 10:32:38 +0100
+Subject: RE: error with jointprior function
+References: <20060731062327.68037.qmail@web52606.mail.yahoo.com>
+Message-ID: <C6AC304539F43C4196253FD94B7960F307AFBB@HERMES2.ds.leeds.ac.uk>
+
+Thanks Wei,
+
+I'll look up that reference. I've just had a closer look at the original deal paper and it seems that BDe already is the criteria used for network scoring in deal. I'll have to read up how this works, I'm not a statistician so I'm learning as I go. In an earlier mail you suggested assuming a uniform prior rather than calculating it from the data. Since my problem seems to be the intractability of this calculation this seems a likely first step. If I can simply feed the deal learn function a vector of numbers intuitively this should be less demanding but I may be missing something. How do I actually calculate this in R? I assume I have to generate a vector of some kind containing the prior probability values but I'm a little confused. 
+
+I have 813 variables each with 4 possible states so for a uniform prior the probability of any state for a given variable is 0.25 yes? So is the joint prior simply 0.25^813? That doesn't sound right, I think I'm missing something fundamental here. Any thoughts on what, Wei or anybody else?
+
+regards,
+Richard
+
+
+
+
+
+-----Original Message-----
+From: wei luo [mailto:weiluosfu at yahoo.com]
+Sent: Mon 7/31/2006 07:23
+To: Richard Birnie
+Subject: RE: [dealsoftware] error with jointprior function
+ 
+Hi Richard,
+
+The application sounds very interesting. It would be
+great if Bayesian networks turn out to be useful here.
+ 
+
+BDe score is implemented in Weka,
+http://www.cs.waikato.ac.nz/~remco/weka_bn/index.html
+
+and BNT,
+http://bnt.sourceforge.net/
+
+I do not know any R implementation though.
+
+The score of a network is actually the Bayesian
+marginal likelihood when specific priors are taken for
+parameters and it is described in:
+    D. Heckerman, D. Geiger, D. M. Chickering.
+Learning Bayesian networks: the combination of
+knowledge and statistical data. Machine Learning,
+20(3): 197-243, 1995.
+
+Cheers,
+
+Wei
+--- Richard Birnie <r.birnie at leeds.ac.uk> wrote:
+
+> Hi Wei,
+> 
+> Thanks for your advice. Address limits and such
+> things are well beyond my level of programming
+> knowledge. At least it's stopped me wasting time on
+> an impossible proposition. With regard to my
+> purpose. My interest is in the progression of
+> colorectal cancer through
+> normal-adenoma-carcinoma-metastasis and the
+> chromosome level changes that drive this
+> progression. The dataset I described contains
+> examples of all 4 stages, within this there are 59
+> particularly interesting cases where I have at least
+> 3 of 4 stages from the same patient. 
+> 
+> At the moment I am investigating whether the
+> different chromosomal changes that occur are really
+> independent events or whether, for example, a change
+> at site X increases the likelihood of a change at
+> site Y. So I thought it might be interesting to see
+> if I could use data to develop a network structure
+> that described these relationships.To put it another
+> way each of the 813 variables represents a region of
+> the human genome, I would like to know if it is
+> possible to predict the state of a given
+> site(variable) if the states of some(all?) of the
+> other sites(variables are known). Any thoughts on
+> how to approach this?
+> 
+> You mentioned using BDe score if my variables are
+> all categorical. They are so this might be a
+> possible approach. I don't recognise the term BDe,
+> could you recommend a reference(s). Is this
+> something that is available in deal or should I be
+> looking at one of the other R packages for Bayesian
+> statistics.
+> 
+> If I make any progress I'll certainly keep you
+> posted.
+> best regards,
+> Richard
+> 
+> 
+> 
+> -----Original Message-----
+> From: wei luo [mailto:weiluosfu at yahoo.com]
+> Sent: Fri 7/28/2006 19:55
+> To: Richard Birnie
+> Subject: RE: [dealsoftware] error with jointprior
+> function
+>  
+> Hi Richard,
+> 
+> Sorry that my previous answer kind of misled you;
+> actually I believe that every computer program
+> treats
+> 4^813 ~ 64*10^486 as infinity. So it is hopeless to
+> compute a joint distribution of that many variables.
+> 
+> On the other hand, R does impose a limit on memory
+> usage: 
+> "There are also limits on individual objects.  On
+> all
+> versions of R, the maximum length (number of
+> elements)
+> of a vector is 2^31 - 1 ~ 2*10^9, as lengths are
+> stored as signed integers.  In addition, the storage
+> space cannot exceed the address limit, and if you
+> try
+> to exceed that limit, the error message begins
+> 'cannot
+> allocate vector of length'. The number of characters
+> in a character string is in theory only limited by
+> the
+> address space."
+> 
+> I am not sure about your purpose, but you might be
+> interested in using the BDe score instead to learn a
+> Bayesian network, provided that all your variables
+> are
+> discrete (categorical). With BDe, to specify priors
+> over parameters, you only need to specify an
+> equivalent sample size. As to structures, a uniform
+> prior is normally assumed.
+> 
+> Finally, if you are counting a sparse
+> high-dimensional
+> table, a Hash-table often works quite well.
+> 
+> If possible, could you please keep me updated on
+> solutions you found or received?
+> 
+> 
+> Good luck,
+> 
+> Wei
+> 
+> 
+> 
+> --- Richard Birnie <R.Birnie at leeds.ac.uk> wrote:
+> 
+> > Thanks for the response Wei,
+> > 
+> > Really this just removes my question by a step. Do
+> > you know if there is an upper limit to the size of
+> > the array that can be defined by R irrespective of
+> > the package used, and am I likely to be exceeding
+> > this or is there a work around? 
+> > 
+> > regards,
+> > Richard
+> > 
+> > 
+> > 
+> > 
+> > 
+> > -----Original Message-----
+> > From: wei luo [mailto:weiluosfu at yahoo.com]
+> > Sent: Thu 7/27/2006 21:03
+> > To: Richard Birnie
+> > Subject: Re: [dealsoftware] error with jointprior
+> > function
+> >  
+> > Hi Richard,
+> > 
+> > That seems more like a problem with defining a
+> huge
+> > array in R --- 4**813 is a big number after all. 
+> > 
+> > Cheers,
+> > 
+> > Wei
+> > 
+> > 
+> > --- birnie_richard <r.birnie at leeds.ac.uk> wrote:
+> > 
+> > > Dear all,
+> > > 
+> > > Is there an upper limit on the number of
+> variables
+> > > deal is able to
+> > > cope with? I am attempting to use deal to
+> > construct
+> > > a Bayesian network
+> > > to investigate whether relationships exist
+> between
+> > > gains and losses of
+> > > specific chromosomal regions. I have whole
+> genome
+> > > CGH data that
+> > > describes gain/loss of 813 distinct regions of
+> the
+> > > genome in 416
+> > > cases. I load this as a dataframe with
+> > > >P.27.7 <- read.delim(filename, header=T,
+> > > row.names=1)
+> > > resulting in a dataframe with 813 rows and 416
+> > > columns.
+> > > 
+> > > Examining the structure of this object with
+> > > str(P.27.7) returns
+> > > `data.frame':   416 obs. of  813 variables:
+> > > followed by a list of the 813 variables. The
+> > > variables are all
+> > > factors. Theoretically there are 4 possible
+> states
+> > > for each variable
+> > > gain(G), loss(L), No change(NC) and
+> > > amplification(AMP). However not
+> > > all varaibles have instances of all 4 states so
+> > some
+> > > variables are
+> > > listed as factor with 4 states and some are
+> factor
+> > > with 3 states.
+> > > 
+> > > >P.27.7.inw <- network(P.27.7) #runs without
+> error
+> > > but then
+> > > > P.27.7.prior <- jointprior(P.27.7.inw)
+> > > returns
+> > > Error in array(1, Dim) : 'dim' specifies too
+> large
+> > > an array
+> > > 
+> > > Hence my question, is there an upper limit to
+> the
+> > > number of variables
+> > > that can be handled by deal?
+> > > For information purposes:
+> > > > traceback()
+> > > 4: stop("'dim' specifies too large an array")
+> > > 3: array(1, Dim)
+> > > 2: jointdisc(nw, timetrace = timetrace)
+> > > 1: jointprior(P.27.7.inw)
+> > > 
+> > > > sessionInfo()
+> > > R version 2.2.1, 2005-12-20,
+> i686-redhat-linux-gnu
+> > > 
+> > > attached base packages:
+> 
+=== message truncated ===
+
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com
+

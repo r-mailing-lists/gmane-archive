@@ -1,0 +1,1331 @@
+From tercer-xwz7R8GQi1g at public.gmane.org  Fri Aug  3 05:26:37 2007
+From: tercer-xwz7R8GQi1g at public.gmane.org (James Honaker)
+Date: Thu, 02 Aug 2007 22:26:37 -0700
+Subject: mi() in R 2.5.1
+Message-ID: <Pine.GSO.4.60.0708022213410.25215@weber.sscnet.ucla.edu>
+
+
+Dear zeligites, zeligistas? (is there a term of art?)
+
+I ran across curious behaviour in the mi() function in the newest version 
+of R.  I wrote a short code  snippet below to demonstrate what is 
+happening. 
+Everything works fine in R 2.4.1, but in R 2.5.1, if you have m imputed 
+datasets, zelig seems to repeatedly estimate the model m times in the 
+first dataset, rather than moving through them.  Thus the combined results 
+are simply the results from the first imputed dataset.
+
+Again, everything looks fine in R 2.4.1, but fails in R 2.5.1 (these 
+things seem to crop up every new version).
+
+If it's worth anything, it doesn't appear to be the mi() function itself, 
+but how zelig handles this object as an argument.
+
+regards,
+james.
+
+
+
+# test of the mi() function in zelig
+# jH, Aug 2, 2007
+
+library(Zelig)
+
+beta1<- -2:2      # This is a set of true coefficients
+                   # Averaging over them should give beta1=0
+n<-1000
+testdat<-as.list(0)
+
+for(i in 1:length(beta1)){  # Construct datasets
+   x<-runif(n)
+   y<-beta1[i]*x + rnorm(n)
+   testdat[[i]]<-as.data.frame(cbind(y,x))
+}
+
+mi.object<-mi(testdat[[1]],testdat[[2]],testdat[[3]],testdat[[4]],testdat[[5]])
+output<-zelig(y~x,model="ls",data=mi.object)
+
+print(summary(output))   # should give coefficient on x of 0, not -2.
+
+# This seems to be five copies of the result from the first dataset in R 
+v2.5.1
+# But works just fine in R v2.4.1
+
+print(summary(output), subset=1:5)
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Fri Aug  3 07:23:53 2007
+From: olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Olivia Lau)
+Date: Fri, 03 Aug 2007 03:23:53 -0400
+Subject: Re: mi() in R 2.5.1
+In-Reply-To: <Pine.GSO.4.60.0708022213410.25215@weber.sscnet.ucla.edu>
+References: <Pine.GSO.4.60.0708022213410.25215@weber.sscnet.ucla.edu>
+Message-ID: <8167262d0708030023yf59d3a4x7ca52a0ed089f700@mail.gmail.com>
+
+Dear James,
+
+Thanks for pointing this out.  It's a complicated package, and per
+Gary's email of a few days ago, we've been making a lot of changes to
+get ready for the release of Zelig 3.0-1.  It looks like someone made
+a couple changes in Zelig 3.0-1 that affected how multiply imputed
+data were handled in the zelig() function.
+
+Users who use the install.packages() command to update or install
+Zelig automatically install the latest version _available for their
+version of R_ from CRAN.  For R > 2.5.0 users, this is Zelig 3.0-1 or
+Zelig 2.8-5 -- both contain the bug that James identified below.  For
+R 2.4.1 users, however, this is Zelig 2.8-3, which does not contain
+the bug below.  Thus, users who have R 2.4.1 don't get the bug, but
+users who have R > 2.5.0 do.  To figure out which version of Zelig you
+have installed, start R and type:
+  packageDescription("Zelig")
+The version number should be one of the first things you see.
+
+As a temporary fix for those who need to use multiply imputed data, I
+suggest downloading Zelig 2.8-3 manually and installing it manually.
+You may download Zelig 2.8-3 manually from the following locations
+  windows: http://cran.stat.ucla.edu/bin/windows/contrib/2.4/Zelig_2.8-3.zip
+ , or
+  linux + MacOSX: http://gking.harvard.edu/src/contrib/Zelig_2.8-3.tar.gz .
+Manual installation consists of installing it either using the local
+zip installation menu option in windows R, or using R CMD INSTALL at
+the command line in linux and MacOSX.  Note that using
+install.packages() from within R will download and install the wrong
+version for R 2.5 > users.
+
+If you'd like to verify that it works, do the following after
+downloading and installing Zelig 2.8-3.  Start R and type:
+  library(Zelig)
+  demo(mi)  ## let the demo run
+  z.out[[1]]
+  z.out[[2]]
+  ## The point estimates for z.out[[1]] and z.out[[2]] will be different,
+  ## with the estimates for z.out[[1]] corresponding to the first imputed
+  ## data set and the estimates from z.out[[2]] to the second.
+
+Look for a patched release in the next couple days, and thanks again
+for finding the bug.
+
+Yours,
+Olivia Lau
+
+
+On 8/3/07, James Honaker <tercer-xwz7R8GQi1g at public.gmane.org> wrote:
+>
+> Dear zeligites, zeligistas? (is there a term of art?)
+>
+> I ran across curious behaviour in the mi() function in the newest version
+> of R.  I wrote a short code  snippet below to demonstrate what is
+> happening.
+> Everything works fine in R 2.4.1, but in R 2.5.1, if you have m imputed
+> datasets, zelig seems to repeatedly estimate the model m times in the
+> first dataset, rather than moving through them.  Thus the combined results
+> are simply the results from the first imputed dataset.
+>
+> Again, everything looks fine in R 2.4.1, but fails in R 2.5.1 (these
+> things seem to crop up every new version).
+>
+> If it's worth anything, it doesn't appear to be the mi() function itself,
+> but how zelig handles this object as an argument.
+>
+> regards,
+> james.
+>
+>
+>
+> # test of the mi() function in zelig
+> # jH, Aug 2, 2007
+>
+> library(Zelig)
+>
+> beta1<- -2:2      # This is a set of true coefficients
+>                    # Averaging over them should give beta1=0
+> n<-1000
+> testdat<-as.list(0)
+>
+> for(i in 1:length(beta1)){  # Construct datasets
+>    x<-runif(n)
+>    y<-beta1[i]*x + rnorm(n)
+>    testdat[[i]]<-as.data.frame(cbind(y,x))
+> }
+>
+> mi.object<-mi(testdat[[1]],testdat[[2]],testdat[[3]],testdat[[4]],testdat[[5]])
+> output<-zelig(y~x,model="ls",data=mi.object)
+>
+> print(summary(output))   # should give coefficient on x of 0, not -2.
+>
+> # This seems to be five copies of the result from the first dataset in R
+> v2.5.1
+> # But works just fine in R v2.4.1
+>
+> print(summary(output), subset=1:5)
+>
+> -
+> Zelig Mailing List, served by Harvard-MIT Data Center
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From eleoni-hIURVWnn1yDWs/AcZQh2Cw at public.gmane.org  Fri Aug  3 18:16:08 2007
+From: eleoni-hIURVWnn1yDWs/AcZQh2Cw at public.gmane.org (Eduardo Leoni)
+Date: Fri, 03 Aug 2007 15:16:08 -0300
+Subject: mi() in R 2.5.1
+In-Reply-To: <e474b3790708031114j2a0f2d93wab4aa4b3203da2fc@mail.gmail.com>
+References: <Pine.GSO.4.60.0708022213410.25215@weber.sscnet.ucla.edu> <e474b3790708031114j2a0f2d93wab4aa4b3203da2fc@mail.gmail.com>
+Message-ID: <e474b3790708031116i10fe3db2qc8995dc4e1ca2a44@mail.gmail.com>
+
+FYI I am seeing a similar problem with the "by" option in zelig. It repeats
+the solution for the whole dataset instead of estimating the models by
+subset.
+
+-eduardo
+
+
+
+
+On 8/3/07, James Honaker <tercer-xwz7R8GQi1g at public.gmane.org> wrote:
+>
+>
+> Dear zeligites, zeligistas? (is there a term of art?)
+>
+> I ran across curious behaviour in the mi() function in the newest version
+> of R.  I wrote a short code  snippet below to demonstrate what is
+> happening.
+> Everything works fine in R 2.4.1, but in R 2.5.1, if you have m imputed
+> datasets, zelig seems to repeatedly estimate the model m times in the
+> first dataset, rather than moving through them.  Thus the combined results
+>
+> are simply the results from the first imputed dataset.
+>
+> Again, everything looks fine in R 2.4.1, but fails in R 2.5.1 (these
+> things seem to crop up every new version).
+>
+> If it's worth anything, it doesn't appear to be the mi() function itself,
+> but how zelig handles this object as an argument.
+>
+> regards,
+> james.
+>
+>
+>
+> # test of the mi() function in zelig
+> # jH, Aug 2, 2007
+>
+> library(Zelig)
+>
+> beta1<- -2:2      # This is a set of true coefficients
+>                    # Averaging over them should give beta1=0
+> n<-1000
+> testdat<-as.list(0)
+>
+> for(i in 1:length(beta1)){  # Construct datasets
+>    x<-runif(n)
+>    y<-beta1[i]*x + rnorm(n)
+>    testdat[[i]]<- as.data.frame(cbind(y,x))
+> }
+>
+> mi.object
+> <-mi(testdat[[1]],testdat[[2]],testdat[[3]],testdat[[4]],testdat[[5]])
+> output<-zelig(y~x,model="ls",data=mi.object)
+>
+> print(summary(output))   # should give coefficient on x of 0, not -2.
+>
+> # This seems to be five copies of the result from the first dataset in R
+> v2.5.1
+> # But works just fine in R v2.4.1
+>
+> print(summary(output), subset=1:5)
+>
+> -
+> Zelig Mailing List, served by Harvard-MIT Data Center
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+>
+
+From olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Fri Aug  3 18:28:46 2007
+From: olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Olivia Lau)
+Date: Fri, 03 Aug 2007 14:28:46 -0400
+Subject: Re: mi() in R 2.5.1
+In-Reply-To: <e474b3790708031116i10fe3db2qc8995dc4e1ca2a44@mail.gmail.com>
+References: <Pine.GSO.4.60.0708022213410.25215@weber.sscnet.ucla.edu> <e474b3790708031114j2a0f2d93wab4aa4b3203da2fc@mail.gmail.com> <e474b3790708031116i10fe3db2qc8995dc4e1ca2a44@mail.gmail.com>
+Message-ID: <8167262d0708031128ga70b8ebg5600062e844292ca@mail.gmail.com>
+
+Dear Eduardo,
+
+Thanks for pointing this out.  It's actually the same bug, so the same
+solution applies -- install Zelig 2.8-3 per my last email.
+
+Yours,
+Olivia Lau
+
+On 8/3/07, Eduardo Leoni <eleoni-hIURVWnn1yDWs/AcZQh2Cw at public.gmane.org> wrote:
+>
+> FYI I am seeing a similar problem with the "by" option in zelig. It repeats
+> the solution for the whole dataset instead of estimating the models by
+> subset.
+>
+> -eduardo
+>
+>
+>
+>
+>
+>  On 8/3/07, James Honaker <tercer-xwz7R8GQi1g at public.gmane.org> wrote:
+> >
+> > Dear zeligites, zeligistas? (is there a term of art?)
+> >
+> > I ran across curious behaviour in the mi() function in the newest version
+> > of R.  I wrote a short code  snippet below to demonstrate what is
+> > happening.
+> > Everything works fine in R 2.4.1, but in R 2.5.1, if you have m imputed
+> > datasets, zelig seems to repeatedly estimate the model m times in the
+> > first dataset, rather than moving through them.  Thus the combined results
+> > are simply the results from the first imputed dataset.
+> >
+> > Again, everything looks fine in R 2.4.1, but fails in R 2.5.1 (these
+> > things seem to crop up every new version).
+> >
+> > If it's worth anything, it doesn't appear to be the mi() function itself,
+> > but how zelig handles this object as an argument.
+> >
+> > regards,
+> > james.
+> >
+> >
+> >
+> > # test of the mi() function in zelig
+> > # jH, Aug 2, 2007
+> >
+> > library(Zelig)
+> >
+> > beta1<- -2:2      # This is a set of true coefficients
+> >                    # Averaging over them should give beta1=0
+> > n<-1000
+> > testdat<-as.list(0)
+> >
+> > for(i in 1:length(beta1)){  # Construct datasets
+> >    x<-runif(n)
+> >    y<-beta1[i]*x + rnorm(n)
+> >    testdat[[i]]<- as.data.frame(cbind(y,x))
+> > }
+> >
+> >
+> mi.object<-mi(testdat[[1]],testdat[[2]],testdat[[3]],testdat[[4]],testdat[[5]])
+> > output<-zelig(y~x,model="ls",data=mi.object)
+> >
+> > print(summary(output))   # should give coefficient on x of 0, not -2.
+> >
+> > # This seems to be five copies of the result from the first dataset in R
+> > v2.5.1
+> > # But works just fine in R v2.4.1
+> >
+> > print(summary(output), subset=1:5)
+> >
+> > -
+> > Zelig Mailing List, served by Harvard-MIT Data Center
+> > Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> > [un]subscribe Options:
+> http://lists.gking.harvard.edu/?info=zelig
+> > Zelig program information: http://gking.harvard.edu/zelig/
+> >
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From nathan.toronto-SrL5qGCgbQJGMJYXDe/CxA at public.gmane.org  Mon Aug  6 21:09:20 2007
+From: nathan.toronto-SrL5qGCgbQJGMJYXDe/CxA at public.gmane.org
+Date: Mon, 06 Aug 2007 16:09:20 -0500
+Subject: Problem with large numbers of variables in ReLogit?
+Message-ID: <f7a9bfb222a1.46b747b0@us.army.mil>
+
+Good day, All. I would like to run ReLogit in Zelig using a large number of time dummy variables (to account for duration dependence), but I get an error when I try to include all of the temporal dummies. Does anyone have any ideas as to why this might be occurring?
+
+The script below creates a data set that approximates the data that I'm actually using and replicates the error that I've been experiencing. A note: the Zelig model represented by object "b" below returns an error message that the model does not converge. In the real data it actually does converge. The real problem is with object "c", and I suspect it has something to do with the large number of variables, since when I reduce the number of variables to around 40 or 50, everything if fine (or, at least I have results that need interpreting).
+
+Thank you very much,
+
+Nathan
+
+
+-----begin script-----
+
+
+## Creating the mock data set:
+
+# time variable:
+time<-rep(c(1:150),50)
+
+# caseid variable:
+q<-c(1:50)
+caseid<-rep(q,each=150)
+
+# dependent variable:
+y<-rep(0,times=7500)
+y[40]<-1
+y[209]<-1
+y[556]<-1
+y[1980]<-1
+y[2297]<-1
+y[2806]<-1
+y[3345]<-1
+y[4025]<-1
+y[5567]<-1
+y[6983]<-1
+
+# independent variable:
+x1<-rep(0,times=7500)
+x1[27:150]<-1
+x1[101:300]<-1
+x1[307:450]<-1
+x1[547:600]<-1
+x1[1020:1050]<-1
+x1[1287:1350]<-1
+x1[1355:1500]<-1
+x1[2333:2400]<-1
+x1[2536:2550]<-1
+x1[3051:3150]<-1
+x1[3501:3600]<-1
+x1[4408:4500]<-1
+x1[5361:5400]<-1
+x1[6573:6600]<-1
+x1[6727:6750]<-1
+x1[7159:7200]<-1
+x1[7422:7500]<-1
+
+# 150 time dummy variables:
+r<-as.data.frame(matrix(0,nrow=150,ncol=150))
+for(i in 1:150){r[i,i]<-1}
+r$time<-c(1:150)
+
+# joining the variables together:
+X<-as.data.frame(cbind(time,caseid,y,x1))
+X<-merge(X,r,by="time",all.x=T,all.y=F)
+
+
+## Replicating error in Zelig
+
+library(Zelig)
+
+a<-zelig(y~x1,
+model="relogit",robust=F,data=X)
+
+b<-zelig(y~x1+
+X[,1]+X[,2]+X[,3]+X[,4]+X[,5]+X[,6]+X[,7]+X[,8]+X[,9]+X[,10]+
+X[,11]+X[,12]+X[,13]+X[,14]+X[,15]+X[,16]+X[,17]+X[,18]+X[,19]+X[,20]+
+X[,21]+X[,22]+X[,23]+X[,24]+X[,25]+X[,26]+X[,27]+X[,28]+X[,29]+X[,30],
+model="relogit",robust=F,data=X)
+
+c<-zelig(y~x1+
+X[,1]+X[,2]+X[,3]+X[,4]+X[,5]+X[,6]+X[,7]+X[,8]+X[,9]+X[,10]+
+X[,11]+X[,12]+X[,13]+X[,14]+X[,15]+X[,16]+X[,17]+X[,18]+X[,19]+X[,20]+
+X[,21]+X[,22]+X[,23]+X[,24]+X[,25]+X[,26]+X[,27]+X[,28]+X[,29]+X[,30]+
+X[,31]+X[,32]+X[,33]+X[,34]+X[,35]+X[,36]+X[,37]+X[,38]+X[,39]+X[,40]+
+X[,41]+X[,42]+X[,43]+X[,44]+X[,45]+X[,46]+X[,47]+X[,48]+X[,49]+X[,50]+
+X[,51]+X[,52]+X[,53]+X[,54]+X[,55]+X[,56]+X[,57]+X[,58]+X[,59]+X[,60]+
+X[,61]+X[,62]+X[,63]+X[,64]+X[,65]+X[,66]+X[,67]+X[,68]+X[,69]+X[,70]+
+X[,71]+X[,72]+X[,73]+X[,74]+X[,75]+X[,76]+X[,77]+X[,78]+X[,79]+X[,80]+
+X[,81]+X[,82]+X[,83]+X[,84]+X[,85]+X[,86]+X[,87]+X[,88]+X[,89]+X[,90]+
+X[,91]+X[,92]+X[,93]+X[,94]+X[,95]+X[,96]+X[,97]+X[,98]+X[,99]+X[,100]+
+X[,101]+X[,102]+X[,103]+X[,104]+X[,105]+X[,106]+X[,107]+X[,108]+X[,109]+X[,110]+
+X[,111]+X[,112]+X[,113]+X[,114]+X[,115]+X[,116]+X[,117]+X[,118]+X[,119]+X[,120]+
+X[,121]+X[,122]+X[,123]+X[,124]+X[,125]+X[,126]+X[,127]+X[,128]+X[,129]+X[,130]+
+X[,131]+X[,132]+X[,133]+X[,134]+X[,135]+X[,136]+X[,137]+X[,138]+X[,139]+X[,140]+
+X[,141]+X[,142]+X[,143]+X[,144]+X[,145]+X[,146]+X[,147]+X[,148]+X[,149]+X[,150],
+model="relogit",robust=F,data=X)
+
+-----end script-----
+
+Nathan W. Toronto, Ph.D.
+Foreign Military Studies Office
+731 McClellan Avenue
+Fort Leavenworth, KS 66027
+
+913-684-5614 (office)
+nathan.toronto-SrL5qGCgbQJGMJYXDe/CxA at public.gmane.org
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org  Mon Aug  6 21:37:30 2007
+From: king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org (Gary King)
+Date: Mon, 06 Aug 2007 17:37:30 -0400
+Subject: bug fix
+Message-ID: <Pine.LNX.4.64.0708061733280.23671@w5.hmdc.harvard.edu>
+
+
+Zelig version 3.0-2, which fixes the mi() bug that James Honaker found, is 
+now on line.  To update, just do update.packages() and library(Zelig) and 
+you'll be all set.
+
+Gary
+
+---
+Gary King,
+Institute for Quantitative Social Science
+Harvard University, 1737 Cambridge St, Cambridge, MA 02138
+http://GKing.Harvard.Edu, King-vbSkjhsARtBS315aYrzyxQ at public.gmane.org
+Direct 617-495-2027, Assistant 495-9271, eFax 812-8581
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From braunm-DPNOqEs/LNQ at public.gmane.org  Tue Aug  7 00:29:17 2007
+From: braunm-DPNOqEs/LNQ at public.gmane.org (Michael Braun)
+Date: Mon, 06 Aug 2007 20:29:17 -0400
+Subject: covariates on correlation coefficient using bprobit model
+Message-ID: <1186446557.18128.18.camel@braunm1>
+
+First, thanks for creating such a useful R package.  I am a new Zelig
+(2.8.3) user, but I can already see its time-saving potential.
+
+However, I am having some trouble using the bprobit model, and I hope
+someone can help me.  I want to model something like:
+
+mu1 = x1 %*% b1
+mu2 = x2 %*% b2
+rho = f(x3 %*% b3)
+
+where mu1 and mu2 are the means of the underlying bivariate probit, and
+f() is the exp(x)-1/exp(x)+1 transformation.  x1, x2 and x3 are vectors
+of variables, and are all different.
+
+The zelig command I am using is
+
+z.out <- zelig(list(mu1 = y1~x1, mu2 = y2~x2, rho = ~x3),
+model="bprobit",data=mydata)
+
+Note that x1 is really x11+x12+x13+..., and so forth.
+
+My problem is that when I do summary(z.out), I get coefficient estimates
+for b1 and b2, but only a single intercept estimate for b3.  If I change
+x3 variables, I get the same estimate for b3.  It is as though zelig is
+ignoring all of the covariates I put on rho.
+
+I didn't see a reference to this in the list archives, but I'm wondering
+if this is a known issue.  From the documentation, it looks like this
+should be possible.
+
+Thanks in advance,
+
+Michael
+
+
+
+
+-- 
+Michael Braun
+Assistant Professor of Marketing
+MIT Sloan School of Management
+One Amherst St., E40-169
+Cambridge, MA 02142
+(617) 253-3436
+braunm-3s7WtUTddSA at public.gmane.org
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Tue Aug  7 05:58:27 2007
+From: olau-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Olivia Lau)
+Date: Tue, 07 Aug 2007 01:58:27 -0400
+Subject: Re: bug fix
+In-Reply-To: <Pine.LNX.4.64.0708061733280.23671@w5.hmdc.harvard.edu>
+References: <Pine.LNX.4.64.0708061733280.23671@w5.hmdc.harvard.edu>
+Message-ID: <8167262d0708062258j256a8a39h3adde89901659f3f@mail.gmail.com>
+
+Hi,
+
+To clarify:  Zelig 3.0-2 is available from Gary's website.  Windows R
+> 2.5.0 and linux users should start R and type:
+   install.packages("Zelig", repos = "http://gking.harvard.edu")
+A dmg should be available for MacOSX users in a few days from CRAN.
+Sorry for the delay.
+
+Yours,
+Olivia
+
+On 8/6/07, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:
+>
+> Zelig version 3.0-2, which fixes the mi() bug that James Honaker found, is
+> now on line.  To update, just do update.packages() and library(Zelig) and
+> you'll be all set.
+>
+> Gary
+>
+> ---
+> Gary King,
+> Institute for Quantitative Social Science
+> Harvard University, 1737 Cambridge St, Cambridge, MA 02138
+> http://GKing.Harvard.Edu, King-vbSkjhsARtBS315aYrzyxQ at public.gmane.org
+> Direct 617-495-2027, Assistant 495-9271, eFax 812-8581
+>
+> -
+> Zelig Mailing List, served by Harvard-MIT Data Center
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Aug  7 13:21:39 2007
+From: falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Ferdinand Alimadhi)
+Date: Tue, 07 Aug 2007 09:21:39 -0400
+Subject: Re: Problem with large numbers of variables in ReLogit?
+In-Reply-To: <f7a9bfb222a1.46b747b0@us.army.mil>
+References: <f7a9bfb222a1.46b747b0@us.army.mil>
+Message-ID: <46B871E3.3050505@iq.harvard.edu>
+
+Hi Nathan,
+The problem you are having with object "c" seems to be a bug in Zelig. 
+We'll fix it asap.
+thanks,
+Ferdi
+
+nathan.toronto-SrL5qGCgbQJGMJYXDe/CxA at public.gmane.org wrote:
+
+>Good day, All. I would like to run ReLogit in Zelig using a large number of time dummy variables (to account for duration dependence), but I get an error when I try to include all of the temporal dummies. Does anyone have any ideas as to why this might be occurring?
+>
+>The script below creates a data set that approximates the data that I'm actually using and replicates the error that I've been experiencing. A note: the Zelig model represented by object "b" below returns an error message that the model does not converge. In the real data it actually does converge. The real problem is with object "c", and I suspect it has something to do with the large number of variables, since when I reduce the number of variables to around 40 or 50, everything if fine (or, at least I have results that need interpreting).
+>
+>Thank you very much,
+>
+>Nathan
+>
+>
+>-----begin script-----
+>
+>
+>## Creating the mock data set:
+>
+># time variable:
+>time<-rep(c(1:150),50)
+>
+># caseid variable:
+>q<-c(1:50)
+>caseid<-rep(q,each=150)
+>
+># dependent variable:
+>y<-rep(0,times=7500)
+>y[40]<-1
+>y[209]<-1
+>y[556]<-1
+>y[1980]<-1
+>y[2297]<-1
+>y[2806]<-1
+>y[3345]<-1
+>y[4025]<-1
+>y[5567]<-1
+>y[6983]<-1
+>
+># independent variable:
+>x1<-rep(0,times=7500)
+>x1[27:150]<-1
+>x1[101:300]<-1
+>x1[307:450]<-1
+>x1[547:600]<-1
+>x1[1020:1050]<-1
+>x1[1287:1350]<-1
+>x1[1355:1500]<-1
+>x1[2333:2400]<-1
+>x1[2536:2550]<-1
+>x1[3051:3150]<-1
+>x1[3501:3600]<-1
+>x1[4408:4500]<-1
+>x1[5361:5400]<-1
+>x1[6573:6600]<-1
+>x1[6727:6750]<-1
+>x1[7159:7200]<-1
+>x1[7422:7500]<-1
+>
+># 150 time dummy variables:
+>r<-as.data.frame(matrix(0,nrow=150,ncol=150))
+>for(i in 1:150){r[i,i]<-1}
+>r$time<-c(1:150)
+>
+># joining the variables together:
+>X<-as.data.frame(cbind(time,caseid,y,x1))
+>X<-merge(X,r,by="time",all.x=T,all.y=F)
+>
+>
+>## Replicating error in Zelig
+>
+>library(Zelig)
+>
+>a<-zelig(y~x1,
+>model="relogit",robust=F,data=X)
+>
+>b<-zelig(y~x1+
+>X[,1]+X[,2]+X[,3]+X[,4]+X[,5]+X[,6]+X[,7]+X[,8]+X[,9]+X[,10]+
+>X[,11]+X[,12]+X[,13]+X[,14]+X[,15]+X[,16]+X[,17]+X[,18]+X[,19]+X[,20]+
+>X[,21]+X[,22]+X[,23]+X[,24]+X[,25]+X[,26]+X[,27]+X[,28]+X[,29]+X[,30],
+>model="relogit",robust=F,data=X)
+>
+>c<-zelig(y~x1+
+>X[,1]+X[,2]+X[,3]+X[,4]+X[,5]+X[,6]+X[,7]+X[,8]+X[,9]+X[,10]+
+>X[,11]+X[,12]+X[,13]+X[,14]+X[,15]+X[,16]+X[,17]+X[,18]+X[,19]+X[,20]+
+>X[,21]+X[,22]+X[,23]+X[,24]+X[,25]+X[,26]+X[,27]+X[,28]+X[,29]+X[,30]+
+>X[,31]+X[,32]+X[,33]+X[,34]+X[,35]+X[,36]+X[,37]+X[,38]+X[,39]+X[,40]+
+>X[,41]+X[,42]+X[,43]+X[,44]+X[,45]+X[,46]+X[,47]+X[,48]+X[,49]+X[,50]+
+>X[,51]+X[,52]+X[,53]+X[,54]+X[,55]+X[,56]+X[,57]+X[,58]+X[,59]+X[,60]+
+>X[,61]+X[,62]+X[,63]+X[,64]+X[,65]+X[,66]+X[,67]+X[,68]+X[,69]+X[,70]+
+>X[,71]+X[,72]+X[,73]+X[,74]+X[,75]+X[,76]+X[,77]+X[,78]+X[,79]+X[,80]+
+>X[,81]+X[,82]+X[,83]+X[,84]+X[,85]+X[,86]+X[,87]+X[,88]+X[,89]+X[,90]+
+>X[,91]+X[,92]+X[,93]+X[,94]+X[,95]+X[,96]+X[,97]+X[,98]+X[,99]+X[,100]+
+>X[,101]+X[,102]+X[,103]+X[,104]+X[,105]+X[,106]+X[,107]+X[,108]+X[,109]+X[,110]+
+>X[,111]+X[,112]+X[,113]+X[,114]+X[,115]+X[,116]+X[,117]+X[,118]+X[,119]+X[,120]+
+>X[,121]+X[,122]+X[,123]+X[,124]+X[,125]+X[,126]+X[,127]+X[,128]+X[,129]+X[,130]+
+>X[,131]+X[,132]+X[,133]+X[,134]+X[,135]+X[,136]+X[,137]+X[,138]+X[,139]+X[,140]+
+>X[,141]+X[,142]+X[,143]+X[,144]+X[,145]+X[,146]+X[,147]+X[,148]+X[,149]+X[,150],
+>model="relogit",robust=F,data=X)
+>
+>-----end script-----
+>
+>Nathan W. Toronto, Ph.D.
+>Foreign Military Studies Office
+>731 McClellan Avenue
+>Fort Leavenworth, KS 66027
+>
+>913-684-5614 (office)
+>nathan.toronto-SrL5qGCgbQJGMJYXDe/CxA at public.gmane.org
+>
+>-
+>Zelig Mailing List, served by Harvard-MIT Data Center
+>Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+>Zelig program information: http://gking.harvard.edu/zelig/
+>  
+>
+
+
+-- 
+Ferdinand Alimadhi
+Manager of Statistical Programming
+Harvard University
+The Institute for Quantitative Social Science
+(617) 496-0187
+falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From jaharris-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Tue Aug  7 19:24:06 2007
+From: jaharris-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Andy Harris)
+Date: Tue, 07 Aug 2007 15:24:06 -0400
+Subject: twosls problem/bug?
+Message-ID: <E2CBC1A3-3D67-454F-BC57-DD7D03F4808F@fas.harvard.edu>
+
+Hi,
+
+I've run across a problem in the two stage least squares model in  
+Zelig, which may be due to my code or to a bug. I want to use 2SLS  
+for an instrumental variable regression. However, whenever I attempt  
+to do so, I get an error:
+
+Error in checkNrReq(modelNumEqn, userNumEqn, modelPar) :
+	The parameter "mu" requires between 2
+             and Inf equation(s). You have provided 1 See model doc.  
+for more details
+
+I've provided some simulated data and the code that produces the  
+error below. Note that I used the same syntax as published in the  
+Zelig manual. Any thoughts on where I/zelig might be going wrong?  
+Doing the procedure with lm() seems to recover the correct parameters.
+
+Many thanks,
+
+Andy
+
+
+ > nn<-1000		#sample size
+ > V<-rnorm(nn)	#confounding omitted variable
+ > W<-rnorm(nn)  #instrument
+ > X<-rnorm(nn)   #exogenous regressor
+ >
+ > Z<-rep(NA, nn) #instrumental var. holder
+ > for (i in 1:nn){
++ Z[i]<-rnorm(1, mean=V[i]+W[i]) #instrumental var as a function of  
+instrument and omitted variable.
++ }
+ >
+ > Y<-rep(NA, nn)
+ > for (i in 1:nn){
++ 	Y[i]<-rnorm(1, mean=V[i]+0.25*Z[i]) #outcome as func of omitted  
+var. and Z.
++ }
+ >
+ > data<-as.data.frame(cbind(X,W,Z,Y))
+ > names(data)<-c("X","W", "Z", "Y")
+ >
+ > ### using the 2sls syntax in section 12.48 of the zelig manual
+ >
+ > fml <- list ("mu" = Y ~ X + Z,
++ "inst" = Z ~ W + X)
+ > z.out <- zelig(formula = fml, model = "twosls", data=data)
+Error in checkNrReq(modelNumEqn, userNumEqn, modelPar) :
+	The parameter "mu" requires between 2
+             and Inf equation(s). You have provided 1 See model doc.  
+for more details
+ >
+ >
+ > ###	2sls using lm()
+ > lm.out1<-lm(Z~W+X, data=data)
+ > lm.out2<-lm(Y ~ X + lm.out1$fitted, data=data)
+ > summary(lm.out1)
+
+Call:
+lm(formula = Z ~ W + X, data = data)
+
+Residuals:
+     Min      1Q  Median      3Q     Max
+-3.7840 -0.9809  0.0200  0.9883  4.2447
+
+Coefficients:
+             Estimate Std. Error t value Pr(>|t|)
+(Intercept) -0.00241    0.04329   -0.06     0.96
+W            0.99100    0.04236   23.39   <2e-16 ***
+X            0.02788    0.04414    0.63     0.53
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 1.37 on 997 degrees of freedom
+Multiple R-Squared: 0.355,	Adjusted R-squared: 0.353
+F-statistic:  274 on 2 and 997 DF,  p-value: <2e-16
+
+ > summary(lm.out2)
+
+Call:
+lm(formula = Y ~ X + lm.out1$fitted, data = data)
+
+Residuals:
+    Min     1Q Median     3Q    Max
+-4.975 -1.122 -0.055  1.105  5.361
+
+Coefficients:
+                Estimate Std. Error t value Pr(>|t|)
+(Intercept)    -0.00901    0.05170   -0.17  0.86164
+X              -0.04195    0.05274   -0.80  0.42653
+lm.out1$fitted  0.18591    0.05104    3.64  0.00028 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 1.63 on 997 degrees of freedom
+Multiple R-Squared: 0.0135,	Adjusted R-squared: 0.0116
+F-statistic: 6.85 on 2 and 997 DF,  p-value: 0.00111
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Andy Harris
+Ph.D. Candidate
+Department of Government
+Harvard University
+
+From falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Aug  7 21:32:45 2007
+From: falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Ferdinand Alimadhi)
+Date: Tue, 07 Aug 2007 17:32:45 -0400
+Subject: Zelig_3.0-3 : another bug-fix release
+Message-ID: <46B8E4FD.4070509@iq.harvard.edu>
+
+Hi everyone,
+
+The third bug fix release of Zelig version 3.0 (that's Zelig_3.0-3) is 
+online.
+
+Two bugs fixed:
+- "bprobit" model in Zelig was ignoring the covariate (reported by Michael )
+- "relogit" model had problems with with large number of variables in 
+the formula (reported by Nathan).
+
+To update/install this release:
+- *nix / windows users:
+    install.packages("Zelig", repos="http://gking.harvard.edu")
+
+- mac users:
+    install.packages("Zelig", repos="http://gking.harvard.edu", 
+type="source")
+
+
+Please let us know if you encounter any other problem.
+
+thanks,
+Ferdi
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Aug  7 21:38:50 2007
+From: falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Ferdinand Alimadhi)
+Date: Tue, 07 Aug 2007 17:38:50 -0400
+Subject: Re: covariates on correlation coefficient using bprobit model
+In-Reply-To: <1186446557.18128.18.camel@braunm1>
+References: <1186446557.18128.18.camel@braunm1>
+Message-ID: <46B8E66A.4080100@iq.harvard.edu>
+
+Hi Michael,
+
+This problem should be fixed in Zelig_3.0-3 which was just released.
+
+Please install/update this version using:
+
+install.packages("Zelig", repos="http://gking.harvard.edu")
+
+or
+
+install.packages("Zelig", repos="http://gking.harvard.edu", type="source")
+
+if you are using mac.
+
+Thank you for sending this bug,
+Best,
+Ferdi
+
+
+
+Michael Braun wrote:
+
+>First, thanks for creating such a useful R package.  I am a new Zelig
+>(2.8.3) user, but I can already see its time-saving potential.
+>
+>However, I am having some trouble using the bprobit model, and I hope
+>someone can help me.  I want to model something like:
+>
+>mu1 = x1 %*% b1
+>mu2 = x2 %*% b2
+>rho = f(x3 %*% b3)
+>
+>where mu1 and mu2 are the means of the underlying bivariate probit, and
+>f() is the exp(x)-1/exp(x)+1 transformation.  x1, x2 and x3 are vectors
+>of variables, and are all different.
+>
+>The zelig command I am using is
+>
+>z.out <- zelig(list(mu1 = y1~x1, mu2 = y2~x2, rho = ~x3),
+>model="bprobit",data=mydata)
+>
+>Note that x1 is really x11+x12+x13+..., and so forth.
+>
+>My problem is that when I do summary(z.out), I get coefficient estimates
+>for b1 and b2, but only a single intercept estimate for b3.  If I change
+>x3 variables, I get the same estimate for b3.  It is as though zelig is
+>ignoring all of the covariates I put on rho.
+>
+>I didn't see a reference to this in the list archives, but I'm wondering
+>if this is a known issue.  From the documentation, it looks like this
+>should be possible.
+>
+>Thanks in advance,
+>
+>Michael
+>
+>
+>
+>
+>  
+>
+
+
+-- 
+Ferdinand Alimadhi
+Manager of Statistical Programming
+Harvard University
+The Institute for Quantitative Social Science
+(617) 496-0187
+falimadhi-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Wed Aug  8 19:53:42 2007
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Wed, 08 Aug 2007 15:53:42 -0400
+Subject: Re: twosls problem/bug?
+In-Reply-To: <E2CBC1A3-3D67-454F-BC57-DD7D03F4808F@fas.harvard.edu>
+References: <E2CBC1A3-3D67-454F-BC57-DD7D03F4808F@fas.harvard.edu>
+Message-ID: <429A223F-C77D-48A1-AB71-19854C369ABF@Princeton.Edu>
+
+Hi,
+
+   The two-stage least squares procedure we have in Zelig is based on  
+the systemfit package which takes a system of more than one equation  
+along with instrumental variables as inputs. What you have in mind is  
+slightly different from that procedure is identical to tsls() in sem  
+package. Unfortunately, we don't have that included in Zelig yet.  
+Maybe, you would like to contribute?
+
+Kosuke
+
+---------------------------------------------------------
+Kosuke Imai               Office: Corwin Hall 041
+Assistant Professor       Phone: 609-258-6601
+Department of Politics    Fax: 973-556-1929
+Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+Princeton, NJ 08544-1012  http://imai.princeton.edu
+---------------------------------------------------------
+
+
+On Aug 7, 2007, at 3:24 PM, Andy Harris wrote:
+
+> Hi,
+>
+> I've run across a problem in the two stage least squares model in  
+> Zelig, which may be due to my code or to a bug. I want to use 2SLS  
+> for an instrumental variable regression. However, whenever I  
+> attempt to do so, I get an error:
+>
+> Error in checkNrReq(modelNumEqn, userNumEqn, modelPar) :
+> 	The parameter "mu" requires between 2
+>             and Inf equation(s). You have provided 1 See model doc.  
+> for more details
+>
+> I've provided some simulated data and the code that produces the  
+> error below. Note that I used the same syntax as published in the  
+> Zelig manual. Any thoughts on where I/zelig might be going wrong?  
+> Doing the procedure with lm() seems to recover the correct parameters.
+>
+> Many thanks,
+>
+> Andy
+>
+>
+> > nn<-1000		#sample size
+> > V<-rnorm(nn)	#confounding omitted variable
+> > W<-rnorm(nn)  #instrument
+> > X<-rnorm(nn)   #exogenous regressor
+> >
+> > Z<-rep(NA, nn) #instrumental var. holder
+> > for (i in 1:nn){
+> + Z[i]<-rnorm(1, mean=V[i]+W[i]) #instrumental var as a function of  
+> instrument and omitted variable.
+> + }
+> >
+> > Y<-rep(NA, nn)
+> > for (i in 1:nn){
+> + 	Y[i]<-rnorm(1, mean=V[i]+0.25*Z[i]) #outcome as func of omitted  
+> var. and Z.
+> + }
+> >
+> > data<-as.data.frame(cbind(X,W,Z,Y))
+> > names(data)<-c("X","W", "Z", "Y")
+> >
+> > ### using the 2sls syntax in section 12.48 of the zelig manual
+> >
+> > fml <- list ("mu" = Y ~ X + Z,
+> + "inst" = Z ~ W + X)
+> > z.out <- zelig(formula = fml, model = "twosls", data=data)
+> Error in checkNrReq(modelNumEqn, userNumEqn, modelPar) :
+> 	The parameter "mu" requires between 2
+>             and Inf equation(s). You have provided 1 See model doc.  
+> for more details
+> >
+> >
+> > ###	2sls using lm()
+> > lm.out1<-lm(Z~W+X, data=data)
+> > lm.out2<-lm(Y ~ X + lm.out1$fitted, data=data)
+> > summary(lm.out1)
+>
+> Call:
+> lm(formula = Z ~ W + X, data = data)
+>
+> Residuals:
+>     Min      1Q  Median      3Q     Max
+> -3.7840 -0.9809  0.0200  0.9883  4.2447
+>
+> Coefficients:
+>             Estimate Std. Error t value Pr(>|t|)
+> (Intercept) -0.00241    0.04329   -0.06     0.96
+> W            0.99100    0.04236   23.39   <2e-16 ***
+> X            0.02788    0.04414    0.63     0.53
+> ---
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>
+> Residual standard error: 1.37 on 997 degrees of freedom
+> Multiple R-Squared: 0.355,	Adjusted R-squared: 0.353
+> F-statistic:  274 on 2 and 997 DF,  p-value: <2e-16
+>
+> > summary(lm.out2)
+>
+> Call:
+> lm(formula = Y ~ X + lm.out1$fitted, data = data)
+>
+> Residuals:
+>    Min     1Q Median     3Q    Max
+> -4.975 -1.122 -0.055  1.105  5.361
+>
+> Coefficients:
+>                Estimate Std. Error t value Pr(>|t|)
+> (Intercept)    -0.00901    0.05170   -0.17  0.86164
+> X              -0.04195    0.05274   -0.80  0.42653
+> lm.out1$fitted  0.18591    0.05104    3.64  0.00028 ***
+> ---
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>
+> Residual standard error: 1.63 on 997 degrees of freedom
+> Multiple R-Squared: 0.0135,	Adjusted R-squared: 0.0116
+> F-statistic: 6.85 on 2 and 997 DF,  p-value: 0.00111
+>
+> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> Andy Harris
+> Ph.D. Candidate
+> Department of Government
+> Harvard University
+>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Fri Aug 10 01:49:35 2007
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Thu, 09 Aug 2007 21:49:35 -0400
+Subject: Re: twosls problem/bug?
+In-Reply-To: <429A223F-C77D-48A1-AB71-19854C369ABF@Princeton.Edu>
+References: <E2CBC1A3-3D67-454F-BC57-DD7D03F4808F@fas.harvard.edu> <429A223F-C77D-48A1-AB71-19854C369ABF@Princeton.Edu>
+Message-ID: <950D7371-09B5-4463-96EB-2650825E2632@Princeton.Edu>
+
+After further investigations, it turns out that Andy's problem can  
+also be handled in Zelig with a different syntax. :) Suppose your  
+model is:
+
+Y = X + T + e1
+T = X + Z + e2
+
+then, the formula would look like:
+
+list("mu1" = Y ~ X + T, "mu2" = T ~ X + Z, "inst" = ~ X + Z)
+
+The key is that you need to include both X and Z as instruments. The  
+current docs are misleading and so we will fix the docs in the next  
+version.
+
+Best,
+Kosuke
+
+On Aug 8, 2007, at 3:53 PM, Kosuke Imai wrote:
+
+> Hi,
+>
+>   The two-stage least squares procedure we have in Zelig is based  
+> on the systemfit package which takes a system of more than one  
+> equation along with instrumental variables as inputs. What you have  
+> in mind is slightly different from that procedure is identical to  
+> tsls() in sem package. Unfortunately, we don't have that included  
+> in Zelig yet. Maybe, you would like to contribute?
+>
+> Kosuke
+>
+> ---------------------------------------------------------
+> Kosuke Imai               Office: Corwin Hall 041
+> Assistant Professor       Phone: 609-258-6601
+> Department of Politics    Fax: 973-556-1929
+> Princeton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org
+> Princeton, NJ 08544-1012  http://imai.princeton.edu
+> ---------------------------------------------------------
+>
+>
+> On Aug 7, 2007, at 3:24 PM, Andy Harris wrote:
+>
+>> Hi,
+>>
+>> I've run across a problem in the two stage least squares model in  
+>> Zelig, which may be due to my code or to a bug. I want to use 2SLS  
+>> for an instrumental variable regression. However, whenever I  
+>> attempt to do so, I get an error:
+>>
+>> Error in checkNrReq(modelNumEqn, userNumEqn, modelPar) :
+>> 	The parameter "mu" requires between 2
+>>             and Inf equation(s). You have provided 1 See model  
+>> doc. for more details
+>>
+>> I've provided some simulated data and the code that produces the  
+>> error below. Note that I used the same syntax as published in the  
+>> Zelig manual. Any thoughts on where I/zelig might be going wrong?  
+>> Doing the procedure with lm() seems to recover the correct  
+>> parameters.
+>>
+>> Many thanks,
+>>
+>> Andy
+>>
+>>
+>> > nn<-1000		#sample size
+>> > V<-rnorm(nn)	#confounding omitted variable
+>> > W<-rnorm(nn)  #instrument
+>> > X<-rnorm(nn)   #exogenous regressor
+>> >
+>> > Z<-rep(NA, nn) #instrumental var. holder
+>> > for (i in 1:nn){
+>> + Z[i]<-rnorm(1, mean=V[i]+W[i]) #instrumental var as a function  
+>> of instrument and omitted variable.
+>> + }
+>> >
+>> > Y<-rep(NA, nn)
+>> > for (i in 1:nn){
+>> + 	Y[i]<-rnorm(1, mean=V[i]+0.25*Z[i]) #outcome as func of omitted  
+>> var. and Z.
+>> + }
+>> >
+>> > data<-as.data.frame(cbind(X,W,Z,Y))
+>> > names(data)<-c("X","W", "Z", "Y")
+>> >
+>> > ### using the 2sls syntax in section 12.48 of the zelig manual
+>> >
+>> > fml <- list ("mu" = Y ~ X + Z,
+>> + "inst" = Z ~ W + X)
+>> > z.out <- zelig(formula = fml, model = "twosls", data=data)
+>> Error in checkNrReq(modelNumEqn, userNumEqn, modelPar) :
+>> 	The parameter "mu" requires between 2
+>>             and Inf equation(s). You have provided 1 See model  
+>> doc. for more details
+>> >
+>> >
+>> > ###	2sls using lm()
+>> > lm.out1<-lm(Z~W+X, data=data)
+>> > lm.out2<-lm(Y ~ X + lm.out1$fitted, data=data)
+>> > summary(lm.out1)
+>>
+>> Call:
+>> lm(formula = Z ~ W + X, data = data)
+>>
+>> Residuals:
+>>     Min      1Q  Median      3Q     Max
+>> -3.7840 -0.9809  0.0200  0.9883  4.2447
+>>
+>> Coefficients:
+>>             Estimate Std. Error t value Pr(>|t|)
+>> (Intercept) -0.00241    0.04329   -0.06     0.96
+>> W            0.99100    0.04236   23.39   <2e-16 ***
+>> X            0.02788    0.04414    0.63     0.53
+>> ---
+>> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>>
+>> Residual standard error: 1.37 on 997 degrees of freedom
+>> Multiple R-Squared: 0.355,	Adjusted R-squared: 0.353
+>> F-statistic:  274 on 2 and 997 DF,  p-value: <2e-16
+>>
+>> > summary(lm.out2)
+>>
+>> Call:
+>> lm(formula = Y ~ X + lm.out1$fitted, data = data)
+>>
+>> Residuals:
+>>    Min     1Q Median     3Q    Max
+>> -4.975 -1.122 -0.055  1.105  5.361
+>>
+>> Coefficients:
+>>                Estimate Std. Error t value Pr(>|t|)
+>> (Intercept)    -0.00901    0.05170   -0.17  0.86164
+>> X              -0.04195    0.05274   -0.80  0.42653
+>> lm.out1$fitted  0.18591    0.05104    3.64  0.00028 ***
+>> ---
+>> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>>
+>> Residual standard error: 1.63 on 997 degrees of freedom
+>> Multiple R-Squared: 0.0135,	Adjusted R-squared: 0.0116
+>> F-statistic: 6.85 on 2 and 997 DF,  p-value: 0.00111
+>>
+>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+>> Andy Harris
+>> Ph.D. Candidate
+>> Department of Government
+>> Harvard University
+>>
+>>
+>
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+
+From eleoni-hIURVWnn1yDWs/AcZQh2Cw at public.gmane.org  Fri Aug 31 01:49:00 2007
+From: eleoni-hIURVWnn1yDWs/AcZQh2Cw at public.gmane.org (Eduardo Leoni)
+Date: Thu, 30 Aug 2007 22:49:00 -0300
+Subject: Re: mi() in R 2.5.1
+In-Reply-To: <e474b3790708031116i10fe3db2qc8995dc4e1ca2a44@mail.gmail.com>
+References: <Pine.GSO.4.60.0708022213410.25215@weber.sscnet.ucla.edu> <e474b3790708031114j2a0f2d93wab4aa4b3203da2fc@mail.gmail.com> <e474b3790708031116i10fe3db2qc8995dc4e1ca2a44@mail.gmail.com>
+Message-ID: <e474b3790708301849p6212b79eod05d07e93d866388@mail.gmail.com>
+
+Hello list -
+
+Apparently passing weights to zelig is not working with mi or by. I
+tested it slightly modifying jH code below.
+
+-eduardo
+
+# test of the mi() function in zelig
+# jH, Aug 2, 2007
+# used by EL to test weights
+
+library(Zelig)
+
+beta1<- -2:2      # This is a set of true coefficients
+                  # Averaging over them should give beta1=0
+n<-1000
+testdat<-as.list(0)
+
+for(i in 1:length(beta1)){  # Construct datasets
+  x<-runif(n)
+  y<-beta1[i]*x + rnorm(n)
+  testdat[[i]]<- data.frame(y,x,w=runif(n,0,2))
+}
+
+mi.object<-mi(testdat[[1]],testdat[[2]],testdat[[3]],testdat[[4]],testdat[[5]])
+output<-zelig(y~x,model="ls",weight="w",data=mi.object)
+
+print(summary(output))   # should give coefficient on x of 0, not -2.
+
+# This seems to be five copies of the result from the first dataset in Rv2.5.1
+# But works just fine in R v2.4.1
+
+print(summary(output), subset=1:5)
+
+-
+Zelig Mailing List, served by Harvard-MIT Data Center
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+

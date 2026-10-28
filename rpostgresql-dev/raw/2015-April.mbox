@@ -1,0 +1,73 @@
+From jd.adams16-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Apr  6 21:05:31 2015
+From: jd.adams16-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Jonathan Adams)
+Date: Mon, 06 Apr 2015 14:05:31 -0700
+Subject: Re: How to write to tables with an auto-incrementing primary key?
+In-Reply-To: <604597e7-3d37-4f50-b27f-507071125354@googlegroups.com>
+References: <0d4c6fc5-3b7b-40b7-ad9c-2402de08cef1@googlegroups.com> <604597e7-3d37-4f50-b27f-507071125354@googlegroups.com>
+Message-ID: <453b7008-194e-4e72-9cc5-d5f5defd9955@googlegroups.com>
+
+Richard,
+
+I don't know if you are still having trouble with this, but I too was 
+having the same problem. I dug through the code and created my own fix for 
+this issue before discovering the "older post" you referenced. The 
+implementation seems to handle auto-incrementing keys perfectly, as well as 
+only inserting NULL or DEFAULT values to columns that are not in the data 
+frame being inserted. You can find the complete updated package at my 
+GitHub repo: https://github.com/PieceMaker/RPostgreSQL. You will most 
+likely be interested in the branch titled "patch". You can install it using 
+Hadley Wickham's "devtools" package and running the following command:
+
+install_github('PieceMaker/RPostgreSQL', ref = 'patch')
+
+Once it is installed, all you have to do is run your original "dbWriteTable" 
+command with the argument "match.cols = TRUE". It will automatically cross 
+reference the columns of the data frame being inserted with the columns of 
+the destination table. As long as they all exist in the destination, it 
+should insert without a problem.
+
+On Monday, October 20, 2014 at 2:39:10 AM UTC-5, Richard Cotton wrote:
+>
+> I was sent a private response to the problem hinting that it may be 
+> solvable by passing SQL NULL for that column.  I'm not sure how to do this 
+> though.  For the example of a table, "foo" defined as:
+>
+>
+> CREATE TABLE foo(
+>   "Id" bigserial PRIMARY KEY,
+>   "SomeData" text NOT NULL);
+>
+>
+> and an R data frame
+>
+>
+> dfr <- data.frame(SomeData = letters)
+>
+>
+> I figure I ought to be able to pass a field.types argument to dbWriteTable 
+> and have it passed to postgresqlWriteTable 
+> <http://www.inside-r.org/packages/cran/rpostgresql/docs/postgresqlWriteTable>.  
+> I tried
+>
+> dbWriteTable(conn, "foo", dfr, append = TRUE, row.names = FALSE, 
+> field.types = list(Id = *NULL*, SomeData = "text"))
+> dbWriteTable(conn, "foo", dfr, append = TRUE, row.names = FALSE, 
+> field.types = list(Id = *"NULL"*, SomeData = "text"))
+> dbWriteTable(conn, "foo", dfr, append = TRUE, row.names = FALSE, 
+> field.types = list(Id = *RPostgreSQL:::.PostgreSQL.NA.string*, SomeData = 
+> "text"))
+>
+> none of which worked.  That is, each time I got the error message:
+>
+> Error in postgresqlgetResult(new.con) : 
+>   RS-DBI driver: (could not Retrieve the result : ERROR:  invalid input syntax for integer: "a"
+> CONTEXT:  COPY foo, line 1, column Id: "a"
+>
+> Is passing a null column a viable possibility?  If so, how do I do that?
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+

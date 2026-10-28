@@ -1,0 +1,1515 @@
+From johan2sson at gmail.com  Tue Jan  1 22:45:22 2013
+From: johan2sson at gmail.com (Johan Johansson)
+Date: Tue, 01 Jan 2013 23:45:22 +0100
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <50E1AE77.9020208@gmail.com>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com>
+Message-ID: <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com>
+
+On Mon, Dec 31, 2012 at 4:25 PM, Laurent Gautier <lgautier at gmail.com> wrote:
+> Which versions of R, Rtools, and rpy2 did you try this with ? (I am
+> understanding from the above that Python is 2.7, and I assume that this is
+> the latest in the 2.7 series).
+
+R 2.15.2, Rtools Collection 2.16.0.1923, rpy2 tip and Python 2.7.3. I
+get the feeling that the crash is for more fundamental reasons than
+version issues though, since it's so early. I've been wrong before
+though!
+
+> I have tentatively fixed the C codebase in rpy2 to get
+> it to compile with Win64, without having try it (for lack of time - I have
+> Python, mingw and R installed in Wine, so technically I "only" need to sort
+> out details). I am pleasantly surprise to hear that it does compile.
+
+Compile it does, but it seems to fail this check in modsupport.h
+
+#if SIZEOF_SIZE_T != SIZEOF_INT
+/* On a 64-bit system, rename the Py_InitModule4 so that 2.4
+   modules cannot get loaded into a 2.5 interpreter */
+#define Py_InitModule4 Py_InitModule4_64
+#endif
+
+which forced me to make the same definition on the command line to get
+it to link. This makes me suspicious.
+
+> Silly question, but did you already try to compile for Win32 to check that
+> the problem is Win64-specific ?
+
+I haven't had time yet, but if my current avenue of exploration
+doesn't pan out, I will.
+
+Johan
+
+------------------------------------------------------------------------------
+Master SQL Server Development, Administration, T-SQL, SSAS, SSIS, SSRS
+and more. Get SQL Server skills now (including 2012) with LearnDevNow -
+200+ hours of step-by-step video tutorials by Microsoft MVPs and experts.
+SALE $99.99 this month only - learn more at:
+http://p.sf.net/sfu/learnmore_122512
+
+From lgautier at gmail.com  Tue Jan  1 23:07:07 2013
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Wed, 02 Jan 2013 00:07:07 +0100
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com>
+Message-ID: <50E36C1B.5050309@gmail.com>
+
+On 2013-01-01 23:45, Johan Johansson wrote:
+> On Mon, Dec 31, 2012 at 4:25 PM, Laurent Gautier <lgautier at gmail.com> wrote:
+>> Which versions of R, Rtools, and rpy2 did you try this with ? (I am
+>> understanding from the above that Python is 2.7, and I assume that this is
+>> the latest in the 2.7 series).
+> R 2.15.2, Rtools Collection 2.16.0.1923, rpy2 tip and Python 2.7.3. I
+> get the feeling that the crash is for more fundamental reasons than
+> version issues though, since it's so early. I've been wrong before
+> though!
+
+The rpy2 version matters much. The tip (Hg's default) is the version 
+2.4.0-dev.
+At this point it does not differ to much from the tip in the branch 
+VERSION_2.3.x but support for Python < 3 will be dropped for rpy2-2.4.x.
+
+>
+>> I have tentatively fixed the C codebase in rpy2 to get
+>> it to compile with Win64, without having try it (for lack of time - I have
+>> Python, mingw and R installed in Wine, so technically I "only" need to sort
+>> out details). I am pleasantly surprise to hear that it does compile.
+> Compile it does, but it seems to fail this check in modsupport.h
+>
+> #if SIZEOF_SIZE_T != SIZEOF_INT
+> /* On a 64-bit system, rename the Py_InitModule4 so that 2.4
+>     modules cannot get loaded into a 2.5 interpreter */
+> #define Py_InitModule4 Py_InitModule4_64
+> #endif
+>
+> which forced me to make the same definition on the command line to get
+> it to link. This makes me suspicious.
+The comment suggests that this concerns pre-Python2.4 vs post-Python2.5 
+compiled module.
+May be not a big issue for now.
+
+>
+>> Silly question, but did you already try to compile for Win32 to check that
+>> the problem is Win64-specific ?
+> I haven't had time yet, but if my current avenue of exploration
+> doesn't pan out, I will.
+>
+> Johan
+
+
+------------------------------------------------------------------------------
+Master SQL Server Development, Administration, T-SQL, SSAS, SSIS, SSRS
+and more. Get SQL Server skills now (including 2012) with LearnDevNow -
+200+ hours of step-by-step video tutorials by Microsoft MVPs and experts.
+SALE $99.99 this month only - learn more at:
+http://p.sf.net/sfu/learnmore_122512
+
+From johan2sson at gmail.com  Tue Jan  1 23:18:14 2013
+From: johan2sson at gmail.com (Johan Johansson)
+Date: Wed, 02 Jan 2013 00:18:14 +0100
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <50E36C1B.5050309@gmail.com>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com> <50E36C1B.5050309@gmail.com>
+Message-ID: <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com>
+
+On Wed, Jan 2, 2013 at 12:07 AM, Laurent Gautier <lgautier at gmail.com> wrote:
+> On 2013-01-01 23:45, Johan Johansson wrote:
+
+>> #if SIZEOF_SIZE_T != SIZEOF_INT
+>> /* On a 64-bit system, rename the Py_InitModule4 so that 2.4
+>>     modules cannot get loaded into a 2.5 interpreter */
+>> #define Py_InitModule4 Py_InitModule4_64
+>> #endif
+
+> The comment suggests that this concerns pre-Python2.4 vs post-Python2.5
+> compiled module.
+> May be not a big issue for now.
+
+What worries me is that SIZEOF_SIZE_T shouldn't equal SIZEOF_INT on a
+64-bit system but apparently does. This makes me suspect I'm missing
+compiler flags/defines somewhere.
+
+Johan
+
+------------------------------------------------------------------------------
+Master SQL Server Development, Administration, T-SQL, SSAS, SSIS, SSRS
+and more. Get SQL Server skills now (including 2012) with LearnDevNow -
+200+ hours of step-by-step video tutorials by Microsoft MVPs and experts.
+SALE $99.99 this month only - learn more at:
+http://p.sf.net/sfu/learnmore_122512
+
+From oneswarm1988 at gmail.com  Wed Jan  2 11:20:35 2013
+From: oneswarm1988 at gmail.com (oneswarm1988)
+Date: Wed, 02 Jan 2013 19:20:35 +0800
+Subject: [Rpy] possible to export robjects in R?
+Message-ID: <1357125635.2368.35.camel@oneswarm1988-Inspiron-N4030>
+
+hello everyone: 
+
+I wonder if there is a method that could export the robjects created
+from python to  R , so that I can use the  robjects  directly in R
+code .
+
+        for example : df= DataFrame(xx) is a data frame created in
+        python , and I wish make it public in  embedded R   , so I can
+        use use pure R code to analysis . 
+        
+        my R code goes like these " .... function(df)...." (operation on
+        data  totally in R)
+        I try to use r instance to parse and evaluate the code .
+        but the df data.frame can not be found in R workspace. (in fact
+        it is there, but it is kind of "unregistered" and protected from
+        the garbage collection. )
+
+
+
+Is it possible to  "registered " the "df" variable and make it
+public?   
+(without using robjects.r to create variable ) 
+
+        I think this will be a quite useful features.
+        cause it separates the preparation of data in python   and
+        statistical analysis in R  and could easily get result into
+        python for further use.    and it will greatly boost the
+        efficiency of users who are familiar with python and R both.
+        (they need not to learn other class like Formula and so on.)
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Master Java SE, Java EE, Eclipse, Spring, Hibernate, JavaScript, jQuery
+and much more. Keep your Java skills current with LearnJavaNow -
+200+ hours of step-by-step video tutorials by Java experts.
+SALE $49.99 this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122612
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From johan2sson at gmail.com  Wed Jan  2 14:25:17 2013
+From: johan2sson at gmail.com (Johan Johansson)
+Date: Wed, 02 Jan 2013 15:25:17 +0100
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com> <50E36C1B.5050309@gmail.com> <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com>
+Message-ID: <CAEeinJ_dVXLK1pCB7Zy6MrtNiQcVad2SVLchBfDxLtMc9=xpog@mail.gmail.com>
+
+Success:
+
+@@ -188,6 +188,8 @@
+     r_exec = os.path.join(r_home, 'bin', 'R')
+     # Twist if Win32
+     if sys.platform == "win32":
++        if sys.version.find("64 bit") > 0:
++            r_exec = os.path.join(r_home, 'bin', 'x64', 'R')
+         if sys.version_info >= (3,):
+             import subprocess
+             p = subprocess.Popen('"'+r_exec+'" --version',
+@@ -332,14 +334,19 @@
+
+
+ def get_rconfig(r_home, about, allow_empty = False):
+-    r_exec = os.path.join(r_home, 'bin', 'R')
++    if sys.platform == "win32" and sys.version.find("64 bit") > 0:
++        r_exec = os.path.join(r_home, 'bin', 'x64', 'R')
++    else:
++        r_exec = os.path.join(r_home, 'bin', 'R')
+     cmd = '"'+r_exec+'" CMD config '+about
++    print cmd
+     rp = os.popen(cmd)
+     rconfig = rp.readline()
+     #Twist if 'R RHOME' spits out a warning
+     if rconfig.startswith("WARNING"):
+         rconfig = rp.readline()
+     rconfig = rconfig.strip()
++    print rconfig
+     rc = RConfig.from_string(rconfig, allow_empty = allow_empty)
+     rp.close()
+     return rc
+@@ -348,6 +355,7 @@
+     #r_libs = [os.path.join(RHOME, 'lib'), os.path.join(RHOME, 'modules')]
+     r_libs = []
+     extra_link_args = []
++    extra_compile_args = []
+
+     #FIXME: crude way (will break in many cases)
+     #check how to get how to have a configure step
+@@ -355,6 +363,12 @@
+
+     if sys.platform == 'win32':
+         define_macros.append(('Win32', 1))
++        if sys.version.find('64 bit') > 0:
++            define_macros.append(('Win64', 1))
++            extra_link_args.append('-m64')
++            extra_compile_args.append('-m64')
++            # See http://bugs.python.org/issue4709
++            define_macros.append(('MS_WIN64', 1))
+     else:
+         define_macros.append(('R_INTERFACE_PTRS', 1))
+         define_macros.append(('HAVE_POSIX_SIGJMP', 1))
+@@ -368,7 +382,6 @@
+     else:
+         pass
+
+-
+     include_dirs = []
+
+     rinterface_ext = Extension(
+@@ -403,8 +416,9 @@
+             library_dirs = r_libs,
+             define_macros = define_macros,
+             runtime_library_dirs = r_libs,
++            extra_compile_args=extra_compile_args,
+             #extra_compile_args=['-O0', '-g'],
+-            #extra_link_args = extra_link_args
++            extra_link_args = extra_link_args
+             )
+
+     rpy_device_ext = Extension(
+@@ -419,6 +433,7 @@
+         library_dirs = r_libs,
+         define_macros = define_macros,
+         runtime_library_dirs = r_libs,
++        extra_compile_args=extra_compile_args,
+         #extra_compile_args=['-O0', '-g'],
+         extra_link_args = extra_link_args
+         )
+
+It turned out to be (mostly) a matter of defining the right
+preprocessor symbols. I've run through some of the examples in the
+documentation with no obvious ill effects.
+
+Johan
+
+On Wed, Jan 2, 2013 at 12:18 AM, Johan Johansson <johan2sson at gmail.com> wrote:
+> On Wed, Jan 2, 2013 at 12:07 AM, Laurent Gautier <lgautier at gmail.com> wrote:
+>> On 2013-01-01 23:45, Johan Johansson wrote:
+>
+>>> #if SIZEOF_SIZE_T != SIZEOF_INT
+>>> /* On a 64-bit system, rename the Py_InitModule4 so that 2.4
+>>>     modules cannot get loaded into a 2.5 interpreter */
+>>> #define Py_InitModule4 Py_InitModule4_64
+>>> #endif
+>
+>> The comment suggests that this concerns pre-Python2.4 vs post-Python2.5
+>> compiled module.
+>> May be not a big issue for now.
+>
+> What worries me is that SIZEOF_SIZE_T shouldn't equal SIZEOF_INT on a
+> 64-bit system but apparently does. This makes me suspect I'm missing
+> compiler flags/defines somewhere.
+>
+> Johan
+
+------------------------------------------------------------------------------
+Master Java SE, Java EE, Eclipse, Spring, Hibernate, JavaScript, jQuery
+and much more. Keep your Java skills current with LearnJavaNow -
+200+ hours of step-by-step video tutorials by Java experts.
+SALE $49.99 this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122612
+
+From lgautier at gmail.com  Wed Jan  2 14:27:50 2013
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Wed, 02 Jan 2013 15:27:50 +0100
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <CAEeinJ_dVXLK1pCB7Zy6MrtNiQcVad2SVLchBfDxLtMc9=xpog@mail.gmail.com>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com> <50E36C1B.5050309@gmail.com> <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com> <CAEeinJ_dVXLK1pCB7Zy6MrtNiQcVad2SVLchBfDxLtMc9=xpog@mail.gmail.com>
+Message-ID: <50E443E6.4050202@gmail.com>
+
+On 2013-01-02 15:25, Johan Johansson wrote:
+> Success:
+>
+> @@ -188,6 +188,8 @@
+>       r_exec = os.path.join(r_home, 'bin', 'R')
+>       # Twist if Win32
+>       if sys.platform == "win32":
+> +        if sys.version.find("64 bit") > 0:
+> +            r_exec = os.path.join(r_home, 'bin', 'x64', 'R')
+>           if sys.version_info >= (3,):
+>               import subprocess
+>               p = subprocess.Popen('"'+r_exec+'" --version',
+> @@ -332,14 +334,19 @@
+>
+>
+>   def get_rconfig(r_home, about, allow_empty = False):
+> -    r_exec = os.path.join(r_home, 'bin', 'R')
+> +    if sys.platform == "win32" and sys.version.find("64 bit") > 0:
+> +        r_exec = os.path.join(r_home, 'bin', 'x64', 'R')
+> +    else:
+> +        r_exec = os.path.join(r_home, 'bin', 'R')
+>       cmd = '"'+r_exec+'" CMD config '+about
+> +    print cmd
+>       rp = os.popen(cmd)
+>       rconfig = rp.readline()
+>       #Twist if 'R RHOME' spits out a warning
+>       if rconfig.startswith("WARNING"):
+>           rconfig = rp.readline()
+>       rconfig = rconfig.strip()
+> +    print rconfig
+>       rc = RConfig.from_string(rconfig, allow_empty = allow_empty)
+>       rp.close()
+>       return rc
+> @@ -348,6 +355,7 @@
+>       #r_libs = [os.path.join(RHOME, 'lib'), os.path.join(RHOME, 'modules')]
+>       r_libs = []
+>       extra_link_args = []
+> +    extra_compile_args = []
+>
+>       #FIXME: crude way (will break in many cases)
+>       #check how to get how to have a configure step
+> @@ -355,6 +363,12 @@
+>
+>       if sys.platform == 'win32':
+>           define_macros.append(('Win32', 1))
+> +        if sys.version.find('64 bit') > 0:
+> +            define_macros.append(('Win64', 1))
+> +            extra_link_args.append('-m64')
+> +            extra_compile_args.append('-m64')
+> +            # See http://bugs.python.org/issue4709
+> +            define_macros.append(('MS_WIN64', 1))
+>       else:
+>           define_macros.append(('R_INTERFACE_PTRS', 1))
+>           define_macros.append(('HAVE_POSIX_SIGJMP', 1))
+> @@ -368,7 +382,6 @@
+>       else:
+>           pass
+>
+> -
+>       include_dirs = []
+>
+>       rinterface_ext = Extension(
+> @@ -403,8 +416,9 @@
+>               library_dirs = r_libs,
+>               define_macros = define_macros,
+>               runtime_library_dirs = r_libs,
+> +            extra_compile_args=extra_compile_args,
+>               #extra_compile_args=['-O0', '-g'],
+> -            #extra_link_args = extra_link_args
+> +            extra_link_args = extra_link_args
+>               )
+>
+>       rpy_device_ext = Extension(
+> @@ -419,6 +433,7 @@
+>           library_dirs = r_libs,
+>           define_macros = define_macros,
+>           runtime_library_dirs = r_libs,
+> +        extra_compile_args=extra_compile_args,
+>           #extra_compile_args=['-O0', '-g'],
+>           extra_link_args = extra_link_args
+>           )
+>
+> It turned out to be (mostly) a matter of defining the right
+> preprocessor symbols. I've run through some of the examples in the
+> documentation with no obvious ill effects.
+
+Great!
+
+`python -m rpy2.tests` will run all unittests
+
+Win64 users will certainly be happy. Can you submit a pull request ? 
+(easier for me). Thanks.
+
+L.
+
+
+>
+> Johan
+>
+> On Wed, Jan 2, 2013 at 12:18 AM, Johan Johansson <johan2sson at gmail.com> wrote:
+>> On Wed, Jan 2, 2013 at 12:07 AM, Laurent Gautier <lgautier at gmail.com> wrote:
+>>> On 2013-01-01 23:45, Johan Johansson wrote:
+>>>> #if SIZEOF_SIZE_T != SIZEOF_INT
+>>>> /* On a 64-bit system, rename the Py_InitModule4 so that 2.4
+>>>>      modules cannot get loaded into a 2.5 interpreter */
+>>>> #define Py_InitModule4 Py_InitModule4_64
+>>>> #endif
+>>> The comment suggests that this concerns pre-Python2.4 vs post-Python2.5
+>>> compiled module.
+>>> May be not a big issue for now.
+>> What worries me is that SIZEOF_SIZE_T shouldn't equal SIZEOF_INT on a
+>> 64-bit system but apparently does. This makes me suspect I'm missing
+>> compiler flags/defines somewhere.
+>>
+>> Johan
+
+
+------------------------------------------------------------------------------
+Master Java SE, Java EE, Eclipse, Spring, Hibernate, JavaScript, jQuery
+and much more. Keep your Java skills current with LearnJavaNow -
+200+ hours of step-by-step video tutorials by Java experts.
+SALE $49.99 this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122612
+
+From takowl at gmail.com  Wed Jan  2 14:41:56 2013
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Wed, 02 Jan 2013 14:41:56 +0000
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <CAEeinJ_dVXLK1pCB7Zy6MrtNiQcVad2SVLchBfDxLtMc9=xpog@mail.gmail.com>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com> <50E36C1B.5050309@gmail.com> <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com> <CAEeinJ_dVXLK1pCB7Zy6MrtNiQcVad2SVLchBfDxLtMc9=xpog@mail.gmail.com>
+Message-ID: <CAOvn4qgYEzumtr1_0Hkr9kPG+q_TvyS0H1R_ZU0NYxM1gsKV9A@mail.gmail.com>
+
+On 2 January 2013 14:25, Johan Johansson <johan2sson at gmail.com> wrote:
+
+> +        if sys.version.find("64 bit") > 0:
+
+
+General Pythonicness tip, you can check it more readably like this:
+
+if '64 bit' in sys.version:
+
+Best wishes,
+Thomas
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Master Java SE, Java EE, Eclipse, Spring, Hibernate, JavaScript, jQuery
+and much more. Keep your Java skills current with LearnJavaNow -
+200+ hours of step-by-step video tutorials by Java experts.
+SALE $49.99 this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122612
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From johan2sson at gmail.com  Thu Jan  3 15:08:28 2013
+From: johan2sson at gmail.com (Johan Johansson)
+Date: Thu, 03 Jan 2013 16:08:28 +0100
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <CAOvn4qgYEzumtr1_0Hkr9kPG+q_TvyS0H1R_ZU0NYxM1gsKV9A@mail.gmail.com>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com> <50E36C1B.5050309@gmail.com> <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com> <CAEeinJ_dVXLK1pCB7Zy6MrtNiQcVad2SVLchBfDxLtMc9=xpog@mail.gmail.com> <CAOvn4qgYEzumtr1_0Hkr9kPG+q_TvyS0H1R_ZU0NYxM1gsKV9A@mail.gmail.com>
+Message-ID: <CAEeinJ82Dq3DXZmNHBNkzAChEZbjgYACfrf_bHtwucgfZXQbDw@mail.gmail.com>
+
+Incorporated. Thanks for reminding me!
+
+Johan
+
+On Wed, Jan 2, 2013 at 3:41 PM, Thomas Kluyver <takowl at gmail.com> wrote:
+> On 2 January 2013 14:25, Johan Johansson <johan2sson at gmail.com> wrote:
+>>
+>> +        if sys.version.find("64 bit") > 0:
+>
+>
+> General Pythonicness tip, you can check it more readably like this:
+>
+> if '64 bit' in sys.version:
+>
+> Best wishes,
+> Thomas
+>
+> ------------------------------------------------------------------------------
+> Master Java SE, Java EE, Eclipse, Spring, Hibernate, JavaScript, jQuery
+> and much more. Keep your Java skills current with LearnJavaNow -
+> 200+ hours of step-by-step video tutorials by Java experts.
+> SALE $49.99 this month only -- learn more at:
+> http://p.sf.net/sfu/learnmore_122612
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122712
+
+From mohit.personal1987 at gmail.com  Tue Jan  8 10:34:00 2013
+From: mohit.personal1987 at gmail.com (Mohit Khanna)
+Date: Tue, 08 Jan 2013 16:04:00 +0530
+Subject: [Rpy] How to call ltm function using rpy package in python
+Message-ID: <CAKEiDHXmb37k+A8ouzxR=CAV9p9_1imNLaW5ePVGXUUNgGY05Q@mail.gmail.com>
+
+I am trying the following code--
+
+from rpy import *
+r.library("ltm")
+
+dat= #some data frame or matrix
+r.ltm(r('dat~z1'))
+
+error coming is---
+RPy_RException: Error in eval(expr, envir, enclos) : object 'dat' not found
+
+Please tell me the right way to call ltm function using rpy library
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Master SQL Server Development, Administration, T-SQL, SSAS, SSIS, SSRS
+and more. Get SQL Server skills now (including 2012) with LearnDevNow -
+200+ hours of step-by-step video tutorials by Microsoft MVPs and experts.
+SALE $99.99 this month only - learn more at:
+http://p.sf.net/sfu/learnmore_122512
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From wrobell at pld-linux.org  Tue Jan  8 13:57:44 2013
+From: wrobell at pld-linux.org (Artur Wroblewski)
+Date: Tue, 08 Jan 2013 13:57:44 +0000
+Subject: Re: [Rpy] How to call ltm function using rpy package in python
+In-Reply-To: <CAKEiDHXmb37k+A8ouzxR=CAV9p9_1imNLaW5ePVGXUUNgGY05Q@mail.gmail.com>
+References: <CAKEiDHXmb37k+A8ouzxR=CAV9p9_1imNLaW5ePVGXUUNgGY05Q@mail.gmail.com>
+Message-ID: <CA+92fu_EbO11=mSzp9Ah3mG0XB5p098kMAyTvC-Mx+N_ZWLY0Q@mail.gmail.com>
+
+On Tue, Jan 8, 2013 at 10:34 AM, Mohit Khanna
+<mohit.personal1987 at gmail.com> wrote:
+> I am trying the following code--
+>
+> from rpy import *
+> r.library("ltm")
+>
+> dat= #some data frame or matrix
+> r.ltm(r('dat~z1'))
+>
+> error coming is---
+> RPy_RException: Error in eval(expr, envir, enclos) : object 'dat' not found
+>
+> Please tell me the right way to call ltm function using rpy library
+
+Hi,
+
+Not sure about rpy older than 2.x, but you miss globalenv
+
+    http://rpy.sourceforge.net/rpy2/doc-2.3/html/robjects_rinstance.html?highlight=globalenv
+
+For example:
+
+    from rpy import *
+    # ... import globalenv here ...., rpy2: from rpy2.robjects import globalenv
+
+    r.library("ltm")
+
+    globalenv['dat'] = #some data frame or matrix
+    r.ltm(r('dat~z1'))
+
+Regards,
+
+w
+
+------------------------------------------------------------------------------
+Master SQL Server Development, Administration, T-SQL, SSAS, SSIS, SSRS
+and more. Get SQL Server skills now (including 2012) with LearnDevNow -
+200+ hours of step-by-step video tutorials by Microsoft MVPs and experts.
+SALE $99.99 this month only - learn more at:
+http://p.sf.net/sfu/learnmore_122512
+
+From samuel.lampa at gmail.com  Thu Jan 10 17:22:14 2013
+From: samuel.lampa at gmail.com (Samuel Lampa)
+Date: Thu, 10 Jan 2013 18:22:14 +0100
+Subject: [Rpy] Sending named parameters to pypher?
+Message-ID: <50EEF8C6.1020605@gmail.com>
+
+Hi,
+
+I'm tryint to do a "pypher" calculation from my python script, for some 
+gene expression stuff.
+
+In R, I would call it like this:
+phyper(q, m, n, k, lower.tail=FALSE, log.p=FALSE)
+
+How do I format the two last parameters, in python?
+
+The four first ones seems simple:
+
+p = r.phyper(q, m, n, k)
+
+... but if I go (in python):
+r.phyper(q, m, n, k, lower.tail=FALSE, log.p=FALSE)
+
+
+... gives:
+SyntaxError: keyword can't be an expression
+
+Any hints, how to do this?
+
+Best Regards
+// Samuel
+
+-- 
+Developer at SNIC-UPPMAX www.uppmax.uu.se
+Developer at Dept of Pharm Biosciences www.farmbio.uu.se
+
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122712
+
+From lgautier at gmail.com  Thu Jan 10 17:56:24 2013
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Thu, 10 Jan 2013 18:56:24 +0100
+Subject: Re: [Rpy] Sending named parameters to pypher?
+In-Reply-To: <50EEF8C6.1020605@gmail.com>
+References: <50EEF8C6.1020605@gmail.com>
+Message-ID: <50EF00C8.4030208@gmail.com>
+
+On 2013-01-10 18:22, Samuel Lampa wrote:
+> Hi,
+>
+> I'm tryint to do a "pypher" calculation from my python script, for some
+> gene expression stuff.
+>
+> In R, I would call it like this:
+> phyper(q, m, n, k, lower.tail=FALSE, log.p=FALSE)
+>
+> How do I format the two last parameters, in python?
+>
+> The four first ones seems simple:
+>
+> p = r.phyper(q, m, n, k)
+>
+> ... but if I go (in python):
+> r.phyper(q, m, n, k, lower.tail=FALSE, log.p=FALSE)
+>
+>
+> ... gives:
+> SyntaxError: keyword can't be an expression
+>
+> Any hints, how to do this?
+
+dots ('.') are not valid symbol name in Python.
+http://rpy.sourceforge.net/rpy2/doc-dev/html/robjects_functions.html?highlight=dot#functions
+
+>
+> Best Regards
+> // Samuel
+>
+
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122712
+
+From pmhobson at gmail.com  Thu Jan 10 18:01:42 2013
+From: pmhobson at gmail.com (Paul Hobson)
+Date: Thu, 10 Jan 2013 10:01:42 -0800
+Subject: Re: [Rpy] possible to export robjects in R?
+In-Reply-To: <1357125635.2368.35.camel@oneswarm1988-Inspiron-N4030>
+References: <1357125635.2368.35.camel@oneswarm1988-Inspiron-N4030>
+Message-ID: <CADT3MEAKctuF845fVhOUZSuTUiNWOcA-4QDqw3Gjx3MzWRjB+g@mail.gmail.com>
+
+On Wed, Jan 2, 2013 at 3:20 AM, oneswarm1988 <oneswarm1988 at gmail.com> wrote:
+
+> **
+> hello everyone:
+>
+> *I wonder if there is a method that could export the robjects created
+> from python to  R , so that I can use the  robjects  directly in R code .*
+>
+> for example : df= DataFrame(xx) is a data frame created in python , and I
+> wish make it public in  embedded R   , so I can use use pure R code to
+> analysis .
+>
+> my R code goes like these " .... function(df)...." (operation on data
+> totally in R)
+> I try to use r instance to parse and evaluate the code .
+> *but the df data.frame can not be found in R workspace.* (in fact it is
+> there, but it is kind of "unregistered" and protected from the garbage
+> collection. )
+>
+>
+>
+> *Is it possible to  "registered " the "df" variable and make it public?
+> *
+> (without using robjects.r to create variable )
+>
+> I think this will be a quite useful features.
+> cause it separates the preparation of data in python   and   statistical
+> analysis in R  and could easily get result into python for further use.
+> and it will greatly boost the efficiency of users who are familiar with
+> python and R both. (they need not to learn other class like Formula and so
+> on.
+>
+>
+I don't have any experience with this, but I remember seeing this section
+of documentation. You might find it useful:
+ http://pandas.pydata.org/pandas-docs/stable/r_interface.html
+
+Hope that helps,
+-paul
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122712
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From samuel.lampa at gmail.com  Thu Jan 10 18:58:19 2013
+From: samuel.lampa at gmail.com (Samuel Lampa)
+Date: Thu, 10 Jan 2013 19:58:19 +0100
+Subject: Re: [Rpy] Sending named parameters to pypher?
+In-Reply-To: <50EF00C8.4030208@gmail.com>
+References: <50EEF8C6.1020605@gmail.com> <50EF00C8.4030208@gmail.com>
+Message-ID: <50EF0F4B.3000904@gmail.com>
+
+On 01/10/2013 06:56 PM, Laurent Gautier wrote:
+> dots ('.') are not valid symbol name in Python.
+> http://rpy.sourceforge.net/rpy2/doc-dev/html/robjects_functions.html?highlight=dot#functions 
+
+Ah, many thanks! :)
+
+// Samuel
+
+-- 
+Developer at SNIC-UPPMAX www.uppmax.uu.se
+Developer at Dept of Pharm Biosciences www.farmbio.uu.se
+
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122712
+
+From luca.beltrame at marionegri.it  Thu Jan 10 23:12:24 2013
+From: luca.beltrame at marionegri.it (Luca Beltrame)
+Date: Fri, 11 Jan 2013 00:12:24 +0100
+Subject: Re: [Rpy] Sending named parameters to pypher?
+In-Reply-To: <50EF0F4B.3000904@gmail.com>
+References: <50EEF8C6.1020605@gmail.com> <50EF00C8.4030208@gmail.com> <50EF0F4B.3000904@gmail.com>
+Message-ID: <a7633f07d79487093b133a38f5f4131c@heavensinferno.net>
+
+ On Thu, 10 Jan 2013 20:00:44 +0100 (CET), Samuel Lampa wrote:
+
+> Ah, many thanks! :)
+
+ A comment: if you're using R just to do a hypergeometric test, probably 
+ the R-Python overhead is not worth the effort. Scipy has the exact same 
+ function, with the advantage that you don't have to go through R and 
+ then Python.
+
+ If instead you're needing a lot of specialized R libraries, rpy2 is a 
+ perfect choice (for that purpose I use it a lot with Bioconductor 
+ packages).
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122712
+
+From cgohlke at uci.edu  Wed Jan 23 04:41:38 2013
+From: cgohlke at uci.edu (Christoph Gohlke)
+Date: Tue, 22 Jan 2013 20:41:38 -0800
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com> <50E36C1B.5050309@gmail.com> <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com>
+Message-ID: <50FF6A02.9070403@uci.edu>
+
+On 1/1/2013 3:18 PM, Johan Johansson wrote:
+> On Wed, Jan 2, 2013 at 12:07 AM, Laurent Gautier <lgautier at gmail.com> wrote:
+>> On 2013-01-01 23:45, Johan Johansson wrote:
+>
+>>> #if SIZEOF_SIZE_T != SIZEOF_INT
+>>> /* On a 64-bit system, rename the Py_InitModule4 so that 2.4
+>>>      modules cannot get loaded into a 2.5 interpreter */
+>>> #define Py_InitModule4 Py_InitModule4_64
+>>> #endif
+>
+>> The comment suggests that this concerns pre-Python2.4 vs post-Python2.5
+>> compiled module.
+>> May be not a big issue for now.
+>
+> What worries me is that SIZEOF_SIZE_T shouldn't equal SIZEOF_INT on a
+> 64-bit system but apparently does. This makes me suspect I'm missing
+> compiler flags/defines somewhere.
+>
+> Johan
+>
+
+Hi Johan,
+
+did you resolve this? If not, make sure `-m64` and `-DMS_WIN64` are in 
+the gcc compiler options. I just tried: rpy2-2.3.x (from hg) builds 
+without errors using Rtools216.
+
+Unfortunately the 64 bit extension often (not always, with no apparent 
+pattern) fails to load when repeatedly running `python -c"import 
+rpy2.rinterface"`:
+
+Traceback (most recent call last):
+   File "<string>", line 1, in <module>
+   File "X:\Python27-x64\lib\site-packages\rpy2\rinterface\__init__.py", 
+line 93, in <module>
+     from rpy2.rinterface._rinterface import *
+ImportError: DLL load failed: A dynamic link library (DLL) 
+initialization routine failed.
+
+The installers are at <http://www.lfd.uci.edu/~gohlke/pythonlibs/#rpy2> 
+if anyone wants to try.
+
+Christoph
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnnow-d2d
+
+From cgohlke at uci.edu  Wed Jan 23 21:07:21 2013
+From: cgohlke at uci.edu (Christoph Gohlke)
+Date: Wed, 23 Jan 2013 13:07:21 -0800
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <50FF6A02.9070403@uci.edu>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com> <50E36C1B.5050309@gmail.com> <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com> <50FF6A02.9070403@uci.edu>
+Message-ID: <51005109.6060606@uci.edu>
+
+On 1/22/2013 8:41 PM, Christoph Gohlke wrote:
+> On 1/1/2013 3:18 PM, Johan Johansson wrote:
+>> On Wed, Jan 2, 2013 at 12:07 AM, Laurent Gautier <lgautier at gmail.com> wrote:
+>>> On 2013-01-01 23:45, Johan Johansson wrote:
+>>
+>>>> #if SIZEOF_SIZE_T != SIZEOF_INT
+>>>> /* On a 64-bit system, rename the Py_InitModule4 so that 2.4
+>>>>       modules cannot get loaded into a 2.5 interpreter */
+>>>> #define Py_InitModule4 Py_InitModule4_64
+>>>> #endif
+>>
+>>> The comment suggests that this concerns pre-Python2.4 vs post-Python2.5
+>>> compiled module.
+>>> May be not a big issue for now.
+>>
+>> What worries me is that SIZEOF_SIZE_T shouldn't equal SIZEOF_INT on a
+>> 64-bit system but apparently does. This makes me suspect I'm missing
+>> compiler flags/defines somewhere.
+>>
+>> Johan
+>>
+>
+> Hi Johan,
+>
+> did you resolve this? If not, make sure `-m64` and `-DMS_WIN64` are in
+> the gcc compiler options. I just tried: rpy2-2.3.x (from hg) builds
+> without errors using Rtools216.
+>
+> Unfortunately the 64 bit extension often (not always, with no apparent
+> pattern) fails to load when repeatedly running `python -c"import
+> rpy2.rinterface"`:
+>
+> Traceback (most recent call last):
+>     File "<string>", line 1, in <module>
+>     File "X:\Python27-x64\lib\site-packages\rpy2\rinterface\__init__.py",
+> line 93, in <module>
+>       from rpy2.rinterface._rinterface import *
+> ImportError: DLL load failed: A dynamic link library (DLL)
+> initialization routine failed.
+
+Turns out this is due to Python distutils linking against libmsvcr90 or 
+libmsvcr100. Forcing distutils to use msvcrt instead (usually a bad 
+practice) solves the random DLL load failures and crashes. Got it 
+working on win-amd64-py2.7, 3.2, and 3.3.
+
+Christoph
+
+>
+> The installers are at <http://www.lfd.uci.edu/~gohlke/pythonlibs/#rpy2>
+> if anyone wants to try.
+>
+> Christoph
+>
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnnow-d2d
+
+From johan2sson at gmail.com  Wed Jan 23 22:01:43 2013
+From: johan2sson at gmail.com (Johan Johansson)
+Date: Wed, 23 Jan 2013 23:01:43 +0100
+Subject: Re: [Rpy] How do I debug a crash in the windows build of rpy2?
+In-Reply-To: <51005109.6060606@uci.edu>
+References: <CAEeinJ-dh4S1fSBuWVYeWKP1Zq4fhxcNGvLUr4iCd4-0Cy1Bew@mail.gmail.com> <50E1AE77.9020208@gmail.com> <CAEeinJ8GZVc-0xYkdvSO3FkAA_vjkPj1wx4du=By1a3FmuhjbQ@mail.gmail.com> <50E36C1B.5050309@gmail.com> <CAEeinJ_XTX_J4JihEAKe+shLJufRo7=12feuxoixrnm79g71qg@mail.gmail.com> <50FF6A02.9070403@uci.edu> <51005109.6060606@uci.edu>
+Message-ID: <CAEeinJ-19bRGH5MFvBw1Qu3DrR7Y9oao1PQwHF5VwZdj46++Gw@mail.gmail.com>
+
+Hi Christoph,
+
+Any idea why linking against the newer runtime libs would cause problems?
+
+Johan
+
+On Wed, Jan 23, 2013 at 10:07 PM, Christoph Gohlke <cgohlke at uci.edu> wrote:
+> On 1/22/2013 8:41 PM, Christoph Gohlke wrote:
+>> On 1/1/2013 3:18 PM, Johan Johansson wrote:
+>>> On Wed, Jan 2, 2013 at 12:07 AM, Laurent Gautier <lgautier at gmail.com> wrote:
+>>>> On 2013-01-01 23:45, Johan Johansson wrote:
+>>>
+>>>>> #if SIZEOF_SIZE_T != SIZEOF_INT
+>>>>> /* On a 64-bit system, rename the Py_InitModule4 so that 2.4
+>>>>>       modules cannot get loaded into a 2.5 interpreter */
+>>>>> #define Py_InitModule4 Py_InitModule4_64
+>>>>> #endif
+>>>
+>>>> The comment suggests that this concerns pre-Python2.4 vs post-Python2.5
+>>>> compiled module.
+>>>> May be not a big issue for now.
+>>>
+>>> What worries me is that SIZEOF_SIZE_T shouldn't equal SIZEOF_INT on a
+>>> 64-bit system but apparently does. This makes me suspect I'm missing
+>>> compiler flags/defines somewhere.
+>>>
+>>> Johan
+>>>
+>>
+>> Hi Johan,
+>>
+>> did you resolve this? If not, make sure `-m64` and `-DMS_WIN64` are in
+>> the gcc compiler options. I just tried: rpy2-2.3.x (from hg) builds
+>> without errors using Rtools216.
+>>
+>> Unfortunately the 64 bit extension often (not always, with no apparent
+>> pattern) fails to load when repeatedly running `python -c"import
+>> rpy2.rinterface"`:
+>>
+>> Traceback (most recent call last):
+>>     File "<string>", line 1, in <module>
+>>     File "X:\Python27-x64\lib\site-packages\rpy2\rinterface\__init__.py",
+>> line 93, in <module>
+>>       from rpy2.rinterface._rinterface import *
+>> ImportError: DLL load failed: A dynamic link library (DLL)
+>> initialization routine failed.
+>
+> Turns out this is due to Python distutils linking against libmsvcr90 or
+> libmsvcr100. Forcing distutils to use msvcrt instead (usually a bad
+> practice) solves the random DLL load failures and crashes. Got it
+> working on win-amd64-py2.7, 3.2, and 3.3.
+>
+> Christoph
+>
+>>
+>> The installers are at <http://www.lfd.uci.edu/~gohlke/pythonlibs/#rpy2>
+>> if anyone wants to try.
+>>
+>> Christoph
+>>
+>
+> ------------------------------------------------------------------------------
+> Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+> MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+> with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+> MVPs and experts. ON SALE this month only -- learn more at:
+> http://p.sf.net/sfu/learnnow-d2d
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnnow-d2d
+
+From jeremy_harbinson at me.com  Thu Jan 24 14:39:45 2013
+From: jeremy_harbinson at me.com (Jeremy Harbinson)
+Date: Thu, 24 Jan 2013 15:39:45 +0100
+Subject: [Rpy] problem installing rpy2 on OS X
+Message-ID: <FA38729E-3B63-43FD-BF88-CC0B3E9C3D60@me.com>
+
+Hi,
+
+I have had a problem installing Rpy2 versions 2.1.8 and 2.3.1 and Mac OSX version 10.8.2 using Xcode 3.2 (this is the version that is in my 'Developer' directory, though some other bits of Xcode seem to be more recent, in Xcode.app for example) and the Enthought Python Distribution. I am not sure if the problem lies with Rpy2 or with Xcode, so my apologies if I have made a mistake in posting here.
+
+When I first tried to instal Rpy2 2.3.1 I got the following error message:
+
+python setup.py build install
+running build
+running build_py
+running build_ext
+/Library/Frameworks/R.framework/Resources/bin/config: line 142: make: command not found
+/Library/Frameworks/R.framework/Resources/bin/config: line 143: make: command not found
+R was not built as a library
+Traceback (most recent call last):
+  File "setup.py", line 372, in <module>
+    [os.path.join('doc', 'source', 'rpy2_logo.png')])]
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/core.py", line 152, in setup
+    dist.run_commands()
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 953, in run_commands
+    self.run_command(cmd)
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 972, in run_command
+    cmd_obj.run()
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/command/build.py", line 127, in run
+    self.run_command(cmd_name)
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/cmd.py", line 326, in run_command
+    self.distribution.run_command(command)
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 971, in run_command
+    cmd_obj.ensure_finalized()
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/cmd.py", line 109, in ensure_finalized
+    self.finalize_options()
+  File "setup.py", line 111, in finalize_options
+    config += get_rconfig(r_home, about)
+  File "setup.py", line 264, in get_rconfig
+    rc = RConfig.from_string(rconfig)
+  File "setup.py", line 252, in from_string
+    + '\nin string\n' + string)
+ValueError: Invalid substring
+
+in string
+
+
+This is a reasonably widely reported problem. I got the same result with rpy 2.1.8. I checked I had a 'make' and I checked the path statement in my Terminal app and sure enough the directory (there were two) in which make was located was not in the path, so I added one to the Terminal window path (hopefully this was the right thing to do). Repeating the install, but using a different procedure, in a terminal wondow with the new path allowed the install to proceed further, but still ending in an error:
+
+sudo easy_install rpy2
+Password:
+Searching for rpy2
+Reading http://pypi.python.org/simple/rpy2/
+Reading http://rpy.sourceforge.net
+Best match: rpy2 2.3.1
+Downloading http://pypi.python.org/packages/source/r/rpy2/rpy2-2.3.1.tar.gz#md5=8d68dbd8947931975304dc633bbb843c
+Processing rpy2-2.3.1.tar.gz
+Writing /tmp/easy_install-66vvZU/rpy2-2.3.1/setup.cfg
+Running rpy2-2.3.1/setup.py -q bdist_egg --dist-dir /tmp/easy_install-66vvZU/rpy2-2.3.1/egg-dist-tmp-xJsNct
+
+returned an empty string.
+
+
+returned an empty string.
+
+Configuration for R as a library:
+  include_dirs: ('/Library/Frameworks/R.framework/Resources/include', '/Library/Frameworks/R.framework/Resources/include/i386')
+  libraries: ()
+  library_dirs: ('/Library/Frameworks/R.framework/Resources/lib/i386',)
+  extra_link_args: ('-framework R', '-F/Library/Frameworks/R.framework/..')
+ # OSX-specific (included in extra_link_args)
+  framework_dirs: ('-F/Library/Frameworks/R.framework/..',)
+  frameworks: ('-framework R',)
+warning: no previously-included files matching '*patch*' found anywhere in distribution
+warning: no previously-included files matching '*diff*' found anywhere in distribution
+warning: no previously-included files matching '.hg' found anywhere in distribution
+no previously-included directories found matching 'dist'
+./rpy/rinterface/_rinterface.c: In function ‘init_rinterface’:
+./rpy/rinterface/_rinterface.c:3550: warning: passing argument 1 of ‘PyLong_FromLong’ makes integer from pointer without a cast
+ld: library not found for -lbundle1.o
+collect2: ld returned 1 exit status
+error: Setup script exited with error: command 'gcc' failed with exit status 1
+
+
+Searching for the -lbundle1.o message on the web got some hits:
+
+ e.g.  http://lists.apple.com/archives/darwin-dev/2011/Apr/msg00018.html
+
+The suggestion was to replace the -l switch with the full path to bundle1.o except I cannot find any reference to bundle1.o in the rpy2 code. There is, nonetheless, a bundle1.o on my system:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk/usr/lib/bundle1.o
+
+but this path is not in the path of my Terminal window. I could add it, but I guess I find it odd that this should necessary and I wonder if something else is going wrong. Maybe my Xcode installation is broken, or I am doing something fundamentally misguided. I have little experience of compiling code so I also feel that at the moment I am just tampering with things in a rather naive way .
+
+all the best,
+Jeremy
+
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnnow-d2d
+
+From jeremy_harbinson at me.com  Thu Jan 24 14:55:42 2013
+From: jeremy_harbinson at me.com (Jeremy Harbinson)
+Date: Thu, 24 Jan 2013 15:55:42 +0100
+Subject: [Rpy] problem installing rpy2 on OS X, this time with line breaks
+Message-ID: <D4B48FBF-F023-49AE-8D7E-2CE251411971@me.com>
+
+The previous post ended up with no line breaks - hopefully this one, with breaks, will be readable.
+
+Hi,
+I have had a problem installing Rpy2 versions 2.1.8 and 2.3.1 and Mac OSX version 10.8.2 using Xcode 3.2 (this is the version that 
+is in my 'Developer' directory) and the Enthought Python Distribution. I am not sure if the problem lies with Rpy2 or with R, 
+so my apologies if I have made a mistake in posting here.
+
+When I first tried to instal Rpy2 2.3.1 I got the following error message:
+
+python setup.py build install
+running build
+running build_py
+running build_ext
+/Library/Frameworks/R.framework/Resources/bin/config: line 142: make: command not found
+/Library/Frameworks/R.framework/Resources/bin/config: line 143: make: command not found
+R was not built as a library
+Traceback (most recent call last):
+  File "setup.py", line 372, in <module>
+    [os.path.join('doc', 'source', 'rpy2_logo.png')])]
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/core.py", line 152, in setup
+    dist.run_commands()
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 953, in run_commands
+    self.run_command(cmd)
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 972, in run_command
+    cmd_obj.run()
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/command/build.py", line 127, in run
+    self.run_command(cmd_name)
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/cmd.py", line 326, in run_command
+    self.distribution.run_command(command)
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 971, in run_command
+    cmd_obj.ensure_finalized()
+  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/cmd.py", line 109, in ensure_finalized
+    self.finalize_options()
+  File "setup.py", line 111, in finalize_options
+    config += get_rconfig(r_home, about)
+  File "setup.py", line 264, in get_rconfig
+    rc = RConfig.from_string(rconfig)
+  File "setup.py", line 252, in from_string
+    + '\nin string\n' + string)
+ValueError: Invalid substring
+
+in string
+
+
+This is a reasonably widely reported problem. I got the same result with rpy 2.1.8. I checked I had a 'make' and I checked the 
+path statement in my Terminal app and sure enough the directory (there were two) in which make was located was not in the path, 
+so I added one to the Terminal window path (hopefully this was the right thing to do). Repeating the install, but using a 
+different procedure, in a terminal wondow with the new path allowed the install to proceed further, but still ending in an 
+error:
+
+sudo easy_install rpy2
+Password:
+Searching for rpy2
+Reading http://pypi.python.org/simple/rpy2/
+Reading http://rpy.sourceforge.net
+Best match: rpy2 2.3.1
+Downloading http://pypi.python.org/packages/source/r/rpy2/rpy2-2.3.1.tar.gz#md5=8d68dbd8947931975304dc633bbb843c
+Processing rpy2-2.3.1.tar.gz
+Writing /tmp/easy_install-66vvZU/rpy2-2.3.1/setup.cfg
+Running rpy2-2.3.1/setup.py -q bdist_egg --dist-dir /tmp/easy_install-66vvZU/rpy2-2.3.1/egg-dist-tmp-xJsNct
+
+returned an empty string.
+
+
+returned an empty string.
+
+Configuration for R as a library:
+  include_dirs: ('/Library/Frameworks/R.framework/Resources/include', '/Library/Frameworks/R.framework/Resources/include/i386')
+  libraries: ()
+  library_dirs: ('/Library/Frameworks/R.framework/Resources/lib/i386',)
+  extra_link_args: ('-framework R', '-F/Library/Frameworks/R.framework/..')
+ # OSX-specific (included in extra_link_args)
+  framework_dirs: ('-F/Library/Frameworks/R.framework/..',)
+  frameworks: ('-framework R',)
+warning: no previously-included files matching '*patch*' found anywhere in distribution
+warning: no previously-included files matching '*diff*' found anywhere in distribution
+warning: no previously-included files matching '.hg' found anywhere in distribution
+no previously-included directories found matching 'dist'
+./rpy/rinterface/_rinterface.c: In function ‘init_rinterface’:
+./rpy/rinterface/_rinterface.c:3550: warning: passing argument 1 of ‘PyLong_FromLong’ makes integer from pointer without a cast
+ld: library not found for -lbundle1.o
+collect2: ld returned 1 exit status
+error: Setup script exited with error: command 'gcc' failed with exit status 1
+
+
+Searching for the -lbundle1.o message on the web got some hits:
+
+http://lists.apple.com/archives/darwin-dev/2011/Apr/msg00018.html
+
+The suggestion was to replace the -l switch with the full path to bundle1.o except I cannot find any reference to bundle1.oin 
+the rpy2 code. There is, nonetheless, a bundle1.o on my system:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk/usr/lib/bundle1.o
+
+but this path is not in the path of my Terminal window. I could add it, but I guess I find it odd that this should necessary and 
+I wonder if something else is going wrong. Maybe my Xcode installation is broken, or I am doing something fundamentally 
+misguided. I have little experience of compiling code so I also feel that at the moment I am just tampering with things 
+in a rather naive way 
+
+all the best,
+Jeremy
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnnow-d2d
+
+From jeremy_harbinson at me.com  Thu Jan 24 22:34:09 2013
+From: jeremy_harbinson at me.com (Jeremy Harbinson)
+Date: Thu, 24 Jan 2013 23:34:09 +0100
+Subject: Re: [Rpy] problem installing rpy2 on OS X, this time with line breaks
+In-Reply-To: <D4B48FBF-F023-49AE-8D7E-2CE251411971@me.com>
+References: <D4B48FBF-F023-49AE-8D7E-2CE251411971@me.com>
+Message-ID: <AAF56807-8BBD-4984-8D27-30D61FD4BC5E@me.com>
+
+Hi,
+A possible fix has been to re-install the Xcode command line tools: rpy2 seems now to install and work, though I confess that all the reports of the Xcode tools show no change in version number etc following the re-install. Still, it has worked.
+Jeremy
+
+
+On 24 Jan 2013, at 15:55, Jeremy Harbinson <jeremy_harbinson at me.com> wrote:
+
+> The previous post ended up with no line breaks - hopefully this one, with breaks, will be readable.
+> 
+> Hi,
+> I have had a problem installing Rpy2 versions 2.1.8 and 2.3.1 and Mac OSX version 10.8.2 using Xcode 3.2 (this is the version that 
+> is in my 'Developer' directory) and the Enthought Python Distribution. I am not sure if the problem lies with Rpy2 or with R, 
+> so my apologies if I have made a mistake in posting here.
+> 
+> When I first tried to instal Rpy2 2.3.1 I got the following error message:
+> 
+> python setup.py build install
+> running build
+> running build_py
+> running build_ext
+> /Library/Frameworks/R.framework/Resources/bin/config: line 142: make: command not found
+> /Library/Frameworks/R.framework/Resources/bin/config: line 143: make: command not found
+> R was not built as a library
+> Traceback (most recent call last):
+>  File "setup.py", line 372, in <module>
+>    [os.path.join('doc', 'source', 'rpy2_logo.png')])]
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/core.py", line 152, in setup
+>    dist.run_commands()
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 953, in run_commands
+>    self.run_command(cmd)
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 972, in run_command
+>    cmd_obj.run()
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/command/build.py", line 127, in run
+>    self.run_command(cmd_name)
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/cmd.py", line 326, in run_command
+>    self.distribution.run_command(command)
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 971, in run_command
+>    cmd_obj.ensure_finalized()
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/cmd.py", line 109, in ensure_finalized
+>    self.finalize_options()
+>  File "setup.py", line 111, in finalize_options
+>    config += get_rconfig(r_home, about)
+>  File "setup.py", line 264, in get_rconfig
+>    rc = RConfig.from_string(rconfig)
+>  File "setup.py", line 252, in from_string
+>    + '\nin string\n' + string)
+> ValueError: Invalid substring
+> 
+> in string
+> 
+> 
+> This is a reasonably widely reported problem. I got the same result with rpy 2.1.8. I checked I had a 'make' and I checked the 
+> path statement in my Terminal app and sure enough the directory (there were two) in which make was located was not in the path, 
+> so I added one to the Terminal window path (hopefully this was the right thing to do). Repeating the install, but using a 
+> different procedure, in a terminal wondow with the new path allowed the install to proceed further, but still ending in an 
+> error:
+> 
+> sudo easy_install rpy2
+> Password:
+> Searching for rpy2
+> Reading http://pypi.python.org/simple/rpy2/
+> Reading http://rpy.sourceforge.net
+> Best match: rpy2 2.3.1
+> Downloading http://pypi.python.org/packages/source/r/rpy2/rpy2-2.3.1.tar.gz#md5=8d68dbd8947931975304dc633bbb843c
+> Processing rpy2-2.3.1.tar.gz
+> Writing /tmp/easy_install-66vvZU/rpy2-2.3.1/setup.cfg
+> Running rpy2-2.3.1/setup.py -q bdist_egg --dist-dir /tmp/easy_install-66vvZU/rpy2-2.3.1/egg-dist-tmp-xJsNct
+> 
+> returned an empty string.
+> 
+> 
+> returned an empty string.
+> 
+> Configuration for R as a library:
+>  include_dirs: ('/Library/Frameworks/R.framework/Resources/include', '/Library/Frameworks/R.framework/Resources/include/i386')
+>  libraries: ()
+>  library_dirs: ('/Library/Frameworks/R.framework/Resources/lib/i386',)
+>  extra_link_args: ('-framework R', '-F/Library/Frameworks/R.framework/..')
+> # OSX-specific (included in extra_link_args)
+>  framework_dirs: ('-F/Library/Frameworks/R.framework/..',)
+>  frameworks: ('-framework R',)
+> warning: no previously-included files matching '*patch*' found anywhere in distribution
+> warning: no previously-included files matching '*diff*' found anywhere in distribution
+> warning: no previously-included files matching '.hg' found anywhere in distribution
+> no previously-included directories found matching 'dist'
+> ./rpy/rinterface/_rinterface.c: In function ‘init_rinterface’:
+> ./rpy/rinterface/_rinterface.c:3550: warning: passing argument 1 of ‘PyLong_FromLong’ makes integer from pointer without a cast
+> ld: library not found for -lbundle1.o
+> collect2: ld returned 1 exit status
+> error: Setup script exited with error: command 'gcc' failed with exit status 1
+> 
+> 
+> Searching for the -lbundle1.o message on the web got some hits:
+> 
+> http://lists.apple.com/archives/darwin-dev/2011/Apr/msg00018.html
+> 
+> The suggestion was to replace the -l switch with the full path to bundle1.o except I cannot find any reference to bundle1.oin 
+> the rpy2 code. There is, nonetheless, a bundle1.o on my system:
+> 
+> /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk/usr/lib/bundle1.o
+> 
+> but this path is not in the path of my Terminal window. I could add it, but I guess I find it odd that this should necessary and 
+> I wonder if something else is going wrong. Maybe my Xcode installation is broken, or I am doing something fundamentally 
+> misguided. I have little experience of compiling code so I also feel that at the moment I am just tampering with things 
+> in a rather naive way 
+> 
+> all the best,
+> Jeremy
+
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnnow-d2d
+
+From marquett at iap.fr  Fri Jan 25 15:26:44 2013
+From: marquett at iap.fr (Jean-Baptiste Marquette)
+Date: Fri, 25 Jan 2013 16:26:44 +0100
+Subject: Re: [Rpy] problem installing rpy2 on OS X
+In-Reply-To: <FA38729E-3B63-43FD-BF88-CC0B3E9C3D60@me.com>
+References: <FA38729E-3B63-43FD-BF88-CC0B3E9C3D60@me.com>
+Message-ID: <6FB8D72D-6CC6-4232-9B7D-A893326F4377@iap.fr>
+
+
+Hi Jeremy,
+
+The message
+
+> make: command not found
+
+indicates maybe your Xcode is not properly set. Did you check the command
+
+xcode-select ?
+
+Have a look to
+
+xcode-select --print-path
+/Applications/Xcode.app/Contents/Developer
+
+
+Cheers
+JB
+
+> Hi,
+> 
+> I have had a problem installing Rpy2 versions 2.1.8 and 2.3.1 and Mac OSX version 10.8.2 using Xcode 3.2 (this is the version that is in my 'Developer' directory, though some other bits of Xcode seem to be more recent, in Xcode.app for example) and the Enthought Python Distribution. I am not sure if the problem lies with Rpy2 or with Xcode, so my apologies if I have made a mistake in posting here.
+> 
+> When I first tried to instal Rpy2 2.3.1 I got the following error message:
+> 
+> python setup.py build install
+> running build
+> running build_py
+> running build_ext
+> /Library/Frameworks/R.framework/Resources/bin/config: line 142: make: command not found
+> /Library/Frameworks/R.framework/Resources/bin/config: line 143: make: command not found
+> R was not built as a library
+> Traceback (most recent call last):
+>  File "setup.py", line 372, in <module>
+>    [os.path.join('doc', 'source', 'rpy2_logo.png')])]
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/core.py", line 152, in setup
+>    dist.run_commands()
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 953, in run_commands
+>    self.run_command(cmd)
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 972, in run_command
+>    cmd_obj.run()
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/command/build.py", line 127, in run
+>    self.run_command(cmd_name)
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/cmd.py", line 326, in run_command
+>    self.distribution.run_command(command)
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/dist.py", line 971, in run_command
+>    cmd_obj.ensure_finalized()
+>  File "/Library/Frameworks/EPD64.framework/Versions/7.3/lib/python2.7/distutils/cmd.py", line 109, in ensure_finalized
+>    self.finalize_options()
+>  File "setup.py", line 111, in finalize_options
+>    config += get_rconfig(r_home, about)
+>  File "setup.py", line 264, in get_rconfig
+>    rc = RConfig.from_string(rconfig)
+>  File "setup.py", line 252, in from_string
+>    + '\nin string\n' + string)
+> ValueError: Invalid substring
+> 
+> in string
+> 
+> 
+> This is a reasonably widely reported problem. I got the same result with rpy 2.1.8. I checked I had a 'make' and I checked the path statement in my Terminal app and sure enough the directory (there were two) in which make was located was not in the path, so I added one to the Terminal window path (hopefully this was the right thing to do). Repeating the install, but using a different procedure, in a terminal wondow with the new path allowed the install to proceed further, but still ending in an error:
+> 
+> sudo easy_install rpy2
+> Password:
+> Searching for rpy2
+> Reading http://pypi.python.org/simple/rpy2/
+> Reading http://rpy.sourceforge.net
+> Best match: rpy2 2.3.1
+> Downloading http://pypi.python.org/packages/source/r/rpy2/rpy2-2.3.1.tar.gz#md5=8d68dbd8947931975304dc633bbb843c
+> Processing rpy2-2.3.1.tar.gz
+> Writing /tmp/easy_install-66vvZU/rpy2-2.3.1/setup.cfg
+> Running rpy2-2.3.1/setup.py -q bdist_egg --dist-dir /tmp/easy_install-66vvZU/rpy2-2.3.1/egg-dist-tmp-xJsNct
+> 
+> returned an empty string.
+> 
+> 
+> returned an empty string.
+> 
+> Configuration for R as a library:
+>  include_dirs: ('/Library/Frameworks/R.framework/Resources/include', '/Library/Frameworks/R.framework/Resources/include/i386')
+>  libraries: ()
+>  library_dirs: ('/Library/Frameworks/R.framework/Resources/lib/i386',)
+>  extra_link_args: ('-framework R', '-F/Library/Frameworks/R.framework/..')
+> # OSX-specific (included in extra_link_args)
+>  framework_dirs: ('-F/Library/Frameworks/R.framework/..',)
+>  frameworks: ('-framework R',)
+> warning: no previously-included files matching '*patch*' found anywhere in distribution
+> warning: no previously-included files matching '*diff*' found anywhere in distribution
+> warning: no previously-included files matching '.hg' found anywhere in distribution
+> no previously-included directories found matching 'dist'
+> ./rpy/rinterface/_rinterface.c: In function ‘init_rinterface’:
+> ./rpy/rinterface/_rinterface.c:3550: warning: passing argument 1 of ‘PyLong_FromLong’ makes integer from pointer without a cast
+> ld: library not found for -lbundle1.o
+> collect2: ld returned 1 exit status
+> error: Setup script exited with error: command 'gcc' failed with exit status 1
+> 
+> 
+> Searching for the -lbundle1.o message on the web got some hits:
+> 
+> e.g.  http://lists.apple.com/archives/darwin-dev/2011/Apr/msg00018.html
+> 
+> The suggestion was to replace the -l switch with the full path to bundle1.o except I cannot find any reference to bundle1.o in the rpy2 code. There is, nonetheless, a bundle1.o on my system:
+> 
+> /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk/usr/lib/bundle1.o
+> 
+> but this path is not in the path of my Terminal window. I could add it, but I guess I find it odd that this should necessary and I wonder if something else is going wrong. Maybe my Xcode installation is broken, or I am doing something fundamentally misguided. I have little experience of compiling code so I also feel that at the moment I am just tampering with things in a rather naive way .
+> 
+> all the best,
+> Jeremy
+> 
+> 
+> ------------------------------------------------------------------------------
+> Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+> MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+> with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+> MVPs and experts. ON SALE this month only -- learn more at:
+> http://p.sf.net/sfu/learnnow-d2d
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnnow-d2d
+

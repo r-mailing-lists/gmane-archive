@@ -1,0 +1,204 @@
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Tue Jun  9 01:34:59 2015
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (NISHIYAMA Tomoaki)
+Date: Tue, 09 Jun 2015 10:34:59 +0900
+Subject: Re: RPostgreSQL: prepared statements?
+In-Reply-To: <CAGxhUEpf9ZyC+KyhscNvUBRg_rk9sxgrrm3OTcf-taVnKF8_ZA@mail.gmail.com>
+References: <CAGxhUEpf9ZyC+KyhscNvUBRg_rk9sxgrrm3OTcf-taVnKF8_ZA@mail.gmail.com>
+Message-ID: <43D1D300-047F-44FE-9767-783347211A78@staff.kanazawa-u.ac.jp>
+
+Dear Pavel,
+
+Thank you for the interest in contributing RPostgreSQL.
+prepared statement is the second item of the TODO list
+https://code.google.com/p/rpostgresql/source/browse/trunk/RPostgreSQL/inst/TODO
+
+a patch is generally welcome.
+However, I have a few notes.
+
+1. currently I had difficulty in getting accepted in CRAN. The reason was
+related to the different output in different platform/versions. The different
+output of the test makes difficult for the CRAN maintainers to judge the
+validity. I understand that they are so busy and have not a good solution
+to perform a good test and still get into the CRAN.
+
+2. While the prepared statement is generally good to have, it may not be
+so good for the performance. Especially for the use case you have shown,
+it could be faster to upload the probeids as a temporary table and
+perform a single dbGetQuery rather than submitting multiple requests packed
+in a function.
+
+3. As a API, having to send the SQL statement at the time of querying
+is not something expected for prepared statement. The shown example could
+be rather called as dbGetQuery with vectorized parameters. We could use
+the same name or a bit different name, but dbGetPreparedQuery doesn't fit.
+
+See the document of PQprepare, PQexecPrepared, and PQexecParams
+at 
+http://www.postgresql.org/docs/9.4/static/libpq-exec.html
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2015/06/09, at 7:34, Pavel Reich wrote:
+
+> Dear Tomoaki,
+> 
+> Thanks for the great and useful RPostgreSQL package, but are there any
+> plans to support prepared statements/bound variables in queries? I
+> checked https://code.google.com/p/rpostgresql/issues/list and found no
+> tasks for it.
+> I'd expect something like
+> 
+> query <- "SELECT probe_type,next_base,color_channel FROM probes WHERE probeid=?"
+> probe.types.df <- dbGetPreparedQuery(con,que,bind.data=data.frame(probeids=ids))
+> 
+> available in RSQLite. Is it worth me investigating how to port it to
+> RPostgreSQL in order to submit a patch?
+> 
+> Thanks.
+> 
+> Regards,
+> Pavel.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From mstopak-8Z8B9NtlZsFWk0Htik3J/w at public.gmane.org  Mon Jun 22 18:47:06 2015
+From: mstopak-8Z8B9NtlZsFWk0Htik3J/w at public.gmane.org
+Date: Mon, 22 Jun 2015 11:47:06 -0700
+Subject: Re: RS-DBI over SSL?
+In-Reply-To: <0a92c32d-5a2e-4517-acc0-3b2fb756ab40@googlegroups.com>
+References: <ea6b3abc-8679-42e3-b05a-378ce978d43d@googlegroups.com> <79c10976-bacd-4019-af8f-be258b624fb1@googlegroups.com> <20647.42072.732141.956328@max.nulle.part> <50A7B436.40701@uptime.jp> <20648.13389.765823.193115@max.nulle.part> <50A860F7.6090701@uptime.jp> <A346915A-0F69-42D9-8E5B-292FB3B8325C@staff.kanazawa-u.ac.jp> <50A8C16F.2050006@uptime.jp> <E7912B85-CD1E-4F9E-B0B3-B776687FB05B@staff.kanazawa-u.ac.jp> <20648.61096.422844.880565@max.nulle.part> <50A994D8.8010305@uptime.jp> <3d79add2-5f1a-4126-90fb-b6848bc66bed@googlegroups.com> <0a92c32d-5a2e-4517-acc0-3b2fb756ab40@googlegroups.com>
+Message-ID: <8465471e-0575-434f-abe9-b1e61ea141f8@googlegroups.com>
+
+
+
+Is there a way to do this without certificate validation? When I connect 
+via a sql client, I just add this
+
+?ssl=true&sslfactory=org.postgresql.ssl.NonValidatingFactory
+
+How can I add these parameters in R?
+
+Thanks,
+Maria
+
+
+On Wednesday, February 18, 2015 at 3:54:02 AM UTC-8, Thomas Grainger wrote:
+>
+> This is resolved see http://stackoverflow.com/a/28582949/833093
+>
+> simply do:
+>
+>     pg_dsn = paste0(
+>         'dbname=', dbname, ' ',
+>         'sslrootcert=', cacert, ' ',
+>         'sslmode=verify-full'
+>     )
+>     dbConnect(RPostgreSQL::PostgreSQL(), dbname=pg_dsn, host=host, port=port, password=password, user='username')
+>
+>
+>
+>
+>
+> On Thursday, 25 December 2014 02:01:39 UTC, Isaac Wyatt wrote:
+>>
+>> Hi Dirk, Satoshi, and Tomoaki - may I ask what the right solution is to 
+>> connect to heroku postgresql database from R?
+>>
+>> Looks like I just need to connect via SSL but I can't tell from your 
+>> thread if a solution was found or not (or what that solution might have 
+>> been) for the RPostgreSQL package.
+>>
+>> Can you please let me know what you determined?
+>>
+>> Thanks,
+>> Isaac
+>>
+>> On Sunday, November 18, 2012 6:09:32 PM UTC-8, Satoshi Nagayasu wrote:
+>>>
+>>> Hi, 
+>>>
+>>> 2012/11/18 23:20, Dirk Eddelbuettel wrote: 
+>>> > 
+>>> > Hi Satoshi and Tomoaki, 
+>>> > 
+>>> > Very nice and focused discussion. 
+>>> > 
+>>> > On 18 November 2012 at 21:28, Tomoaki Nishiyama wrote: 
+>>> > | Hi, 
+>>> > | 
+>>> > | > From my point of view, as a PostgreSQL developer, allowing dynamic 
+>>> > | > link in RPostgreSQL/Windows and distributing it with additional 
+>>> DLL 
+>>> > | > files would be another reasonable way to fully support libpq 
+>>> functionality in RPostgreSQL. 
+>>> > | 
+>>> > | Because the CRAN policy requires the package are made from source 
+>>> code, 
+>>> > | the condition is that you can make the DLL from the source files 
+>>> > | on the win-builder.r-project.org 
+>>> > | 
+>>> > | The other consideration is that the license of the library should be 
+>>> > | compatible with GPL. 
+>>> > 
+>>> > That is spot on. 
+>>> > 
+>>> > For the CRAN package RPostgreSQL, the current setup developed by 
+>>> Tomoaki is 
+>>> > the best we can do. [ And it is in fact way better than eg the MySQL 
+>>> mess 
+>>> > where people still struggle to get it going on Windows, even after all 
+>>> these 
+>>> > years ... But we all "know" and are happy PostgreSQL users :) ] 
+>>>
+>>> Finally, I have understood where the issue comes from. Thanks. 
+>>>
+>>> > | If these conditions are met, inclusion of part of the libssl might 
+>>> worth to try. 
+>>> > 
+>>> > There in fact incompatibility issues at the license level which is why 
+>>> Debian 
+>>> > offers three different implementations: 
+>>> > 
+>>> >    original openssl (which AFAIK cannot be used with GPL code) in 
+>>> libssl-dev 
+>>> > 
+>>> >    the gnutls replacement in packages libgnutls28-dev and 
+>>> libgnutls26-dev 
+>>> > 
+>>> >    a newer entrant from the Mozilla folks called call nss in 
+>>> libnss3-dev 
+>>> > 
+>>> > A bit of a mess. 
+>>> > 
+>>> > So I think to help the Windows users, a fork off CRAN, available via a 
+>>> > third-party repo, which contains additional dlls is the cleanest way. 
+>>>
+>>> It would make sense, and I will try it. 
+>>>
+>>> I'm going to meet an experienced PostgreSQL/Widnows developer 
+>>> at the end of this month. So, I will ask him for helping us 
+>>> build another RPostgreSQL/Windows binary with using an external 
+>>> DLLs, which would be distributed outside CRAN. 
+>>>
+>>> Regards, 
+>>>
+>>> -- 
+>>> Satoshi Nagayasu <sn...-4AJPZ3O9ATJ4Eiagz67IpQ at public.gmane.org> 
+>>> Uptime Technologies, LLC. http://www.uptime.jp 
+>>>
+>>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+

@@ -1,0 +1,1599 @@
+From djsamperi at gmail.com  Tue Jan  4 16:18:29 2011
+From: djsamperi at gmail.com (Dominick Samperi)
+Date: Tue, 04 Jan 2011 11:18:29 -0500
+Subject: Re: [Rd] rJava question
+In-Reply-To: <803BDBAF-E020-4AEB-8031-DC829B211A16@r-project.org>
+References: <AANLkTik4xi4WjYXTLnw=T=zF1ufwNiF9gPy9mcKKPEZd@mail.gmail.com> <345492BD-A0EF-4ED5-A074-2C0C76FE3F1E@r-project.org> <AANLkTi=opRNd4BA2D3u1nKmZJQ4YjfKmy9d6162-DHNZ@mail.gmail.com> <803BDBAF-E020-4AEB-8031-DC829B211A16@r-project.org>
+Message-ID: <AANLkTinoz0uYeo75xwKvx7NBE6zKqVNVYQT1WXpDtTkr@mail.gmail.com>
+
+On Tue, Dec 28, 2010 at 4:51 PM, Simon Urbanek
+<simon.urbanek at r-project.org>wrote:
+
+> On Dec 28, 2010, at 3:29 PM, Dominick Samperi wrote:
+>
+> > On Tue, Dec 28, 2010 at 2:05 PM, Simon Urbanek <
+> simon.urbanek at r-project.org> wrote:
+> > Dominick,
+> >
+> > On Dec 27, 2010, at 11:56 PM, Dominick Samperi wrote:
+> >
+> > > After some trial and error I figured out how to pass matrices from R to
+> java
+> > > and back using rJava, but this method is not documented and I wonder if
+> there is a
+> > > better way?
+> > >
+> >
+> > stats-rosuda-devel is the rJava list you want to use.
+> >
+> > OK Simon, redirected to stats-rusuda-devel (removed r-devel).
+> >
+> > > Anyway, here is what I found works:
+> > >
+> > > (m = matrix(as.double(1:12),3,4))
+> > > [shows m as you would expect]
+> > >
+> > > jtest <- .jnew("JTest")
+> > > (v <- .jcall(jtest, '[[D], 'myfunc', .jarray(m), evalArray=FALSE))
+> > > [shows v = m + 10]
+> > >
+> > > Here the JTest class has a method named myfunc that accepts
+> > > a double[][] and returns a double[][]. It simply adds 10 to every
+> > > element.
+> > >
+> >
+> > The above is plain wrong (well, that's actually a guess since you didn't
+> provide even the signature of the method) - matrices in R are vectors, so
+> the type is double[]. In Java there is no matrix type, so it's up to the
+> application to represent matrices and there are many ways - some more
+> efficient than others. From your example above it seems that you are using
+> double[][] -- so you have to allocate the extra objects one way or another
+> (that's why it's inefficient to represent matrices that way).
+> >
+> > I am mostly concerned with efficiency on the Java side, not on the
+> interface, and double[][] is useful for numerical computations (on the Java
+> side), can be used without the overhead of boxing/unboxing (pass by
+> reference), and is a native (non-Object) type.
+> >
+>
+> It's not, really, because Java doesn't have native vector objects as it's
+> not a vector language. That's why it's up to your routines to use the
+> representation you want. But, still, double[][] has the overhead of an
+> additional object per row (or column depending on your interpretation) and
+> thus is nto the most efficient when dealing with big matrices.
+>
+> Now, I have to admit that there is another change in rJava which I was not
+> aware of and I think it's plain wrong: .jarray(matrix(...))should always
+> return double[] but apparently there is some new code that makes it into
+> double[][]. It boils down to the fact that dispatch=FALSE should the the
+> default in .jarray but is not.
+>
+>
+> >
+> > But from your e-mail I have the feeling that your questions is rather
+> about calling a method that returns double[][], so for example:
+> > public static double[][] pass();
+> > where double[][] is a rectangular array (i.e. length of all inner arrays
+> is equal).
+> >
+> > My question was about passing double matrices between R and Java, both
+> directions, so the
+> > method signature on the Java side would be:
+> > public double[][] myfunc(double[][] m) {...}
+> >
+> > It appears that the tools are there in rJava to solve this problem (as my
+> hack shows),
+> > but the interface is still in flux.
+>
+> Well, the .jcall, .jarray tools should NOT touch matrices at all - the fact
+> that they do is a serious bug. What is debatable is that using a$foo(m)
+> could try to match double[][] for convenience, but plain .jarray(m) must
+> return a vector = "[xxx" type.
+>
+>
+> > I am not sure why my hack is plain wrong, as you say. It more-or-less
+> follows the docs, except for the fact that I had to peek at the code to see
+> that the sense of evalArray is reversed.
+> >
+>
+> As I said - it's both wrong how rJava behaves, not how you interpreted it
+> ;). Old versions of rJava behaved as expected - .jarray(matrix(...))
+> returned double[] and evalArray=FALSE returned the reference.
+>
+>
+> > is there currently a preferred way to address this problem? Would that be
+> to just work with the list of java references and convert to vectors as
+> needed using .jevalArray, binding into a matrix if desired?
+> >
+>
+> Well, as-is rJava is broken (I wonder why this didn't show up in the
+> dependent packages?) -- the intention was that for returning doubly-linked
+> matrices (double[][]) you should be able to do
+> sapply(.jcall(x, "[[D", ...), .jevalArray)
+> which still works. For passing matrices you can either use double[] as
+> input and re-copy in Java (if you need to), or split it up in R (e.g.,
+> .jarray(lapply(as.data.frame(m),.jarray),"[D")).
+>
+> That said, the dispatch=TRUE support can be useful, so you can pass
+> matrices in the doubly-linked form, and I will retain it, but I'll revert
+> the default to FALSE for compatibility with older versions and the original
+> intention. As for retrieving matrices, we'll need some other argument
+> because evalArray=FALSE returns simply the wrong result -- for symmetry we
+> could add dispatch=TRUE in .jevalArray ...
+>
+> Thanks for the catch - this really needs fixing - I shall release 0.8-9
+> very soon..
+> Simon
+>
+
+I'm curious, why is it that when I look at the CRAN page for rJava
+(currently 0.8-8) it says the package is not
+available for Windows (no .zip version), yet when I run
+install.packages('rJava') under Windows the
+package is found and installed?
+
+
+>
+>
+>
+> >
+> >
+> > Unfortunately .jcall is a bit inconsistent due to bug that was introduced
+> with the new J() API. So the intended behavior is (using class Test with the
+> method above):
+> > > J("Test")$pass()
+> >     [,1] [,2] [,3] [,4]
+> > [1,]    1    2    3    4
+> > [2,]    5    6    7    8
+> > [3,]    9   10   11   12
+> > [4,]   13   14   15   16
+> >
+> > The $ operator makes sure that the result is converted to a native R form
+> where possible, including recursive structures like double[][].
+> >
+> > However, the intention of .jcall() was to never perform recursive
+> evaluation, so this is intended:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=TRUE)
+> > [[1]]
+> > [1] "Java-Array-Object[D:[D@11ddcde"
+> >
+> > [[2]]
+> > [1] "Java-Array-Object[D:[D@18fb1f7"
+> >
+> > [[3]]
+> > [1] "Java-Array-Object[D:[D@ed0338"
+> >
+> > [[4]]
+> > [1] "Java-Array-Object[D:[D@6e70c7"
+> >
+> >
+> > The intended behavior (and true in older version of rJava) was for .jcall
+> with evalArray=FALSE to return the reference:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=FALSE)
+> > [1] "Java-Array-Object[[D:[[D@8f4fb3"
+> >
+> > Unfortunately, the bug is that .jcall uses rJava:::newArray() to create
+> the reference which defaults to simplify=TRUE so the current (buggy)
+> behavior is:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=FALSE)
+> >     [,1] [,2] [,3] [,4]
+> > [1,]    1    2    3    4
+> > [2,]    5    6    7    8
+> > [3,]    9   10   11   12
+> > [4,]   13   14   15   16
+> >
+> >
+> > The real issue is that:
+> > a) if the bug is fixed, .jcall() can return just the reference which is
+> intended
+> > but
+> > b) there is currently no exposed API for rJava:::newArray so the
+> simplification is not available in any form for references if the bug is
+> fixed (other than using the J/$ API).
+> >
+> > That's why I was hesitant so far to fix the bug, but I really should --
+> which is why the behavior your discovered will change. However, then I need
+> to add some API to be able to convert a reference in the same way that
+> rJava:::newArray provides and expose it - I didn't think through that part,
+> so that's why I got stuck.
+> >
+> > I hope it helps...
+> > Cheers,
+> > Simon
+> >
+> > (PS: please continue any discussion on stats-rosuda-devel)
+> >
+> >
+> > > The parameter 'evalArray' is confusing because when
+> > > evalArray=TRUE the result is NOT evaluated (a list is returned
+> > > that you then have to apply .jevalArray to do get the answer).
+> > >
+> > > There seems to be an option to have a java reference returned
+> > > instead of the actual matrix. Can the R side manipulate the
+> > > matrix (on the java side) through this reference?
+> > >
+> > > Thanks,
+> > > Dominick
+> > >
+> > >       [[alternative HTML version deleted]]
+> > >
+> > > ______________________________________________
+> > > R-devel at r-project.org mailing list
+> > > https://stat.ethz.ch/mailman/listinfo/r-devel
+> > >
+> > >
+> >
+> >
+>
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Jan  4 17:31:26 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 04 Jan 2011 12:31:26 -0500
+Subject: Re: [Rd] rJava question
+In-Reply-To: <AANLkTinoz0uYeo75xwKvx7NBE6zKqVNVYQT1WXpDtTkr@mail.gmail.com>
+References: <AANLkTik4xi4WjYXTLnw=T=zF1ufwNiF9gPy9mcKKPEZd@mail.gmail.com> <345492BD-A0EF-4ED5-A074-2C0C76FE3F1E@r-project.org> <AANLkTi=opRNd4BA2D3u1nKmZJQ4YjfKmy9d6162-DHNZ@mail.gmail.com> <803BDBAF-E020-4AEB-8031-DC829B211A16@r-project.org> <AANLkTinoz0uYeo75xwKvx7NBE6zKqVNVYQT1WXpDtTkr@mail.gmail.com>
+Message-ID: <9A8547B2-A558-458E-ABC6-3CB752B027C8@r-project.org>
+
+
+On Jan 4, 2011, at 11:18 AM, Dominick Samperi wrote:
+
+> 
+> 
+> On Tue, Dec 28, 2010 at 4:51 PM, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> On Dec 28, 2010, at 3:29 PM, Dominick Samperi wrote:
+> 
+> > On Tue, Dec 28, 2010 at 2:05 PM, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> > Dominick,
+> >
+> > On Dec 27, 2010, at 11:56 PM, Dominick Samperi wrote:
+> >
+> > > After some trial and error I figured out how to pass matrices from R to java
+> > > and back using rJava, but this method is not documented and I wonder if there is a
+> > > better way?
+> > >
+> >
+> > stats-rosuda-devel is the rJava list you want to use.
+> >
+> > OK Simon, redirected to stats-rusuda-devel (removed r-devel).
+> >
+> > > Anyway, here is what I found works:
+> > >
+> > > (m = matrix(as.double(1:12),3,4))
+> > > [shows m as you would expect]
+> > >
+> > > jtest <- .jnew("JTest")
+> > > (v <- .jcall(jtest, '[[D], 'myfunc', .jarray(m), evalArray=FALSE))
+> > > [shows v = m + 10]
+> > >
+> > > Here the JTest class has a method named myfunc that accepts
+> > > a double[][] and returns a double[][]. It simply adds 10 to every
+> > > element.
+> > >
+> >
+> > The above is plain wrong (well, that's actually a guess since you didn't provide even the signature of the method) - matrices in R are vectors, so the type is double[]. In Java there is no matrix type, so it's up to the application to represent matrices and there are many ways - some more efficient than others. From your example above it seems that you are using double[][] -- so you have to allocate the extra objects one way or another (that's why it's inefficient to represent matrices that way).
+> >
+> > I am mostly concerned with efficiency on the Java side, not on the interface, and double[][] is useful for numerical computations (on the Java side), can be used without the overhead of boxing/unboxing (pass by reference), and is a native (non-Object) type.
+> >
+> 
+> It's not, really, because Java doesn't have native vector objects as it's not a vector language. That's why it's up to your routines to use the representation you want. But, still, double[][] has the overhead of an additional object per row (or column depending on your interpretation) and thus is nto the most efficient when dealing with big matrices.
+> 
+> Now, I have to admit that there is another change in rJava which I was not aware of and I think it's plain wrong: .jarray(matrix(...))should always return double[] but apparently there is some new code that makes it into double[][]. It boils down to the fact that dispatch=FALSE should the the default in .jarray but is not.
+> 
+> 
+> >
+> > But from your e-mail I have the feeling that your questions is rather about calling a method that returns double[][], so for example:
+> > public static double[][] pass();
+> > where double[][] is a rectangular array (i.e. length of all inner arrays is equal).
+> >
+> > My question was about passing double matrices between R and Java, both directions, so the
+> > method signature on the Java side would be:
+> > public double[][] myfunc(double[][] m) {...}
+> >
+> > It appears that the tools are there in rJava to solve this problem (as my hack shows),
+> > but the interface is still in flux.
+> 
+> Well, the .jcall, .jarray tools should NOT touch matrices at all - the fact that they do is a serious bug. What is debatable is that using a$foo(m) could try to match double[][] for convenience, but plain .jarray(m) must return a vector = "[xxx" type.
+> 
+> 
+> > I am not sure why my hack is plain wrong, as you say. It more-or-less follows the docs, except for the fact that I had to peek at the code to see that the sense of evalArray is reversed.
+> >
+> 
+> As I said - it's both wrong how rJava behaves, not how you interpreted it ;). Old versions of rJava behaved as expected - .jarray(matrix(...)) returned double[] and evalArray=FALSE returned the reference.
+> 
+> 
+> > is there currently a preferred way to address this problem? Would that be to just work with the list of java references and convert to vectors as needed using .jevalArray, binding into a matrix if desired?
+> >
+> 
+> Well, as-is rJava is broken (I wonder why this didn't show up in the dependent packages?) -- the intention was that for returning doubly-linked matrices (double[][]) you should be able to do
+> sapply(.jcall(x, "[[D", ...), .jevalArray)
+> which still works. For passing matrices you can either use double[] as input and re-copy in Java (if you need to), or split it up in R (e.g., .jarray(lapply(as.data.frame(m),.jarray),"[D")).
+> 
+> That said, the dispatch=TRUE support can be useful, so you can pass matrices in the doubly-linked form, and I will retain it, but I'll revert the default to FALSE for compatibility with older versions and the original intention. As for retrieving matrices, we'll need some other argument because evalArray=FALSE returns simply the wrong result -- for symmetry we could add dispatch=TRUE in .jevalArray ...
+> 
+> Thanks for the catch - this really needs fixing - I shall release 0.8-9 very soon..
+> Simon
+> 
+> I'm curious, why is it that when I look at the CRAN page for rJava (currently 0.8-8) it says the package is not
+> available for Windows (no .zip version), yet when I run install.packages('rJava') under Windows the
+> package is found and installed?
+>  
+
+It's on CRANextras which is a default Windows repository managed by Brian Ripley. The reason is that R doesn't support merging of multi-arch binaries other than libs/*.{dll|so} so JRI doesn't get merged properly so RForge.net does the right thing (by merging the full package) and that is then used on CRANextras (AFAIR).
+
+Incidentally, I have just committed all the changes relevant to our discussion today in rJava 0.9-0 (so binaries will be available tomorrow).
+
+You can pass a matrix automatically using .jarray(m, dispatch=TRUE) and get an automatic conversion back using .jcall(..., evalArray=TRUE, simplify=TRUE). The behavior of .jarray(m) has been restored to return a vector reference and .jcall(..., evalArray=FALSE) will return a Java reference. Finally, I have added simplify argument to .jarrayEval as well, so from a reference you can use .jevalArray(j, simplify=TRUE) to get a matrix form let's say [[D reference.
+
+Thanks,
+Simon
+
+
+> 
+> 
+> 
+> >
+> >
+> > Unfortunately .jcall is a bit inconsistent due to bug that was introduced with the new J() API. So the intended behavior is (using class Test with the method above):
+> > > J("Test")$pass()
+> >     [,1] [,2] [,3] [,4]
+> > [1,]    1    2    3    4
+> > [2,]    5    6    7    8
+> > [3,]    9   10   11   12
+> > [4,]   13   14   15   16
+> >
+> > The $ operator makes sure that the result is converted to a native R form where possible, including recursive structures like double[][].
+> >
+> > However, the intention of .jcall() was to never perform recursive evaluation, so this is intended:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=TRUE)
+> > [[1]]
+> > [1] "Java-Array-Object[D:[D@11ddcde"
+> >
+> > [[2]]
+> > [1] "Java-Array-Object[D:[D@18fb1f7"
+> >
+> > [[3]]
+> > [1] "Java-Array-Object[D:[D@ed0338"
+> >
+> > [[4]]
+> > [1] "Java-Array-Object[D:[D@6e70c7"
+> >
+> >
+> > The intended behavior (and true in older version of rJava) was for .jcall with evalArray=FALSE to return the reference:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=FALSE)
+> > [1] "Java-Array-Object[[D:[[D@8f4fb3"
+> >
+> > Unfortunately, the bug is that .jcall uses rJava:::newArray() to create the reference which defaults to simplify=TRUE so the current (buggy) behavior is:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=FALSE)
+> >     [,1] [,2] [,3] [,4]
+> > [1,]    1    2    3    4
+> > [2,]    5    6    7    8
+> > [3,]    9   10   11   12
+> > [4,]   13   14   15   16
+> >
+> >
+> > The real issue is that:
+> > a) if the bug is fixed, .jcall() can return just the reference which is intended
+> > but
+> > b) there is currently no exposed API for rJava:::newArray so the simplification is not available in any form for references if the bug is fixed (other than using the J/$ API).
+> >
+> > That's why I was hesitant so far to fix the bug, but I really should -- which is why the behavior your discovered will change. However, then I need to add some API to be able to convert a reference in the same way that rJava:::newArray provides and expose it - I didn't think through that part, so that's why I got stuck.
+> >
+> > I hope it helps...
+> > Cheers,
+> > Simon
+> >
+> > (PS: please continue any discussion on stats-rosuda-devel)
+> >
+> >
+> > > The parameter 'evalArray' is confusing because when
+> > > evalArray=TRUE the result is NOT evaluated (a list is returned
+> > > that you then have to apply .jevalArray to do get the answer).
+> > >
+> > > There seems to be an option to have a java reference returned
+> > > instead of the actual matrix. Can the R side manipulate the
+> > > matrix (on the java side) through this reference?
+> > >
+> > > Thanks,
+> > > Dominick
+> > >
+> > >       [[alternative HTML version deleted]]
+> > >
+> > > ______________________________________________
+> > > R-devel at r-project.org mailing list
+> > > https://stat.ethz.ch/mailman/listinfo/r-devel
+> > >
+> > >
+> >
+> >
+> 
+>
+
+From ying.zhang at struq.com  Tue Jan  4 17:36:01 2011
+From: ying.zhang at struq.com (ying zhang)
+Date: Tue, 04 Jan 2011 17:36:01 -0000
+Subject: an error about JRI
+Message-ID: <01b701cbac35$dba8fb80$92faf280$@struq.com>
+
+ 
+
+Hi everyone, I try to run my R script in Java, thus I installed JRI. 
+
+ and run the example, I am using Eclipse on 64 bits windows 7.  part of 
+
+ the example code is as follows:
+
+ 
+
+public static void main(String[] args) {
+
+ 
+
+        System.out.println("Creating Rengine (with arguments)");
+
+ 
+
+                Rengine re=new Rengine(args, false, null);
+
+               System.out.println("Rengine created, waiting for R");
+
+                if (!re.waitForR()) {
+
+ 
+
+            System.out.println("Cannot load R");
+
+ 
+
+            return;
+
+ 
+
+       }
+
+However, everytime I run it. it teminated after print out "Creating 
+
+ Rengine (with arguments)" never successfully print out "Rengine 
+
+ created, waiting for R"
+
+ 
+
+I do not know what is right argument to input, I have tried to add 
+
+ "--no-save" under the Program arguments of eclipse run configuration, 
+
+ but still does not help.
+
+ 
+
+any suggestions? Many thanks
+
+ 
+
+Ying
+
+-------------- next part --------------
+
+
+From ying.zhang at struq.com  Wed Jan  5 12:20:10 2011
+From: ying.zhang at struq.com (ying zhang)
+Date: Wed, 05 Jan 2011 12:20:10 -0000
+Subject: Re: stats-rosuda-devel Digest, Vol 79, Issue 2
+In-Reply-To: <mailman.15.1294225202.3255.stats-rosuda-devel@listserv.uni-augsburg.de>
+References: <mailman.15.1294225202.3255.stats-rosuda-devel@listserv.uni-augsburg.de>
+Message-ID: <01d201cbacd2$e7139140$b53ab3c0$@struq.com>
+
+I download and reinstall R, java, eclipse.
+R is 64bits
+Rjava is 08.8
+Eclipse is 3.6.1   64 bits
+In the eclipse Java build path, I add JRI. Jar which is under C:\Program
+Files\R\R-2.12.0\library\rJava\jri
+Also add JRI native library in the library path, which is C:\Program
+Files\R\R-2.12.0\library\rJava\jri\x64
+
+But it still same, it will terminated once print out "Creating Rengine (with
+arguments)" never successfully print out "Rengine created, waiting for R"
+
+Do you know what is right args to call R?  someone told me he use String []
+args = {"--vanilla", "--silent", "--slave"}; and work fine, but I tried.
+Still same, it will terminate.
+
+One interesting thing is, I try args  as "--save", it will terminate, But if
+I try args "-save", it seems running something, the pop out a windows, says"
+Java Platform SE binary has stopped working!"
+
+I have wasted 3 days on this problem now,  really appreciate if you could
+help.
+
+Many thanks
+Ying
+
+-----Original Message-----
+From:
+stats-rosuda-devel-bounces+ying.zhang=struq.com at listserv.uni-augsburg.de
+[mailto:stats-rosuda-devel-bounces+ying.zhang=struq.com at listserv.uni-augsbur
+g.de] On Behalf Of stats-rosuda-devel-request at listserv.uni-augsburg.de
+Sent: 05 January 2011 11:00
+To: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: stats-rosuda-devel Digest, Vol 79, Issue 2
+
+Send stats-rosuda-devel mailing list submissions to
+	stats-rosuda-devel at listserv.uni-augsburg.de
+
+To subscribe or unsubscribe via the World Wide Web, visit
+	
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+or, via email, send a message with subject or body 'help' to
+	stats-rosuda-devel-request at listserv.uni-augsburg.de
+
+You can reach the person managing the list at
+	stats-rosuda-devel-owner at listserv.uni-augsburg.de
+
+When replying, please edit your Subject line so it is more specific than
+"Re: Contents of stats-rosuda-devel digest..."
+
+
+Today's Topics:
+
+   1. an error about JRI (ying zhang)
+
+
+----------------------------------------------------------------------
+
+Message: 1
+Date: Tue, 4 Jan 2011 17:36:01 -0000
+From: "ying zhang" <ying.zhang at struq.com>
+To: <stats-rosuda-devel at listserv.uni-augsburg.de>
+Subject: [stats-rosuda-devel] an error about JRI
+Message-ID: <01b701cbac35$dba8fb80$92faf280$@struq.com>
+Content-Type: text/plain; charset="us-ascii"
+
+ 
+
+Hi everyone, I try to run my R script in Java, thus I installed JRI. 
+
+ and run the example, I am using Eclipse on 64 bits windows 7.  part of 
+
+ the example code is as follows:
+
+ 
+
+public static void main(String[] args) {
+
+ 
+
+        System.out.println("Creating Rengine (with arguments)");
+
+ 
+
+                Rengine re=new Rengine(args, false, null);
+
+               System.out.println("Rengine created, waiting for R");
+
+                if (!re.waitForR()) {
+
+ 
+
+            System.out.println("Cannot load R");
+
+ 
+
+            return;
+
+ 
+
+       }
+
+However, everytime I run it. it teminated after print out "Creating 
+
+ Rengine (with arguments)" never successfully print out "Rengine 
+
+ created, waiting for R"
+
+ 
+
+I do not know what is right argument to input, I have tried to add 
+
+ "--no-save" under the Program arguments of eclipse run configuration, 
+
+ but still does not help.
+
+ 
+
+any suggestions? Many thanks
+
+ 
+
+Ying
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL:
+<http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/attachments/
+20110104/6c7d3022/attachment-0001.html>
+
+------------------------------
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+End of stats-rosuda-devel Digest, Vol 79, Issue 2
+*************************************************
+
+From ying.zhang at struq.com  Wed Jan  5 13:31:41 2011
+From: ying.zhang at struq.com (ying zhang)
+Date: Wed, 05 Jan 2011 13:31:41 -0000
+Subject: Re: stats-rosuda-devel Digest, Vol 79, Issue 2
+In-Reply-To: <mailman.15.1294225202.3255.stats-rosuda-devel@listserv.uni-augsburg.de>
+References: <mailman.15.1294225202.3255.stats-rosuda-devel@listserv.uni-augsburg.de>
+Message-ID: <01d601cbacdc$e466dc40$ad3494c0$@struq.com>
+
+I download and reinstall R, java, eclipse.
+R is 64 bits
+Rjava is 08.8
+Eclipse is 3.6.1   64 bits
+In the eclipse Java build path, I add JRI. Jar which is under C:\Program
+Files\R\R-2.12.0\library\rJava\jri
+Also add JRI native library in the library path, which is C:\Program
+Files\R\R-2.12.0\library\rJava\jri\x64
+
+But it still same, it will terminated once print out "Creating Rengine (with
+arguments)" never successfully print out "Rengine created, waiting for R"
+
+Do you know what is right args to call R?  someone told me he use String []
+args = {"--vanilla", "--silent", "--slave"}; and work fine, but I tried.
+Still same, it will terminate.
+
+One interesting thing is, I try args  as "--save", it will terminate, But if
+I try args "-save", it seems running something, the pop out a windows, says"
+Java Platform SE binary has stopped working!"
+
+I have wasted 3 days on this problem now,  really appreciate if you could
+help.
+
+Many thanks
+Ying
+
+-----Original Message-----
+From:
+stats-rosuda-devel-bounces+ying.zhang=struq.com at listserv.uni-augsburg.de
+[mailto:stats-rosuda-devel-bounces+ying.zhang=struq.com at listserv.uni-augsbur
+g.de] On Behalf Of stats-rosuda-devel-request at listserv.uni-augsburg.de
+Sent: 05 January 2011 11:00
+To: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: stats-rosuda-devel Digest, Vol 79, Issue 2
+
+Send stats-rosuda-devel mailing list submissions to
+	stats-rosuda-devel at listserv.uni-augsburg.de
+
+To subscribe or unsubscribe via the World Wide Web, visit
+	
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+or, via email, send a message with subject or body 'help' to
+	stats-rosuda-devel-request at listserv.uni-augsburg.de
+
+You can reach the person managing the list at
+	stats-rosuda-devel-owner at listserv.uni-augsburg.de
+
+When replying, please edit your Subject line so it is more specific than
+"Re: Contents of stats-rosuda-devel digest..."
+
+
+Today's Topics:
+
+   1. an error about JRI (ying zhang)
+
+
+----------------------------------------------------------------------
+
+Message: 1
+Date: Tue, 4 Jan 2011 17:36:01 -0000
+From: "ying zhang" <ying.zhang at struq.com>
+To: <stats-rosuda-devel at listserv.uni-augsburg.de>
+Subject: [stats-rosuda-devel] an error about JRI
+Message-ID: <01b701cbac35$dba8fb80$92faf280$@struq.com>
+Content-Type: text/plain; charset="us-ascii"
+
+ 
+
+Hi everyone, I try to run my R script in Java, thus I installed JRI. 
+
+ and run the example, I am using Eclipse on 64 bits windows 7.  part of 
+
+ the example code is as follows:
+
+ 
+
+public static void main(String[] args) {
+
+ 
+
+        System.out.println("Creating Rengine (with arguments)");
+
+ 
+
+                Rengine re=new Rengine(args, false, null);
+
+               System.out.println("Rengine created, waiting for R");
+
+                if (!re.waitForR()) {
+
+ 
+
+            System.out.println("Cannot load R");
+
+ 
+
+            return;
+
+ 
+
+       }
+
+However, everytime I run it. it teminated after print out "Creating 
+
+ Rengine (with arguments)" never successfully print out "Rengine 
+
+ created, waiting for R"
+
+ 
+
+I do not know what is right argument to input, I have tried to add 
+
+ "--no-save" under the Program arguments of eclipse run configuration, 
+
+ but still does not help.
+
+ 
+
+any suggestions? Many thanks
+
+ 
+
+Ying
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL:
+<http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/attachments/
+20110104/6c7d3022/attachment-0001.html>
+
+------------------------------
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+End of stats-rosuda-devel Digest, Vol 79, Issue 2
+*************************************************
+
+From ying.zhang at struq.com  Wed Jan  5 15:52:07 2011
+From: ying.zhang at struq.com (ying zhang)
+Date: Wed, 05 Jan 2011 15:52:07 -0000
+Subject: Re: stats-rosuda-devel Digest, Vol 79, Issue 2
+In-Reply-To: <mailman.15.1294225202.3255.stats-rosuda-devel@listserv.uni-augsburg.de>
+References: <mailman.15.1294225202.3255.stats-rosuda-devel@listserv.uni-augsburg.de>
+Message-ID: <01dc01cbacf0$82906220$87b12660$@struq.com>
+
+Hi All,
+
+As you may know I am trying connect R with java by RJava,  now I run the
+examples, I got this error
+
+rShowMessage "Fatal error: unable to open the base package
+
+
+I am using 64bits windows 7 and eclipse. Any suggestions?
+
+
+Many thanks
+Ying
+
+-----Original Message-----
+From:
+stats-rosuda-devel-bounces+ying.zhang=struq.com at listserv.uni-augsburg.de
+[mailto:stats-rosuda-devel-bounces+ying.zhang=struq.com at listserv.uni-augsbur
+g.de] On Behalf Of stats-rosuda-devel-request at listserv.uni-augsburg.de
+Sent: 05 January 2011 11:00
+To: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: stats-rosuda-devel Digest, Vol 79, Issue 2
+
+Send stats-rosuda-devel mailing list submissions to
+	stats-rosuda-devel at listserv.uni-augsburg.de
+
+To subscribe or unsubscribe via the World Wide Web, visit
+	
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+or, via email, send a message with subject or body 'help' to
+	stats-rosuda-devel-request at listserv.uni-augsburg.de
+
+You can reach the person managing the list at
+	stats-rosuda-devel-owner at listserv.uni-augsburg.de
+
+When replying, please edit your Subject line so it is more specific than
+"Re: Contents of stats-rosuda-devel digest..."
+
+
+Today's Topics:
+
+   1. an error about JRI (ying zhang)
+
+
+----------------------------------------------------------------------
+
+Message: 1
+Date: Tue, 4 Jan 2011 17:36:01 -0000
+From: "ying zhang" <ying.zhang at struq.com>
+To: <stats-rosuda-devel at listserv.uni-augsburg.de>
+Subject: [stats-rosuda-devel] an error about JRI
+Message-ID: <01b701cbac35$dba8fb80$92faf280$@struq.com>
+Content-Type: text/plain; charset="us-ascii"
+
+ 
+
+Hi everyone, I try to run my R script in Java, thus I installed JRI. 
+
+ and run the example, I am using Eclipse on 64 bits windows 7.  part of 
+
+ the example code is as follows:
+
+ 
+
+public static void main(String[] args) {
+
+ 
+
+        System.out.println("Creating Rengine (with arguments)");
+
+ 
+
+                Rengine re=new Rengine(args, false, null);
+
+               System.out.println("Rengine created, waiting for R");
+
+                if (!re.waitForR()) {
+
+ 
+
+            System.out.println("Cannot load R");
+
+ 
+
+            return;
+
+ 
+
+       }
+
+However, everytime I run it. it teminated after print out "Creating 
+
+ Rengine (with arguments)" never successfully print out "Rengine 
+
+ created, waiting for R"
+
+ 
+
+I do not know what is right argument to input, I have tried to add 
+
+ "--no-save" under the Program arguments of eclipse run configuration, 
+
+ but still does not help.
+
+ 
+
+any suggestions? Many thanks
+
+ 
+
+Ying
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL:
+<http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/attachments/
+20110104/6c7d3022/attachment-0001.html>
+
+------------------------------
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+End of stats-rosuda-devel Digest, Vol 79, Issue 2
+*************************************************
+
+From simon.urbanek at r-project.org  Wed Jan  5 16:30:12 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 05 Jan 2011 11:30:12 -0500
+Subject: Re: stats-rosuda-devel Digest, Vol 79, Issue 2
+In-Reply-To: <01dc01cbacf0$82906220$87b12660$@struq.com>
+References: <mailman.15.1294225202.3255.stats-rosuda-devel@listserv.uni-augsburg.de> <01dc01cbacf0$82906220$87b12660$@struq.com>
+Message-ID: <705C2FE2-4970-443E-B49E-4000D161C931@r-project.org>
+
+
+On Jan 5, 2011, at 10:52 AM, ying zhang wrote:
+
+> Hi All,
+> 
+> As you may know I am trying connect R with java by RJava,  now I run the
+> examples, I got this error
+> 
+> rShowMessage "Fatal error: unable to open the base package
+> 
+> 
+> I am using 64bits windows 7 and eclipse. Any suggestions?
+> 
+
+Chances are that you did not set up your R environment variables correctly (this applies also to your previous posts) or you have mismatch in R registry entries. The above indicates that likely your R_HOME is pointing to the wrong place. (One common issue is is multiple R versions installed out of order - by default only the last installed version is recorded in the registry). Also if you use R 2.12.0 or higher, make sure you set R_ARCH properly according to your architecture (either /x64 or /i386) - it must also match the Java you intent to use.
+
+I general, before you even attempt to use Eclipse, make sure your setup works without Eclipse (just using the supplied script examples) as Eclipse is notoriously hard to configure properly.
+
+Cheers,
+Simon
+
+
+> 
+> Many thanks
+> Ying
+> 
+> -----Original Message-----
+> From:
+> stats-rosuda-devel-bounces+ying.zhang=struq.com at listserv.uni-augsburg.de
+> [mailto:stats-rosuda-devel-bounces+ying.zhang=struq.com at listserv.uni-augsbur
+> g.de] On Behalf Of stats-rosuda-devel-request at listserv.uni-augsburg.de
+> Sent: 05 January 2011 11:00
+> To: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: stats-rosuda-devel Digest, Vol 79, Issue 2
+> 
+> Send stats-rosuda-devel mailing list submissions to
+> 	stats-rosuda-devel at listserv.uni-augsburg.de
+> 
+> To subscribe or unsubscribe via the World Wide Web, visit
+> 	
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> or, via email, send a message with subject or body 'help' to
+> 	stats-rosuda-devel-request at listserv.uni-augsburg.de
+> 
+> You can reach the person managing the list at
+> 	stats-rosuda-devel-owner at listserv.uni-augsburg.de
+> 
+> When replying, please edit your Subject line so it is more specific than
+> "Re: Contents of stats-rosuda-devel digest..."
+> 
+> 
+> Today's Topics:
+> 
+>   1. an error about JRI (ying zhang)
+> 
+> 
+> ----------------------------------------------------------------------
+> 
+> Message: 1
+> Date: Tue, 4 Jan 2011 17:36:01 -0000
+> From: "ying zhang" <ying.zhang at struq.com>
+> To: <stats-rosuda-devel at listserv.uni-augsburg.de>
+> Subject: [stats-rosuda-devel] an error about JRI
+> Message-ID: <01b701cbac35$dba8fb80$92faf280$@struq.com>
+> Content-Type: text/plain; charset="us-ascii"
+> 
+> 
+> 
+> Hi everyone, I try to run my R script in Java, thus I installed JRI. 
+> 
+> and run the example, I am using Eclipse on 64 bits windows 7.  part of 
+> 
+> the example code is as follows:
+> 
+> 
+> 
+> public static void main(String[] args) {
+> 
+> 
+> 
+>        System.out.println("Creating Rengine (with arguments)");
+> 
+> 
+> 
+>                Rengine re=new Rengine(args, false, null);
+> 
+>               System.out.println("Rengine created, waiting for R");
+> 
+>                if (!re.waitForR()) {
+> 
+> 
+> 
+>            System.out.println("Cannot load R");
+> 
+> 
+> 
+>            return;
+> 
+> 
+> 
+>       }
+> 
+> However, everytime I run it. it teminated after print out "Creating 
+> 
+> Rengine (with arguments)" never successfully print out "Rengine 
+> 
+> created, waiting for R"
+> 
+> 
+> 
+> I do not know what is right argument to input, I have tried to add 
+> 
+> "--no-save" under the Program arguments of eclipse run configuration, 
+> 
+> but still does not help.
+> 
+> 
+> 
+> any suggestions? Many thanks
+> 
+> 
+> 
+> Ying
+> 
+> -------------- next part --------------
+> An HTML attachment was scrubbed...
+> URL:
+> <http://mailman.rz.uni-augsburg.de/pipermail/stats-rosuda-devel/attachments/
+> 20110104/6c7d3022/attachment-0001.html>
+> 
+> ------------------------------
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+> 
+> End of stats-rosuda-devel Digest, Vol 79, Issue 2
+> *************************************************
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From satchwinston at yahoo.com  Thu Jan  6 06:19:12 2011
+From: satchwinston at yahoo.com (Donald Paul Winston)
+Date: Thu, 06 Jan 2011 01:19:12 -0500
+Subject: Fix R CMD Rserve
+Message-ID: <FE2953F2-0508-466D-BD1E-A80556612887@yahoo.com>
+
+This was how I was doing it:
+R CMD Library/Frameworks/R.framework/Resources/library/Rserve/libs/i386/Rserve-bin.so --vanilla
+
+I use a Mac for a reason. Why doesn't 'R CMD Rserve' work?
+
+From satchwinston at yahoo.com  Thu Jan  6 06:05:36 2011
+From: satchwinston at yahoo.com (Donald Paul Winston)
+Date: Thu, 06 Jan 2011 01:05:36 -0500
+Subject: Adding another machine
+Message-ID: <9A2D8367-AC36-4E85-9D5D-C0212913FE83@yahoo.com>
+
+This happened the last time about a year ago.
+
+Macintosh2:local donwinston$ R CMD INSTALL Rserve_0.6-2.tgz
+* installing to library ‘/Library/Frameworks/R.framework/Resources/library’
+* installing *binary* package ‘Rserve’ ...
+
+* DONE (Rserve)
+Macintosh2:local donwinston$ R CMD Rserve
+/Library/Frameworks/R.framework/Resources/bin/Rcmd: line 65: exec: Rserve: not found
+
+
+I hacked it to get it to work(typed the whole pathname and did not use the R CMD thing. I don't want to do that this time). How do I fix this properly to get it to work?  (latest and greatest Mac OS X)
+
+By the way using the R package installer just downloads the file. It does not install it. What's with that? Why bother?
+
+From ying.zhang at struq.com  Thu Jan  6 19:06:39 2011
+From: ying.zhang at struq.com (ying zhang)
+Date: Thu, 06 Jan 2011 19:06:39 -0000
+Subject: JRI & plot()
+Message-ID: <020a01cbadd4$d9f6e720$8de4b560$@struq.com>
+
+Hi Everyone,
+
+ 
+
+Thanks a lot for your guys help, I finally got it running, now I can call my
+R function from my java code.
+
+ 
+
+But there is one problem left.
+
+In my R code , it open a window and plot a curve.
+
+Once running in Java, the window did successfully opened, but nothing
+inside, instead of grey color.
+
+ 
+
+Any suggestions? Many thanks
+
+ 
+
+ 
+
+Ying
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Thu Jan  6 21:54:40 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 06 Jan 2011 16:54:40 -0500
+Subject: Re: Fix R CMD Rserve
+In-Reply-To: <FE2953F2-0508-466D-BD1E-A80556612887@yahoo.com>
+References: <FE2953F2-0508-466D-BD1E-A80556612887@yahoo.com>
+Message-ID: <9E1F73B5-BFA0-40CF-8C2F-C637791165EE@r-project.org>
+
+
+On Jan 6, 2011, at 1:19 AM, Donald Paul Winston wrote:
+
+> This was how I was doing it:
+> R CMD Library/Frameworks/R.framework/Resources/library/Rserve/libs/i386/Rserve-bin.so --vanilla
+> 
+> I use a Mac for a reason. Why doesn't 'R CMD Rserve' work?
+
+
+It does if you installed Rserve from sources.
+
+However, if you use a binary then the installation process doesn't allow files to be placed anywhere but inside the package so there is no way to install Rserve in R_HOME from binaries. That said, there is nothing preventing you from creating a softlink (or copying Rserve) into R_HOME/bin such that it works.
+
+Cheers,
+Simon
+
+From simon.urbanek at r-project.org  Thu Jan  6 21:55:47 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 06 Jan 2011 16:55:47 -0500
+Subject: Re: JRI & plot()
+In-Reply-To: <020a01cbadd4$d9f6e720$8de4b560$@struq.com>
+References: <020a01cbadd4$d9f6e720$8de4b560$@struq.com>
+Message-ID: <95863171-99F9-484B-978C-3E4892CF4CAD@r-project.org>
+
+
+On Jan 6, 2011, at 2:06 PM, ying zhang wrote:
+
+> Hi Everyone,
+>  
+> Thanks a lot for your guys help, I finally got it running, now I can call my R function from my java code.
+>  
+> But there is one problem left.
+> In my R code , it open a window and plot a curve.
+> Once running in Java, the window did successfully opened, but nothing inside, instead of grey color.
+>  
+
+Are you using JavaGD?
+
+Cheers,
+S
+
+From simon.urbanek at r-project.org  Thu Jan  6 22:01:55 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 06 Jan 2011 17:01:55 -0500
+Subject: Re: Adding another machine
+In-Reply-To: <9A2D8367-AC36-4E85-9D5D-C0212913FE83@yahoo.com>
+References: <9A2D8367-AC36-4E85-9D5D-C0212913FE83@yahoo.com>
+Message-ID: <E37666D8-516D-4023-B4B1-866D026398BF@r-project.org>
+
+
+On Jan 6, 2011, at 1:05 AM, Donald Paul Winston wrote:
+
+> This happened the last time about a year ago.
+> 
+> Macintosh2:local donwinston$ R CMD INSTALL Rserve_0.6-2.tgz
+> * installing to library ‘/Library/Frameworks/R.framework/Resources/library’
+> * installing *binary* package ‘Rserve’ ...
+> 
+> * DONE (Rserve)
+> Macintosh2:local donwinston$ R CMD Rserve
+> /Library/Frameworks/R.framework/Resources/bin/Rcmd: line 65: exec: Rserve: not found
+> 
+
+Seems like you don't have permissions to write in R_HOME/bin. If you do, this is what you'll see:
+
+cp Rserve Rserve-bin.so
+cp Rserve.dbg Rserve-dbg.so
+./mergefat Rserve "/Library/Frameworks/R.framework/Resources/bin/Rserve"
+./mergefat Rserve.dbg "/Library/Frameworks/R.framework/Resources/bin/Rserve.dbg"
+installing to /Library/Frameworks/R.framework/Resources/library/Rserve/libs/x86_64
+*
+
+The crucial point for R CMD to work is that your Rserve binary must be either in /Library/Frameworks/R.framework/Resources/bin or on your PATH.
+
+
+> I hacked it to get it to work(typed the whole pathname and did not use the R CMD thing. I don't want to do that this time). How do I fix this properly to get it to work?  (latest and greatest Mac OS X)
+> 
+> By the way using the R package installer just downloads the file. It does not install it.
+
+How do you know that? For normal people it does install it - (where and how depends on the settings you use when installing it). Try
+library(Rserve)
+Rserve()
+ 
+
+Cheers,
+Simon
+
+
+
+> What's with that? Why bother
+
+From ying.zhang at struq.com  Fri Jan  7 13:38:10 2011
+From: ying.zhang at struq.com (ying zhang)
+Date: Fri, 07 Jan 2011 13:38:10 -0000
+Subject: Re: JRI & plot()
+In-Reply-To: <95863171-99F9-484B-978C-3E4892CF4CAD@r-project.org>
+References: <020a01cbadd4$d9f6e720$8de4b560$@struq.com> <95863171-99F9-484B-978C-3E4892CF4CAD@r-project.org>
+Message-ID: <000301cbae70$214b6330$63e22990$@struq.com>
+
+Thanks Simon, I can plot the curve in java instead, that will solve this
+problem.
+
+But a strange thing happen this morning,  I am running my code try to figure
+out how to get the output of R without the pop out R window.
+After a while I found the R window will  pop out then immediately disappear.
+Then running the  Examples of JRI in  eclipse, it will only
+ output the following information, then terminate:
+
+
+Creating Rengine (with arguments)
+Rengine created, waiting for R
+re-routing stdout/err into R console
+rBusy(0)
+
+It seems lost the connection with R. However, I did not change any
+configuration of eclipse. It was running perfectly yesterday. 
+I have tried restart the computer or eclipse etc. still same.
+
+Do you know the reason? Many thanks
+
+Ying 
+
+
+
+-----Original Message-----
+From: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+Sent: 06 January 2011 21:56
+To: ying zhang
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: Re: [stats-rosuda-devel] JRI & plot()
+
+
+On Jan 6, 2011, at 2:06 PM, ying zhang wrote:
+
+> Hi Everyone,
+>  
+> Thanks a lot for your guys help, I finally got it running, now I can call
+my R function from my java code.
+>  
+> But there is one problem left.
+> In my R code , it open a window and plot a curve.
+> Once running in Java, the window did successfully opened, but nothing
+inside, instead of grey color.
+>  
+
+Are you using JavaGD?
+
+Cheers,
+S
+
+From marcel.au at web.de  Fri Jan  7 15:23:12 2011
+From: marcel.au at web.de (Marcel)
+Date: Fri, 07 Jan 2011 15:23:12 +0000
+Subject: Rserve error with Windows 32-bit
+Message-ID: <loom.20110107T161130-328@post.gmane.org>
+
+Hello,
+
+i try to start Rserve inside of R 2.12.1 on Windows XP (or Vista) 32-bit.
+
+>library(Rserve)
+> Rserve()
+
+The error i get is:
+
+"The application could not be started because R.dll could not be found..."
+
+I think this is maybee related to the changed path for win 32 in R 2.12.
+Can anyone else reproduce this error on Windows and is there a fix available for
+this (eventuell)bug?
+
+Any help is appreciated
+
+From borissov at hotmail.de  Wed Jan 12 12:08:38 2011
+From: borissov at hotmail.de (Nikolay Borissov)
+Date: Wed, 12 Jan 2011 13:08:38 +0100
+Subject: Issue loading and executing an own function.R with JRI from Java, any ideas?
+Message-ID: <COL114-W878D4476879ECAA5BD905A0F10@phx.gbl>
+
+
+Hi all, 
+
+how did you manage to load and call new developed function.R with JRI in Java? 
+
+I managed to call and execute standard R functions and expressions with JRI in Java, but when I call r.eval("load(path-to-function.R)") or r.eval("source(path-to-function.R)") in order to load my own function, my java program terminates :( 
+
+There is also no error displayed.
+
+Thanks for your help!
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Jan 12 17:14:20 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 12 Jan 2011 12:14:20 -0500
+Subject: Re: Issue loading and executing an own function.R with JRI from Java, any ideas?
+In-Reply-To: <COL114-W878D4476879ECAA5BD905A0F10@phx.gbl>
+References: <COL114-W878D4476879ECAA5BD905A0F10@phx.gbl>
+Message-ID: <A3E50971-25DC-4C11-B8FF-5269F322B357@r-project.org>
+
+
+On Jan 12, 2011, at 7:08 AM, Nikolay Borissov wrote:
+
+> Hi all, 
+> 
+> how did you manage to load and call new developed function.R with JRI in Java? 
+> 
+> I managed to call and execute standard R functions and expressions with JRI in Java, but when I call r.eval("load(path-to-function.R)") or r.eval("source(path-to-function.R)") in order to load my own function, my java program terminates :( 
+> 
+
+Chances are that you either did not escape the path properly (very common mistake) or have a bug in the code. Use try(.., silent=TRUE) if you want avoid errors (and get the error back to Java instead).  Also you may want to read up on the error handling, REPL and interactive vs. non-interactive mode if you don't want R to quit.
+
+Cheers,
+Simon
+
+
+> There is also no error displayed.
+> 
+> Thanks for your help!
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ilhami.visne at gmail.com  Tue Jan 18 10:28:48 2011
+From: ilhami.visne at gmail.com (Ilhami Visne)
+Date: Tue, 18 Jan 2011 11:28:48 +0100
+Subject: JGR installation problem on Windows 7 x64
+Message-ID: <AANLkTikoth4GifzwPA_oGo_DR0oVv=Wrizp5ej5SYYZH@mail.gmail.com>
+
+Hello,
+
+My system: Win7 x64, Java 6 update 23
+
+I'm using the new jgr-launcher (jgr-1_62-x64.exe) and getting error on start
+up. Please see the screenshot below. It is in german and a translation of
+the relevant parts:
+
+Error in library.dynam("WinRegistry", pkgname, libname) :  DLL 'WinRegistry'
+not found: maybe for this architecture not installed?
+Failed with error:  'Paket 'JavaGD' could not be loaded'
+
+Error: The function '.getModels' could not be found.
+...etc
+
+Info: 32bit version works fine.
+
+
+
+Thanks.
+ilhami
+
+-------------- next part --------------
+
+
+From sblay at sfu.ca  Tue Jan 18 18:55:42 2011
+From: sblay at sfu.ca (Sigal Blay)
+Date: Tue, 18 Jan 2011 10:55:42 -0800
+Subject: Maximum memory allocation to Java
+Message-ID: <20110118185542.GA10980@sfu.ca>
+
+In order to test what is the maximum memory that can be allocated 
+to Java from R we're using:
+system("java -Xms512m -Xmx1536m")  
+(trying different values for the second parameter).
+
+On my Windows machine,
+system("java -Xms512m -Xmx1536m") works, but setting java.parameter to 1536MB 
+before issuing .jpackage(package, lib.loc = libname) in zzz.R
+fail package installation with "Could not reserve enough space for object heap". 
+It works when I set it as low as 1394MB.
+Looks like .jpackage uses some overhead.
+This is not the case on the Linux machine I'm working on.
+
+The question is, is there a fixed value to the memory overhead on different 
+machines? Is there a way I can determine it, or a range I can expect?
+
+Thanks,
+Sigal Blay
+
+From simon.urbanek at r-project.org  Tue Jan 18 20:20:53 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 18 Jan 2011 15:20:53 -0500
+Subject: Re: Maximum memory allocation to Java
+In-Reply-To: <20110118185542.GA10980@sfu.ca>
+References: <20110118185542.GA10980@sfu.ca>
+Message-ID: <F85248CC-03ED-4A88-B8BC-512F70D62AA2@r-project.org>
+
+
+On Jan 18, 2011, at 1:55 PM, Sigal Blay wrote:
+
+> In order to test what is the maximum memory that can be allocated 
+> to Java from R we're using:
+> system("java -Xms512m -Xmx1536m")  
+> (trying different values for the second parameter).
+> 
+> On my Windows machine,
+> system("java -Xms512m -Xmx1536m") works, but setting java.parameter to 1536MB 
+> before issuing .jpackage(package, lib.loc = libname) in zzz.R
+> fail package installation with "Could not reserve enough space for object heap". 
+> It works when I set it as low as 1394MB.
+> Looks like .jpackage uses some overhead.
+
+Not at all, but you have to remember that the memory available depends on all programs running on your machine which does include R. Also your package could be loaded at any point (e.g., after the user has already used half of the memory on your machine) so defining any fixed threshold is in general not useful at all.
+
+
+> This is not the case on the Linux machine I'm working on.
+> 
+> The question is, is there a fixed value to the memory overhead on different  machines? Is there a way I can determine it, or a range I can expect?
+> 
+
+There is no "overhead" in that sense. The memory available to Java depends on the memory available on the machine in general as a given point in time and that is way different even on the same machine. It also varies strongly by OS because some OSes are capable of supplying more mapped memory under different conditions (32-bit Windows has in particular very low limits and capabilities). It is best left to the user to rise the limits as needed (unfortunately Java is not capable of using a flexible limits AFAIR which is the actual problem).
+
+Cheers,
+Simon
+
+From satchwinston at yahoo.com  Wed Jan 26 15:29:07 2011
+From: satchwinston at yahoo.com (Donald Paul Winston)
+Date: Wed, 26 Jan 2011 10:29:07 -0500
+Subject: Connection problem
+Message-ID: <C1898A7E-55A4-406D-B3E1-8158FC56951D@yahoo.com>
+
+I'm getting an RServeException with the message
+
+Cannot connect: macintosh2.local
+
+This used to work. I'm trying to think what I've changed since I ran it last. The only thing I can think of is maybe I changed it to R64 from R32. Does this matter?
+
+I've turned the firewall off to no effect. The request comes from macintosh3.local. R is definitely running fine on macintosh2.local.
+
+in /etc I have Rserv.conf with one line of "remote enable". Like I said it's worked before.
+
+From satchwinston at yahoo.com  Wed Jan 26 17:25:45 2011
+From: satchwinston at yahoo.com (Donald Paul Winston)
+Date: Wed, 26 Jan 2011 12:25:45 -0500
+Subject: Connection problem
+Message-ID: <714B9A02-C392-49DE-A05F-9A40A741CB94@yahoo.com>
+
+I just remembered I've enabled the "root" user on macintosh3.local recently. Could that have messed things up?
+
+I did that so I could remotely shutdown or restart my macs remotely using ssh.
+
+From wul1984 at gmail.com  Fri Jan 28 07:20:11 2011
+From: wul1984 at gmail.com (=?utf-8?b?6ams5Y+v?=)
+Date: Fri, 28 Jan 2011 15:20:11 +0800
+Subject: rJava (JVM) error at loading my library
+Message-ID: <AANLkTintXqHoMGfXqFF2VyEvCrLw=q5CfJf9Kz3n+tuW@mail.gmail.com>
+
+Hi, Community:
+
+
+I think my situation is almost the same as in here:
+http://article.gmane.org/gmane.comp.lang.r.rosuda.devel/660/match=rJava
+
+This problem have troubled me for a quite long time. I think it started from
+my update of R from 2.11.1 to 2.12.1, when I was not able to load one
+library dependent on rJava, and I found the problem come from the Java
+Virtual machine:
+
+*> library(dismo)*
+*Loading required package: raster*
+*Loading required package: sp*
+*raster version 1.7-29 (17-January-2010)*
+*Error : .onLoad failed in loadNamespace() for 'dismo', details:*
+*  call: .jinit()*
+*  error: Cannot create Java virtual machine (-1)*
+*Error: package/namespace load failed for 'dismo'*
+
+
+However, later on, I found that I can load the library under jgr, and still
+not under Rgui.
+I checked my java environment, and now I am sure that I have jre (version 6
+update 23) and also jdk (ver. jdk1.6.0_23) installed. The PATH and Java_Home
+setting is as follows (I installed both jre and jdk under "c:\program
+files\java\" under name jdk1.6.0_23 and jre6):
+
+> Sys.getenv("PATH")
+
+
+
+
+
+
+
+
+
+
+
+ PATH
+"C:\\Program Files\\Java\\jdk1.6.0_23\\bin;C:\\Program
+Files\\Java\\jer6\\bin;C:\\Program Files\\PC Connectivity
+Solution\\;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;c:\\delta;C:\\Program
+Files\\Common
+Files\\TTKN\\Bin;C:/python/Python25;D:\\OpenModeller\\openModeller
+0.7.0;C:\\Program Files\\Subversion\\bin;C:\\Program Files\\Microsoft SQL
+Server\\90\\Tools\\binn;C:\\ArcGIS\\arcexe9x\\bin;C:\\WINDOWS\\system32\\WindowsPowerShell\\v1.0;C:\\strawberry\\c\\bin;C:\\strawberry\\perl\\site\\bin;C:\\strawberry\\perl\\bin;D:\\CTEX\\UserData\\miktex\\bin;D:\\CTEX\\MiKTeX\\miktex\\bin;D:\\CTEX\\CTeX\\ctex\\bin;D:\\CTEX\\CTeX\\cct\\bin;D:\\CTEX\\CTeX\\ty\\bin;D:\\CTEX\\Ghostscript\\gs9.00\\bin;D:\\CTEX\\GSview\\gsview;D:\\CTEX\\WinEdt;C:\\Program
+Files\\Java\\jdk1.6.0_23\\bin;C:\\Program
+Files\\Java\\jdk1.6.0_23\\bin;C:\\DELTA"
+
+> Sys.getenv("JAVA_HOME")
+                             JAVA_HOME
+"C:\\Program Files\\Java\\jdk1.6.0_23"
+
+Here is my Sessioninfo under Rgui:
+> sessionInfo()
+R version 2.12.1 (2010-12-16)
+Platform: i386-pc-mingw32/i386 (32-bit)
+
+locale:
+[1] LC_COLLATE=Chinese_People's Republic of China.936
+[2] LC_CTYPE=Chinese_People's Republic of China.936
+[3] LC_MONETARY=Chinese_People's Republic of China.936
+[4] LC_NUMERIC=C
+[5] LC_TIME=Chinese_People's Republic of China.936
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] rJava_0.9-0
+
+loaded via a namespace (and not attached):
+[1] tools_2.12.1
+
+
+Can anybody help me out?
+
+Thanks in advance~
+
+
+Best wishes~
+
+Marco
+
+------------------------------------------------------
+Chinese Ecological Research Network,
+Institute of Geographical Sciences and Natural Resources Research,
+ Chinese Academy of Sciences,
+100101, Beijing
+Tel: (86)-10-64880 9809
+
+-------------- next part --------------
+
+

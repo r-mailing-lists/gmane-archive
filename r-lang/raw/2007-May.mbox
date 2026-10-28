@@ -1,0 +1,1859 @@
+From shademan-xwz7R8GQi1g at public.gmane.org  Tue May  8 19:02:48 2007
+From: shademan-xwz7R8GQi1g at public.gmane.org (shabnam shademan)
+Date: Tue, 08 May 2007 12:02:48 -0700
+Subject: comparing two mixed-effects models
+Message-ID: <200705081902.l48J2oZX028954@mail.ucla.edu>
+
+Hi all -
+
+ 
+
+I am unsophisticated user in need of some help.  I have a study in which I
+have two random factors: subject and stimuli item.  I also have 3 fixed
+effects: 
+
+1. y=similarity-based score (continuous values)
+
+2. Age (has two levels "young" and "old")
+
+3. x=grammatical-based score (continuous values).  
+
+My dependent variable is z=item ratings from subjects.
+
+ 
+
+I am using the following formula to predict the effect of each factor on z:
+
+ 
+
+fit1 <- lmer(Z ~Age * X * Y + (1 | Subject) + (1 | Stimulus), method = "ML",
+data = d)
+
+ 
+
+furthermore, I have the option of using a different grammatical model in
+order to calculate values for X.  I will call this X2.  This means that I
+could also get a fit in the following way:
+
+ 
+
+fit2 <- lmer(Z ~Age * X2 * Y + (1 | Subject) + (1 | Stimulus), method =
+"ML", data = d)
+
+ 
+
+ 
+
+Here are the questions:
+
+1. Is there anyway to compare fit1 and fit2?  
+
+2. would anova (fit1, fit2) be appropriate in this case?  (if possible,
+would you be kind enough to give me references on the answer?)
+
+3. could I use the same formula to examine only one "Age" group (removing
+"Age" as a factor in the formula, of course), even if I am going to later
+proceed and re-examine the data for a larger young/old set?
+
+ 
+
+Any help is greatly appreciated.
+
+-shabnam
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Tue May  8 21:43:41 2007
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Tue, 08 May 2007 17:43:41 -0400
+Subject: Re: comparing two mixed-effects models
+In-Reply-To: <200705081902.l48J2oZX028954@mail.ucla.edu>
+References: <200705081902.l48J2oZX028954@mail.ucla.edu>
+Message-ID: <38dc9be90705081443g33b1ac0el3d3b7838f12bdb68@mail.gmail.com>
+
+On 5/8/07, shabnam shademan <shademan-xwz7R8GQi1g at public.gmane.org> wrote:
+>
+>  Hi all –
+>
+>
+>
+> I am unsophisticated user in need of some help.  I have a study in which I
+> have two random factors: subject and stimuli item.  I also have 3 fixed
+> effects:
+>
+> 1. y=similarity-based score (continuous values)
+>
+> 2. Age (has two levels "young" and "old")
+>
+> 3. x=grammatical-based score (continuous values).
+>
+> My dependent variable is z=item ratings from subjects.
+>
+>
+>
+> I am using the following formula to predict the effect of each factor on
+> z:
+>
+>
+>
+> fit1 <- lmer(Z ~Age * X * Y + (1 | Subject) + (1 | Stimulus), method =
+> "ML", data = d)
+>
+>
+>
+> furthermore, I have the option of using a different grammatical model in
+> order to calculate values for X.  I will call this X2.  This means that I
+> could also get a fit in the following way:
+>
+>
+>
+> fit2 <- lmer(Z ~Age * X2 * Y + (1 | Subject) + (1 | Stimulus), method =
+> "ML", data = d)
+>
+Here are the questions:
+>
+> 1. Is there anyway to compare fit1 and fit2?
+>
+
+
+Dear Shabnam,
+
+yes. you can compare the impact of the two factors, but it is not done by
+doing an anova over the two above models. Also, you have to be aware that X1
+and X2 may be collinear, which may make your result unreliable. see below
+
+2. would anova (fit1, fit2) be appropriate in this case?  (if possible,
+> would you be kind enough to give me references on the answer?)
+>
+
+no.  anova() compares models where one model has a subset of the factors of
+the other model. the way to do what you need is to create a third model with
+X1 and X2 and all other factors contained in fit1 and fit2. then you compare
+this super-model (let's call it "superfit") against the two sub-models
+(fit1, fit2)
+
+anova(superfit, fit1)
+anova(superfit, fit2)
+
+if the first comparison is significant that means that X2 [sic] improves the
+model's data log-likelihood significantly (because X2 is the only factor
+contained in superfit, but not fit1). If the second comparison is
+significant, this means that X1 contributes significantly to the model. so,
+there are four possible results (where by "matter" I mean that the factor
+improves the model's data log-likelihood significantly):
+
+   1. X1, but not X2 matters
+   2. X2, but not X1 matters
+   3. both X1 and X2 matters
+   4. neither X1 and X2 improve fit2 and fit1, respectively
+
+in the last case, you have to make sure that X1 or X2 contribute
+significantly to fit1 and fit2, respectively (by comparing fit1 to a model
+without X1 and comparing fit2 to a model without X2). If so, then X1 and X2
+are significant, but too collinear to be distinguished between (using your
+data set).
+
+even though model comparisons based on data log-likelihood (anova(model1,
+model2)) are considered relatively robust against problems with collinear
+factors, collinearity between X1 and X2 could be a problem (generally, if X1
+and X2 are too collinear in your data set, then you will have a hard time
+distinguishing between them).
+
+> 3. could I use the same formula to examine only one "Age" group (removing
+> "Age" as a factor in the formula, of course), even if I am going to later
+> proceed and re-examine the data for a larger young/old set?
+>
+
+I am not sure that I understand what you mean. Nothing prevents you from
+exploring e.g. only data from "young" people, but be aware that whatever
+conclusions you draw out of the examination of that subset of your data, may
+not generalize to the entire sample (and hence not to the population
+represented by the entire sample).
+
+I hope this helps. Let me know, if something is unclear.
+
+Florian
+
+Any help is greatly appreciated.
+>
+> -shabnam
+>
+>
+>
+>
+>
+>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Wed May  9 04:21:24 2007
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Wed, 09 May 2007 00:21:24 -0400
+Subject: Re: comparing two mixed-effects models
+In-Reply-To: <200705082205.l48M532F009689@mail.ucla.edu>
+References: <38dc9be90705081443g33b1ac0el3d3b7838f12bdb68@mail.gmail.com> <200705082205.l48M532F009689@mail.ucla.edu>
+Message-ID: <38dc9be90705082121h190f6954x3a384357010abdcd@mail.gmail.com>
+
+>
+> SS: What I have found is that X interacts with Y, and that interaction
+> term is significantly contributing to the model's performance (i.e., the
+> difference between fit1 and fit1A (where the interaction parameter is
+> removed) is significant).  I took this to mean I cannot individually remove
+> X from the model and compare the two fits; therefore, I concluded X is
+> significant for fit1.  The same is true for fit2 (i.e. X2 interacts with
+> Y).  Please let me know if you see a flaw in my conclusion.
+>
+
+that's all fine, but in order to see whether X1 and X2 matter both, you
+still have to do the comparison i talked about (but include the interactions
+for X1*Y and X2*Y in the model I called superfit in my previous email; i.e.
+compare fit1A vs. superfitA and fit2A vs superfitA).
+
+3. could I use the same formula to examine only one "Age" group (removing
+> "Age" as a factor in the formula, of course), even if I am going to later
+> proceed and re-examine the data for a larger young/old set?
+>
+>
+> I am not sure that I understand what you mean. Nothing prevents you from
+> exploring e.g. only data from "young" people, but be aware that whatever
+> conclusions you draw out of the examination of that subset of your data, may
+> not generalize to the entire sample (and hence not to the population
+> represented by the entire sample).
+>
+> SS: the data shows an effect of "Age" (which has two levels "young" and
+> "old"). I wanted to test a subset of the data that included only "young" and
+> see whether there is an interaction between X and Y, for them as a subset.
+> I was thinking that the result may be generalized to only "young"
+> population, and not the entire sample.  Just want to make sure that I am not
+> doing something that has problems that I am not aware of.  I hope I was able
+> to state the question more clearly.
+>
+
+yes, this is ok.  be aware, however, that by splitting the data set you
+loose power. so failure to detect the X*Y interaction MAY be due to lack of
+power. an additional test you could confirm is a three-way interaction for
+the entire data set X*Y*Age. If it is NON-significant that is a further
+indication that the X*Y interaction holds for both age groups. finally, I
+always advise visualization of the data set (as a way to compare the effects
+of X*Y for young vs. old people).
+
+is this useful? I am cc-ing the language list, so that other people can
+correct me.
+
+Florian
+
+Thanks very much.
+>
+> -shabnam
+>
+>
+>
+>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From shademan-xwz7R8GQi1g at public.gmane.org  Wed May  9 11:35:12 2007
+From: shademan-xwz7R8GQi1g at public.gmane.org (shabnam shademan)
+Date: Wed, 09 May 2007 04:35:12 -0700
+Subject: Re: comparing two mixed-effects models
+In-Reply-To: <38dc9be90705082121h190f6954x3a384357010abdcd@mail.gmail.com>
+References: <38dc9be90705082121h190f6954x3a384357010abdcd@mail.gmail.com>
+Message-ID: <200705091135.l49BZ8kT025787@mail.ucla.edu>
+
+3. could I use the same formula to examine only one "Age" group (removing
+"Age" as a factor in the formula, of course), even if I am going to later
+proceed and re-examine the data for a larger young/old set?
+
+
+I am not sure that I understand what you mean. Nothing prevents you from
+exploring e.g. only data from "young" people, but be aware that whatever
+conclusions you draw out of the examination of that subset of your data, may
+not generalize to the entire sample (and hence not to the population
+represented by the entire sample).
+
+SS: the data shows an effect of "Age" (which has two levels "young" and
+"old"). I wanted to test a subset of the data that included only "young" and
+see whether there is an interaction between X and Y, for them as a subset.
+I was thinking that the result may be generalized to only "young"
+population, and not the entire sample.  Just want to make sure that I am not
+doing something that has problems that I am not aware of.  I hope I was able
+to state the question more clearly.
+
+
+yes, this is ok.  be aware, however, that by splitting the data set you
+loose power. so failure to detect the X*Y interaction MAY be due to lack of
+power. an additional test you could confirm is a three-way interaction for
+the entire data set X*Y*Age. If it is NON-significant that is a further
+indication that the X*Y interaction holds for both age groups. 
+
+SS: Thanks.  The X*Y interaction does not disappear for the smaller set, and
+the three-way interaction Age*X*Y in not significant.  So, it looks like all
+is well.
+
+ 
+
+ 
+
+finally, I always advise visualization of the data set (as a way to compare
+the effects of X*Y for young vs. old people).
+
+SS:I am not sure what kind of visualization you are recommending for X*Y.
+
+ 
+
+
+
+is this useful? I am cc-ing the language list, so that other people can
+correct me.
+
+Yes, it is.  Thanks for taking the time.
+
+-shabnam
+
+ 
+
+
+
+Florian
+
+ 
+
+Thanks very much.
+
+-shabnam
+
+ 
+
+
+
+
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Wed May  9 23:41:29 2007
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Wed, 09 May 2007 19:41:29 -0400
+Subject: Re: comparing two mixed-effects models
+In-Reply-To: <200705091135.l49BZ8kT025787@mail.ucla.edu>
+References: <38dc9be90705082121h190f6954x3a384357010abdcd@mail.gmail.com> <200705091135.l49BZ8kT025787@mail.ucla.edu>
+Message-ID: <38dc9be90705091641y42b9d2c1h4accc905022cb4dd@mail.gmail.com>
+
+On 5/9/07, shabnam shademan <shademan-xwz7R8GQi1g at public.gmane.org> wrote:
+>
+>       3. could I use the same formula to examine only one "Age" group
+> (removing "Age" as a factor in the formula, of course), even if I am going
+> to later proceed and re-examine the data for a larger young/old set?
+>
+>
+> I am not sure that I understand what you mean. Nothing prevents you from
+> exploring e.g. only data from "young" people, but be aware that whatever
+> conclusions you draw out of the examination of that subset of your data, may
+> not generalize to the entire sample (and hence not to the population
+> represented by the entire sample).
+>
+> SS: the data shows an effect of "Age" (which has two levels "young" and
+> "old"). I wanted to test a subset of the data that included only "young" and
+> see whether there is an interaction between X and Y, for them as a subset.
+> I was thinking that the result may be generalized to only "young"
+> population, and not the entire sample.  Just want to make sure that I am not
+> doing something that has problems that I am not aware of.  I hope I was able
+> to state the question more clearly.
+>
+>
+> yes, this is ok.  be aware, however, that by splitting the data set you
+> loose power. so failure to detect the X*Y interaction MAY be due to lack of
+> power. an additional test you could confirm is a three-way interaction for
+> the entire data set X*Y*Age. If it is NON-significant that is a further
+> indication that the X*Y interaction holds for both age groups.
+>
+> SS: Thanks.  The X*Y interaction does not disappear for the smaller set,
+> and the three-way interaction Age*X*Y in not significant.  So, it looks like
+> all is well.
+>
+>
+>
+>
+>
+> finally, I always advise visualization of the data set (as a way to
+> compare the effects of X*Y for young vs. old people).
+>
+> SS:I am not sure what kind of visualization you are recommending for X*Y.
+>
+
+oh, just plots of the two factors against the dependent variable. e.g. you
+could plot two barplots for X*Y against the dependent variable - one for
+young and one for old people. you could also print the fitted (predicted)
+effects. some models fit functions (e.g. lrm in Design) have implemented
+plot functions, but lmer does not, i believe. you could look into Baayen's
+languageR library.
+
+florian
+
+is this useful? I am cc-ing the language list, so that other people can
+> correct me.
+>
+> Yes, it is.  Thanks for taking the time.
+>
+> -shabnam
+>
+>
+>
+>
+>
+> Florian
+>
+>
+>
+> Thanks very much.
+>
+> -shabnam
+>
+>
+>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>
+>
+>
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From adamb924-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon May 14 17:19:22 2007
+From: adamb924-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Adam Baker)
+Date: Mon, 14 May 2007 10:19:22 -0700
+Subject: Odd summary(aov()) result
+Message-ID: <c2c3a0990705141019w1c5ef2ecycbe4c5df63a178c8@mail.gmail.com>
+
+I wonder if somebody could comment on why I get different summaries
+with these two commands, which differ only in the order of the
+variables.
+
+summary(aov(MidAvg ~ Ccon*Rpres + Error(Subject/Ccon*Rpres),data=nr))
+summary(aov(MidAvg ~ Rpres*Ccon + Error(Subject/Ccon*Rpres),data=nr))
+
+With the first command, R doesn't report the main effect of Rpres.
+With the second command, it does (code & output below). It's not very
+important since the interaction is significant; I'm just surprised
+that commutativity doesn't hold.
+
+Thanks,
+Adam
+
+
+> summary(aov(MidAvg ~ Ccon*Rpres + Error(Subject/Ccon*Rpres),data=nr))
+
+Error: Subject
+          Df   Sum Sq  Mean Sq F value   Pr(>F)
+Ccon       1 13245765 13245765  17.767 0.002256 **
+Residuals  9  6709794   745533
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Error: Rpres
+     Df   Sum Sq  Mean Sq
+Ccon  1 38923433 38923433
+
+Error: Subject:Ccon
+           Df   Sum Sq  Mean Sq F value    Pr(>F)
+Ccon        2 16646448  8323224 239.589 3.334e-14 ***
+Ccon:Rpres  1   906946   906946  26.107 6.229e-05 ***
+Residuals  19   660053    34740
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Error: Subject:Rpres
+           Df Sum Sq Mean Sq F value  Pr(>F)
+Ccon:Rpres  1 645835  645835  9.5416 0.01295 *
+Residuals   9 609176   67686
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Error: Subject:Ccon:Rpres
+           Df  Sum Sq Mean Sq F value    Pr(>F)
+Ccon:Rpres  2 7636019 3818009  676.48 < 2.2e-16 ***
+Residuals  20  112879    5644
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Error: Within
+           Df  Sum Sq Mean Sq F value Pr(>F)
+Residuals 499 9862093   19764
+
+
+
+
+
+
+> summary(aov(MidAvg ~ Rpres*Ccon + Error(Subject/Ccon*Rpres),data=nr))
+
+Error: Subject
+          Df   Sum Sq  Mean Sq F value   Pr(>F)
+Rpres      1 13245765 13245765  17.767 0.002256 **
+Residuals  9  6709794   745533
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Error: Rpres
+      Df   Sum Sq  Mean Sq
+Rpres  1 38923433 38923433
+
+Error: Subject:Ccon
+           Df   Sum Sq  Mean Sq F value    Pr(>F)
+Ccon        2 16646448  8323224 239.589 3.334e-14 ***
+Rpres:Ccon  1   906946   906946  26.107 6.229e-05 ***
+Residuals  19   660053    34740
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Error: Subject:Rpres
+           Df Sum Sq Mean Sq F value  Pr(>F)
+Rpres:Ccon  1 645835  645835  9.5416 0.01295 *
+Residuals   9 609176   67686
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Error: Subject:Ccon:Rpres
+           Df  Sum Sq Mean Sq F value    Pr(>F)
+Rpres:Ccon  2 7636019 3818009  676.48 < 2.2e-16 ***
+Residuals  20  112879    5644
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Error: Within
+           Df  Sum Sq Mean Sq F value Pr(>F)
+Residuals 499 9862093   19764
+
+From ftorrei2-e94Sedi4moU at public.gmane.org  Mon May 14 17:52:25 2007
+From: ftorrei2-e94Sedi4moU at public.gmane.org (Francisco Torreira)
+Date: Mon, 14 May 2007 19:52:25 +0200
+Subject: Re: Odd summary(aov()) result
+In-Reply-To: <c2c3a0990705141019w1c5ef2ecycbe4c5df63a178c8@mail.gmail.com>
+References: <c2c3a0990705141019w1c5ef2ecycbe4c5df63a178c8@mail.gmail.com>
+Message-ID: <e3ff0c8b0705141052m7754865an8a98e9e27ef45d89@mail.gmail.com>
+
+Dear Adam,
+
+> I'm just surprised
+> that commutativity doesn't hold.
+
+A*B is is not the equivalent notation of any combination of A, B and
+A:B. It is only the equivalent of A+B+A:B. When your design is
+completely balanced, the output should be the same regardless of the
+order. However, with unbalanced/incomplete designs you will get
+different outputs. This is because of the famous Type I / Type III
+sums of squares issue. To be honest I don't think this is the answer
+to your problem, since repeated-measures designs require only 1 data
+point per cell. Is any data point missing?
+
+Francisco
+
+On 5/14/07, Adam Baker <adamb924-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> I wonder if somebody could comment on why I get different summaries
+> with these two commands, which differ only in the order of the
+> variables.
+>
+> summary(aov(MidAvg ~ Ccon*Rpres + Error(Subject/Ccon*Rpres),data=nr))
+> summary(aov(MidAvg ~ Rpres*Ccon + Error(Subject/Ccon*Rpres),data=nr))
+>
+> With the first command, R doesn't report the main effect of Rpres.
+> With the second command, it does (code & output below). It's not very
+> important since the interaction is significant; I'm just surprised
+> that commutativity doesn't hold.
+>
+> Thanks,
+> Adam
+>
+>
+> > summary(aov(MidAvg ~ Ccon*Rpres + Error(Subject/Ccon*Rpres),data=nr))
+>
+> Error: Subject
+>           Df   Sum Sq  Mean Sq F value   Pr(>F)
+> Ccon       1 13245765 13245765  17.767 0.002256 **
+> Residuals  9  6709794   745533
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+> Error: Rpres
+>      Df   Sum Sq  Mean Sq
+> Ccon  1 38923433 38923433
+>
+> Error: Subject:Ccon
+>            Df   Sum Sq  Mean Sq F value    Pr(>F)
+> Ccon        2 16646448  8323224 239.589 3.334e-14 ***
+> Ccon:Rpres  1   906946   906946  26.107 6.229e-05 ***
+> Residuals  19   660053    34740
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+> Error: Subject:Rpres
+>            Df Sum Sq Mean Sq F value  Pr(>F)
+> Ccon:Rpres  1 645835  645835  9.5416 0.01295 *
+> Residuals   9 609176   67686
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+> Error: Subject:Ccon:Rpres
+>            Df  Sum Sq Mean Sq F value    Pr(>F)
+> Ccon:Rpres  2 7636019 3818009  676.48 < 2.2e-16 ***
+> Residuals  20  112879    5644
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+> Error: Within
+>            Df  Sum Sq Mean Sq F value Pr(>F)
+> Residuals 499 9862093   19764
+>
+>
+>
+>
+>
+>
+> > summary(aov(MidAvg ~ Rpres*Ccon + Error(Subject/Ccon*Rpres),data=nr))
+>
+> Error: Subject
+>           Df   Sum Sq  Mean Sq F value   Pr(>F)
+> Rpres      1 13245765 13245765  17.767 0.002256 **
+> Residuals  9  6709794   745533
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+> Error: Rpres
+>       Df   Sum Sq  Mean Sq
+> Rpres  1 38923433 38923433
+>
+> Error: Subject:Ccon
+>            Df   Sum Sq  Mean Sq F value    Pr(>F)
+> Ccon        2 16646448  8323224 239.589 3.334e-14 ***
+> Rpres:Ccon  1   906946   906946  26.107 6.229e-05 ***
+> Residuals  19   660053    34740
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+> Error: Subject:Rpres
+>            Df Sum Sq Mean Sq F value  Pr(>F)
+> Rpres:Ccon  1 645835  645835  9.5416 0.01295 *
+> Residuals   9 609176   67686
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+> Error: Subject:Ccon:Rpres
+>            Df  Sum Sq Mean Sq F value    Pr(>F)
+> Rpres:Ccon  2 7636019 3818009  676.48 < 2.2e-16 ***
+> Residuals  20  112879    5644
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>
+> Error: Within
+>            Df  Sum Sq Mean Sq F value Pr(>F)
+> Residuals 499 9862093   19764
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>
+
+
+-- 
+Francisco Torreira
+PhD Candidate in Romance Linguistics
+University of Illinois at Urbana-Champaign
+
+https://netfiles.uiuc.edu/ftorrei2/www/index.html
+tel: (+1) 217 - 778 8510
+
+From J.S.Adelman-OmadNMBGD7E2EctHIo1CcQ at public.gmane.org  Mon May 14 18:10:45 2007
+From: J.S.Adelman-OmadNMBGD7E2EctHIo1CcQ at public.gmane.org (James S. Adelman)
+Date: Mon, 14 May 2007 19:10:45 +0100
+Subject: Re: Odd summary(aov()) result
+In-Reply-To: <c2c3a0990705141019w1c5ef2ecycbe4c5df63a178c8@mail.gmail.com>
+References: <c2c3a0990705141019w1c5ef2ecycbe4c5df63a178c8@mail.gmail.com>
+Message-ID: <20070514181044.GR30129@kahneman.dyndns.org>
+
+On Mon, May 14, 2007 at 10:19:22AM -0700, Adam Baker wrote:
+> I wonder if somebody could comment on why I get different summaries
+> with these two commands, which differ only in the order of the
+> variables.
+> 
+> summary(aov(MidAvg ~ Ccon*Rpres + Error(Subject/Ccon*Rpres),data=nr))
+> summary(aov(MidAvg ~ Rpres*Ccon + Error(Subject/Ccon*Rpres),data=nr))
+
+I think:
+
+summary(aov(MidAvg ~ Ccon*Rpres + Error(Subject/(Ccon*Rpres)),data=nr))
+
+would be the analysis you were looking for?
+-- 
+James S. Adelman,
+Department of Psychology,    
+University of Warwick,   
+COVENTRY,         ()  ascii ribbon campaign - against html e-mail  
+CV4 7AL.          /\  www.asciiribbon.org   - against proprietary attachments
+
+From aananda-FGKo4X94FMn2fBVCVOL8/A at public.gmane.org  Mon May 14 18:17:48 2007
+From: aananda-FGKo4X94FMn2fBVCVOL8/A at public.gmane.org (Bruno Estigarribia)
+Date: Mon, 14 May 2007 11:17:48 -0700
+Subject: Re: Odd summary(aov()) result
+In-Reply-To: <e3ff0c8b0705141052m7754865an8a98e9e27ef45d89@mail.gmail.com>
+References: <c2c3a0990705141019w1c5ef2ecycbe4c5df63a178c8@mail.gmail.com> <e3ff0c8b0705141052m7754865an8a98e9e27ef45d89@mail.gmail.com>
+Message-ID: <4648A7CC.3090608@stanford.edu>
+
+
+Adam,
+
+Take a look at this page for types of sums-of-squares:
+http://afni.nimh.nih.gov/sscc/gangc/SS.html
+Not all of them have the property you expect.
+Bruno
+> Dear Adam,
+>
+>   
+>> I'm just surprised
+>> that commutativity doesn't hold.
+>>     
+>
+> A*B is is not the equivalent notation of any combination of A, B and
+> A:B. It is only the equivalent of A+B+A:B. When your design is
+> completely balanced, the output should be the same regardless of the
+> order. However, with unbalanced/incomplete designs you will get
+> different outputs. This is because of the famous Type I / Type III
+> sums of squares issue. To be honest I don't think this is the answer
+> to your problem, since repeated-measures designs require only 1 data
+> point per cell. Is any data point missing?
+>
+> Francisco
+>
+> On 5/14/07, Adam Baker <adamb924-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>   
+>> I wonder if somebody could comment on why I get different summaries
+>> with these two commands, which differ only in the order of the
+>> variables.
+>>
+>> summary(aov(MidAvg ~ Ccon*Rpres + Error(Subject/Ccon*Rpres),data=nr))
+>> summary(aov(MidAvg ~ Rpres*Ccon + Error(Subject/Ccon*Rpres),data=nr))
+>>
+>> With the first command, R doesn't report the main effect of Rpres.
+>> With the second command, it does (code & output below). It's not very
+>> important since the interaction is significant; I'm just surprised
+>> that commutativity doesn't hold.
+>>
+>> Thanks,
+>> Adam
+>>
+>>
+>>     
+>>> summary(aov(MidAvg ~ Ccon*Rpres + Error(Subject/Ccon*Rpres),data=nr))
+>>>       
+>> Error: Subject
+>>           Df   Sum Sq  Mean Sq F value   Pr(>F)
+>> Ccon       1 13245765 13245765  17.767 0.002256 **
+>> Residuals  9  6709794   745533
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>>
+>> Error: Rpres
+>>      Df   Sum Sq  Mean Sq
+>> Ccon  1 38923433 38923433
+>>
+>> Error: Subject:Ccon
+>>            Df   Sum Sq  Mean Sq F value    Pr(>F)
+>> Ccon        2 16646448  8323224 239.589 3.334e-14 ***
+>> Ccon:Rpres  1   906946   906946  26.107 6.229e-05 ***
+>> Residuals  19   660053    34740
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>>
+>> Error: Subject:Rpres
+>>            Df Sum Sq Mean Sq F value  Pr(>F)
+>> Ccon:Rpres  1 645835  645835  9.5416 0.01295 *
+>> Residuals   9 609176   67686
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>>
+>> Error: Subject:Ccon:Rpres
+>>            Df  Sum Sq Mean Sq F value    Pr(>F)
+>> Ccon:Rpres  2 7636019 3818009  676.48 < 2.2e-16 ***
+>> Residuals  20  112879    5644
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>>
+>> Error: Within
+>>            Df  Sum Sq Mean Sq F value Pr(>F)
+>> Residuals 499 9862093   19764
+>>
+>>
+>>
+>>
+>>
+>>
+>>     
+>>> summary(aov(MidAvg ~ Rpres*Ccon + Error(Subject/Ccon*Rpres),data=nr))
+>>>       
+>> Error: Subject
+>>           Df   Sum Sq  Mean Sq F value   Pr(>F)
+>> Rpres      1 13245765 13245765  17.767 0.002256 **
+>> Residuals  9  6709794   745533
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>>
+>> Error: Rpres
+>>       Df   Sum Sq  Mean Sq
+>> Rpres  1 38923433 38923433
+>>
+>> Error: Subject:Ccon
+>>            Df   Sum Sq  Mean Sq F value    Pr(>F)
+>> Ccon        2 16646448  8323224 239.589 3.334e-14 ***
+>> Rpres:Ccon  1   906946   906946  26.107 6.229e-05 ***
+>> Residuals  19   660053    34740
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>>
+>> Error: Subject:Rpres
+>>            Df Sum Sq Mean Sq F value  Pr(>F)
+>> Rpres:Ccon  1 645835  645835  9.5416 0.01295 *
+>> Residuals   9 609176   67686
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>>
+>> Error: Subject:Ccon:Rpres
+>>            Df  Sum Sq Mean Sq F value    Pr(>F)
+>> Rpres:Ccon  2 7636019 3818009  676.48 < 2.2e-16 ***
+>> Residuals  20  112879    5644
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>>
+>> Error: Within
+>>            Df  Sum Sq Mean Sq F value Pr(>F)
+>> Residuals 499 9862093   19764
+>> _______________________________________________
+>> R-lang mailing list
+>> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+>> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>>
+>>     
+>
+>
+>
+
+From englkb-UFfZGkI/6T9aa/9Udqfwiw at public.gmane.org  Mon May 14 18:19:25 2007
+From: englkb-UFfZGkI/6T9aa/9Udqfwiw at public.gmane.org (=?utf-8?q?Laura_Kragsn=C3=A6s_Balling?=)
+Date: Mon, 14 May 2007 20:19:25 +0200
+Subject: Holiday: R-lang Digest, Vol 1, Issue 3
+Message-ID: <fc.0075824e025b7b6a3b9aca00f611e92d.25b7b6c@fcmail.hum.au.dk>
+
+I'm away from May 11 to May 28. I'll attend to your message when I get
+back.
+Sincerely,
+Laura Balling
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From hammond at U.Arizona.EDU  Wed May 16 15:19:45 2007
+From: hammond at U.Arizona.EDU (Michael T Hammond)
+Date: Wed, 16 May 2007 08:19:45 -0700
+Subject: Dunnett test
+Message-ID: <Pine.GSO.4.58.0705160817360.29861@mint.u.arizona.edu>
+
+Hi
+
+Does anybody know if there is a way to get the "Dunnett test" (Dunnett,
+1955) in R?
+
+I've found references to it in the "multcomp" package, but not the test
+per se.
+
+thanks,
+
+Mike Hammond
+
+From cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org  Wed May 16 18:53:09 2007
+From: cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org (Michael Cysouw)
+Date: Wed, 16 May 2007 20:53:09 +0200
+Subject: apply through a list
+Message-ID: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de>
+
+a general question, not specific to linguistics...
+
+I have a (large) set of same-size matrices M1,M2,M3,... which I  
+stored in a list. How do I apply a function over the same position of  
+all matrices? For example, take the sum M1+M2+M3+...
+
+I have not found any "apply" like variant that would do the trick.  
+Any suggestions?
+
+best
+michael
+
+
+—————————————————————————
+Michael Cysouw
+
+Department of Linguistics
+Max Planck Institute for Evolutionary Anthropology
+Deutscher  Platz 6
+D-04103 Leipzig
+
+Room: U 1.14
+
+phone:    +49 (0) 341 35 50 316
+fax:          +49 (0) 341 35 50 333
+home:       +49 (0) 341 22 59 488
+mobile:      +49 (0) 172 18 33 507
+e-mail:       cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org
+homepage:  http://www.eva.mpg.de/~cysouw/
+—————————————————————————
+
+From a.fugard-5WhEfG1TI8k at public.gmane.org  Wed May 16 19:15:37 2007
+From: a.fugard-5WhEfG1TI8k at public.gmane.org (Andy Fugard)
+Date: Wed, 16 May 2007 20:15:37 +0100
+Subject: New mailing list: R for psychology research
+Message-ID: <464B5859.4070004@ed.ac.uk>
+
+Hello all,
+
+Many apologies for cross-posting.
+
+There's a new mailing list for researchers in psychology who are
+learning and using R.  New users of R are especially welcome.  Doesn't 
+matter what flavour of psychological research you're into -- we hope to 
+encourage cross-communication between, e.g., psycholinguistics and 
+psychometrics.
+
+To join, venture to
+
+   http://www.jiscmail.ac.uk/archives/psych-r.html
+
+and click
+
+   "Join or leave the list (or change settings)"
+
+You can also peruse the archives from that page.
+
+Best wishes,
+
+Andy
+
+-- 
+Andy Fugard, Postgraduate Research Student
+Psychology (Room F15), The University of Edinburgh,
+   7 George Square, Edinburgh EH8 9JZ, UK
+Mobile: +44 (0)78 123 87190   http://www.possibly.me.uk
+
+From bresnan-FGKo4X94FMn2fBVCVOL8/A at public.gmane.org  Wed May 16 19:18:06 2007
+From: bresnan-FGKo4X94FMn2fBVCVOL8/A at public.gmane.org (Joan Bresnan)
+Date: Wed, 16 May 2007 12:18:06 -0700
+Subject: Re: apply through a list
+In-Reply-To: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de>
+References: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de>
+Message-ID: <f7b6ce520705161218l7829d91by201c77fafb89c9e5@mail.gmail.com>
+
+Are you looking for lapply?
+lapply                 package:base                 R Documentation
+
+Apply a Function over a List or Vector
+
+Description:
+
+     'lapply' returns a list of the same length as 'X', each element of
+     which is the result of applying 'FUN' to the corresponding element
+     of 'X'.
+
+     'sapply' is a "user-friendly" version of 'lapply' by default
+     returning a vector or matrix if appropriate.
+
+     'replicate' is a wrapper for the common use of 'sapply' for
+     repeated evaluation of an expression (which will usually involve
+     random number generation).
+
+Usage:
+
+     lapply(X, FUN, ...)
+
+     sapply(X, FUN, ..., simplify = TRUE, USE.NAMES = TRUE)
+
+
+
+
+On 5/16/07, Michael Cysouw <cysouw at eva.mpg.de> wrote:
+> a general question, not specific to linguistics...
+>
+> I have a (large) set of same-size matrices M1,M2,M3,... which I
+> stored in a list. How do I apply a function over the same position of
+> all matrices? For example, take the sum M1+M2+M3+...
+>
+> I have not found any "apply" like variant that would do the trick.
+> Any suggestions?
+>
+> best
+> michael
+>
+>
+> —————————————————————————
+> Michael Cysouw
+>
+> Department of Linguistics
+> Max Planck Institute for Evolutionary Anthropology
+> Deutscher  Platz 6
+> D-04103 Leipzig
+>
+> Room: U 1.14
+>
+> phone:    +49 (0) 341 35 50 316
+> fax:          +49 (0) 341 35 50 333
+> home:       +49 (0) 341 22 59 488
+> mobile:      +49 (0) 172 18 33 507
+> e-mail:       cysouw at eva.mpg.de
+> homepage:  http://www.eva.mpg.de/~cysouw/
+> —————————————————————————
+>
+>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang at ling.ucsd.edu
+> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>
+
+
+-- 
+Joan Bresnan
+Stanford University
+http://www.stanford.edu/~bresnan/
+
+_______________________________________________
+R-lang mailing list
+R-lang at ling.ucsd.edu
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org  Wed May 16 20:43:22 2007
+From: cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org (Michael Cysouw)
+Date: Wed, 16 May 2007 22:43:22 +0200
+Subject: Re: apply through a list
+In-Reply-To: <f7b6ce520705161218l7829d91by201c77fafb89c9e5@mail.gmail.com>
+References: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de> <f7b6ce520705161218l7829d91by201c77fafb89c9e5@mail.gmail.com>
+Message-ID: <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+
+unfortunatly not: "lapply" applies a function to every element in a  
+list - I am trying to do something with a recurrent part of each  
+element in the list.
+
+For example:
+
+M1 <- matrix( 1:4, nrow=2, ncol=2)
+M2 <- matrix( 5:8, nrow=2, ncol=2)
+
+L <- list( M1, M2 )
+
+How do I apply a function to every position in the matrix through all  
+matrices, say take the average. Expected result:
+
+      [,1] [,2]
+[1,]    3    5
+[2,]    4    6
+
+best
+michael
+
+
+On 16 May 2007, at 21:18, Joan Bresnan wrote:
+
+> Are you looking for lapply?
+> lapply                 package:base                 R Documentation
+>
+> Apply a Function over a List or Vector
+>
+> Description:
+>
+>     'lapply' returns a list of the same length as 'X', each element of
+>     which is the result of applying 'FUN' to the corresponding element
+>     of 'X'.
+>
+>     'sapply' is a "user-friendly" version of 'lapply' by default
+>     returning a vector or matrix if appropriate.
+>
+>     'replicate' is a wrapper for the common use of 'sapply' for
+>     repeated evaluation of an expression (which will usually involve
+>     random number generation).
+>
+> Usage:
+>
+>     lapply(X, FUN, ...)
+>
+>     sapply(X, FUN, ..., simplify = TRUE, USE.NAMES = TRUE)
+>
+>
+>
+>
+> On 5/16/07, Michael Cysouw <cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org> wrote:
+>> a general question, not specific to linguistics...
+>>
+>> I have a (large) set of same-size matrices M1,M2,M3,... which I
+>> stored in a list. How do I apply a function over the same position of
+>> all matrices? For example, take the sum M1+M2+M3+...
+>>
+>> I have not found any "apply" like variant that would do the trick.
+>> Any suggestions?
+>>
+>> best
+>> michael
+>>
+>>
+>> —————————————————————————
+>> Michael Cysouw
+>>
+>> Department of Linguistics
+>> Max Planck Institute for Evolutionary Anthropology
+>> Deutscher  Platz 6
+>> D-04103 Leipzig
+>>
+>> Room: U 1.14
+>>
+>> phone:    +49 (0) 341 35 50 316
+>> fax:          +49 (0) 341 35 50 333
+>> home:       +49 (0) 341 22 59 488
+>> mobile:      +49 (0) 172 18 33 507
+>> e-mail:       cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org
+>> homepage:  http://www.eva.mpg.de/~cysouw/
+>> —————————————————————————
+>>
+>>
+>>
+>> _______________________________________________
+>> R-lang mailing list
+>> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+>> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>>
+>
+>
+> -- 
+> Joan Bresnan
+> Stanford University
+> http://www.stanford.edu/~bresnan/
+
+From a.fugard-5WhEfG1TI8k at public.gmane.org  Wed May 16 21:17:22 2007
+From: a.fugard-5WhEfG1TI8k at public.gmane.org (Andy Fugard)
+Date: Wed, 16 May 2007 22:17:22 +0100
+Subject: Re: apply through a list
+In-Reply-To: <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+References: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de> <f7b6ce520705161218l7829d91by201c77fafb89c9e5@mail.gmail.com> <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+Message-ID: <3C360255-0264-4AFC-BC4B-D091F38D6D95@ed.ac.uk>
+
+Here's a slow solution to your average problem, which I think works.   
+Would it generalise?  I guess using a for loop is a terribly bad  
+idea, especially if you've got a heap of matrices, though.
+
+listmatapply(l,f) takes a list of matrices, l, and a function, f,  
+mapping two matrices to a matrix.
+
+Andy
+
+======================================================================== 
+======
+
+M1 <- matrix( 1:4, nrow=2, ncol=2)
+M2 <- matrix( 5:8, nrow=2, ncol=2)
+M3 <- matrix( 9:12, nrow=2, ncol=2)
+M4 <- matrix( 13:16, nrow=2, ncol=2)
+M5 <- matrix( 17:20, nrow=2, ncol=2)
+
+L <- list( M1, M2, M3, M4, M5 )
+
+dim(M1)
+
+listmatapply <- function(l,f) {
+   tempres <- f(l[[1]], l[[2]])
+   i <- 3
+   while ( i <= length(L) ) {
+     	tempres <- f(tempres, l[[i]])
+     	i <- i + 1
+     	tempres
+   }
+   tempres
+}
+
+averagel <- function(L) {
+    listmatapply(L,function(x,y) { x + y}) / length(L)
+}
+
+averagel(L)
+
+
+
+On 16 May 2007, at 21:43, Michael Cysouw wrote:
+
+> unfortunatly not: "lapply" applies a function to every element in a
+> list - I am trying to do something with a recurrent part of each
+> element in the list.
+>
+> For example:
+>
+> M1 <- matrix( 1:4, nrow=2, ncol=2)
+> M2 <- matrix( 5:8, nrow=2, ncol=2)
+>
+> L <- list( M1, M2 )
+>
+> How do I apply a function to every position in the matrix through all
+> matrices, say take the average. Expected result:
+>
+>       [,1] [,2]
+> [1,]    3    5
+> [2,]    4    6
+>
+> best
+> michael
+>
+>
+> On 16 May 2007, at 21:18, Joan Bresnan wrote:
+>
+>> Are you looking for lapply?
+>> lapply                 package:base                 R Documentation
+>>
+>> Apply a Function over a List or Vector
+>>
+>> Description:
+>>
+>>     'lapply' returns a list of the same length as 'X', each  
+>> element of
+>>     which is the result of applying 'FUN' to the corresponding  
+>> element
+>>     of 'X'.
+>>
+>>     'sapply' is a "user-friendly" version of 'lapply' by default
+>>     returning a vector or matrix if appropriate.
+>>
+>>     'replicate' is a wrapper for the common use of 'sapply' for
+>>     repeated evaluation of an expression (which will usually involve
+>>     random number generation).
+>>
+>> Usage:
+>>
+>>     lapply(X, FUN, ...)
+>>
+>>     sapply(X, FUN, ..., simplify = TRUE, USE.NAMES = TRUE)
+>>
+>>
+>>
+>>
+>> On 5/16/07, Michael Cysouw <cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org> wrote:
+>>> a general question, not specific to linguistics...
+>>>
+>>> I have a (large) set of same-size matrices M1,M2,M3,... which I
+>>> stored in a list. How do I apply a function over the same  
+>>> position of
+>>> all matrices? For example, take the sum M1+M2+M3+...
+>>>
+>>> I have not found any "apply" like variant that would do the trick.
+>>> Any suggestions?
+>>>
+>>> best
+>>> michael
+>>>
+>>>
+>>> —————————————————————————
+>>> Michael Cysouw
+>>>
+>>> Department of Linguistics
+>>> Max Planck Institute for Evolutionary Anthropology
+>>> Deutscher  Platz 6
+>>> D-04103 Leipzig
+>>>
+>>> Room: U 1.14
+>>>
+>>> phone:    +49 (0) 341 35 50 316
+>>> fax:          +49 (0) 341 35 50 333
+>>> home:       +49 (0) 341 22 59 488
+>>> mobile:      +49 (0) 172 18 33 507
+>>> e-mail:       cysouw-WIzSxt/3aFiELgA04lAiVw at public.gmane.org
+>>> homepage:  http://www.eva.mpg.de/~cysouw/
+>>> —————————————————————————
+>>>
+>>>
+>>>
+>>> _______________________________________________
+>>> R-lang mailing list
+>>> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+>>> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>>>
+>>
+>>
+>> -- 
+>> Joan Bresnan
+>> Stanford University
+>> http://www.stanford.edu/~bresnan/
+>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>
+
+
+--
+Andy Fugard, Postgraduate Research Student
+Psychology (Room F15), The University of Edinburgh,
+   7 George Square, Edinburgh EH8 9JZ, UK
+Mobile: +44 (0)78 123 87190   http://www.possibly.me.uk
+
+From englkb-UFfZGkI/6T9aa/9Udqfwiw at public.gmane.org  Wed May 16 21:21:31 2007
+From: englkb-UFfZGkI/6T9aa/9Udqfwiw at public.gmane.org (=?utf-8?q?Laura_Kragsn=C3=A6s_Balling?=)
+Date: Wed, 16 May 2007 23:21:31 +0200
+Subject: Holiday: R-lang Digest, Vol 1, Issue 4
+Message-ID: <fc.0075824e025c60bb3b9aca00d06280a2.25c60bd@fcmail.hum.au.dk>
+
+I'm away from May 11 to May 28. I'll attend to your message when I get
+back.
+Sincerely,
+Laura Balling
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From stgries-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed May 16 21:26:31 2007
+From: stgries-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Stefan Th. Gries)
+Date: Wed, 16 May 2007 14:26:31 -0700
+Subject: Re: apply through a list
+In-Reply-To: <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+References: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de> <f7b6ce520705161218l7829d91by201c77fafb89c9e5@mail.gmail.com> <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+Message-ID: <a739b07c0705161426tf1a9595u2e51149a9003470c@mail.gmail.com>
+
+How about this?
+
+# your data
+(M1 <- matrix( 1:4, nrow=2, ncol=2))
+(M2 <- matrix( 5:8, nrow=2, ncol=2))
+(L <- list(M1, M2))
+
+# setting up a matrix for the results
+M.res<-M1
+
+# filling the matrix
+for (i in 1:length(M.res)) {
+   M.res[i]<-mean(sapply(as.vector(L), "[", i)) # apply some function, in
+this example the mean
+
+}
+M.res # look at the results
+
+STG
+-- 
+Stefan Th. Gries
+-----------------------------------------------
+University of California, Santa Barbara
+http://www.linguistics.ucsb.edu/faculty/stgries
+-----------------------------------------------
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From bresnan-FGKo4X94FMn2fBVCVOL8/A at public.gmane.org  Wed May 16 21:20:22 2007
+From: bresnan-FGKo4X94FMn2fBVCVOL8/A at public.gmane.org (Joan Bresnan)
+Date: Wed, 16 May 2007 14:20:22 -0700
+Subject: Re: apply through a list
+In-Reply-To: <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+References: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de> <f7b6ce520705161218l7829d91by201c77fafb89c9e5@mail.gmail.com> <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+Message-ID: <f7b6ce520705161420l15e4eff8h8a0fea5f4a08d368@mail.gmail.com>
+
+> (L[[1]] + L[[2]])/2
+     [,1] [,2]
+[1,]    3    5
+[2,]    4    6
+
+
+On 5/16/07, Michael Cysouw <cysouw at eva.mpg.de> wrote:
+> unfortunatly not: "lapply" applies a function to every element in a
+> list - I am trying to do something with a recurrent part of each
+> element in the list.
+>
+> For example:
+>
+> M1 <- matrix( 1:4, nrow=2, ncol=2)
+> M2 <- matrix( 5:8, nrow=2, ncol=2)
+>
+> L <- list( M1, M2 )
+>
+> How do I apply a function to every position in the matrix through all
+> matrices, say take the average. Expected result:
+>
+>       [,1] [,2]
+> [1,]    3    5
+> [2,]    4    6
+>
+> best
+> michael
+>
+>
+> On 16 May 2007, at 21:18, Joan Bresnan wrote:
+>
+> > Are you looking for lapply?
+> > lapply                 package:base                 R Documentation
+> >
+> > Apply a Function over a List or Vector
+> >
+> > Description:
+> >
+> >     'lapply' returns a list of the same length as 'X', each element of
+> >     which is the result of applying 'FUN' to the corresponding element
+> >     of 'X'.
+> >
+> >     'sapply' is a "user-friendly" version of 'lapply' by default
+> >     returning a vector or matrix if appropriate.
+> >
+> >     'replicate' is a wrapper for the common use of 'sapply' for
+> >     repeated evaluation of an expression (which will usually involve
+> >     random number generation).
+> >
+> > Usage:
+> >
+> >     lapply(X, FUN, ...)
+> >
+> >     sapply(X, FUN, ..., simplify = TRUE, USE.NAMES = TRUE)
+> >
+> >
+> >
+> >
+> > On 5/16/07, Michael Cysouw <cysouw at eva.mpg.de> wrote:
+> >> a general question, not specific to linguistics...
+> >>
+> >> I have a (large) set of same-size matrices M1,M2,M3,... which I
+> >> stored in a list. How do I apply a function over the same position of
+> >> all matrices? For example, take the sum M1+M2+M3+...
+> >>
+> >> I have not found any "apply" like variant that would do the trick.
+> >> Any suggestions?
+> >>
+> >> best
+> >> michael
+> >>
+> >>
+> >> —————————————————————————
+> >> Michael Cysouw
+> >>
+> >> Department of Linguistics
+> >> Max Planck Institute for Evolutionary Anthropology
+> >> Deutscher  Platz 6
+> >> D-04103 Leipzig
+> >>
+> >> Room: U 1.14
+> >>
+> >> phone:    +49 (0) 341 35 50 316
+> >> fax:          +49 (0) 341 35 50 333
+> >> home:       +49 (0) 341 22 59 488
+> >> mobile:      +49 (0) 172 18 33 507
+> >> e-mail:       cysouw at eva.mpg.de
+> >> homepage:  http://www.eva.mpg.de/~cysouw/
+> >> —————————————————————————
+> >>
+> >>
+> >>
+> >> _______________________________________________
+> >> R-lang mailing list
+> >> R-lang at ling.ucsd.edu
+> >> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+> >>
+> >
+> >
+> > --
+> > Joan Bresnan
+> > Stanford University
+> > http://www.stanford.edu/~bresnan/
+>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang at ling.ucsd.edu
+> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>
+
+
+-- 
+Joan Bresnan
+Stanford University
+http://www.stanford.edu/~bresnan/
+
+_______________________________________________
+R-lang mailing list
+R-lang at ling.ucsd.edu
+https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+
+From lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org  Thu May 17 02:51:26 2007
+From: lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org (Lngmyers)
+Date: Thu, 17 May 2007 10:51:26 +0800
+Subject: Re: Dunnett test
+In-Reply-To: <Pine.GSO.4.58.0705160817360.29861@mint.u.arizona.edu>
+References: <Pine.GSO.4.58.0705160817360.29861@mint.u.arizona.edu>
+Message-ID: <464BC32E.9040602@ccu.edu.tw>
+
+
+Michael T Hammond wrote:
+
+> Does anybody know if there is a way to get the "Dunnett test" (Dunnett,
+> 1955) in R?
+> 
+> I've found references to it in the "multcomp" package, but not the test
+> per se.
+
+My first response was -- with proper design, you don't have to worry 
+about post hoc tests! But actually, comparing multiple things with a 
+single control is pretty common in priming experiments....
+
+Anyway, I think I may have figured it out, but I'll let the real experts 
+check to be sure.
+
+Look at the demo "recovery" in the "multcomp" manual. Modify the code 
+like so, to make the test bidirectional with alpha = 0.05:
+
+amod <- aov(minutes ~ blanket, data = recovery)
+ht <- glht(amod, linfct = mcp(blanket = "Dunnett"))
+confint(ht, level = 0.95)
+
+This gives you the following 95% confidence intervals:
+
+Linear Hypotheses:
+              Estimate lwr      upr
+b1 - b0 == 0  -2.1333  -6.1245   1.8578
+b2 - b0 == 0  -7.4667 -11.4578  -3.4755
+b3 - b0 == 0  -1.6667  -3.8685   0.5352
+
+Notice that the function is treating b0 as the "control", since it's 
+alphabetically the first level. The only comparison that has a 
+confidence interval NOT crossing 0 (i.e. both signs are the same) is the 
+one for b2, so that's the only significant comparison.
+
+I compared this result with what's given by StatView for the same data, 
+but with "b0" renamed as "zb0", since for some reason StatView treats 
+the alphabetically LAST level as the control. Then I get:
+
+Dunnett for minutes
+Effect: blanket
+Significance Level: 5 %
+     Mean Diff.  Crit. Diff.	
+b1  -2.133      3.928	
+b2  -7.467      3.928       S
+b3  -1.667      2.167	
+
+Note that only b2 is marked "S" (significant).
+
+Did I do this right...?
+
+-- 
+James Myers
+Graduate Institute of Linguistics
+National Chung Cheng University
+168 University Road, Min-Hsiung
+Chia-Yi 62102
+TAIWAN
+Email:  Lngmyers-wxfK21ZMRnh9nmWX13WWKA at public.gmane.org
+Web:    http://www.ccunix.ccu.edu.tw/~lngmyers/
+Phone:  886-5-242-8251
+Fax:    886-5-272-1654
+
+International Workshop on Grammar & Evidence:
+http://www.ccunix.ccu.edu.tw/~lngproc/IWGE.htm
+
+Try MiniJudge:
+http://www.ccunix.ccu.edu.tw/~lngproc/MiniJudge.htm
+
+From schtepf-7x6NmxSKNF2ELgA04lAiVw at public.gmane.org  Sat May 19 07:45:04 2007
+From: schtepf-7x6NmxSKNF2ELgA04lAiVw at public.gmane.org (Stefan Evert (schtepf.de))
+Date: Sat, 19 May 2007 09:45:04 +0200
+Subject: Re: apply through a list
+In-Reply-To: <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+References: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de> <f7b6ce520705161218l7829d91by201c77fafb89c9e5@mail.gmail.com> <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+Message-ID: <FC47E9D0-A318-4897-8CC3-0AAB5068F62E@schtepf.de>
+
+
+On 16 May 2007, at 22:43, Michael Cysouw wrote:
+
+> unfortunatly not: "lapply" applies a function to every element in a
+> list - I am trying to do something with a recurrent part of each
+> element in the list.
+>
+
+lapply() can't do that because the element in a list might be totally  
+different object, matrices with different dimensions, etc.
+
+In order to sum corresponding entries for a set of matrices (which is  
+the basic operation needed for you average example), you have to  
+combine them in a 3-dimensional array, stacking them on top of each  
+other along the third dimension.  The following code should do the  
+trick, but doesn't check for error conditions etc. (e.g. it assumes  
+that all elements in the list are indeed matrices with the same  
+dimensions, and it will fail horribly if this isn't the case).
+
+## input: L is the list of matrices to be averaged
+d <- dim(L[[1]]) # get matrix dimensions
+A <- array(unlist(L), dim=c(d, length(L)))  # convert into array  
+(first 2 dims = matrix, 3rd dim = stack)
+M.avg <- apply(A, 1:2, mean)  # apply mean() to 3rd dim for every  
+entry in dims 1:2
+
+
+Here's a simple trick to add up the matrices without constructing an  
+array, though it doesn't generalise as easily to arbitrary functions  
+and requires a global variable, so it cannot safely be encapsulated  
+in a general-purpose function:
+
+M.sum <- 0
+lapply(L, function (M) { M.sum <<- M.sum + M })  # note the double arrow
+M.avg <- M.sum / length(L)
+
+Best wishes,
+Stefan
+
+--
+"Ecchi nanoha ikenai to omoimasu."
+stefan.evert-a4z0M+xeBX8 at public.gmane.org
+purl.org/stefan.evert
+
+From stefan.evert-a4z0M+xeBX8 at public.gmane.org  Sat May 19 10:16:53 2007
+From: stefan.evert-a4z0M+xeBX8 at public.gmane.org (Stefan Evert)
+Date: Sat, 19 May 2007 12:16:53 +0200
+Subject: Re: apply through a list
+In-Reply-To: <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+References: <3D055BC9-0018-4506-A480-375234A80723@eva.mpg.de> <f7b6ce520705161218l7829d91by201c77fafb89c9e5@mail.gmail.com> <03902FE2-1F3D-411E-8BC7-7B0EF6DA1FFE@eva.mpg.de>
+Message-ID: <8A36CCE0-B907-4209-8E86-BC846B29BC94@uos.de>
+
+
+On 16 May 2007, at 22:43, Michael Cysouw wrote:
+
+> unfortunatly not: "lapply" applies a function to every element in a
+> list - I am trying to do something with a recurrent part of each
+> element in the list.
+>
+
+lapply() can't do that because the element in a list might be totally  
+different object, matrices with different dimensions, etc.
+
+In order to sum corresponding entries for a set of matrices (which is  
+the basic operation needed for you average example), you have to  
+combine them in a 3-dimensional array, stacking them on top of each  
+other along the third dimension.  The following code should do the  
+trick, but doesn't check for error conditions etc. (e.g. it assumes  
+that all elements in the list are indeed matrices with the same  
+dimensions, and it will fail horribly if this isn't the case).
+
+## input: L is the list of matrices to be averaged
+d <- dim(L[[1]]) # get matrix dimensions
+A <- array(unlist(L), dim=c(d, length(L)))  # convert into array  
+(first 2 dims = matrix, 3rd dim = stack)
+M.avg <- apply(A, 1:2, mean)  # apply mean() to 3rd dim for every  
+entry in dims 1:2
+
+
+Here's a simple trick to add up the matrices without constructing an  
+array, though it doesn't generalise as easily to arbitrary functions  
+and requires a global variable, so it cannot safely be encapsulated  
+in a general-purpose function:
+
+M.sum <- 0
+lapply(L, function (M) { M.sum <<- M.sum + M })  # note the double arrow
+M.avg <- M.sum / length(L)
+
+Best wishes,
+Stefan
+
+--
+"Ecchi nanoha ikenai to omoimasu."
+stefan.evert-a4z0M+xeBX8 at public.gmane.org
+purl.org/stefan.evert
+
+From ken.williams-L+G57L1VLRZBDgjK7y7TUQ at public.gmane.org  Fri May 25 21:57:30 2007
+From: ken.williams-L+G57L1VLRZBDgjK7y7TUQ at public.gmane.org (Ken Williams)
+Date: Fri, 25 May 2007 16:57:30 -0500
+Subject: Fitting a Zipf-Mandelbrot distribution
+Message-ID: <C27CC5FA.FA24%ken.williams@thomson.com>
+
+Hi,
+
+I've got some data (picture at http://limnus.com/~ken/zipf.jpg ) that seems
+to very obviously follow a Zipf-Mandelbrot distribution, and I'm wondering
+how to best fit the parameters of the distribution given the data.
+
+I'm using the equation y = P(x + A)^-B as the canonical form of the
+Zipf-Mandelbrot curve.
+
+As a first attempt, I fixed the two endpoints (x=1 and y=1) to coincide with
+the expected values on the graph, which analytically gives me values for P
+and B as functions of A.  Then I twiddle around with values for A until it
+looks nice.  On the attached graph, this means I end up with A=8.
+
+This method pretty clearly overfits the endpoints, and is subject to the
+whims of my eyeballs for A.  What would members of this list suggest for
+alternative fitting methods?
+
+Thanks,
+
+ -Ken
+
+From marco.baroni-3IIOeSMMxS4 at public.gmane.org  Fri May 25 22:13:21 2007
+From: marco.baroni-3IIOeSMMxS4 at public.gmane.org (Marco Baroni)
+Date: Sat, 26 May 2007 00:13:21 +0200
+Subject: Re: Fitting a Zipf-Mandelbrot distribution
+In-Reply-To: <C27CC5FA.FA24%ken.williams@thomson.com>
+References: <C27CC5FA.FA24%ken.williams@thomson.com>
+Message-ID: <46575F81.4080700@unitn.it>
+
+Dear Ken,
+
+Routines to fit a Zipf-Mandelbrot (probability) distribution are 
+implemented in our zipfR library for R:
+
+http://www.cogsci.uni-osnabrueck.de/~severt/zipfR
+
+The library documentation also points to some literature on the topic 
+(most notably, Baayens' 2001 Word Frequency Distributions book).
+
+Regards,
+
+Marco
+
+
+Ken Williams wrote:
+> Hi,
+> 
+> I've got some data (picture at http://limnus.com/~ken/zipf.jpg ) that seems
+> to very obviously follow a Zipf-Mandelbrot distribution, and I'm wondering
+> how to best fit the parameters of the distribution given the data.
+> 
+> I'm using the equation y = P(x + A)^-B as the canonical form of the
+> Zipf-Mandelbrot curve.
+> 
+> As a first attempt, I fixed the two endpoints (x=1 and y=1) to coincide with
+> the expected values on the graph, which analytically gives me values for P
+> and B as functions of A.  Then I twiddle around with values for A until it
+> looks nice.  On the attached graph, this means I end up with A=8.
+> 
+> This method pretty clearly overfits the endpoints, and is subject to the
+> whims of my eyeballs for A.  What would members of this list suggest for
+> alternative fitting methods?
+> 
+> Thanks,
+> 
+>  -Ken
+> 
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+> 
+
+
+-- 
+Marco Baroni
+CIMeC, University of Trento
+http://www.form.unitn.it/~baroni
+
+From ken.williams-L+G57L1VLRZBDgjK7y7TUQ at public.gmane.org  Tue May 29 16:14:41 2007
+From: ken.williams-L+G57L1VLRZBDgjK7y7TUQ at public.gmane.org (Ken Williams)
+Date: Tue, 29 May 2007 11:14:41 -0500
+Subject: Re: Fitting a Zipf-Mandelbrot distribution
+In-Reply-To: <46575F81.4080700-3IIOeSMMxS4@public.gmane.org>
+References: <46575F81.4080700@unitn.it>
+Message-ID: <C281BBA1.FA80%ken.williams@thomson.com>
+
+Excellent!  Thanks for the pointer.
+
+ -Ken
+
+
+On 5/25/07 5:13 PM, "Marco Baroni" <marco.baroni-3IIOeSMMxS4 at public.gmane.org> wrote:
+
+> Dear Ken,
+> 
+> Routines to fit a Zipf-Mandelbrot (probability) distribution are
+> implemented in our zipfR library for R:
+> 
+> http://www.cogsci.uni-osnabrueck.de/~severt/zipfR
+> 
+> The library documentation also points to some literature on the topic
+> (most notably, Baayens' 2001 Word Frequency Distributions book).
+> 
+> Regards,
+> 
+> Marco
+> 
+> 
+> Ken Williams wrote:
+>> Hi,
+>> 
+>> I've got some data (picture at http://limnus.com/~ken/zipf.jpg ) that seems
+>> to very obviously follow a Zipf-Mandelbrot distribution, and I'm wondering
+>> how to best fit the parameters of the distribution given the data.
+>> 
+>> I'm using the equation y = P(x + A)^-B as the canonical form of the
+>> Zipf-Mandelbrot curve.
+>> 
+>> As a first attempt, I fixed the two endpoints (x=1 and y=1) to coincide with
+>> the expected values on the graph, which analytically gives me values for P
+>> and B as functions of A.  Then I twiddle around with values for A until it
+>> looks nice.  On the attached graph, this means I end up with A=8.
+>> 
+>> This method pretty clearly overfits the endpoints, and is subject to the
+>> whims of my eyeballs for A.  What would members of this list suggest for
+>> alternative fitting methods?
+>> 
+>> Thanks,
+>> 
+>>  -Ken
+>> 
+>> _______________________________________________
+>> R-lang mailing list
+>> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+>> https://ling.ucsd.edu/mailman/listinfo.cgi/r-lang
+>> 
+>
+

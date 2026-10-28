@@ -1,0 +1,457 @@
+From aeber at allstate.com  Thu Aug 20 00:19:42 2015
+From: aeber at allstate.com (Eberle, Anthony)
+Date: Thu, 20 Aug 2015 00:19:42 +0000
+Subject: Rserve --vanilla switch, what does it really do?
+Message-ID: <47BF9B98892417429144BC41D96420280548EA60@A0185-XPO1022-C.ad.allstate.com>
+
+Hello All-
+
+We're in the process of upgrading some code deployed in 2012 for running Java using Rserve (0.6-8).  The code starts up Rserve as a LINUX daemon and starts with the following: "Rserve -vanilla -RS-conf ......."
+
+I was asked by the individual doing the work what does the "-vanilla" do.  Unfortunately we have no notes.  Searching the web shows several examples where -vanilla is needed but I've not yet been able to find details on what it really does.  -help does not seem to give any information either.
+
+Wondering if someone could provide insight in what the -vanilla switch does and when one would/would not use it.
+
+Thanks in advance.
+
+Anthony
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Thu Aug 20 04:06:44 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 20 Aug 2015 00:06:44 -0400
+Subject: Re: Rserve --vanilla switch, what does it really do?
+In-Reply-To: <47BF9B98892417429144BC41D96420280548EA60@A0185-XPO1022-C.ad.allstate.com>
+References: <47BF9B98892417429144BC41D96420280548EA60@A0185-XPO1022-C.ad.allstate.com>
+Message-ID: <6D2AE985-EAFF-4D85-948A-0ABE8E4279BD@r-project.org>
+
+
+On Aug 19, 2015, at 8:19 PM, Eberle, Anthony <aeber at allstate.com> wrote:
+
+> Hello All—
+>  
+> We’re in the process of upgrading some code deployed in 2012 for running Java using Rserve (0.6-8).  The code starts up Rserve as a LINUX daemon and starts with the following: “Rserve –vanilla –RS-conf …….”
+>  
+> I was asked by the individual doing the work what does the “—vanilla” do.  Unfortunately we have no notes.  Searching the web shows several examples where –vanilla is needed but I’ve not yet been able to find details on what it really does.  –help does not seem to give any information either.
+
+$ R --help
+[...]
+  --no-save             Don't save it
+  --no-environ          Don't read the site and user environment files
+  --no-site-file        Don't read the site-wide Rprofile
+  --no-init-file        Don't read the user R profile
+  --restore             Do restore previously saved objects at startup
+  --no-restore-data     Don't restore previously saved objects
+  --no-restore-history  Don't restore the R history file
+  --no-restore          Don't restore anything
+  --vanilla		Combine --no-save, --no-restore, --no-site-file,
+			--no-init-file and --no-environ
+^^^^^
+
+
+>  
+> Wondering if someone could provide insight in what the –vanilla switch does and when one would/would not use it.
+
+
+Typically, R requires at least one of --save/--no-save, so --vanilla is the most popular one when starting a server since it is not affected by user's settings.
+
+Cheers,
+Simon
+
+
+>  
+> Thanks in advance.
+>  
+> Anthony
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From cassiomartini at gmail.com  Tue Aug 25 17:57:59 2015
+From: cassiomartini at gmail.com (=?utf-8?b?Q8Ohc3NpbyBNLiBNLiBQZXJlaXJh?=)
+Date: Tue, 25 Aug 2015 14:57:59 -0300
+Subject: Multidimensional arrays and rJava
+Message-ID: <CANOrUAD=P90OO+tKCb1CGAdYx6M=-sVmPJkkL6NqL6=tnAvi7Q@mail.gmail.com>
+
+I'm trying to call java code from R using the rJava package.
+
+I need to pass a multidimensional (2d) doubles array to the java
+method and get back a 1d array of ints.
+
+Here's the package information:
+
+> sessionInfo()
+R version 3.2.1 (2015-06-18)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 8 x64 (build 9200)
+
+locale:
+[1] LC_COLLATE=Portuguese_Brazil.1252  LC_CTYPE=Portuguese_Brazil.1252
+   LC_MONETARY=Portuguese_Brazil.1252
+[4] LC_NUMERIC=C                       LC_TIME=Portuguese_Brazil.1252
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] rJava_0.9-6         RevoUtilsMath_3.2.1
+
+loaded via a namespace (and not attached):
+[1] tools_3.2.1
+
+This is the code
+
+Sys.setenv(JAVA_HOME="") # have to do this for rJava...
+
+require(rJava)
+
+.jinit()
+.jaddClassPath("C:/Users/Cássio/Dropbox/workspace/snncluster/target/snncluster-0.0.1-SNAPSHOT-jar-with-dependencies.jar")
+
+set.seed(1234)
+
+Y1 = matrix(rnorm(30*2, mean = 0, sd = 1), 30, 2)
+Y2 = matrix(rnorm(30*2, mean = 10, sd = 1), 30, 2)
+
+Y3 = rbind(Y1, Y2)
+
+#snn = .jnew("br/fapesp/snn/snncluster/SNN")
+
+snn = J("br.fapesp.snn.snncluster.SNN")
+
+#lbls = .jcall(snn, "[I", "snn", .jarray(Y3,'[[D'), 10, 5, 7, evalArray = TRUE)
+
+lbls = snn$snn(.jarray(Y3, '[[D'), as.integer(10), as.double(5), as.integer(7))
+
+I can't seem to determine the correct way to call the method.
+
+jmethod returns:
+
+> .jmethods(snn)
+ [1] "public static int
+br.fapesp.snn.snncluster.SNN.countIntersect(java.util.HashSet,java.util.HashSet)"
+ [2] "public static int[]
+br.fapesp.snn.snncluster.SNN.snn(double[][],int,double,int)"
+ [3] "public final void java.lang.Object.wait() throws
+java.lang.InterruptedException"
+ [4] "public final void java.lang.Object.wait(long,int) throws
+java.lang.InterruptedException"
+ [5] "public final native void java.lang.Object.wait(long) throws
+java.lang.InterruptedException"
+ [6] "public boolean java.lang.Object.equals(java.lang.Object)"
+ [7] "public java.lang.String java.lang.Object.toString()"
+ [8] "public native int java.lang.Object.hashCode()"
+ [9] "public final native java.lang.Class java.lang.Object.getClass()"
+[10] "public final native void java.lang.Object.notify()"
+[11] "public final native void java.lang.Object.notifyAll()"
+
+I want to call the static method [2].
+
+The return I get:
+
+Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  :
+  java.lang.NoSuchMethodException: No suitable method for the given parameters
+
+Any idea what is the correct way to call the method?
+
+Thanks,
+Cássio
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Wed Aug 26 15:29:31 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 26 Aug 2015 10:29:31 -0500
+Subject: Re: Multidimensional arrays and rJava
+In-Reply-To: <CANOrUAD=P90OO+tKCb1CGAdYx6M=-sVmPJkkL6NqL6=tnAvi7Q@mail.gmail.com>
+References: <CANOrUAD=P90OO+tKCb1CGAdYx6M=-sVmPJkkL6NqL6=tnAvi7Q@mail.gmail.com>
+Message-ID: <716B6631-6B26-4109-AD83-484037DFAE6A@r-project.org>
+
+
+On Aug 25, 2015, at 12:57 PM, Cássio M. M. Pereira <cassiomartini at gmail.com> wrote:
+
+> I'm trying to call java code from R using the rJava package.
+> 
+> I need to pass a multidimensional (2d) doubles array to the java
+> method and get back a 1d array of ints.
+> 
+> Here's the package information:
+> 
+>> sessionInfo()
+> R version 3.2.1 (2015-06-18)
+> Platform: x86_64-w64-mingw32/x64 (64-bit)
+> Running under: Windows 8 x64 (build 9200)
+> 
+> locale:
+> [1] LC_COLLATE=Portuguese_Brazil.1252  LC_CTYPE=Portuguese_Brazil.1252
+>   LC_MONETARY=Portuguese_Brazil.1252
+> [4] LC_NUMERIC=C                       LC_TIME=Portuguese_Brazil.1252
+> 
+> attached base packages:
+> [1] stats     graphics  grDevices utils     datasets  methods   base
+> 
+> other attached packages:
+> [1] rJava_0.9-6         RevoUtilsMath_3.2.1
+> 
+> loaded via a namespace (and not attached):
+> [1] tools_3.2.1
+> 
+> This is the code
+> 
+> Sys.setenv(JAVA_HOME="") # have to do this for rJava...
+> 
+> require(rJava)
+> 
+> .jinit()
+> .jaddClassPath("C:/Users/Cássio/Dropbox/workspace/snncluster/target/snncluster-0.0.1-SNAPSHOT-jar-with-dependencies.jar")
+> 
+> set.seed(1234)
+> 
+> Y1 = matrix(rnorm(30*2, mean = 0, sd = 1), 30, 2)
+> Y2 = matrix(rnorm(30*2, mean = 10, sd = 1), 30, 2)
+> 
+> Y3 = rbind(Y1, Y2)
+> 
+> #snn = .jnew("br/fapesp/snn/snncluster/SNN")
+> 
+> snn = J("br.fapesp.snn.snncluster.SNN")
+> 
+> #lbls = .jcall(snn, "[I", "snn", .jarray(Y3,'[[D'), 10, 5, 7, evalArray = TRUE)
+> 
+> lbls = snn$snn(.jarray(Y3, '[[D'), as.integer(10), as.double(5), as.integer(7))
+> 
+> I can't seem to determine the correct way to call the method.
+> 
+> jmethod returns:
+> 
+>> .jmethods(snn)
+> [1] "public static int
+> br.fapesp.snn.snncluster.SNN.countIntersect(java.util.HashSet,java.util.HashSet)"
+> [2] "public static int[]
+> br.fapesp.snn.snncluster.SNN.snn(double[][],int,double,int)"
+> [3] "public final void java.lang.Object.wait() throws
+> java.lang.InterruptedException"
+> [4] "public final void java.lang.Object.wait(long,int) throws
+> java.lang.InterruptedException"
+> [5] "public final native void java.lang.Object.wait(long) throws
+> java.lang.InterruptedException"
+> [6] "public boolean java.lang.Object.equals(java.lang.Object)"
+> [7] "public java.lang.String java.lang.Object.toString()"
+> [8] "public native int java.lang.Object.hashCode()"
+> [9] "public final native java.lang.Class java.lang.Object.getClass()"
+> [10] "public final native void java.lang.Object.notify()"
+> [11] "public final native void java.lang.Object.notifyAll()"
+> 
+> I want to call the static method [2].
+> 
+> The return I get:
+> 
+> Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  :
+>  java.lang.NoSuchMethodException: No suitable method for the given parameters
+> 
+> Any idea what is the correct way to call the method?
+> 
+
+In R matrices and arrays are vectors (so in Java that would be double[]) with dimensions, but the Java code above requires a nested arrays (array of arrays of doubles = double[][]).
+
+Let's say you have a matrix m
+
+> m=matrix(1:12/2,3)
+> m
+     [,1] [,2] [,3] [,4]
+[1,]  0.5  2.0  3.5  5.0
+[2,]  1.0  2.5  4.0  5.5
+[3,]  1.5  3.0  4.5  6.0
+
+then you can either construct the nested array by hand using apply:
+
+> .jarray(apply(m, 1, .jarray, "[D"), "[D")
+[1] "Java-Array-Object[[D:[[D@aaf8358"
+
+or you can have rJava dispatch on the object type (here matrix) and try to guess the corresponding Java structure:
+
+> .jarray(m, dispatch=TRUE)
+[1] "Java-Array-Object[[D:[[D@8d80be3"
+
+Note that this example is given in ?.jarray
+
+Cheers,
+Simon
+
+
+
+> Thanks,
+> Cássio
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From cassiomartini at gmail.com  Wed Aug 26 15:46:09 2015
+From: cassiomartini at gmail.com (=?utf-8?b?Q8Ohc3NpbyBNLiBNLiBQZXJlaXJh?=)
+Date: Wed, 26 Aug 2015 12:46:09 -0300
+Subject: Re: Multidimensional arrays and rJava
+In-Reply-To: <716B6631-6B26-4109-AD83-484037DFAE6A@r-project.org>
+References: <CANOrUAD=P90OO+tKCb1CGAdYx6M=-sVmPJkkL6NqL6=tnAvi7Q@mail.gmail.com> <716B6631-6B26-4109-AD83-484037DFAE6A@r-project.org>
+Message-ID: <CANOrUAACcEduNzHCibYujmScwu8q+Vi+79ZG6mzHAx7T6vsWmQ@mail.gmail.com>
+
+Hi Simon,
+
+Thanks for the answer. Using .jarray(m, dispatch = TRUE) worked. I had
+tried that approach, but not in combination with as.integer,
+as.double, etc. Using all of that the method call worked.
+
+Thanks again.
+Cássio
+
+On Wed, Aug 26, 2015 at 12:29 PM, Simon Urbanek
+<simon.urbanek at r-project.org> wrote:
+>
+> On Aug 25, 2015, at 12:57 PM, Cássio M. M. Pereira <cassiomartini at gmail.com> wrote:
+>
+>> I'm trying to call java code from R using the rJava package.
+>>
+>> I need to pass a multidimensional (2d) doubles array to the java
+>> method and get back a 1d array of ints.
+>>
+>> Here's the package information:
+>>
+>>> sessionInfo()
+>> R version 3.2.1 (2015-06-18)
+>> Platform: x86_64-w64-mingw32/x64 (64-bit)
+>> Running under: Windows 8 x64 (build 9200)
+>>
+>> locale:
+>> [1] LC_COLLATE=Portuguese_Brazil.1252  LC_CTYPE=Portuguese_Brazil.1252
+>>   LC_MONETARY=Portuguese_Brazil.1252
+>> [4] LC_NUMERIC=C                       LC_TIME=Portuguese_Brazil.1252
+>>
+>> attached base packages:
+>> [1] stats     graphics  grDevices utils     datasets  methods   base
+>>
+>> other attached packages:
+>> [1] rJava_0.9-6         RevoUtilsMath_3.2.1
+>>
+>> loaded via a namespace (and not attached):
+>> [1] tools_3.2.1
+>>
+>> This is the code
+>>
+>> Sys.setenv(JAVA_HOME="") # have to do this for rJava...
+>>
+>> require(rJava)
+>>
+>> .jinit()
+>> .jaddClassPath("C:/Users/Cássio/Dropbox/workspace/snncluster/target/snncluster-0.0.1-SNAPSHOT-jar-with-dependencies.jar")
+>>
+>> set.seed(1234)
+>>
+>> Y1 = matrix(rnorm(30*2, mean = 0, sd = 1), 30, 2)
+>> Y2 = matrix(rnorm(30*2, mean = 10, sd = 1), 30, 2)
+>>
+>> Y3 = rbind(Y1, Y2)
+>>
+>> #snn = .jnew("br/fapesp/snn/snncluster/SNN")
+>>
+>> snn = J("br.fapesp.snn.snncluster.SNN")
+>>
+>> #lbls = .jcall(snn, "[I", "snn", .jarray(Y3,'[[D'), 10, 5, 7, evalArray = TRUE)
+>>
+>> lbls = snn$snn(.jarray(Y3, '[[D'), as.integer(10), as.double(5), as.integer(7))
+>>
+>> I can't seem to determine the correct way to call the method.
+>>
+>> jmethod returns:
+>>
+>>> .jmethods(snn)
+>> [1] "public static int
+>> br.fapesp.snn.snncluster.SNN.countIntersect(java.util.HashSet,java.util.HashSet)"
+>> [2] "public static int[]
+>> br.fapesp.snn.snncluster.SNN.snn(double[][],int,double,int)"
+>> [3] "public final void java.lang.Object.wait() throws
+>> java.lang.InterruptedException"
+>> [4] "public final void java.lang.Object.wait(long,int) throws
+>> java.lang.InterruptedException"
+>> [5] "public final native void java.lang.Object.wait(long) throws
+>> java.lang.InterruptedException"
+>> [6] "public boolean java.lang.Object.equals(java.lang.Object)"
+>> [7] "public java.lang.String java.lang.Object.toString()"
+>> [8] "public native int java.lang.Object.hashCode()"
+>> [9] "public final native java.lang.Class java.lang.Object.getClass()"
+>> [10] "public final native void java.lang.Object.notify()"
+>> [11] "public final native void java.lang.Object.notifyAll()"
+>>
+>> I want to call the static method [2].
+>>
+>> The return I get:
+>>
+>> Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  :
+>>  java.lang.NoSuchMethodException: No suitable method for the given parameters
+>>
+>> Any idea what is the correct way to call the method?
+>>
+>
+> In R matrices and arrays are vectors (so in Java that would be double[]) with dimensions, but the Java code above requires a nested arrays (array of arrays of doubles = double[][]).
+>
+> Let's say you have a matrix m
+>
+>> m=matrix(1:12/2,3)
+>> m
+>      [,1] [,2] [,3] [,4]
+> [1,]  0.5  2.0  3.5  5.0
+> [2,]  1.0  2.5  4.0  5.5
+> [3,]  1.5  3.0  4.5  6.0
+>
+> then you can either construct the nested array by hand using apply:
+>
+>> .jarray(apply(m, 1, .jarray, "[D"), "[D")
+> [1] "Java-Array-Object[[D:[[D@aaf8358"
+>
+> or you can have rJava dispatch on the object type (here matrix) and try to guess the corresponding Java structure:
+>
+>> .jarray(m, dispatch=TRUE)
+> [1] "Java-Array-Object[[D:[[D@8d80be3"
+>
+> Note that this example is given in ?.jarray
+>
+> Cheers,
+> Simon
+>
+>
+>
+>> Thanks,
+>> Cássio
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

@@ -1,0 +1,347 @@
+From varma.alluru88-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Nov  2 16:43:43 2015
+From: varma.alluru88-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ravi Varma Alluru)
+Date: Mon, 02 Nov 2015 08:43:43 -0800
+Subject: Re: RpostgreSQL doesn't support hstore data type
+In-Reply-To: <2257FA29-387D-4F65-80AE-86FE2FB0E7E8@neiltiffin.com>
+References: <c0f871a0-55bd-4274-807d-f4f25250b36c@googlegroups.com> <2257FA29-387D-4F65-80AE-86FE2FB0E7E8@neiltiffin.com>
+Message-ID: <f153e78c-f81c-4b53-96c2-9b06746352c9@googlegroups.com>
+
+
+Thank you Neil for your help.Casting both the arguments to TEXT has helped 
+in resolving the error.
+
+Right now i am trying to execute the modified query in a loop. Although the 
+loop is getting executed successfully the update statements are not getting 
+committed properly in the database. In other words *I couldn't find any 
+changes to the database happening although the query is running without 
+errors*. Below is the piece of code I am trying to run in R command prompt.
+
+for(i in new_data$FIPS) {
+  drv <- dbDriver("PostgreSQL")
+  con <- dbConnect(drv, dbname="ip_platform", host="******", port="5432", user="data_loader", password="******")
+  txt <- paste("UPDATE adminvectors.county SET attributes= hstore('usco@TP-TotPop@2010'::TEXT,",new_data$TP.TotPop[new_data$FIPS == i],"::TEXT) where geoid ='",i,"'")
+  dbSendQuery(con, txt)
+  dbCommit(con)
+  dbDisconnect(con)}
+
+
+Can anyone let me know if I have done something wrong? Any help is highly 
+appreciated
+
+
+
+
+
+On Thursday, October 29, 2015 at 11:43:52 AM UTC-4, Neil wrote:
+>
+> The key to the error is ‘function hstore(unknown, numeric) does not exist
+> ’.
+>
+> This is returned from the database, not the driver.  I’m not an 
+> hstore user, but my manual does not show any hstore function that takes 
+> unknown and numeric arguments.
+>
+> Depending on what you are trying to accomplish you might try: 
+> SET attributes= attributes || hstore(‘usco@TP-TotPop@2010’::TEXT, 9.315
+> ::TEXT ) 
+>
+> Which is casting both arguments to TEXT.  The red text is added.
+>
+> In any case this is not the RPostgreSQL driver.
+>
+> Neil
+>
+> On Oct 27, 2015, at 7:56 AM, Ravi Varma Alluru <varma.a...-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org 
+> <javascript:>> wrote:
+>
+> Hi Team,
+>
+> I am trying to a update query on a table in postgreSQL database from GNU R 
+> using the RpostgreSQL package. And while trying to do so I am facing an 
+> issue with the hstore data type. Below is the sample query I am passing to 
+> the database
+>
+> txt <- paste("UPDATE adminvectors.county SET attributes= attributes || 
+> hstore('usco@TP-TotPop@2010',"*,new_data$TP.TotPop[new_data$FIPS == i]*,") 
+> where geoid=",i)
+>   dbGetQuery(con, txt)
+>
+> In the above query I am passing the value of a variable in a data frame as 
+> value for hstore key.
+>
+> And I am getting the following error
+>
+> In addition: Warning message:
+> In postgresqlQuickSQL(conn, statement, ...) :
+>   Could not create executeUPDATE adminvectors.county SET attributes= 
+> attributes || hstore('usco@TP-TotPop@2010', 9.315 ) where geoid= 21055
+> Error in postgresqlExecStatement(conn, statement, ...) : 
+>   RS-DBI driver: (could not Retrieve the result : ERROR:  function 
+> hstore(unknown, numeric) does not exist
+> LINE 1: ...adminvectors.county SET attributes= attributes || hstore('us...
+>                                                                           
+>                      ^
+> HINT:  No function matches the given name and argument types. You might 
+> need to add explicit type casts.
+>
+> Is there a way to resolve this driver issue?
+>
+> Any lead for this issue is appreciated.
+>
+> Thanks and Regards,
+> Ravi Varma Alluru.
+>
+> -- 
+> You received this message because you are subscribed to the Google Groups 
+> "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an 
+> email to rpostgresql-d...-/JYPxA39Uh5TLH3MbocFFw at public.gmane.org <javascript:>.
+> For more options, visit https://groups.google.com/d/optout.
+>
+>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org  Tue Nov  3 01:11:04 2015
+From: neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org (Neil Tiffin)
+Date: Mon, 02 Nov 2015 19:11:04 -0600
+Subject: Re: RpostgreSQL doesn't support hstore data type
+In-Reply-To: <f153e78c-f81c-4b53-96c2-9b06746352c9@googlegroups.com>
+References: <c0f871a0-55bd-4274-807d-f4f25250b36c@googlegroups.com> <2257FA29-387D-4F65-80AE-86FE2FB0E7E8@neiltiffin.com> <f153e78c-f81c-4b53-96c2-9b06746352c9@googlegroups.com>
+Message-ID: <D3AF4F88-E8BF-4AA3-8A03-2E79A8EBDEB1@neiltiffin.com>
+
+
+> On Nov 2, 2015, at 10:43 AM, Ravi Varma Alluru <varma.alluru88-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> 
+> 
+> Thank you Neil for your help.Casting both the arguments to TEXT has helped in resolving the error.
+> 
+> Right now i am trying to execute the modified query in a loop. Although the loop is getting executed successfully the update statements are not getting committed properly in the database. In other words I couldn't find any changes to the database happening although the query is running without errors. Below is the piece of code I am trying to run in R command prompt.
+> 
+> for(i in new_data$FIPS) {
+>   drv <- dbDriver("PostgreSQL")
+>   con <- dbConnect(drv, dbname="ip_platform", host="******", port="5432", user="data_loader", password="******")
+>   txt <- paste("UPDATE adminvectors.county SET attributes= hstore('usco@TP-TotPop@2010'::TEXT,",new_data$TP.TotPop[new_data$FIPS == i],"::TEXT) where geoid ='",i,"'")
+>   dbSendQuery(con, txt)
+>   dbCommit(con)
+>   dbDisconnect(con)
+> }
+
+Keep in mind in mind that paste() puts a space in place of every comma by default.  That means if i = 5, that 
+	geoid =‘“,i,”’ 
+is really
+	geode = ‘ 5 ‘
+
+which is probably not what you intended. A space before the last ::TEXT is probably also causing a problem.  To keep this from happening put sep=“” as the last parameter of the paste().
+
+The best way to check these issues is to print the variable txt before executing it. 
+
+
+
+> Can anyone let me know if I have done something wrong? Any help is highly appreciated
+> 
+> 
+> On Thursday, October 29, 2015 at 11:43:52 AM UTC-4, Neil wrote:
+> The key to the error is ‘function hstore(unknown, numeric) does not exist’.
+> 
+> This is returned from the database, not the driver.  I’m not an hstore user, but my manual does not show any hstore function that takes unknown and numeric arguments.
+> 
+> Depending on what you are trying to accomplish you might try: 
+> 	SET attributes= attributes || hstore(‘usco@TP-TotPop@2010’::TEXT, 9.315::TEXT ) 
+> 
+> Which is casting both arguments to TEXT.  The red text is added.
+> 
+> In any case this is not the RPostgreSQL driver.
+> 
+> Neil
+> 
+>> On Oct 27, 2015, at 7:56 AM, Ravi Varma Alluru <varma.a...-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <javascript:>> wrote:
+>> 
+>> Hi Team,
+>> 
+>> I am trying to a update query on a table in postgreSQL database from GNU R using the RpostgreSQL package. And while trying to do so I am facing an issue with the hstore data type. Below is the sample query I am passing to the database
+>> 
+>> txt <- paste("UPDATE adminvectors.county SET attributes= attributes || hstore('usco@TP-TotPop@2010',",new_data$TP.TotPop[new_data$FIPS == i],") where geoid=",i)
+>>   dbGetQuery(con, txt)
+>> 
+>> In the above query I am passing the value of a variable in a data frame as value for hstore key.
+>> 
+>> And I am getting the following error
+>> 
+>> In addition: Warning message:
+>> In postgresqlQuickSQL(conn, statement, ...) :
+>>   Could not create executeUPDATE adminvectors.county SET attributes= attributes || hstore('usco@TP-TotPop@2010', 9.315 ) where geoid= 21055
+>> Error in postgresqlExecStatement(conn, statement, ...) : 
+>>   RS-DBI driver: (could not Retrieve the result : ERROR:  function hstore(unknown, numeric) does not exist
+>> LINE 1: ...adminvectors.county SET attributes= attributes || hstore('us...
+>>                                                                                                ^
+>> HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+>> 
+>> Is there a way to resolve this driver issue?
+>> 
+>> Any lead for this issue is appreciated.
+>> 
+>> Thanks and Regards,
+>> Ravi Varma Alluru.
+>> 
+>> -- 
+>> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+>> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-d...-/JYPxA39Uh5TLH3MbocFFw at public.gmane.org <javascript:>.
+>> For more options, visit https://groups.google.com/d/optout <https://groups.google.com/d/optout>.
+> 
+> 
+> -- 
+> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFFw at public.gmane.org <mailto:rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFFw at public.gmane.org>.
+> For more options, visit https://groups.google.com/d/optout <https://groups.google.com/d/optout>.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From varma.alluru88-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Nov  3 14:40:03 2015
+From: varma.alluru88-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ravi Varma Alluru)
+Date: Tue, 03 Nov 2015 06:40:03 -0800
+Subject: Re: RpostgreSQL doesn't support hstore data type
+In-Reply-To: <D3AF4F88-E8BF-4AA3-8A03-2E79A8EBDEB1@neiltiffin.com>
+References: <c0f871a0-55bd-4274-807d-f4f25250b36c@googlegroups.com> <2257FA29-387D-4F65-80AE-86FE2FB0E7E8@neiltiffin.com> <f153e78c-f81c-4b53-96c2-9b06746352c9@googlegroups.com> <D3AF4F88-E8BF-4AA3-8A03-2E79A8EBDEB1@neiltiffin.com>
+Message-ID: <87e5f82c-325f-4eb7-b480-3ee3c67d4733@googlegroups.com>
+
+
+Thank you Neil for your prompt help. The issue is resolved now.
+
+
+
+On Monday, November 2, 2015 at 8:11:11 PM UTC-5, Neil wrote:
+>
+>
+> On Nov 2, 2015, at 10:43 AM, Ravi Varma Alluru <varma.a...-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org 
+> <javascript:>> wrote:
+>
+>
+> Thank you Neil for your help.Casting both the arguments to TEXT has helped 
+> in resolving the error.
+>
+> Right now i am trying to execute the modified query in a loop. Although 
+> the loop is getting executed successfully the update statements are not 
+> getting committed properly in the database. In other words *I couldn't 
+> find any changes to the database happening although the query is running 
+> without errors*. Below is the piece of code I am trying to run in R 
+> command prompt.
+>
+> for(i in new_data$FIPS) {
+>   drv <- dbDriver("PostgreSQL")
+>   con <- dbConnect(drv, dbname="ip_platform", host="******", port="5432", user="data_loader", password="******")
+>   txt <- paste("UPDATE adminvectors.county SET attributes= hstore('usco@TP-TotPop@2010'::TEXT,",new_data$TP.TotPop[new_data$FIPS == i],"::TEXT) where geoid ='",i,"'")
+>   dbSendQuery(con, txt)
+>   dbCommit(con)
+>   dbDisconnect(con)}
+>
+>
+> Keep in mind in mind that paste() puts a space in place of every comma by 
+> default.  That means if i = 5, that 
+> geoid =‘“,i,”’ 
+> is really
+> geode = ‘ 5 ‘
+>
+> which is probably not what you intended. A space before the last ::TEXT is 
+> probably also causing a problem.  To keep this from happening put sep=“” 
+> as the last parameter of the paste().
+>
+> The best way to check these issues is to print the variable txt before 
+> executing it. 
+>
+>
+>
+> Can anyone let me know if I have done something wrong? Any help is highly 
+> appreciated
+>
+>
+> On Thursday, October 29, 2015 at 11:43:52 AM UTC-4, Neil wrote:
+>>
+>> The key to the error is ‘function hstore(unknown, numeric) does not exist
+>> ’.
+>>
+>> This is returned from the database, not the driver.  I’m not an 
+>> hstore user, but my manual does not show any hstore function that takes 
+>> unknown and numeric arguments.
+>>
+>> Depending on what you are trying to accomplish you might try: 
+>> SET attributes= attributes || hstore(‘usco@TP-TotPop@2010’::TEXT, 9.315
+>> ::TEXT ) 
+>>
+>> Which is casting both arguments to TEXT.  The red text is added.
+>>
+>> In any case this is not the RPostgreSQL driver.
+>>
+>> Neil
+>>
+>> On Oct 27, 2015, at 7:56 AM, Ravi Varma Alluru <varma.a...-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> 
+>> wrote:
+>>
+>> Hi Team,
+>>
+>> I am trying to a update query on a table in postgreSQL database from GNU 
+>> R using the RpostgreSQL package. And while trying to do so I am facing an 
+>> issue with the hstore data type. Below is the sample query I am passing to 
+>> the database
+>>
+>> txt <- paste("UPDATE adminvectors.county SET attributes= attributes || 
+>> hstore('usco@TP-TotPop@2010',"*,new_data$TP.TotPop[new_data$FIPS == i]*,") 
+>> where geoid=",i)
+>>   dbGetQuery(con, txt)
+>>
+>> In the above query I am passing the value of a variable in a data frame 
+>> as value for hstore key.
+>>
+>> And I am getting the following error
+>>
+>> In addition: Warning message:
+>> In postgresqlQuickSQL(conn, statement, ...) :
+>>   Could not create executeUPDATE adminvectors.county SET attributes= 
+>> attributes || hstore('usco@TP-TotPop@2010', 9.315 ) where geoid= 21055
+>> Error in postgresqlExecStatement(conn, statement, ...) : 
+>>   RS-DBI driver: (could not Retrieve the result : ERROR:  function 
+>> hstore(unknown, numeric) does not exist
+>> LINE 1: ...adminvectors.county SET attributes= attributes || hstore('us...
+>>                                                                           
+>>                      ^
+>> HINT:  No function matches the given name and argument types. You might 
+>> need to add explicit type casts.
+>>
+>> Is there a way to resolve this driver issue?
+>>
+>> Any lead for this issue is appreciated.
+>>
+>> Thanks and Regards,
+>> Ravi Varma Alluru.
+>>
+>> -- 
+>> You received this message because you are subscribed to the Google Groups 
+>> "RPostgreSQL Development and Discussion List" group.
+>> To unsubscribe from this group and stop receiving emails from it, send an 
+>> email to rpostgresql-d...-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+>> For more options, visit https://groups.google.com/d/optout.
+>>
+>>
+>>
+> -- 
+> You received this message because you are subscribed to the Google Groups 
+> "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an 
+> email to rpostgresql-d...-/JYPxA39Uh5TLH3MbocFFw at public.gmane.org <javascript:>.
+> For more options, visit https://groups.google.com/d/optout.
+>
+>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+

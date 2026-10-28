@@ -1,0 +1,1892 @@
+From anup.parikh at gmail.com  Mon Jan  3 07:13:08 2011
+From: anup.parikh at gmail.com (Anup Parikh)
+Date: Sun, 02 Jan 2011 23:13:08 -0800
+Subject: [Rpy] memory mangement in rpy2.0.8
+Message-ID: <AANLkTimwweg7XLNu8hc_x9CQHCh63yVFcgMVtr9sEmd3@mail.gmail.com>
+
+I am using rpy2.0.8 on windows and finding that the following script
+keeps taking memory as it processes the loop. since the call to rnorm
+is never assigned, i'm not sure how to release the memory? Is this a
+bug in 2.0.8? Any suggestions would be helpful.
+
+
+import os
+os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+import rpy2.robjects as rpy2
+
+for x in range(20):
+    rpy2.r('rnorm(50000000)')
+    rpy2.r('gc()')
+
+
+Thanks,
+Anup
+
+------------------------------------------------------------------------------
+Learn how Oracle Real Application Clusters (RAC) One Node allows customers
+to consolidate database storage, standardize their database environment, and, 
+should the need arise, upgrade to a full multi-node Oracle RAC database 
+without downtime or disruption
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From henry.ward at me.com  Wed Jan  5 21:14:03 2011
+From: henry.ward at me.com (Henry Ward)
+Date: Wed, 05 Jan 2011 13:14:03 -0800
+Subject: [Rpy] Strange Failure calling robject.DataFrame() from Django that does not fail in Command Line
+Message-ID: <C159E000-4022-454D-A8B3-888653754B3A@me.com>
+
+Hello all,
+
+I'm new to the list and I'm hoping I might be able to find help for a very mysterious failure within the RPY2 code base.  I am converting a python dictionary of arrays into an R DataFrame.  The conversion works fine when I run the code from iPython command line.  However, when I run exactly the same code within a Django session it fails without an error message.  It just exits the __init__ method.
+
+I have used Eclipse Debug to find the exact line of failure and it is the following line 
+
+        df = baseenv_ri.get("data.frame").rcall(kv, globalenv_ri)
+    
+in __init__() of rpy2.robjects.vectors.DataFrame.
+
+I've copied the __init__ at the bottom of the email from rpy2.objects.vectors.DataFrame for reference.  
+
+I have been able to user other classes/methods within the rpy2.robjects.vector in both Django and the command line to convert vectors, arrays, lists, etc....  It is only DataFrame that I've discovered an issue and its only when called from a Django session.  Once again, command line works fine.
+
+I have confirmed multiple times that the Django interpreter is the same as my command line interpreter.  I am using python 2.6.6 32-bit and R version 2.12 and rpy2-2.1.9_20101221-py2.6-macosx-10.5-i386.egg (though I am on snow leopard).
+
+It is a very strange issue because I can only recreate the issue in a Django runserver session (it even works fine in a python manage.py -shell session).  And it does not provide any error.  It simply fails at this line and exits the __init__. 
+
+Does anybody have any insight into what might cause this?  Its such a peculiar issue I don't even know where to start debugging the rpy2 code.  Any thoughts?  Thanks in advance.
+
+Henry
+
+
+    def __init__(self, tlist):
+        """ Create a new data frame.
+
+        :param tlist: rpy2.rlike.container.TaggedList or rpy2.rinterface.SexpVector (and of class 'data.frame' for R)
+        """
+        if isinstance(tlist, rlc.TaggedList):
+            df = baseenv_ri.get("data.frame").rcall(tlist.items(), globalenv_ri)
+            super(DataFrame, self).__init__(df)
+        elif isinstance(tlist, rinterface.SexpVector):
+            if tlist.typeof != rinterface.VECSXP:
+                raise ValueError("tlist should of typeof VECSXP")
+            if not globalenv_ri.get('inherits')(tlist, self._dataframe_name)[0]:
+                raise ValueError('tlist should of R class "data.frame"')
+            super(DataFrame, self).__init__(tlist)
+        elif isinstance(tlist, dict):
+            kv = [(k, conversion.py2ri(v)) for k,v in tlist.iteritems()]
+            kv = tuple(kv)
+            df = baseenv_ri.get("data.frame").rcall(kv, globalenv_ri)
+            super(DataFrame, self).__init__(df)
+        else:
+            raise ValueError("tlist can be either "+
+                             "an instance of rpy2.rlike.container.TaggedList," +
+                             " or an instance of rpy2.rinterface.SexpVector" +
+                             " of type VECSXP, or a Python dict.")
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Learn how Oracle Real Application Clusters (RAC) One Node allows customers
+to consolidate database storage, standardize their database environment, and, 
+should the need arise, upgrade to a full multi-node Oracle RAC database 
+without downtime or disruption
+http://p.sf.net/sfu/oracle-sfdevnl
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From henry.ward at me.com  Thu Jan  6 23:41:23 2011
+From: henry.ward at me.com (Henry Ward)
+Date: Thu, 06 Jan 2011 15:41:23 -0800
+Subject: [Rpy] SOLUTION: Strange Failure calling robject.DataFrame() from Django that does not fail in Command Line
+In-Reply-To: <C159E000-4022-454D-A8B3-888653754B3A@me.com>
+References: <C159E000-4022-454D-A8B3-888653754B3A@me.com>
+Message-ID: <35EEA056-7F05-48C1-9714-A358C4D8ABE3@me.com>
+
+Hi all,
+I've figured out part of the problem and the full solution and wanted to post the solution.  The problem is that the .rcall(kv, globalenv_ri) method uses the keys of the dictionary kv as the keyword arguments.  It was failing because the keyword arguments were in unicode and not string.  Apparently this is a bug in some versions of Python 2.6.  It seemed to work fine for me except with the Django webservice.  I still do not know why it works on all my interpreters except when running python manage.py runserver.  
+
+But the quick fix is to manually cast the keywords in kv to string.  I made a minor modification to vectors.py  where I convert k into a string as str(k) inside the list iteration below.  This fixed the problem.
+
+Thanks,
+
+Henry
+
+kv = [(str(k), conversion.py2ri(v)) for k,v in tlist.iteritems()]
+            kv = tuple(kv)
+            df = baseenv_ri.get("data.frame").rcall(kv, globalenv_ri)
+
+
+On Jan 5, 2011, at 1:14 PM, Henry Ward wrote:
+
+> Hello all,
+> 
+> I'm new to the list and I'm hoping I might be able to find help for a very mysterious failure within the RPY2 code base.  I am converting a python dictionary of arrays into an R DataFrame.  The conversion works fine when I run the code from iPython command line.  However, when I run exactly the same code within a Django session it fails without an error message.  It just exits the __init__ method.
+> 
+> I have used Eclipse Debug to find the exact line of failure and it is the following line 
+> 
+>         df = baseenv_ri.get("data.frame").rcall(kv, globalenv_ri)
+>     
+> in __init__() of rpy2.robjects.vectors.DataFrame.
+> 
+> I've copied the __init__ at the bottom of the email from rpy2.objects.vectors.DataFrame for reference.  
+> 
+> I have been able to user other classes/methods within the rpy2.robjects.vector in both Django and the command line to convert vectors, arrays, lists, etc....  It is only DataFrame that I've discovered an issue and its only when called from a Django session.  Once again, command line works fine.
+> 
+> I have confirmed multiple times that the Django interpreter is the same as my command line interpreter.  I am using python 2.6.6 32-bit and R version 2.12 and rpy2-2.1.9_20101221-py2.6-macosx-10.5-i386.egg (though I am on snow leopard).
+> 
+> It is a very strange issue because I can only recreate the issue in a Django runserver session (it even works fine in a python manage.py -shell session).  And it does not provide any error.  It simply fails at this line and exits the __init__. 
+> 
+> Does anybody have any insight into what might cause this?  Its such a peculiar issue I don't even know where to start debugging the rpy2 code.  Any thoughts?  Thanks in advance.
+> 
+> Henry
+> 
+> 
+>     def __init__(self, tlist):
+>         """ Create a new data frame.
+> 
+>         :param tlist: rpy2.rlike.container.TaggedList or rpy2.rinterface.SexpVector (and of class 'data.frame' for R)
+>         """
+>         if isinstance(tlist, rlc.TaggedList):
+>             df = baseenv_ri.get("data.frame").rcall(tlist.items(), globalenv_ri)
+>             super(DataFrame, self).__init__(df)
+>         elif isinstance(tlist, rinterface.SexpVector):
+>             if tlist.typeof != rinterface.VECSXP:
+>                 raise ValueError("tlist should of typeof VECSXP")
+>             if not globalenv_ri.get('inherits')(tlist, self._dataframe_name)[0]:
+>                 raise ValueError('tlist should of R class "data.frame"')
+>             super(DataFrame, self).__init__(tlist)
+>         elif isinstance(tlist, dict):
+>             kv = [(k, conversion.py2ri(v)) for k,v in tlist.iteritems()]
+>             kv = tuple(kv)
+>             df = baseenv_ri.get("data.frame").rcall(kv, globalenv_ri)
+>             super(DataFrame, self).__init__(df)
+>         else:
+>             raise ValueError("tlist can be either "+
+>                              "an instance of rpy2.rlike.container.TaggedList," +
+>                              " or an instance of rpy2.rinterface.SexpVector" +
+>                              " of type VECSXP, or a Python dict.")
+>     
+> ------------------------------------------------------------------------------
+> Learn how Oracle Real Application Clusters (RAC) One Node allows customers
+> to consolidate database storage, standardize their database environment, and, 
+> should the need arise, upgrade to a full multi-node Oracle RAC database 
+> without downtime or disruption
+> http://p.sf.net/sfu/oracle-sfdevnl_______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Learn how Oracle Real Application Clusters (RAC) One Node allows customers
+to consolidate database storage, standardize their database environment, and, 
+should the need arise, upgrade to a full multi-node Oracle RAC database 
+without downtime or disruption
+http://p.sf.net/sfu/oracle-sfdevnl
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From anup.parikh at gmail.com  Sat Jan  8 19:34:47 2011
+From: anup.parikh at gmail.com (Anup Parikh)
+Date: Sat, 08 Jan 2011 11:34:47 -0800
+Subject: Re: [Rpy] memory mangement in rpy2.0.8
+In-Reply-To: <AANLkTimwweg7XLNu8hc_x9CQHCh63yVFcgMVtr9sEmd3@mail.gmail.com>
+References: <AANLkTimwweg7XLNu8hc_x9CQHCh63yVFcgMVtr9sEmd3@mail.gmail.com>
+Message-ID: <AANLkTi=4qgkNiorKkLvDxcV37hwh8OT9CK8tj+8_FHoM@mail.gmail.com>
+
+seems like this is a problem with large datasets and rpy2. The python
+code will fail, the R will not.
+If I reduce the data size to 5000000, both snippets will work.
+
+===python code run in IDLE===
+import os
+os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+import rpy2.robjects as rpy2
+
+count = 200
+for x in range(count):
+    print 'round' , x
+    rpy2.r('a<-rnorm(50000000)')
+    rpy2.r('gc()')
+
+===ERROR===
+    rpy2.r('a<-rnorm(50000000)')
+  File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line
+536, in __call__
+    res = self.eval(p)
+  File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line
+423, in __call__
+    res = super(RFunction, self).__call__(*new_args, **new_kwargs)
+RRuntimeError: Error: cannot allocate vector of size 381.5 Mb
+
+
+
+==R code run in windows RGui.exe==
+for( x in 1:200){
+    print(x)
+    a<-rnorm(50000000)
+    gc()
+}
+
+Any suggestions??
+
+Thanks,
+Anup
+
+
+On Sun, Jan 2, 2011 at 11:13 PM, Anup Parikh <anup.parikh at gmail.com> wrote:
+> I am using rpy2.0.8 on windows and finding that the following script
+> keeps taking memory as it processes the loop. since the call to rnorm
+> is never assigned, i'm not sure how to release the memory? Is this a
+> bug in 2.0.8? Any suggestions would be helpful.
+>
+>
+> import os
+> os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+> import rpy2.robjects as rpy2
+>
+> for x in range(20):
+>    rpy2.r('rnorm(50000000)')
+>    rpy2.r('gc()')
+>
+>
+> Thanks,
+> Anup
+>
+
+------------------------------------------------------------------------------
+Gaining the trust of online customers is vital for the success of any company
+that requires sensitive data to be transmitted over the Web.   Learn how to 
+best implement a security strategy that keeps consumers' information secure 
+and instills the confidence they need to proceed with transactions.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From lgautier at gmail.com  Sat Jan  8 21:47:07 2011
+From: lgautier at gmail.com (Laurent)
+Date: Sat, 08 Jan 2011 22:47:07 +0100
+Subject: Re: [Rpy] memory mangement in rpy2.0.8
+In-Reply-To: <AANLkTi=4qgkNiorKkLvDxcV37hwh8OT9CK8tj+8_FHoM@mail.gmail.com>
+References: <AANLkTimwweg7XLNu8hc_x9CQHCh63yVFcgMVtr9sEmd3@mail.gmail.com> <AANLkTi=4qgkNiorKkLvDxcV37hwh8OT9CK8tj+8_FHoM@mail.gmail.com>
+Message-ID: <4D28DB5B.8010900@gmail.com>
+
+
+That part of the documentation should apply to 2.0.8
+http://rpy.sourceforge.net/rpy2/doc-2.1/html/performances.html#memory-usage
+
+Manual invocation of the garbage collector is sometimes needed. Example 
+of a discussion around that:
+http://stackoverflow.com/questions/1740394/python-behavior-of-the-garbage-collector
+
+
+L.
+
+PS: rpy2 under MSWindows is not very well supported.
+
+
+
+On 08/01/11 20:34, Anup Parikh wrote:
+> seems like this is a problem with large datasets and rpy2. The python
+> code will fail, the R will not.
+> If I reduce the data size to 5000000, both snippets will work.
+>
+> ===python code run in IDLE===
+> import os
+> os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+> import rpy2.robjects as rpy2
+>
+> count = 200
+> for x in range(count):
+>      print 'round' , x
+>      rpy2.r('a<-rnorm(50000000)')
+>      rpy2.r('gc()')
+>
+> ===ERROR===
+>      rpy2.r('a<-rnorm(50000000)')
+>    File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line
+> 536, in __call__
+>      res = self.eval(p)
+>    File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line
+> 423, in __call__
+>      res = super(RFunction, self).__call__(*new_args, **new_kwargs)
+> RRuntimeError: Error: cannot allocate vector of size 381.5 Mb
+>
+>
+>
+> ==R code run in windows RGui.exe==
+> for( x in 1:200){
+>      print(x)
+>      a<-rnorm(50000000)
+>      gc()
+> }
+>
+> Any suggestions??
+>
+> Thanks,
+> Anup
+>
+>
+> On Sun, Jan 2, 2011 at 11:13 PM, Anup Parikh<anup.parikh at gmail.com>  wrote:
+>> I am using rpy2.0.8 on windows and finding that the following script
+>> keeps taking memory as it processes the loop. since the call to rnorm
+>> is never assigned, i'm not sure how to release the memory? Is this a
+>> bug in 2.0.8? Any suggestions would be helpful.
+>>
+>>
+>> import os
+>> os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+>> import rpy2.robjects as rpy2
+>>
+>> for x in range(20):
+>>     rpy2.r('rnorm(50000000)')
+>>     rpy2.r('gc()')
+>>
+>>
+>> Thanks,
+>> Anup
+>>
+>
+> ------------------------------------------------------------------------------
+> Gaining the trust of online customers is vital for the success of any company
+> that requires sensitive data to be transmitted over the Web.   Learn how to
+> best implement a security strategy that keeps consumers' information secure
+> and instills the confidence they need to proceed with transactions.
+> http://p.sf.net/sfu/oracle-sfdevnl
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Gaining the trust of online customers is vital for the success of any company
+that requires sensitive data to be transmitted over the Web.   Learn how to 
+best implement a security strategy that keeps consumers' information secure 
+and instills the confidence they need to proceed with transactions.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From ptittmann at gmail.com  Fri Jan 14 01:29:49 2011
+From: ptittmann at gmail.com (Peter)
+Date: Thu, 13 Jan 2011 17:29:49 -0800
+Subject: [Rpy] ImportError: No module named packages/ggplot2
+Message-ID: <4D2FA70D.1080501@gmail.com>
+
+Hi,
+
+Im trying to load the rpy libraries for ggplot 2 and importr. I'm on 
+Ubuntu 10.10 x64 with R packages installed using aptitude (including 
+r-base-dev). Ive installed the ggplot2 package using the R 
+package.install("ggplot2") command. I'm using the svn version of rpy2:
+
+ >>> rpy2.__version__
+'2.1.0-dev'
+
+importing problems fro 'packages' and 'ggplot2'
+
+ >>> import rpy2.robjects.lib.ggplot2 as ggplot2
+Traceback (most recent call last):
+   File "<stdin>", line 1, in <module>
+ImportError: No module named lib.ggplot2
+ >>> import rpy2.robjects as ro
+ >>> from rpy2.robjects.packages import importr
+Traceback (most recent call last):
+   File "<stdin>", line 1, in <module>
+ImportError: No module named packages
+ >>> import rpy2.robjects.numpy2ri
+
+
+results of installation test:
+
+~$ python -m 'rpy2.tests'
+.......................Error in .Primitive("[")(0:10, list("a", "b", 
+"c")) :
+   invalid subscript type 'list'
+
+............................................................F.....Loading required 
+package: splines
+
+..................Error in function (x)  : object 'y' not found
+
+...Error in .Primitive("sum")(c("a", "b", "c", "d", "e", "f", "g", "h", 
+"i",  :
+   invalid 'type' (character) of argument
+
+......F..........................................
+======================================================================
+FAIL: testNewWithoutInit 
+(rpy2.rinterface.tests.test_SexpVector.SexpVectorTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+   File 
+"/usr/local/lib/python2.6/dist-packages/rpy2/rinterface/tests/test_SexpVector.py", 
+line 43, in testNewWithoutInit
+     self.assertTrue(False) # worked when tested, but calling 
+endEmbeddedR causes trouble
+AssertionError
+
+======================================================================
+FAIL: testCallErrorWhenEndedR 
+(rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+   File 
+"/usr/local/lib/python2.6/dist-packages/rpy2/rinterface/tests/test_EmbeddedR.py", 
+line 30, in testCallErrorWhenEndedR
+     self.assertTrue(False) # worked when tested, but calling 
+endEmbeddedR causes trouble
+AssertionError
+
+----------------------------------------------------------------------
+Ran 159 tests in 0.215s
+
+FAILED (failures=2)
+
+
+thanks in advance for any assistance!
+
+Peter
+
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From anup.parikh at gmail.com  Sat Jan 15 17:30:17 2011
+From: anup.parikh at gmail.com (Anup Parikh)
+Date: Sat, 15 Jan 2011 09:30:17 -0800
+Subject: Re: [Rpy] memory mangement in rpy2.0.8
+In-Reply-To: <4D28DB5B.8010900@gmail.com>
+References: <AANLkTimwweg7XLNu8hc_x9CQHCh63yVFcgMVtr9sEmd3@mail.gmail.com> <AANLkTi=4qgkNiorKkLvDxcV37hwh8OT9CK8tj+8_FHoM@mail.gmail.com> <4D28DB5B.8010900@gmail.com>
+Message-ID: <AANLkTimiXkewvfcapa5gxHWMDCg7F8sXdo5CabgG5jc_@mail.gmail.com>
+
+Thanks Laurent. I noticed the lack of support for windows, and I
+completely understand. Maintaining installers for multiple platforms
+is a real pain. I am using rpy2 for  the Red-R project and we really
+must support windows...
+Kyle is working on making the newest version of RPy2 run on windows.
+We'll let you know if and when we have something.
+
+Thanks,
+Anup
+
+On Sat, Jan 8, 2011 at 1:47 PM, Laurent <lgautier at gmail.com> wrote:
+>
+> That part of the documentation should apply to 2.0.8
+> http://rpy.sourceforge.net/rpy2/doc-2.1/html/performances.html#memory-usage
+>
+> Manual invocation of the garbage collector is sometimes needed. Example of a
+> discussion around that:
+> http://stackoverflow.com/questions/1740394/python-behavior-of-the-garbage-collector
+>
+>
+> L.
+>
+> PS: rpy2 under MSWindows is not very well supported.
+>
+>
+>
+> On 08/01/11 20:34, Anup Parikh wrote:
+>>
+>> seems like this is a problem with large datasets and rpy2. The python
+>> code will fail, the R will not.
+>> If I reduce the data size to 5000000, both snippets will work.
+>>
+>> ===python code run in IDLE===
+>> import os
+>> os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+>> import rpy2.robjects as rpy2
+>>
+>> count = 200
+>> for x in range(count):
+>>     print 'round' , x
+>>     rpy2.r('a<-rnorm(50000000)')
+>>     rpy2.r('gc()')
+>>
+>> ===ERROR===
+>>     rpy2.r('a<-rnorm(50000000)')
+>>   File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line
+>> 536, in __call__
+>>     res = self.eval(p)
+>>   File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line
+>> 423, in __call__
+>>     res = super(RFunction, self).__call__(*new_args, **new_kwargs)
+>> RRuntimeError: Error: cannot allocate vector of size 381.5 Mb
+>>
+>>
+>>
+>> ==R code run in windows RGui.exe==
+>> for( x in 1:200){
+>>     print(x)
+>>     a<-rnorm(50000000)
+>>     gc()
+>> }
+>>
+>> Any suggestions??
+>>
+>> Thanks,
+>> Anup
+>>
+>>
+>> On Sun, Jan 2, 2011 at 11:13 PM, Anup Parikh<anup.parikh at gmail.com>
+>>  wrote:
+>>>
+>>> I am using rpy2.0.8 on windows and finding that the following script
+>>> keeps taking memory as it processes the loop. since the call to rnorm
+>>> is never assigned, i'm not sure how to release the memory? Is this a
+>>> bug in 2.0.8? Any suggestions would be helpful.
+>>>
+>>>
+>>> import os
+>>> os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+>>> import rpy2.robjects as rpy2
+>>>
+>>> for x in range(20):
+>>>    rpy2.r('rnorm(50000000)')
+>>>    rpy2.r('gc()')
+>>>
+>>>
+>>> Thanks,
+>>> Anup
+>>>
+>>
+>>
+>> ------------------------------------------------------------------------------
+>> Gaining the trust of online customers is vital for the success of any
+>> company
+>> that requires sensitive data to be transmitted over the Web.   Learn how
+>> to
+>> best implement a security strategy that keeps consumers' information
+>> secure
+>> and instills the confidence they need to proceed with transactions.
+>> http://p.sf.net/sfu/oracle-sfdevnl
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From lgautier at gmail.com  Sun Jan 16 13:57:44 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Sun, 16 Jan 2011 14:57:44 +0100
+Subject: Re: [Rpy] memory mangement in rpy2.0.8
+In-Reply-To: <AANLkTimiXkewvfcapa5gxHWMDCg7F8sXdo5CabgG5jc_@mail.gmail.com>
+References: <AANLkTimwweg7XLNu8hc_x9CQHCh63yVFcgMVtr9sEmd3@mail.gmail.com> <AANLkTi=4qgkNiorKkLvDxcV37hwh8OT9CK8tj+8_FHoM@mail.gmail.com> <4D28DB5B.8010900@gmail.com> <AANLkTimiXkewvfcapa5gxHWMDCg7F8sXdo5CabgG5jc_@mail.gmail.com>
+Message-ID: <4D32F958.9010704@gmail.com>
+
+On 1/15/11 6:30 PM, Anup Parikh wrote:
+> Thanks Laurent. I noticed the lack of support for windows, and I
+> completely understand. Maintaining installers for multiple platforms
+> is a real pain. I am using rpy2 for  the Red-R project and we really
+> must support windows...
+
+The situation with Windows is even deteriorating with the old 2.0.8 no 
+longer working with the latest version of R (2.12) because of changes in 
+the R installer. I thought of at least updating that but so far I did 
+not have time for it.
+
+> Kyle is working on making the newest version of RPy2 run on windows.
+> We'll let you know if and when we have something.
+>
+> Thanks,
+> Anup
+>
+> On Sat, Jan 8, 2011 at 1:47 PM, Laurent<lgautier at gmail.com>  wrote:
+>>
+>> That part of the documentation should apply to 2.0.8
+>> http://rpy.sourceforge.net/rpy2/doc-2.1/html/performances.html#memory-usage
+>>
+>> Manual invocation of the garbage collector is sometimes needed. Example of a
+>> discussion around that:
+>> http://stackoverflow.com/questions/1740394/python-behavior-of-the-garbage-collector
+>>
+>>
+>> L.
+>>
+>> PS: rpy2 under MSWindows is not very well supported.
+>>
+>>
+>>
+>> On 08/01/11 20:34, Anup Parikh wrote:
+>>>
+>>> seems like this is a problem with large datasets and rpy2. The python
+>>> code will fail, the R will not.
+>>> If I reduce the data size to 5000000, both snippets will work.
+>>>
+>>> ===python code run in IDLE===
+>>> import os
+>>> os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+>>> import rpy2.robjects as rpy2
+>>>
+>>> count = 200
+>>> for x in range(count):
+>>>      print 'round' , x
+>>>      rpy2.r('a<-rnorm(50000000)')
+>>>      rpy2.r('gc()')
+>>>
+>>> ===ERROR===
+>>>      rpy2.r('a<-rnorm(50000000)')
+>>>    File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line
+>>> 536, in __call__
+>>>      res = self.eval(p)
+>>>    File "C:\Python26\lib\site-packages\rpy2\robjects\__init__.py", line
+>>> 423, in __call__
+>>>      res = super(RFunction, self).__call__(*new_args, **new_kwargs)
+>>> RRuntimeError: Error: cannot allocate vector of size 381.5 Mb
+>>>
+>>>
+>>>
+>>> ==R code run in windows RGui.exe==
+>>> for( x in 1:200){
+>>>      print(x)
+>>>      a<-rnorm(50000000)
+>>>      gc()
+>>> }
+>>>
+>>> Any suggestions??
+>>>
+>>> Thanks,
+>>> Anup
+>>>
+>>>
+>>> On Sun, Jan 2, 2011 at 11:13 PM, Anup Parikh<anup.parikh at gmail.com>
+>>>   wrote:
+>>>>
+>>>> I am using rpy2.0.8 on windows and finding that the following script
+>>>> keeps taking memory as it processes the loop. since the call to rnorm
+>>>> is never assigned, i'm not sure how to release the memory? Is this a
+>>>> bug in 2.0.8? Any suggestions would be helpful.
+>>>>
+>>>>
+>>>> import os
+>>>> os.environ['R_HOME'] = 'C:/Users/anup/Documents/red/develop/R/R-2.9.2'
+>>>> import rpy2.robjects as rpy2
+>>>>
+>>>> for x in range(20):
+>>>>     rpy2.r('rnorm(50000000)')
+>>>>     rpy2.r('gc()')
+>>>>
+>>>>
+>>>> Thanks,
+>>>> Anup
+>>>>
+>>>
+>>>
+>>> ------------------------------------------------------------------------------
+>>> Gaining the trust of online customers is vital for the success of any
+>>> company
+>>> that requires sensitive data to be transmitted over the Web.   Learn how
+>>> to
+>>> best implement a security strategy that keeps consumers' information
+>>> secure
+>>> and instills the confidence they need to proceed with transactions.
+>>> http://p.sf.net/sfu/oracle-sfdevnl
+>>> _______________________________________________
+>>> rpy-list mailing list
+>>> rpy-list at lists.sourceforge.net
+>>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>
+
+
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From carson.farmer at gmail.com  Sun Jan 16 23:25:54 2011
+From: carson.farmer at gmail.com (Carson Farmer)
+Date: Sun, 16 Jan 2011 23:25:54 +0000
+Subject: [Rpy] data.frame element extraction
+Message-ID: <AANLkTikcetFXtEgdLmG1eheVTSou8kL-D2-wD-M37oO9@mail.gmail.com>
+
+Hi list, I have run into a bit of an issue with the R-style element
+extraction for an robjects.DataFrame. I'll try to explain my issue
+with an example:
+>>> d = {'a': robjects.IntVector((1,2,3)), 'b': robjects.IntVector((4,5,6))}
+>>> dataf = robjects.DataFrame(d)
+>>> print dataf
+  a b
+1 1 4
+2 2 5
+3 3 6
+Now, if I want to remove a column from this data.frame, I can do so
+with something like this:
+>>> dataf2 = dataf.rx(-2)
+Which works fine, and produces a new data.frame as output
+>>> print dataf2
+  a
+1 1
+2 2
+3 3
+However, if I now wanted to remove the last row for instance:
+>>> dataf3 = dataf2.rx(-3, True)
+>>> print dataf3
+[1] 1 2
+I no longer get a data.frame, but instead, I get an IntVector object.
+This appears to be because I am working with a single column
+data.frame, because if I do the above on the original data.frame
+(dataf, with two columns), it works as expected:
+>>> dataf4 = dataf.rx(-2, True)
+>>> print dataf4
+  a b
+1 1 4
+2 2 5
+A similar thing happens if I reduce the original data.frame down to
+one column using the following syntax (note the added 'True' statement
+for the rows argument):
+>>> dataf5 = dataf.rx(True, -2)
+>>> print dataf5
+[1] 1 2 3
+
+Can anyone think of any workarounds to fix this issue? What I'd really
+like is a way to index by either columns or rows and still get back a
+data.frame, even if it is just a one column data.frame.
+
+Rpy2 version 2.1.4
+R version 2.12.1 (2010-12-16)
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+
+Cheers,
+
+Carson
+
+
+-- 
+Carson J. Q. Farmer
+ISSP Doctoral Fellow
+National Centre for Geocomputation
+National University of Ireland, Maynooth,
+http://www.carsonfarmer.com/
+
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From lgautier at gmail.com  Mon Jan 17 06:38:39 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Mon, 17 Jan 2011 07:38:39 +0100
+Subject: Re: [Rpy] data.frame element extraction
+In-Reply-To: <AANLkTikcetFXtEgdLmG1eheVTSou8kL-D2-wD-M37oO9@mail.gmail.com>
+References: <AANLkTikcetFXtEgdLmG1eheVTSou8kL-D2-wD-M37oO9@mail.gmail.com>
+Message-ID: <4D33E3EF.9010607@gmail.com>
+
+On 1/17/11 12:25 AM, Carson Farmer wrote:
+(...)
+>>>> dataf2 = dataf.rx(-2)
+> Which works fine, and produces a new data.frame as output
+>>>> print dataf2
+>    a
+> 1 1
+> 2 2
+> 3 3
+> However, if I now wanted to remove the last row for instance:
+>>>> dataf3 = dataf2.rx(-3, True)
+>>>> print dataf3
+> [1] 1 2
+> I no longer get a data.frame, but instead, I get an IntVector object.
+
+That's R's default to "drop" dimensions.
+
+dataf3 = dataf2.rx(-3, True, drop = False)
+
+Should return you a data.frame.
+I have wondered whether I should make drop = False the default.
+
+(...)
+>
+> Rpy2 version 2.1.4
+
+Latest in 2.1.x is 2.1.9.
+
+> R version 2.12.1 (2010-12-16)
+> Platform: x86_64-pc-linux-gnu (64-bit)
+>
+
+
+Best,
+
+
+L.
+
+
+
+
+> Cheers,
+>
+> Carson
+>
+>
+
+
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From ptittmann at gmail.com  Tue Jan 18 23:43:46 2011
+From: ptittmann at gmail.com (Peter Tittmann)
+Date: Tue, 18 Jan 2011 15:43:46 -0800
+Subject: Re: [Rpy] ImportError: No module named packages/ggplot2
+In-Reply-To: <4D2FA70D.1080501@gmail.com>
+References: <4D2FA70D.1080501@gmail.com>
+Message-ID: <5DE96E4631AF4C8CAB63DCE71CA8C4C3@gmail.com>
+
+Any hints even?
+
+
+thanks and apologies if this is an obvious question....
+
+-- 
+Peter
+
+
+
+On Thursday, January 13, 2011 at 5:29 PM, Peter wrote:
+
+> Hi,
+> 
+> Im trying to load the rpy libraries for ggplot 2 and importr. I'm on 
+> Ubuntu 10.10 x64 with R packages installed using aptitude (including 
+> r-base-dev). Ive installed the ggplot2 package using the R 
+> package.install("ggplot2") command. I'm using the svn version of rpy2:
+> 
+> >>> rpy2.__version__
+> '2.1.0-dev'
+> 
+> importing problems fro 'packages' and 'ggplot2'
+> 
+> >>> import rpy2.robjects.lib.ggplot2 as ggplot2
+> Traceback (most recent call last):
+>  File "<stdin>", line 1, in <module>
+> ImportError: No module named lib.ggplot2
+> >>> import rpy2.robjects as ro
+> >>> from rpy2.robjects.packages import importr
+> Traceback (most recent call last):
+>  File "<stdin>", line 1, in <module>
+> ImportError: No module named packages
+> >>> import rpy2.robjects.numpy2ri
+> 
+> 
+> results of installation test:
+> 
+> ~$ python -m 'rpy2.tests'
+> .......................Error in .Primitive("[")(0:10, list("a", "b", 
+> "c")) :
+>  invalid subscript type 'list'
+> 
+> ............................................................F.....Loading required 
+> package: splines
+> 
+> ..................Error in function (x) : object 'y' not found
+> 
+> ...Error in .Primitive("sum")(c("a", "b", "c", "d", "e", "f", "g", "h", 
+> "i", :
+>  invalid 'type' (character) of argument
+> 
+> ......F..........................................
+> ======================================================================
+> FAIL: testNewWithoutInit 
+> (rpy2.rinterface.tests.test_SexpVector.SexpVectorTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>  File 
+> "/usr/local/lib/python2.6/dist-packages/rpy2/rinterface/tests/test_SexpVector.py", 
+> line 43, in testNewWithoutInit
+>  self.assertTrue(False) # worked when tested, but calling 
+> endEmbeddedR causes trouble
+> AssertionError
+> 
+> ======================================================================
+> FAIL: testCallErrorWhenEndedR 
+> (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>  File 
+> "/usr/local/lib/python2.6/dist-packages/rpy2/rinterface/tests/test_EmbeddedR.py", 
+> line 30, in testCallErrorWhenEndedR
+>  self.assertTrue(False) # worked when tested, but calling 
+> endEmbeddedR causes trouble
+> AssertionError
+> 
+> ----------------------------------------------------------------------
+> Ran 159 tests in 0.215s
+> 
+> FAILED (failures=2)
+> 
+> 
+> thanks in advance for any assistance!
+> 
+> Peter
+> 
+> 
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From ptittmann at gmail.com  Wed Jan 19 01:52:51 2011
+From: ptittmann at gmail.com (Peter Tittmann)
+Date: Tue, 18 Jan 2011 17:52:51 -0800
+Subject: [Rpy] SOLVED Re: ImportError: No module named packages/ggplot2
+Message-ID: <AANLkTim+YN-JBO4jggQZdpJtMnFbSVtkHce38H=rRLbo@mail.gmail.com>
+
+SOLVED
+
+had inadvertently installed rpy previously. probably due to having
+downloaded the entire repository (rpy and rpy2 branches). simply
+followed the instructions here to remove existing rpy installation and
+reinstalled from the rpy repo here:
+
+http://www.bitbucket.org/lgautier/rpy2/
+
+peter
+
+On Thu, Jan 13, 2011 at 5:29 PM, Peter <ptittmann at gmail.com> wrote:
+> Hi,
+>
+> Im trying to load the rpy libraries for ggplot 2 and importr. I'm on Ubuntu
+> 10.10 x64 with R packages installed using aptitude (including r-base-dev).
+> Ive installed the ggplot2 package using the R package.install("ggplot2")
+> command. I'm using the svn version of rpy2:
+>
+>>>> rpy2.__version__
+> '2.1.0-dev'
+>
+> importing problems fro 'packages' and 'ggplot2'
+>
+>>>> import rpy2.robjects.lib.ggplot2 as ggplot2
+> Traceback (most recent call last):
+>  File "<stdin>", line 1, in <module>
+> ImportError: No module named lib.ggplot2
+>>>> import rpy2.robjects as ro
+>>>> from rpy2.robjects.packages import importr
+> Traceback (most recent call last):
+>  File "<stdin>", line 1, in <module>
+> ImportError: No module named packages
+>>>> import rpy2.robjects.numpy2ri
+>
+>
+> results of installation test:
+>
+> ~$ python -m 'rpy2.tests'
+> .......................Error in .Primitive("[")(0:10, list("a", "b", "c")) :
+>  invalid subscript type 'list'
+>
+> ............................................................F.....Loading
+> required package: splines
+>
+> ..................Error in function (x)  : object 'y' not found
+>
+> ...Error in .Primitive("sum")(c("a", "b", "c", "d", "e", "f", "g", "h", "i",
+>  :
+>  invalid 'type' (character) of argument
+>
+> ......F..........................................
+> ======================================================================
+> FAIL: testNewWithoutInit
+> (rpy2.rinterface.tests.test_SexpVector.SexpVectorTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>  File
+> "/usr/local/lib/python2.6/dist-packages/rpy2/rinterface/tests/test_SexpVector.py",
+> line 43, in testNewWithoutInit
+>    self.assertTrue(False) # worked when tested, but calling endEmbeddedR
+> causes trouble
+> AssertionError
+>
+> ======================================================================
+> FAIL: testCallErrorWhenEndedR
+> (rpy2.rinterface.tests.test_EmbeddedR.EmbeddedRTestCase)
+> ----------------------------------------------------------------------
+> Traceback (most recent call last):
+>  File
+> "/usr/local/lib/python2.6/dist-packages/rpy2/rinterface/tests/test_EmbeddedR.py",
+> line 30, in testCallErrorWhenEndedR
+>    self.assertTrue(False) # worked when tested, but calling endEmbeddedR
+> causes trouble
+> AssertionError
+>
+> ----------------------------------------------------------------------
+> Ran 159 tests in 0.215s
+>
+> FAILED (failures=2)
+>
+>
+> thanks in advance for any assistance!
+>
+> Peter
+>
+
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From ptittmann at gmail.com  Wed Jan 19 02:33:22 2011
+From: ptittmann at gmail.com (Peter Tittmann)
+Date: Tue, 18 Jan 2011 18:33:22 -0800
+Subject: [Rpy] ggplot.aes_string not supported in rpy2 2.1.0dev ?
+Message-ID: <AANLkTikymd+TknAi1thWVRX0L_pejjgAjccDDjg3pGC0@mail.gmail.com>
+
+Greetings again,
+
+i had written a script to use the aes_string method in ggplot2 with
+rpy2 which worked fin in a previous version. however, the current hg
+version ('2.1.0dev') throws the following error when aes_string is
+called as described in the documentation
+(http://rpy.sourceforge.net/rpy2/doc-2.2/html/graphics.html#package-ggplot2)
+:
+
+In [15]: pp = gp + \
+   ....:      ggplot2.aes_string(x='wt', y='mpg') + \
+   ....:      ggplot2.geom_point()
+------------------------------------------------------------
+Traceback (most recent call last):
+  File "<ipython console>", line 2, in <module>
+AttributeError: 'module' object has no attribute 'aes_string'
+
+any ideas?
+
+Thanks,
+
+Peter
+
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From lgautier at gmail.com  Wed Jan 19 06:41:39 2011
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Wed, 19 Jan 2011 07:41:39 +0100
+Subject: Re: [Rpy] ggplot.aes_string not supported in rpy2 2.1.0dev ?
+In-Reply-To: <AANLkTikymd+TknAi1thWVRX0L_pejjgAjccDDjg3pGC0@mail.gmail.com>
+References: <AANLkTikymd+TknAi1thWVRX0L_pejjgAjccDDjg3pGC0@mail.gmail.com>
+Message-ID: <4D3687A3.7010700@gmail.com>
+
+On 1/19/11 3:33 AM, Peter Tittmann wrote:
+> Greetings again,
+>
+> i had written a script to use the aes_string method in ggplot2 with
+> rpy2 which worked fin in a previous version. however, the current hg
+> version ('2.1.0dev') throws the following error when aes_string is
+> called as described in the documentation
+> (http://rpy.sourceforge.net/rpy2/doc-2.2/html/graphics.html#package-ggplot2)
+> :
+>
+> In [15]: pp = gp + \
+>     ....:      ggplot2.aes_string(x='wt', y='mpg') + \
+>     ....:      ggplot2.geom_point()
+> ------------------------------------------------------------
+> Traceback (most recent call last):
+>    File "<ipython console>", line 2, in<module>
+> AttributeError: 'module' object has no attribute 'aes_string'
+>
+> any ideas?
+
+The documentation you are referring to corresponds to a different 
+version of rpy2.
+
+Moreover, rpy2-2.1.0dev corresponds to a development snapshot from 
+somewhere in the past. The current release is 2.1.9, current development 
+is 2.2.0alphax
+
+
+
+
+L.
+
+
+
+>
+> Thanks,
+>
+> Peter
+>
+> ------------------------------------------------------------------------------
+> Protect Your Site and Customers from Malware Attacks
+> Learn about various malware tactics and how to avoid them. Understand
+> malware threats, the impact they can have on your business, and how you
+> can protect your company and customers by using code signing.
+> http://p.sf.net/sfu/oracle-sfdevnl
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+From ptittmann at gmail.com  Wed Jan 19 18:15:39 2011
+From: ptittmann at gmail.com (Peter Tittmann)
+Date: Wed, 19 Jan 2011 10:15:39 -0800
+Subject: [Rpy] SOLVED Re: ggplot.aes_string not supported in rpy2 2.1.0dev ?
+In-Reply-To: <4D3687A3.7010700@gmail.com>
+References: <AANLkTikymd+TknAi1thWVRX0L_pejjgAjccDDjg3pGC0@mail.gmail.com> <4D3687A3.7010700@gmail.com>
+Message-ID: <2063C0A9E8B14455B8B227AD62BCCC2F@gmail.com>
+
+thanks laurent,
+
+
+i just needed to remove the '2.1.0dev' which installed by default when i ran setup.py after cloning the repository and do the following:
+
+
+hg update -C <latest version> 
+
+
+before running setup.py install.
+
+
+this may be obvious but just in case someone else gets confused...
+
+
+cheers,
+peter 
+
+
+On Tuesday, January 18, 2011 at 10:41 PM, Laurent Gautier wrote:
+
+> On 1/19/11 3:33 AM, Peter Tittmann wrote:
+> 
+> > Greetings again,
+> > 
+> > i had written a script to use the aes_string method in ggplot2 with
+> > rpy2 which worked fin in a previous version. however, the current hg
+> > version ('2.1.0dev') throws the following error when aes_string is
+> > called as described in the documentation
+> > (http://rpy.sourceforge.net/rpy2/doc-2.2/html/graphics.html#package-ggplot2)
+> > :
+> > 
+> > In [15]: pp = gp + \
+> >  ....: ggplot2.aes_string(x='wt', y='mpg') + \
+> >  ....: ggplot2.geom_point()
+> > ------------------------------------------------------------
+> > Traceback (most recent call last):
+> >  File "<ipython console>", line 2, in<module>
+> > AttributeError: 'module' object has no attribute 'aes_string'
+> > 
+> > any ideas?
+> > 
+> > 
+> 
+> The documentation you are referring to corresponds to a different 
+> version of rpy2.
+> 
+> Moreover, rpy2-2.1.0dev corresponds to a development snapshot from 
+> somewhere in the past. The current release is 2.1.9, current development 
+> is 2.2.0alphax
+> 
+> 
+> 
+> 
+> L.
+> 
+> 
+> 
+> 
+> > 
+> > Thanks,
+> > 
+> > Peter
+> > 
+> > ------------------------------------------------------------------------------
+> > Protect Your Site and Customers from Malware Attacks
+> > Learn about various malware tactics and how to avoid them. Understand
+> > malware threats, the impact they can have on your business, and how you
+> > can protect your company and customers by using code signing.
+> > http://p.sf.net/sfu/oracle-sfdevnl
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> > 
+> > 
+> 
+> 
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Protect Your Site and Customers from Malware Attacks
+Learn about various malware tactics and how to avoid them. Understand 
+malware threats, the impact they can have on your business, and how you 
+can protect your company and customers by using code signing.
+http://p.sf.net/sfu/oracle-sfdevnl
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From brenbarn at brenbarn.net  Sat Jan 22 01:26:49 2011
+From: brenbarn at brenbarn.net (OKB (not okblacke))
+Date: Sat, 22 Jan 2011 01:26:49 +0000
+Subject: [Rpy] Rpy Windows binary for Python 2.6, R 2.11.1
+Message-ID: <Xns9E74B1D375CFOKB@80.91.229.10>
+
+    	Hi.  Does anyone know where I can get a Windows binary of rpy for 
+Python 2.6 and R 2.11.1?
+
+Thanks,
+-- 
+--OKB (not okblacke)
+Brendan Barnwell
+"Do not follow where the path may lead.  Go, instead, where there is
+no path, and leave a trail."
+	--author unknown
+
+
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+From kyle at red-r.org  Mon Jan 24 15:34:59 2011
+From: kyle at red-r.org (Kyle Covington)
+Date: Mon, 24 Jan 2011 09:34:59 -0600
+Subject: [Rpy] segfault on close (quit())
+Message-ID: <AANLkTikppE4cVkuD7hkZjfX7FgW+EXcrvR1CPso=8Q4R@mail.gmail.com>
+
+Hi everyone,
+
+I noticed that rpy2 is segfaulting when I execute the following code;
+
+import rpy3.robjects as ro
+ro.r('iris') #just to check that it's working
+
+ro.r('quit("no")')
+
+I suppose I could just leave R open and that it would be closed when Python
+closes but I just wanted to be clean about shutting everything down.
+
+Is there an rpy2 function that replaces R's quit for use in rpy2?
+
+Thanks
+Kyle
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Tue Jan 25 13:05:56 2011
+From: lgautier at gmail.com (Laurent)
+Date: Tue, 25 Jan 2011 21:05:56 +0800
+Subject: Re: [Rpy] segfault on close (quit())
+In-Reply-To: <AANLkTikppE4cVkuD7hkZjfX7FgW+EXcrvR1CPso=8Q4R@mail.gmail.com>
+References: <AANLkTikppE4cVkuD7hkZjfX7FgW+EXcrvR1CPso=8Q4R@mail.gmail.com>
+Message-ID: <4D3ECAB4.6050805@gmail.com>
+
+On 24/01/11 23:34, Kyle Covington wrote:
+> Hi everyone,
+>
+> I noticed that rpy2 is segfaulting when I execute the following code;
+>
+> import rpy3.robjects as ro
+> ro.r('iris') #just to check that it's working
+>
+> ro.r('quit("no")')
+>
+> I suppose I could just leave R open and that it would be closed when
+> Python closes but I just wanted to be clean about shutting everything down.
+
+Closing R will terminate the host process, which by default will be your 
+Python process, and you won't be able to do further cleaning after that.
+
+The segfault might a problem in rpy2, and you may want to file an entry 
+in the issue tracker on bitbucket.
+
+> Is there an rpy2 function that replaces R's quit for use in rpy2?
+
+http://rpy.sourceforge.net/rpy2/doc-2.2/html/rinterface.html?highlight=initr#ending-r
+
+
+
+
+L.
+
+
+> Thanks
+> Kyle
+>
+>
+>
+> ------------------------------------------------------------------------------
+> Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+> Finally, a world-class log management solution at an even better price-free!
+> Download using promo code Free_Logger_4_Dev2Dev. Offer expires
+> February 28th, so secure your free ArcSight Logger TODAY!
+> http://p.sf.net/sfu/arcsight-sfd2d
+>
+>
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+From wsgyou at gmail.com  Thu Jan 27 14:24:41 2011
+From: wsgyou at gmail.com (Wonsang You)
+Date: Thu, 27 Jan 2011 15:24:41 +0100
+Subject: [Rpy] An Error in Calling R Function from Python via RPy2
+Message-ID: <AANLkTimK4cQ0r=2r43zrfQWdVsjOiEh8COLNirkea7Vx@mail.gmail.com>
+
+Dear RPy2 users,
+
+I would like to ask about how to use an R function from Python by using RPy2
+(http://rpy.sourceforge.net/). For example, I tried the following Python
+codes.
+
+import rpy2.robjects as robjects
+
+open=robjects.r['open']
+
+filename=robjects.StrVector(['test.RData'])
+
+open(filename)
+
+
+However, I got the following error message.
+
+RRuntimeError: Error in UseMethod("open") :
+
+no applicable method for 'open' applied to an object of class "character"
+
+
+Can anyone suggest how to solve such an error? Thank you for your help.
+
+Best Regards,
+Wonsang You
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From wsgyou at gmail.com  Thu Jan 27 14:46:47 2011
+From: wsgyou at gmail.com (Wonsang You)
+Date: Thu, 27 Jan 2011 15:46:47 +0100
+Subject: Re: [Rpy] An Error in Calling R Function from Python via RPy2
+In-Reply-To: <AANLkTimK4cQ0r=2r43zrfQWdVsjOiEh8COLNirkea7Vx@mail.gmail.com>
+References: <AANLkTimK4cQ0r=2r43zrfQWdVsjOiEh8COLNirkea7Vx@mail.gmail.com>
+Message-ID: <AANLkTimPMgWXk6w5=6rD5FfkG2X4gm8ZM037QosbWnq0@mail.gmail.com>
+
+Sorry. I have to modify my question. My codes were exactly as follows.
+
+>>> import rpy2.robjects as robjects
+
+>>> load=robjects.r['load']
+
+>>> filename=robjects.StrVector(['test.RData'])
+
+>>> x=load(filename)
+
+>>> print(x)
+
+"a" "b" "c"
+
+>>> open(x[0])
+
+
+Afterward, I got the following error.
+
+RRuntimeError: Error in UseMethod("open") :
+
+ no applicable method for 'open' applied to an object of class "character"
+
+
+Wonsang
+
+2011/1/27 Wonsang You <wsgyou at gmail.com>
+
+> Dear RPy2 users,
+>
+> I would like to ask about how to use an R function from Python by using
+> RPy2 (http://rpy.sourceforge.net/). For example, I tried the following
+> Python codes.
+>
+> import rpy2.robjects as robjects
+>
+> open=robjects.r['open']
+>
+> filename=robjects.StrVector(['test.RData'])
+>
+> open(filename)
+>
+>
+> However, I got the following error message.
+>
+> RRuntimeError: Error in UseMethod("open") :
+>
+> no applicable method for 'open' applied to an object of class "character"
+>
+>
+> Can anyone suggest how to solve such an error? Thank you for your help.
+>
+> Best Regards,
+> Wonsang You
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From takowl at gmail.com  Thu Jan 27 14:57:13 2011
+From: takowl at gmail.com (Thomas Kluyver)
+Date: Thu, 27 Jan 2011 14:57:13 +0000
+Subject: [Rpy] hg repository
+Message-ID: <AANLkTi=b4CAzX3Y0oBowbq6PPpiqHM-JiM2R5A7V6FP2@mail.gmail.com>
+
+When you clone the repository, it will give you the 'default' branch to
+start working with. By convention, this is the branch where new development
+happens, and other branches are split off to make more stable releases. At
+present, rpy2's primary focus of development is the 'version_2.2.x' branch,
+so you have to check that out after cloning it. I stumbled on this as well.
+
+Laurent, perhaps it would be simpler to rename the current version_2.2.x
+branch to default, and then create a new 2.2.x branch when it's ready for a
+stable release.
+
+Thomas
+
+On 27 January 2011 14:47, <rpy-list-request at lists.sourceforge.net> wrote:
+
+> i just needed to remove the '2.1.0dev' which installed by default when i
+> ran setup.py after cloning the repository and do the following:
+>
+> hg update -C <latest version>
+>
+> before running setup.py install.
+>
+> this may be obvious but just in case someone else gets confused...
+>
+> cheers,
+> peter
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From msarahan at gmail.com  Thu Jan 27 15:01:55 2011
+From: msarahan at gmail.com (Mike Sarahan)
+Date: Thu, 27 Jan 2011 15:01:55 +0000
+Subject: Re: [Rpy] An Error in Calling R Function from Python via RPy2
+In-Reply-To: <AANLkTimPMgWXk6w5=6rD5FfkG2X4gm8ZM037QosbWnq0@mail.gmail.com>
+References: <AANLkTimK4cQ0r=2r43zrfQWdVsjOiEh8COLNirkea7Vx@mail.gmail.com> <AANLkTimPMgWXk6w5=6rD5FfkG2X4gm8ZM037QosbWnq0@mail.gmail.com>
+Message-ID: <AANLkTi=ZWHbZH1qrskqHixuKdkfWRF8HsHGVgSrEfHKT@mail.gmail.com>
+
+Have you tried these operations in R itself?  I'm not sure that what
+you're trying to do works in R, let alone R through python.
+
+The error you're seeing is exactly correct - the R open function does
+not know what to do with the character ("a") that you are passing to
+it.
+
+On Thu, Jan 27, 2011 at 2:46 PM, Wonsang You <wsgyou at gmail.com> wrote:
+> Sorry. I have to modify my question. My codes were exactly as follows.
+>>
+>> >>> import rpy2.robjects as robjects
+>>
+>> >>> load=robjects.r['load']
+>>
+>> >>> filename=robjects.StrVector(['test.RData'])
+>>
+>> >>> x=load(filename)
+>>
+>> >>> print(x)
+>>
+>> "a" "b" "c"
+>>
+>> >>> open(x[0])
+>
+> Afterward, I got the following error.
+>>
+>> RRuntimeError: Error in UseMethod("open") :
+>>
+>>  no applicable method for 'open' applied to an object of class "character"
+>
+> Wonsang
+> 2011/1/27 Wonsang You <wsgyou at gmail.com>
+>>
+>> Dear RPy2 users,
+>> I would like to ask about how to use an R function from Python by using
+>> RPy2 (http://rpy.sourceforge.net/). For example, I tried the following
+>> Python codes.
+>>>
+>>> import rpy2.robjects as robjects
+>>>
+>>> open=robjects.r['open']
+>>>
+>>> filename=robjects.StrVector(['test.RData'])
+>>>
+>>> open(filename)
+>>
+>> However, I got the following error message.
+>>>
+>>> RRuntimeError: Error in UseMethod("open") :
+>>>
+>>> no applicable method for 'open' applied to an object of class "character"
+>>
+>> Can anyone suggest how to solve such an error? Thank you for your help.
+>> Best Regards,
+>> Wonsang You
+>
+> ------------------------------------------------------------------------------
+> Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+> Finally, a world-class log management solution at an even better price-free!
+> Download using promo code Free_Logger_4_Dev2Dev. Offer expires
+> February 28th, so secure your free ArcSight Logger TODAY!
+> http://p.sf.net/sfu/arcsight-sfd2d
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+From kyle at red-r.org  Thu Jan 27 16:45:07 2011
+From: kyle at red-r.org (Kyle Covington)
+Date: Thu, 27 Jan 2011 10:45:07 -0600
+Subject: [Rpy] libR.so not found
+Message-ID: <AANLkTikRXadPYyRc=yN3qT_GHO8GJp-RQH8y-M=ryADn@mail.gmail.com>
+
+Hello,
+
+(Ubuntu system)
+
+Sometimes when I try; import rpy2.robjects as ro
+I get the error libR.so not found.
+
+I have seen this posted on several lists as a problem with the solution that
+I need to tell rpy2 where libR.so is.  It is in /usr/lib/R/lib/ which is
+where os.environ thinks it should be.
+
+Is there a definitive solution for this.  It seems to occur on some systems
+but not others.  Is there some patch that can be made to
+rpy3.rinterface.__init__.py that would help rpy2 to better find libR.so?  I
+see on the Windows block that it adds R/lib to the path explicitly, might
+this also be possible in a linux system?
+
+Thanks
+Kyle
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From edd at debian.org  Thu Jan 27 17:32:49 2011
+From: edd at debian.org (Dirk Eddelbuettel)
+Date: Thu, 27 Jan 2011 11:32:49 -0600
+Subject: Re: [Rpy] libR.so not found
+In-Reply-To: <AANLkTikRXadPYyRc=yN3qT_GHO8GJp-RQH8y-M=ryADn@mail.gmail.com>
+References: <AANLkTikRXadPYyRc=yN3qT_GHO8GJp-RQH8y-M=ryADn@mail.gmail.com>
+Message-ID: <19777.44097.914162.226561@max.nulle.part>
+
+
+Kyle,
+
+On 27 January 2011 at 10:45, Kyle Covington wrote:
+| Hello,
+| 
+| (Ubuntu system)
+| 
+| Sometimes when I try; import rpy2.robjects as ro
+| I get the error libR.so not found.  
+| 
+| I have seen this posted on several lists as a problem with the solution that I
+| need to tell rpy2 where libR.so is.  It is in /usr/lib/R/lib/ which is where
+| os.environ thinks it should be.
+| 
+| Is there a definitive solution for this.  It seems to occur on some systems
+| but not others.  Is there some patch that can be made to
+| rpy3.rinterface.__init__.py that would help rpy2 to better find libR.so?  I
+| see on the Windows block that it adds R/lib to the path explicitly, might this
+| also be possible in a linux system?
+
+R needs to be configured and built with the --enable-R-shlib option.
+
+One way to ensure this is to use the Ubuntu builds, either from the distro
+release or (preferably as it gets you newer R releases) from CRAN. See
+
+	http://cran.r-project.org/bin/linux/ubuntu/
+
+Dirk
+
+-- 
+Dirk Eddelbuettel | edd at debian.org | http://dirk.eddelbuettel.com
+
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+From lgautier at gmail.com  Fri Jan 28 06:11:15 2011
+From: lgautier at gmail.com (Laurent)
+Date: Fri, 28 Jan 2011 14:11:15 +0800
+Subject: Re: [Rpy] hg repository
+In-Reply-To: <AANLkTi=b4CAzX3Y0oBowbq6PPpiqHM-JiM2R5A7V6FP2@mail.gmail.com>
+References: <AANLkTi=b4CAzX3Y0oBowbq6PPpiqHM-JiM2R5A7V6FP2@mail.gmail.com>
+Message-ID: <4D425E03.8010509@gmail.com>
+
+On 27/01/11 22:57, Thomas Kluyver wrote:
+> When you clone the repository, it will give you the 'default' branch to
+> start working with. By convention, this is the branch where new
+> development happens, and other branches are split off to make more
+> stable releases. At present, rpy2's primary focus of development is the
+> 'version_2.2.x' branch, so you have to check that out after cloning it.
+> I stumbled on this as well.
+>
+> Laurent, perhaps it would be simpler to rename the current version_2.2.x
+> branch to default, and then create a new 2.2.x branch when it's ready
+> for a stable release.
+
+Yes I have to look at that some time.
+
+
+> Thomas
+>
+> On 27 January 2011 14:47, <rpy-list-request at lists.sourceforge.net
+> <mailto:rpy-list-request at lists.sourceforge.net>> wrote:
+>
+>     i just needed to remove the '2.1.0dev' which installed by default
+>     when i ran setup.py after cloning the repository and do the following:
+>
+>     hg update -C <latest version>
+>
+>     before running setup.py install.
+>
+>     this may be obvious but just in case someone else gets confused...
+>
+>     cheers,
+>     peter
+>
+>
+
+
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+From drew.h.bryant at gmail.com  Sat Jan 29 08:57:39 2011
+From: drew.h.bryant at gmail.com (Drew Bryant)
+Date: Sat, 29 Jan 2011 02:57:39 -0600
+Subject: [Rpy] rpy2 + numpy + nose = bus error depending on order of imports
+Message-ID: <AANLkTik86V6gkX80dVoZmifdVD2Q6WHPsVsuDH0CDD+S@mail.gmail.com>
+
+#### rpy2-nose.py #########
+#import numpy # uncomment this line and it will fail with a bus error
+from rpy2 import robjects
+import numpy # importing numpy after the robjects module works fine
+
+def test():
+    pass
+#########################
+
+If the code above is executed via python directly, there is no problem:
+$ python rpy2-nose.py
+
+However, when executing via nose (such as when a test suite may have
+the above imports):
+$ nosetests rpy2-nose.py
+the code will execute correctly, but then hang on exit until a Bus
+Error occurs on my system
+if numpy is imported before the robjects submodule of rpy2 as denoted above.
+
+I am running:
+ os x 10.5.8
+python 2.6.6
+rpy2.__version__ == '2.1.9'
+numpy.__version__ == '1.5.0'
+nose.__version__ == '0.11.3'
+
+Any idea why this would be happening?
+
+Thanks.
+
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+
+From lgautier at gmail.com  Sat Jan 29 14:42:39 2011
+From: lgautier at gmail.com (Laurent)
+Date: Sat, 29 Jan 2011 22:42:39 +0800
+Subject: Re: [Rpy] rpy2 + numpy + nose = bus error depending on order of imports
+In-Reply-To: <AANLkTik86V6gkX80dVoZmifdVD2Q6WHPsVsuDH0CDD+S@mail.gmail.com>
+References: <AANLkTik86V6gkX80dVoZmifdVD2Q6WHPsVsuDH0CDD+S@mail.gmail.com>
+Message-ID: <4D44275F.7050006@gmail.com>
+
+On 29/01/11 16:57, Drew Bryant wrote:
+> #### rpy2-nose.py #########
+> #import numpy # uncomment this line and it will fail with a bus error
+> from rpy2 import robjects
+> import numpy # importing numpy after the robjects module works fine
+>
+> def test():
+>      pass
+> #########################
+>
+> If the code above is executed via python directly, there is no problem:
+> $ python rpy2-nose.py
+>
+> However, when executing via nose (such as when a test suite may have
+> the above imports):
+> $ nosetests rpy2-nose.py
+> the code will execute correctly, but then hang on exit until a Bus
+> Error occurs on my system
+> if numpy is imported before the robjects submodule of rpy2 as denoted above.
+>
+> I am running:
+>   os x 10.5.8
+> python 2.6.6
+> rpy2.__version__ == '2.1.9'
+> numpy.__version__ == '1.5.0'
+> nose.__version__ == '0.11.3'
+>
+> Any idea why this would be happening?
+
+No. Try rpy2 2.2.0dev. There was a bit of refactoring and fixing of 
+not-yet-reported problems. May be you'll be lucky.
+
+
+
+
+> Thanks.
+>
+> ------------------------------------------------------------------------------
+> Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+> Finally, a world-class log management solution at an even better price-free!
+> Download using promo code Free_Logger_4_Dev2Dev. Offer expires
+> February 28th, so secure your free ArcSight Logger TODAY!
+> http://p.sf.net/sfu/arcsight-sfd2d
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+------------------------------------------------------------------------------
+Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
+Finally, a world-class log management solution at an even better price-free!
+Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
+February 28th, so secure your free ArcSight Logger TODAY! 
+http://p.sf.net/sfu/arcsight-sfd2d
+

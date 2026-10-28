@@ -1,0 +1,371 @@
+From juliette.fabre8-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Dec  3 10:47:37 2012
+From: juliette.fabre8-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Juliette Fabre)
+Date: Mon, 03 Dec 2012 02:47:37 -0800
+Subject: dbWriteTable fails after a truncate in a transaction
+Message-ID: <4c1687c1-0179-43db-9599-75e040e70fd9@googlegroups.com>
+
+Hi, 
+
+I'm trying to truncate a table and then to copy new records into this 
+table, in a same transaction :
+
+test <- data.frame(test=c("test0", "test1"))
+dbGetQuery(con, "BEGIN TRANSACTION")    
+rs <- dbSendQuery(con,  "TRUNCATE test")
+dbWriteTable(con, "test", test, append = T, row.names = F)
+dbCommit(con)
+
+The dbWriteTable function fails and the process gets stucked. 
+Nevertheless it works if I don't truncate the table before, and it also 
+works if I replace the dbWriteTable function with sets of INSERT INTO 
+statements ...
+
+Any idea of how to fix it ?
+
+Thanks, 
+
+Juliette
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Thu Dec  6 14:57:22 2012
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (NISHIYAMA Tomoaki)
+Date: Thu, 06 Dec 2012 23:57:22 +0900
+Subject: Re: [R-sig-DB] R and PostgreSQL - Writing data?
+In-Reply-To: <20664.53299.715207.913771@max.nulle.part>
+References: <CAMu32ACFMBa7Z-6ZepagkdsXvqxi7ObSXCa-hn0FMcLQUZ9Y+g@mail.gmail.com> <CANeAVB=5Rm17sQnfvAThu0X7z3P=gOX5WcqadJjss+0J0QzBZA@mail.gmail.com> <CAMu32ADVRDn=ExeAYnVn-Xv7YDhFJgAe=qAJC4ai0OaQohV3qA@mail.gmail.com> <CANeAVBksja5EyLYNbCk_mz=msidSFjKU8RgCzr09-j9a5y23iQ@mail.gmail.com> <f3b9eca0-6059-440d-b636-729bf05438f0@default> <CAMu32ADKqtR44G6PrOm-GxkropMiuHSoNxpVn1n3rcjjVVUoLw@mail.gmail.com> <20664.53299.715207.913771@max.nulle.part>
+Message-ID: <B504D445-75F5-4417-A2A2-3D0CA433217D@staff.kanazawa-u.ac.jp>
+
+Hi,
+
+PostgreSQL have library function PQexecParams and also supports prepared statements.
+String expansion in the SQL statement is cumbersome for escaping special characters and
+therefore error prone.
+
+I just commited to the SVN repository a very simple and primitive implementation that
+allows to pass vector of characters as parameters.
+
+A sample statement is like:
+
+    res <- dbGetQuery(con, "SELECT * FROM rockdata WHERE peri > $1 AND shape < $2 LIMIT $3", c(4000, 0.2, 10))
+    print(res)
+
+The syntax for a positional parameter is a dollar sign ($) followed by digits
+rather than a colon followed by digits in PostgreSQL.
+http://www.postgresql.org/docs/9.2/static/sql-syntax-lexical.html#SQL-SYNTAX-SPECIAL-CHARS
+
+This mechanism is required for the support of prepared statements.
+It is nicer if I could make automatic conversions for various type and binary transfer, 
+but this is not implemented right now.
+So all parameters are simply passed as strings at the moment.
+
+Note this is the very initial implementation and the interface may change.
+
+Any enhancement, feedback, or test case/program is welcome.
+Especially, on what would be the best interface/syntax.
+
+Best regards,
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2012/12/01, at 0:26, Dirk Eddelbuettel wrote:
+
+> 
+> On 30 November 2012 at 15:05, James David Smith wrote:
+> | Hi all,
+> | 
+> | Sorry for the thread re-activation. I was wondering if anyone has
+> | successfully used the syntax below with the library RPostgreSQL?
+> 
+> Nope. 
+> 
+> I always expand the strings explicitly. It would be news to me of that
+> worked.  Good news, for sure, but still news...
+> 
+> Dirk
+> 
+> 
+> | dbGetQuery(con, "update foo set sal = :1 where empno = :2",
+> |            data = dat[,c("SAL","EMPNO")])
+> | 
+> | I've been messing about with it but can't get it to work. I get the error:
+> | 
+> | Error in postgresqlQuickSQL(conn, statement, ...) :
+> |   unused argument(s) (data = list(bc = c(NA, NA, NA etc.
+> | 
+> | Thanks
+> | 
+> | James
+> | 
+> | 
+> | 
+> | On 28 September 2012 17:13, Denis Mukhin <denis.x.mukhin-QHcLZuEGTsvQT0dZR+AlfA at public.gmane.org> wrote:
+> | > James,
+> | >
+> | > I have never tried RPostgreSQL before but in ROracle which is also a DBI based interface you can do something like this:
+> | >
+> | > library(ROracle)
+> | > con <- dbConnect(Oracle(), "scott", "tiger")
+> | > dbGetQuery(con, "create table foo as select * from emp")
+> | >
+> | > dat <- dbGetQuery(con, "select * from foo")
+> | > dat$SAL <- dat$SAL*10
+> | > dbGetQuery(con, "update foo set sal = :1 where empno = :2",
+> | >            data = dat[,c("SAL","EMPNO")])
+> | > dbCommit(con)
+> | > dbGetQuery(con, "select * from foo")
+> | >
+> | > dbGetQuery(con, "drop table foo purge")
+> | > dbDisconnect(con)
+> | >
+> | > Denis
+> | >
+> | > -----Original Message-----
+> | > From: Sean Davis [mailto:sdavis2-2loH/HJHQuifRvmTrFJqzg at public.gmane.org]
+> | > Sent: Friday, September 28, 2012 11:43 AM
+> | > To: James David Smith
+> | > Cc: r-sig-db-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org
+> | > Subject: Re: [R-sig-DB] R and PostgreSQL - Writing data?
+> | >
+> | > On Fri, Sep 28, 2012 at 10:36 AM, James David Smith <james.david.smith-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> | >> Hi Sean,
+> | >>
+> | >> Thanks for the reply. I'm familiar with UPDATE queries when working in
+> | >> PostgreSQL, but not from within R. Would it look something like this?
+> | >>
+> | >> dbWriteTable(con, " UPDATE table SET ucam_no2 =
+> | >> 'ucam_no2$interpolated_data' ")
+> | >>
+> | >> My problem is how to get the R data 'within' my SQL statement I think.
+> | >
+> | > To do an update, you'll need to loop through your data.frame and issue a dbSendQuery().  To create the SQL string, I often use something
+> | > like:
+> | >
+> | > sprintf("UPDATE originalTable SET ucam_no2=%f WHERE originalTable.id = %d",....)
+> | >
+> | > You can't do this in one step, unfortunately.  This is how UPDATE works and has nothing to do with R.
+> | >
+> | > Sean
+> | >
+> | >
+> | >>
+> | >> On 28 September 2012 15:19, Sean Davis <sdavis2-2loH/HJHQuifRvmTrFJqzg at public.gmane.org> wrote:
+> | >>> On Fri, Sep 28, 2012 at 10:14 AM, James David Smith
+> | >>> <james.david.smith-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> | >>>> Dear all,
+> | >>>>
+> | >>>> Sorry if this isn't quite the right place, but it's the first time
+> | >> SendSave NowDiscardDraft autosaved at 15:36 (0 minutes ago) 33% full
+> | >> Using 3.4 GB of your 10.1 GB
+> | >> ©2012 Google - Terms & Privacy
+> | >> Last account activity: 50 minutes ago
+> | >> Details
+> | >> People (2)
+> | >> Sean Davis
+> | >> Add to circles
+> | >>
+> | >> Show details
+> | >> Ads – Why these ads?
+> | >> Big Data Too Slow?
+> | >> Real-Time Analytics for Big Data. Visual Drag & Drop UI. Quick & Easy
+> | >> PentahoBigData.com Talend Open Source ESB Open Source ESB Based on
+> | >> Apache CXF and Apache Camel. Free Download!
+> | >> www.talend.com/Free_ESB_Software
+> | >> Warp I/O for SQL Server
+> | >> Speed SQL Server performance 3x Faster I/O, reduced storage
+> | >> www.confio.com/warp-io Storage Container Sussex Ex-Shipping Containers
+> | >> Sale & Hire Storage Container 0800 043 6311
+> | >> www.CsShippingContainers.co.uk More about...
+> | >> MS Access Database SQL »
+> | >> Database »
+> | >> Excel Database Query »
+> | >> Oracle Database Problems »
+> | >>
+> | >>>> I've posted here. My issue is to do with writing to a PostgreSQL
+> | >>>> database from within R. My situation is best explained by some R
+> | >>>> code to start:
+> | >>>>
+> | >>>> #Connect to the database
+> | >>>> con <- dbConnect(PostgreSQL(), user="postgres", password="password",
+> | >>>> dbname="database")
+> | >>>>
+> | >>>> #Get some data out of the database.
+> | >>>> ucam_no2$original_data <- dbGetQuery(con, "select ucam_no2 FROM
+> | >>>> table")
+> | >>>>
+> | >>>> This returns say 10000 rows of data, but there is only data in about
+> | >>>> half of those rows. What I want to do is interpolate the missing
+> | >>>> data so I do this:
+> | >>>>
+> | >>>> #Generate some data
+> | >>>> ucam_no2$interpolated_data <- na.approx(ucam_data$ucam_no2, na.rm =
+> | >>>> FALSE)
+> | >>>>
+> | >>>> This works well and I now have 10000 rows of data with no empty cells.
+> | >>>> I now want to write this back into my PostgresSQL database. Into the
+> | >>>> same row that I took the data from in the first place. But I don't
+> | >>>> know how. I can write to a new table with something like the below,
+> | >>>> but what I'd really like to do is put the data back into the table I
+> | >>>> got it from.
+> | >>>>
+> | >>>> # Try to write the data back
+> | >>>> dbWriteTable(con, "new_data", ucam_no2$interpolated_data)
+> | >>>
+> | >>> Hi, James.
+> | >>>
+> | >>> You'll need to look into doing a SQL UPDATE.  That is the standard
+> | >>> way to "put data back into the table I got it from".
+> | >>>
+> | >>> Sean
+> | >
+> | > _______________________________________________
+> | > R-sig-DB mailing list -- R Special Interest Group R-sig-DB-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org https://stat.ethz.ch/mailman/listinfo/r-sig-db
+> | >
+> | > _______________________________________________
+> | > R-sig-DB mailing list -- R Special Interest Group
+> | > R-sig-DB-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org
+> | > https://stat.ethz.ch/mailman/listinfo/r-sig-db
+> | 
+> | _______________________________________________
+> | R-sig-DB mailing list -- R Special Interest Group
+> | R-sig-DB-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org
+> | https://stat.ethz.ch/mailman/listinfo/r-sig-db
+> 
+> -- 
+> Dirk Eddelbuettel | edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org | http://dirk.eddelbuettel.com  
+> 
+> _______________________________________________
+> R-sig-DB mailing list -- R Special Interest Group
+> R-sig-DB-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org
+> https://stat.ethz.ch/mailman/listinfo/r-sig-db
+
+From jkentonwhite-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Dec 13 18:16:57 2012
+From: jkentonwhite-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Kenton White)
+Date: Thu, 13 Dec 2012 10:16:57 -0800
+Subject: Re: Connecting to Herokupostgres Standalone database with RPostgreSQL
+In-Reply-To: <8979ba6a-3d2f-4003-a708-5eacfcbd6144@googlegroups.com>
+References: <8979ba6a-3d2f-4003-a708-5eacfcbd6144@googlegroups.com>
+Message-ID: <441b9874-c320-4c85-a18c-cc239dbb2c1b@googlegroups.com>
+
+There looks to be some difficulty connect through SSL using RPostgreSQL. 
+ There is a discussiong 
+here: https://groups.google.com/d/topic/rpostgresql-dev/ELnVUJqjDbk/discussion
+
+If you haven't yet figured out how to connect to Heroku's stand alone DB 
+through R, you can do it using the JDBC connection.  A good description is 
+here: 
+ http://ryepup.unwashedmeme.com/blog/2010/11/17/working-with-r-postgresql-ssl-and-mssql/
+
+Assuming that the jar file is in your local directory, the code to connect 
+will look like this:
+
+library('RJDBC')
+pgsql <- JDBC("org.postgresql.Driver", "./postgresql-9.2-1002.jdbc4.jar", 
+"`")
+testdb <- dbConnect(pgsql, 
+"jdbc:postgresql://host:port/dbname?user=user&password=password&ssl=true&sslfactory=org.postgresql.ssl.NonValidatingFactory")
+
+Hope this helps RPostgreSQL can be updated to support the sslmode option.
+
+From tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org  Wed Dec 19 03:57:22 2012
+From: tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org (Tomoaki NISHIYAMA)
+Date: Wed, 19 Dec 2012 12:57:22 +0900
+Subject: Re: RPostgreSQL port number
+In-Reply-To: <CD157ABB-F7FA-48A7-BB4F-337BCDA421FE-+zbXpaQkZws@public.gmane.org>
+References: <CD157ABB-F7FA-48A7-BB4F-337BCDA421FE@dizz.org>
+Message-ID: <93BFBD44-0F48-4F32-A35E-5C37B3809411@kenroku.kanazawa-u.ac.jp>
+
+Hi David,
+
+Why don't you just duplicate using the active connection?
+con <- dbConnect('PostgreSQL', blah, blahh,...)
+con2 <- dbConnect(con)
+
+I will add the port number in next release.
+
+However, note that dbGetInfo do not return the password
+and I don't think we make it return the password.  
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2012/12/19, at 4:54, David Kulp wrote:
+
+> Hi.  I want to duplicate a connection using the list returned from dbGetInfo.  However, the port number is not recorded in the list.  Are there plans to add this or do you have any tricks for stuffing the port into the connection class object?
+> 
+> Thank you!
+
+From tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org  Wed Dec 19 13:15:28 2012
+From: tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org (Tomoaki NISHIYAMA)
+Date: Wed, 19 Dec 2012 22:15:28 +0900
+Subject: Re: RPostgreSQL port number
+In-Reply-To: <77DEA772-0521-4A88-81CC-CD52E79DCB75-+zbXpaQkZws@public.gmane.org>
+References: <CD157ABB-F7FA-48A7-BB4F-337BCDA421FE@dizz.org> <93BFBD44-0F48-4F32-A35E-5C37B3809411@kenroku.kanazawa-u.ac.jp> <77DEA772-0521-4A88-81CC-CD52E79DCB75@dizz.org>
+Message-ID: <001E988E-1C3C-45FE-BDF7-A83ED1067EEE@kenroku.kanazawa-u.ac.jp>
+
+Hi,
+
+>> I will add the port number in next release.
+
+If you want to see it earlier you can try
+the latest in SVN repository
+http://code.google.com/p/rpostgresql/source/checkout
+or apply the specific diff shown at
+http://code.google.com/p/rpostgresql/source/detail?r=245
+
+Please let me know if anything strange happens 
+as this is written today and not deeply tested, other than usual tests.
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2012/12/19, at 21:11, David Kulp wrote:
+
+> Hi.  I'd like to reconnect as a different user.  You raise a good point about password -- although in my case it's not a problem because all users have no password.
+> 
+> Thank you!
+> 
+> 
+> On Dec 18, 2012, at 10:57 PM, Tomoaki NISHIYAMA wrote:
+> 
+>> Hi David,
+>> 
+>> Why don't you just duplicate using the active connection?
+>> con <- dbConnect('PostgreSQL', blah, blahh,...)
+>> con2 <- dbConnect(con)
+>> 
+>> I will add the port number in next release.
+>> 
+>> However, note that dbGetInfo do not return the password
+>> and I don't think we make it return the password.  
+>> -- 
+>> Tomoaki NISHIYAMA
+>> 
+>> Advanced Science Research Center,
+>> Kanazawa University,
+>> 13-1 Takara-machi, 
+>> Kanazawa, 920-0934, Japan
+>> 
+>> 
+>> On 2012/12/19, at 4:54, David Kulp wrote:
+>> 
+>>> Hi.  I want to duplicate a connection using the list returned from dbGetInfo.  However, the port number is not recorded in the list.  Are there plans to add this or do you have any tricks for stuffing the port into the connection class object?
+>>> 
+>>> Thank you!
+>> 
+>
+

@@ -1,0 +1,215 @@
+From pnt.jjd at gmail.com  Thu Mar 13 07:25:02 2014
+From: pnt.jjd at gmail.com (Punit Jajodia)
+Date: Thu, 13 Mar 2014 12:55:02 +0530
+Subject: JRI not getting object from R populated by data from query
+Message-ID: <CAOP4vpKm6ESD7OHXmTkuyPtGJ7EObprqZp=YB=OoXQMQ7pVP8g@mail.gmail.com>
+
+I have an R script that retrieves data from a database, performs some
+operations on it and provides me with data I want to retrive in Java using
+JRI
+
+beforeQuery <- c("Hello world")
+query <- {{Query}}
+....
+queryResult <- fetch(queryResultSet,1)
+The Java code that gets the result:
+
+re.eval("source('" + location + "')"); //location of the R script
+System.out.println(re.eval("beforeQuery").asString()); //works
+System.out.println(re.eval("queryResult$column").asString()); //returns null
+I have verified that queryResult is okay by running the R program
+standalone.
+
+What can I do to make sure that I can get the result inside the java
+program successfully?
+
+Regards,
+Punit Jajodia
+
+-------------- next part --------------
+
+
+From TDCasasent at mdanderson.org  Thu Mar 13 12:33:27 2014
+From: TDCasasent at mdanderson.org (Casasent,Tod D)
+Date: Thu, 13 Mar 2014 12:33:27 +0000
+Subject: Re: rJava on OS X 10.7.4 with Oracle Java 1.7?
+In-Reply-To: <loom.20140228T203122-854@post.gmane.org>
+References: <CCDA892B.14A7%tdcasasent@mdanderson.org> <ABB9CF13-7D58-4F53-862A-1DC768C85E8D@r-project.org> <loom.20140228T203122-854@post.gmane.org>
+Message-ID: <CF470F49.9409%tdcasasent@mdanderson.org>
+
+I haven't noticed any changes. Once I've done the original setup, when a
+new version of Java comes out, I just need to redo the javareconf and it
+usually works OK. It's really the initial install that is painful.
+
+-Tod
+
+On 2/28/14 1:34 PM, "Ryan" <babiuchr at missouri.edu> wrote:
+
+>Simon,
+>
+>Since it's been over a year, has the issue ever been
+>revisited for getting Oracle Java 1.7 to
+>play correctly with rJava with less effort?
+>
+>best regards,
+>-Ryan
+>
+>
+>
+>
+>
+>_______________________________________________
+>stats-rosuda-devel mailing list
+>stats-rosuda-devel at listserv.uni-augsburg.de
+>http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Thu Mar 13 14:19:26 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 13 Mar 2014 10:19:26 -0400
+Subject: Re: JRI not getting object from R populated by data from query
+In-Reply-To: <CAOP4vpKm6ESD7OHXmTkuyPtGJ7EObprqZp=YB=OoXQMQ7pVP8g@mail.gmail.com>
+References: <CAOP4vpKm6ESD7OHXmTkuyPtGJ7EObprqZp=YB=OoXQMQ7pVP8g@mail.gmail.com>
+Message-ID: <B92C2DB5-6FAD-4F14-8EA5-2B0096B11048@r-project.org>
+
+
+On Mar 13, 2014, at 3:25 AM, Punit Jajodia <pnt.jjd at gmail.com> wrote:
+
+> I have an R script that retrieves data from a database, performs some operations on it and provides me with data I want to retrive in Java using JRI
+> 
+> beforeQuery <- c("Hello world")
+> query <- {{Query}}
+> ....
+> queryResult <- fetch(queryResultSet,1)
+> The Java code that gets the result:
+> 
+> re.eval("source('" + location + "')"); //location of the R script
+> System.out.println(re.eval("beforeQuery").asString()); //works
+> System.out.println(re.eval("queryResult$column").asString()); //returns null
+
+But are you sure you’re accessing a string? You may want to use as.character() in case the column is of a different type. If it doubt, use str(queryResult) to find out what you’re getting and/or check the object.
+
+Cheers,
+Simon
+
+
+
+> I have verified that queryResult is okay by running the R program standalone.
+> 
+> What can I do to make sure that I can get the result inside the java program successfully?
+> 
+> Regards,
+> Punit Jajodia
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From pnt.jjd at gmail.com  Thu Mar 13 17:28:22 2014
+From: pnt.jjd at gmail.com (Punit Jajodia)
+Date: Thu, 13 Mar 2014 22:58:22 +0530
+Subject: Re: JRI not getting object from R populated by data from query
+In-Reply-To: <B92C2DB5-6FAD-4F14-8EA5-2B0096B11048@r-project.org>
+References: <CAOP4vpKm6ESD7OHXmTkuyPtGJ7EObprqZp=YB=OoXQMQ7pVP8g@mail.gmail.com> <B92C2DB5-6FAD-4F14-8EA5-2B0096B11048@r-project.org>
+Message-ID: <CAOP4vp+4yf1H0Ygw=ZtN6JFhyUic15M7+igAVAZjy=nJ_A9nog@mail.gmail.com>
+
+I investigated the issue further and found that any variable declared after
+the database connection code isn't being obtained in java through JRI, even
+when it isn't dependent on the query result.
+
+testVar1 <- 1 # I am able to get this variable in java
+
+library(RPostgreSQL)
+drv<-dbDriver("PostgreSQL")
+con<-dbConnect(drv,dbname="mydb",host="myhost",user="myuser",password="mypass")
+
+testVar2 <- 1 # This one doesn't work
+
+Regards,
+Punit Jajodia
+
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Thu Mar 13 17:33:46 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 13 Mar 2014 13:33:46 -0400
+Subject: Re: JRI not getting object from R populated by data from query
+In-Reply-To: <CAOP4vp+4yf1H0Ygw=ZtN6JFhyUic15M7+igAVAZjy=nJ_A9nog@mail.gmail.com>
+References: <CAOP4vpKm6ESD7OHXmTkuyPtGJ7EObprqZp=YB=OoXQMQ7pVP8g@mail.gmail.com> <B92C2DB5-6FAD-4F14-8EA5-2B0096B11048@r-project.org> <CAOP4vp+4yf1H0Ygw=ZtN6JFhyUic15M7+igAVAZjy=nJ_A9nog@mail.gmail.com>
+Message-ID: <421C3771-BB4A-4997-9778-A3C64E1D30D7@r-project.org>
+
+On Mar 13, 2014, at 1:28 PM, Punit Jajodia <pnt.jjd at gmail.com> wrote:
+
+> I investigated the issue further and found that any variable declared after the database connection code isn't being obtained in java through JRI, even when it isn't dependent on the query result.
+> 
+> testVar1 <- 1 # I am able to get this variable in java
+> 
+> library(RPostgreSQL)
+> drv<-dbDriver("PostgreSQL")
+> con<-dbConnect(drv,dbname="mydb",host="myhost",user="myuser",password="mypass")
+> 
+> testVar2 <- 1 # This one doesn't work
+> 
+
+This means that the code errors out before that - the code simply doesn’t get executed because of an earlier error. You should look at the errors first.
+
+Cheers,
+Simon
+
+From pnt.jjd at gmail.com  Fri Mar 14 09:24:13 2014
+From: pnt.jjd at gmail.com (Punit Jajodia)
+Date: Fri, 14 Mar 2014 14:54:13 +0530
+Subject: Re: JRI not getting object from R populated by data from query
+In-Reply-To: <421C3771-BB4A-4997-9778-A3C64E1D30D7@r-project.org>
+References: <CAOP4vpKm6ESD7OHXmTkuyPtGJ7EObprqZp=YB=OoXQMQ7pVP8g@mail.gmail.com> <B92C2DB5-6FAD-4F14-8EA5-2B0096B11048@r-project.org> <CAOP4vp+4yf1H0Ygw=ZtN6JFhyUic15M7+igAVAZjy=nJ_A9nog@mail.gmail.com> <421C3771-BB4A-4997-9778-A3C64E1D30D7@r-project.org>
+Message-ID: <CAOP4vpJVobfoGyWNodhivzoa_i6DLP6qDdCUtbbYG38Zrb1K5A@mail.gmail.com>
+
+Turns out, the problem was that the RPostgreSQL package was installed in
+the user's directory because I didn't specify the 'lib' parameter.
+
+This worked when I ran the code from RStudio but gave an error while
+running the same from within Java.
+
+Moving the RPostgreSQL library folder to the location "C:\Program
+Files\R\R-3.0.2\library"(the default location of the libraries) solved the
+problem.
+
+Thanks for all the guidance!
+
+Regards,
+Punit
+
+
+On Thu, Mar 13, 2014 at 11:03 PM, Simon Urbanek <simon.urbanek at r-project.org
+> wrote:
+
+> On Mar 13, 2014, at 1:28 PM, Punit Jajodia <pnt.jjd at gmail.com> wrote:
+>
+> > I investigated the issue further and found that any variable declared
+> after the database connection code isn't being obtained in java through
+> JRI, even when it isn't dependent on the query result.
+> >
+> > testVar1 <- 1 # I am able to get this variable in java
+> >
+> > library(RPostgreSQL)
+> > drv<-dbDriver("PostgreSQL")
+> >
+> con<-dbConnect(drv,dbname="mydb",host="myhost",user="myuser",password="mypass")
+> >
+> > testVar2 <- 1 # This one doesn't work
+> >
+>
+> This means that the code errors out before that - the code simply doesn't
+> get executed because of an earlier error. You should look at the errors
+> first.
+>
+> Cheers,
+> Simon
+>
+>
+
+-------------- next part --------------
+
+

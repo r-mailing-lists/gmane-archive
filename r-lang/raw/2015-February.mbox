@@ -1,0 +1,1923 @@
+From holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org  Fri Feb 13 15:55:50 2015
+From: holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org (Holger Mitterer)
+Date: Fri, 13 Feb 2015 16:55:50 +0100
+Subject: struggling with categorical lmer (again)
+Message-ID: <027201d047a5$8ac16350$a04429f0$@um.edu.mt>
+
+Hi R-peers,
+
+ 
+
+I was just analyzing a data set that looked at the effect of visual speech
+under a blocked and a mixed condition.
+
+(Don't bother what this means). The results were quite clear, the effect of
+the visual signal was much less in the mixed conditions.
+
+If I put the results as percentage of /b/ responses, the result was
+
+ 
+
+Blocked Condition:          visual /b/: 68% visual /d/: 21% 
+
+Mixed Condition:             visual /b/: 54%  visual /d/: 55%
+
+ 
+
+You would expect this huge effect to give rise to a clear interaction, and
+while the beta weight for visualCue x condition was quite large,
+
+the significance level was only 0.04 in a glmer (See the formula for the
+lmer below), which is somewhat surprising given the huge effect in the
+descriptive data.
+
+(In fact, if we always found such clear effects, we probably would not need
+statistics at all.)
+
+ 
+
+So, I thought, maybe there are huge inter-individual differences, but no, if
+I look at the means for the 10 participants,
+and calculate the difference in percentage /b/ responses for the two visual
+conditions (visual /b/ and visual /d/) I get the following:
+
+(Yes, I should use logOdds for that, but I stay with percentages here, for
+ease of presentation)
+
+ 
+
+
+blocked
+
+mixed
+
+
+45
+
+0
+
+
+35
+
+3
+
+
+51
+
+3
+
+
+49
+
+-9
+
+
+76
+
+-1
+
+
+39
+
+-1
+
+
+70
+
+-1
+
+
+20
+
+1
+
+
+48
+
+-1
+
+
+39
+
+-6
+
+ 
+
+ 
+
+This looks like a pretty consistent effect over subjects, and does not rhyme
+well with the barely significant effect from the glmer.
+
+ 
+
+There is one reason I can see for that: The design was not balanced in terms
+of visual and auditory cues. Because we thought that
+
+the incongruent trials (visual cue different from auditory cue) would
+produce more noise, we actually used more of those than congruent trials.
+
+(So, that in fact, the cell means would be estimated with roughly similar
+precision.)
+
+ 
+
+Therefore, the visual and auditory cues are not independent in the overall
+analysis, since visual = /b/ makes it more likely that audio = /d/.
+
+(Since there are more incongruent trials.)  But I would have thought that
+having a regression weight for "auditoryCue" would take care of that.
+
+Is the reason the glmer does not really reflect this huge and consistent
+effect? Any other ideas why the glmer may find this barely significant?
+
+ 
+
+Kind regards,
+
+Holger
+
+ 
+
+P.S.: This is how the glmer was specified:
+
+ 
+
+all.lmer = glmer(response ~ audCueC + visCueC*partC + (1|subject) +
+(0+visCueC|subject) + (0+audCueC|subject)+(0 + partC|subject) + (0 +
+partC:visCueC|subject)  , data = all2, family = "binomial")
+
+ 
+
+Notes
+
+-          I used uncorrelated random slopes, since this is more likely to
+converge. 
+
+-          All predictors are binary coded as -0.5 versus 0.5, so that the
+regression weight gives an effect size.
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Feb 13 16:16:58 2015
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Fri, 13 Feb 2015 11:16:58 -0500
+Subject: Re: struggling with categorical lmer (again)
+In-Reply-To: <027201d047a5$8ac16350$a04429f0$@um.edu.mt>
+References: <027201d047a5$8ac16350$a04429f0$@um.edu.mt>
+Message-ID: <CA+tkQ_Mu-+WsuqMwRCwdyG1F5ZSrzGoX7v0CTgU4nDEqNN4rrw@mail.gmail.com>
+
+Hi Holger,
+
+Two quick knee-jerk thoughts:
+
+1. 10 people is a pretty small sample!  A power analysis might tell you
+just how huge the effect would need to be to be significant at p < .05.
+
+2. Uncorrelated effects can help the model converge (usually), because in
+essence it means the model need to estimate fewer parameters, but it also
+means that your model forces all of the random effects to be uncorrelated.
+That is, the degree to which some subjects might be overall more accurate
+(random effect on the intercept) is forced to be completely uncorrelated
+with the degree to which some subjects display a bigger effect of visCueC,
+and so on.  Depending on how well this assumption actually fits the data
+could be leading to a converging-but-misfitting model, which could have
+some weird impacts on the effect estimation.
+
+So, I think this all boils down to a pretty common problem: you may just
+not have enough data, especially to support estimation of a pretty complex
+model.
+
+hope that helps,
+-scott
+
+
+
+On Fri, Feb 13, 2015 at 10:55 AM, Holger Mitterer <holger.mitterer-Mj5aoWcxWbo at public.gmane.orgt
+> wrote:
+
+> Hi R-peers,
+>
+>
+>
+> I was just analyzing a data set that looked at the effect of visual speech
+> under a blocked and a mixed condition.
+>
+> (Don’t bother what this means). The results were quite clear, the effect
+> of the visual signal was much less in the mixed conditions.
+>
+> If I put the results as percentage of /b/ responses, the result was
+>
+>
+>
+> Blocked Condition:          visual /b/: 68% visual /d/: 21%
+>
+> Mixed Condition:             visual /b/: 54%  visual /d/: 55%
+>
+>
+>
+> You would expect this huge effect to give rise to a clear interaction, and
+> while the beta weight for visualCue x condition was quite large,
+>
+> the significance level was only 0.04 in a glmer (See the formula for the
+> lmer below), which is somewhat surprising given the huge effect in the
+> descriptive data.
+>
+> (In fact, if we always found such clear effects, we probably would not
+> need statistics at all.)
+>
+>
+>
+> So, I thought, maybe there are huge inter-individual differences, but no,
+> if I look at the means for the 10 participants,
+> and calculate the difference in percentage /b/ responses for the two
+> visual conditions (visual /b/ and visual /d/) I get the following:
+>
+> (Yes, I should use logOdds for that, but I stay with percentages here, for
+> ease of presentation)
+>
+>
+>
+> blocked
+>
+> mixed
+>
+> 45
+>
+> 0
+>
+> 35
+>
+> 3
+>
+> 51
+>
+> 3
+>
+> 49
+>
+> -9
+>
+> 76
+>
+> -1
+>
+> 39
+>
+> -1
+>
+> 70
+>
+> -1
+>
+> 20
+>
+> 1
+>
+> 48
+>
+> -1
+>
+> 39
+>
+> -6
+>
+>
+>
+>
+>
+> This looks like a pretty consistent effect over subjects, and does not
+> rhyme well with the barely significant effect from the glmer.
+>
+>
+>
+> There is one reason I can see for that: The design was not balanced in
+> terms of visual and auditory cues. Because we thought that
+>
+> the incongruent trials (visual cue different from auditory cue) would
+> produce more noise, we actually used more of those than congruent trials.
+>
+> (So, that in fact, the cell means would be estimated with roughly similar
+> precision.)
+>
+>
+>
+> Therefore, the visual and auditory cues are not independent in the overall
+> analysis, since visual = /b/ makes it more likely that audio = /d/.
+>
+> (Since there are more incongruent trials.)  But I would have thought that
+> having a regression weight for “auditoryCue” would take care of that.
+>
+> Is the reason the glmer does not really reflect this huge and consistent
+> effect? Any other ideas why the glmer may find this barely significant?
+>
+>
+>
+> Kind regards,
+>
+> Holger
+>
+>
+>
+> P.S.: This is how the glmer was specified:
+>
+>
+>
+> all.lmer = glmer(response ~ audCueC + visCueC*partC + (1|subject) +
+> (0+visCueC|subject) + (0+audCueC|subject)+(0 + partC|subject) + (0 +
+> partC:visCueC|subject)  , data = all2, family = "binomial")
+>
+>
+>
+> Notes
+>
+> -          I used uncorrelated random slopes, since this is more likely
+> to converge.
+>
+> -          All predictors are binary coded as -0.5 versus 0.5, so that
+> the regression weight gives an effect size.
+>
+>
+>
+>
+>
+
+From holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org  Fri Feb 13 16:56:54 2015
+From: holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org (Holger Mitterer)
+Date: Fri, 13 Feb 2015 17:56:54 +0100
+Subject: Re: struggling with categorical lmer (again)
+In-Reply-To: <CA+tkQ_Mu-+WsuqMwRCwdyG1F5ZSrzGoX7v0CTgU4nDEqNN4rrw@mail.gmail.com>
+References: <027201d047a5$8ac16350$a04429f0$@um.edu.mt> <CA+tkQ_Mu-+WsuqMwRCwdyG1F5ZSrzGoX7v0CTgU4nDEqNN4rrw@mail.gmail.com>
+Message-ID: <02d701d047ae$133ada10$39b08e30$@um.edu.mt>
+
+Hi all,
+
+ 
+
+Thanks for your responses. Here are my thoughts:
+
+ 
+
+1.       Small Sample size
+
+While I agree that 10 people is a small sample for your average pyschLing study, I think it is wrong to assume that each study needs the same number of participants.
+
+This  is a more psychophysical experiment, where an n = 10 is quite appropriate, due to the fact that there is no item variance
+
+(only one item) and that there are quite a large number of observations per participant per cell (20-40 in my case).
+
+If my memory is not deceiving me, this is also the typical n you would find in the examples of the “Signal detection theory: A user’s guide” book.
+
+ 
+
+2.       The point is not so much to get things significant or not. 
+
+I was mainly surprised because of the low level of significance  that glmer gave me. 
+
+If I run the same data through an ANOVA using logOdds of the proportions, I actually get an F value of (F1,9) = 136 for the same interaction
+
+which is somewhere in the significant range. And the model is not super complex, it is a 3-factor experiment, with 8 condition means (each factor being binary). 
+
+So, maybe, to restate the question:
+
+ 
+
+How can it be that an ANOVA on a pretty straightforward experimental data set tells me: “Yes, that effect is definitely there”
+
+while the glmer says something like “there might be something, but it may go away if you test another 4 participants”.
+
+ 
+
+3.       To give  more information, the complete model output is pasted below
+
+A model with correlated parameters actually does converge with pretty similar results. Again, I do not really care about the specifics of this data set,
+it is more the problem of the huge discrepancy what the data look like, with loads of consistency over subjects but glmer indicating an unclear effect.
+
+ 
+
+4.       Correlated versus uncorrelated random effects
+
+I am starting to get confused about this. I always thought that using the (0 + ... | subject) syntax only meant that the correlation was not estimated as a model parameter,
+
+not that the correlation is forced to be zero. But this is what Scott indicated, and it might be correct.
+
+However, I just checked that by using  “cor(ranef(all.lmer)$subject)”, (giving me the correlation matrix for the subject random effects.
+
+With this, I find huge correlations between some random slopes.
+
+This seems to suggest that the (0 + ..... |subject) syntax does not force the random slopes to be uncorrelated. 
+
+Is this correct, or is my simple test here wrong?
+
+ 
+
+	
+(Intercept)
+
+visCueC
+
+audCueC
+
+partC
+
+partC:visCueC
+
+
+(Intercept)
+
+1
+
+0.166717
+
+0.3795544
+
+0.460899
+
+-0.46649
+
+
+visCueC
+
+0.166717
+
+1
+
+-0.753875
+
+0.067872
+
+-0.89828
+
+
+audCueC
+
+0.379554
+
+-0.75388
+
+1
+
+0.287872
+
+0.502334
+
+
+partC
+
+0.460899
+
+0.067872
+
+0.2878716
+
+1
+
+-0.09249
+
+
+partC:visCueC
+
+-0.46649
+
+-0.89828
+
+0.5023342
+
+-0.09249
+
+1
+
+ 
+
+ 
+
+ 
+
+Kind regards,
+
+Holger
+
+ 
+
+PS: Here the full model output
+
+> all.lmer = glmer(response ~ audCueC + visCueC*partC + (1|subject) + (0+visCueC|subject) + (0+audCueC|subject)+(0 + partC|subject) + (0 + partC:visCueC|subject)  , data = all2, family = "binomial")
+
+> summary(all.lmer)
+
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+
+Family: binomial  ( logit )
+
+Formula: response ~ audCueC + visCueC * partC + (1 | subject) + (0 + visCueC |      subject) + (0 + audCueC | subject) + (0 + partC | subject) +  
+
+    (0 + partC:visCueC | subject)
+
+   Data: all2
+
+ 
+
+     AIC      BIC   logLik deviance df.resid 
+
+  2990.8   3048.6  -1485.4   2970.8     2390 
+
+ 
+
+Scaled residuals: 
+
+    Min      1Q  Median      3Q     Max 
+
+-2.5295 -0.8518 -0.3538  0.8333  2.8263 
+
+ 
+
+Random effects:
+
+Groups    Name          Variance Std.Dev.
+
+subject   (Intercept)   0.10041  0.3169  
+
+ subject.1 visCueC       0.12616  0.3552  
+
+ subject.2 audCueC       0.02822  0.1680  
+
+ subject.3 partC         1.01827  1.0091  
+
+ subject.4 partC:visCueC 0.87068  0.9331  
+
+Number of obs: 2400, groups:  subject, 10
+
+ 
+
+Fixed effects:
+
+              Estimate Std. Error z value Pr(>|z|)    
+
+(Intercept)    -0.0482     0.1101  -0.438 0.661617    
+
+audCueC        -0.4081     0.1078  -3.784 0.000154 ***
+
+visCueC         1.0357     0.1475   7.021  2.2e-12 ***
+
+partC           0.4930     0.3319   1.485 0.137444    
+
+visCueC:partC  -0.7224     0.3473  -2.080 0.037513 *  
+
+---
+
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+ 
+
+Correlation of Fixed Effects:
+
+            (Intr) audCuC visCuC partC 
+
+audCueC      0.002                     
+
+visCueC     -0.009  0.159              
+
+partC       -0.003 -0.004  0.010       
+
+visCuC:prtC  0.014  0.008 -0.011 -0.005
+
+ 
+
+From: Scott Jackson [mailto:scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org] 
+Sent: 13 February 2015 17:17
+To: Holger Mitterer
+Cc: R in Lingustics
+Subject: Re: [R-lang] struggling with categorical lmer (again)
+
+ 
+
+Hi Holger,
+
+ 
+
+Two quick knee-jerk thoughts:
+
+ 
+
+1. 10 people is a pretty small sample!  A power analysis might tell you just how huge the effect would need to be to be significant at p < .05.
+
+ 
+
+2. Uncorrelated effects can help the model converge (usually), because in essence it means the model need to estimate fewer parameters, but it also means that your model forces all of the random effects to be uncorrelated.  That is, the degree to which some subjects might be overall more accurate (random effect on the intercept) is forced to be completely uncorrelated with the degree to which some subjects display a bigger effect of visCueC, and so on.  Depending on how well this assumption actually fits the data could be leading to a converging-but-misfitting model, which could have some weird impacts on the effect estimation.  
+
+ 
+
+So, I think this all boils down to a pretty common problem: you may just not have enough data, especially to support estimation of a pretty complex model.
+
+ 
+
+hope that helps,
+
+-scott
+
+ 
+
+ 
+
+ 
+
+On Fri, Feb 13, 2015 at 10:55 AM, Holger Mitterer <holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org <mailto:holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org> > wrote:
+
+Hi R-peers,
+
+ 
+
+I was just analyzing a data set that looked at the effect of visual speech under a blocked and a mixed condition.
+
+(Don’t bother what this means). The results were quite clear, the effect of the visual signal was much less in the mixed conditions.
+
+If I put the results as percentage of /b/ responses, the result was
+
+ 
+
+Blocked Condition:          visual /b/: 68% visual /d/: 21% 
+
+Mixed Condition:             visual /b/: 54%  visual /d/: 55%
+
+ 
+
+You would expect this huge effect to give rise to a clear interaction, and while the beta weight for visualCue x condition was quite large,
+
+the significance level was only 0.04 in a glmer (See the formula for the lmer below), which is somewhat surprising given the huge effect in the descriptive data.
+
+(In fact, if we always found such clear effects, we probably would not need statistics at all.)
+
+ 
+
+So, I thought, maybe there are huge inter-individual differences, but no, if I look at the means for the 10 participants,
+and calculate the difference in percentage /b/ responses for the two visual conditions (visual /b/ and visual /d/) I get the following:
+
+(Yes, I should use logOdds for that, but I stay with percentages here, for ease of presentation)
+
+ 
+
+
+blocked
+
+mixed
+
+
+45
+
+0
+
+
+35
+
+3
+
+
+51
+
+3
+
+
+49
+
+-9
+
+
+76
+
+-1
+
+
+39
+
+-1
+
+
+70
+
+-1
+
+
+20
+
+1
+
+
+48
+
+-1
+
+
+39
+
+-6
+
+ 
+
+ 
+
+This looks like a pretty consistent effect over subjects, and does not rhyme well with the barely significant effect from the glmer.
+
+ 
+
+There is one reason I can see for that: The design was not balanced in terms of visual and auditory cues. Because we thought that
+
+the incongruent trials (visual cue different from auditory cue) would produce more noise, we actually used more of those than congruent trials.
+
+(So, that in fact, the cell means would be estimated with roughly similar precision.)
+
+ 
+
+Therefore, the visual and auditory cues are not independent in the overall analysis, since visual = /b/ makes it more likely that audio = /d/.
+
+(Since there are more incongruent trials.)  But I would have thought that having a regression weight for “auditoryCue” would take care of that.
+
+Is the reason the glmer does not really reflect this huge and consistent effect? Any other ideas why the glmer may find this barely significant?
+
+ 
+
+Kind regards,
+
+Holger
+
+ 
+
+P.S.: This is how the glmer was specified:
+
+ 
+
+all.lmer = glmer(response ~ audCueC + visCueC*partC + (1|subject) + (0+visCueC|subject) + (0+audCueC|subject)+(0 + partC|subject) + (0 + partC:visCueC|subject)  , data = all2, family = "binomial")
+
+ 
+
+Notes
+
+-          I used uncorrelated random slopes, since this is more likely to converge. 
+
+-          All predictors are binary coded as -0.5 versus 0.5, so that the regression weight gives an effect size.
+
+From danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Feb 13 17:16:34 2015
+From: danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Daniel Ezra Johnson)
+Date: Fri, 13 Feb 2015 12:16:34 -0500
+Subject: Re: struggling with categorical lmer (again)
+In-Reply-To: <027201d047a5$8ac16350$a04429f0$@um.edu.mt>
+References: <027201d047a5$8ac16350$a04429f0$@um.edu.mt>
+Message-ID: <CAABSvoVL0uV0O_ZONyrTG1AUj9yGavf=9r_+y2iVF879k2s7Rw@mail.gmail.com>
+
+The random effects are uncorrelated in the model, which is not to say that
+the BLUPs are uncorrelated when the model is applied to this data.
+(Similarly, the random effects are always normally distributed in the
+model, which is not to say that any set of BLUPs is normally distributed.)
+
+Agree with original post that something is 'wrong' here, subjects barely
+vary with respect to this interaction, so why isn't the p-value much lower?
+Can you get it to converge (to see what happens, as part of the
+investigation) by ignoring the auditory cue (either splitting the data, or
+just ignoring it) and using the ordinary syntax, that is to say, visCueC *
+partC + (visCueC * partC|subject)?
+
+On Fri, Feb 13, 2015 at 10:55 AM, Holger Mitterer <holger.mitterer-Mj5aoWcxWbo at public.gmane.orgt
+> wrote:
+
+> Hi R-peers,
+>
+>
+>
+> I was just analyzing a data set that looked at the effect of visual speech
+> under a blocked and a mixed condition.
+>
+> (Don’t bother what this means). The results were quite clear, the effect
+> of the visual signal was much less in the mixed conditions.
+>
+> If I put the results as percentage of /b/ responses, the result was
+>
+>
+>
+> Blocked Condition:          visual /b/: 68% visual /d/: 21%
+>
+> Mixed Condition:             visual /b/: 54%  visual /d/: 55%
+>
+>
+>
+> You would expect this huge effect to give rise to a clear interaction, and
+> while the beta weight for visualCue x condition was quite large,
+>
+> the significance level was only 0.04 in a glmer (See the formula for the
+> lmer below), which is somewhat surprising given the huge effect in the
+> descriptive data.
+>
+> (In fact, if we always found such clear effects, we probably would not
+> need statistics at all.)
+>
+>
+>
+> So, I thought, maybe there are huge inter-individual differences, but no,
+> if I look at the means for the 10 participants,
+> and calculate the difference in percentage /b/ responses for the two
+> visual conditions (visual /b/ and visual /d/) I get the following:
+>
+> (Yes, I should use logOdds for that, but I stay with percentages here, for
+> ease of presentation)
+>
+>
+>
+> blocked
+>
+> mixed
+>
+> 45
+>
+> 0
+>
+> 35
+>
+> 3
+>
+> 51
+>
+> 3
+>
+> 49
+>
+> -9
+>
+> 76
+>
+> -1
+>
+> 39
+>
+> -1
+>
+> 70
+>
+> -1
+>
+> 20
+>
+> 1
+>
+> 48
+>
+> -1
+>
+> 39
+>
+> -6
+>
+>
+>
+>
+>
+> This looks like a pretty consistent effect over subjects, and does not
+> rhyme well with the barely significant effect from the glmer.
+>
+>
+>
+> There is one reason I can see for that: The design was not balanced in
+> terms of visual and auditory cues. Because we thought that
+>
+> the incongruent trials (visual cue different from auditory cue) would
+> produce more noise, we actually used more of those than congruent trials.
+>
+> (So, that in fact, the cell means would be estimated with roughly similar
+> precision.)
+>
+>
+>
+> Therefore, the visual and auditory cues are not independent in the overall
+> analysis, since visual = /b/ makes it more likely that audio = /d/.
+>
+> (Since there are more incongruent trials.)  But I would have thought that
+> having a regression weight for “auditoryCue” would take care of that.
+>
+> Is the reason the glmer does not really reflect this huge and consistent
+> effect? Any other ideas why the glmer may find this barely significant?
+>
+>
+>
+> Kind regards,
+>
+> Holger
+>
+>
+>
+> P.S.: This is how the glmer was specified:
+>
+>
+>
+> all.lmer = glmer(response ~ audCueC + visCueC*partC + (1|subject) +
+> (0+visCueC|subject) + (0+audCueC|subject)+(0 + partC|subject) + (0 +
+> partC:visCueC|subject)  , data = all2, family = "binomial")
+>
+>
+>
+> Notes
+>
+> -          I used uncorrelated random slopes, since this is more likely
+> to converge.
+>
+> -          All predictors are binary coded as -0.5 versus 0.5, so that
+> the regression weight gives an effect size.
+>
+>
+>
+>
+>
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Feb 13 17:22:16 2015
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Fri, 13 Feb 2015 12:22:16 -0500
+Subject: Re: struggling with categorical lmer (again)
+In-Reply-To: <02d701d047ae$133ada10$39b08e30$@um.edu.mt>
+References: <027201d047a5$8ac16350$a04429f0$@um.edu.mt> <CA+tkQ_Mu-+WsuqMwRCwdyG1F5ZSrzGoX7v0CTgU4nDEqNN4rrw@mail.gmail.com> <02d701d047ae$133ada10$39b08e30$@um.edu.mt>
+Message-ID: <CA+tkQ_NdgwkT5VS+ubKAgPGYYE-67TZsxhrD1ZkHDtqU_=CQng@mail.gmail.com>
+
+Thanks for the nice discussion!
+
+1. I didn't mean "atypically small"; as you point out, this is pretty
+typical.  I just meant it might be too small for the model you're trying to
+fit.
+
+2. It's hard to answer "why is ANOVA giving clearly sig results, while
+glmer isn't", because there are a lot of differences between those models,
+and how they're getting estimated. lt could be a lot of things.  And your
+analysis/data probably violates some of the assumptions from either of
+those kinds of models.  But which one is violated worse, or which model is
+more appropriate, well, that gets pretty tricky.  Maybe some simulation
+studies could help suss that out, but I think that may be too much of an
+investment for this data.
+
+3. Good to know!  Then my second guess is probably not super relevant here.
+
+4. Hmm, this is interesting.  AFAIK, "not estimating" the correlations is
+the same as "constraining" the correlations, and when you constrain these
+in lmer, you are constraining them to be uncorrelated, i.e., r = 0.  The
+fact that your empirical check on the ranefs look pretty different from
+zero may be telling, or not.  With lmer, there is a difference between the
+estimated parameters and the ranefs.  For example, the variance of each
+random effect is an estimated parameter (and adds to the df of the overall
+model), but if you use ranef(), you are actually getting the BLUPs, which
+are not estimated parameters.  And if you check the variance of the BLUPs,
+it's not exactly equal to the estimated variance of the random effect.
+This is not (AFAIK) a paradox of any kind, just related to how the BLUPs
+are calculated.  So when you do the cor(ranef) trick, you are looking at
+the correlations between the BLUPs, which is NOT the same as the
+correlation parameters.  Unless I have gravely misunderstood something
+(always a possibility), the fact that they are not estimated means that the
+the correlation parameters are constrained to be zero.  What's interesting
+is that the BLUP correlations can end up wildly different from zero.
+Whether that "means" something  or not, I'm not sure.
+
+But given the estimated std dev of the interaction (close to 1, larger than
+the interaction effect itself), it doesn't seem very weird that it would be
+"barely" significant.  Even if it's "typical", it's a pretty small N for 5
+fixed parameters and 5 random effect parameters, when those ranefs are
+being estimated from just 10 people.
+
+-scott
+
+
+On Fri, Feb 13, 2015 at 11:56 AM, Holger Mitterer <holger.mitterer-Mj5aoWcxWbo at public.gmane.orgt
+> wrote:
+
+> Hi all,
+>
+>
+>
+> Thanks for your responses. Here are my thoughts:
+>
+>
+>
+> 1.       Small Sample size
+>
+> While I agree that 10 people is a small sample for your average pyschLing
+> study, I think it is wrong to assume that each study needs the same number
+> of participants.
+>
+> This  is a more psychophysical experiment, where an n = 10 is quite
+> appropriate, due to the fact that there is no item variance
+>
+> (only one item) and that there are quite a large number of observations
+> per participant per cell (20-40 in my case).
+>
+> If my memory is not deceiving me, this is also the typical n you would
+> find in the examples of the “Signal detection theory: A user’s guide” book.
+>
+>
+>
+> 2.       The point is not so much to get things significant or not.
+>
+> I was mainly surprised because of the low level of significance  that
+> glmer gave me.
+>
+> If I run the same data through an ANOVA using logOdds of the proportions,
+> I actually get an F value of (F1,9) = 136 for the same interaction
+>
+> which is somewhere in the significant range. And the model is not super
+> complex, it is a 3-factor experiment, with 8 condition means (each factor
+> being binary).
+>
+> So, maybe, to restate the question:
+>
+>
+>
+> How can it be that an ANOVA on a pretty straightforward experimental data
+> set tells me: “Yes, that effect is definitely there”
+>
+> while the glmer says something like “there might be something, but it may
+> go away if you test another 4 participants”.
+>
+>
+>
+> 3.       To give  more information, the complete model output is pasted
+> below
+>
+> A model with correlated parameters actually does converge with pretty
+> similar results. Again, I do not really care about the specifics of this
+> data set,
+> it is more the problem of the huge discrepancy what the data look like,
+> with loads of consistency over subjects but glmer indicating an unclear
+> effect.
+>
+>
+>
+> 4.       Correlated versus uncorrelated random effects
+>
+> I am starting to get confused about this. I always thought that using the
+> (0 + ... | subject) syntax only meant that the correlation was not
+> estimated as a model parameter,
+>
+> not that the correlation is forced to be zero. But this is what Scott
+> indicated, and it might be correct.
+>
+> However, I just checked that by using  “cor(ranef(all.lmer)$subject)”,
+> (giving me the correlation matrix for the subject random effects.
+>
+> With this, I find huge correlations between some random slopes.
+>
+> This seems to suggest that the (0 + ..... |subject) syntax does not force
+> the random slopes to be uncorrelated.
+>
+> Is this correct, or is my simple test here wrong?
+>
+>
+>
+> (Intercept)
+>
+> visCueC
+>
+> audCueC
+>
+> partC
+>
+> partC:visCueC
+>
+> (Intercept)
+>
+> 1
+>
+> 0.166717
+>
+> 0.3795544
+>
+> 0.460899
+>
+> -0.46649
+>
+> visCueC
+>
+> 0.166717
+>
+> 1
+>
+> -0.753875
+>
+> 0.067872
+>
+> -0.89828
+>
+> audCueC
+>
+> 0.379554
+>
+> -0.75388
+>
+> 1
+>
+> 0.287872
+>
+> 0.502334
+>
+> partC
+>
+> 0.460899
+>
+> 0.067872
+>
+> 0.2878716
+>
+> 1
+>
+> -0.09249
+>
+> partC:visCueC
+>
+> -0.46649
+>
+> -0.89828
+>
+> 0.5023342
+>
+> -0.09249
+>
+> 1
+>
+>
+>
+>
+>
+>
+>
+> Kind regards,
+>
+> Holger
+>
+>
+>
+> PS: Here the full model output
+>
+> > all.lmer = glmer(response ~ audCueC + visCueC*partC + (1|subject) +
+> (0+visCueC|subject) + (0+audCueC|subject)+(0 + partC|subject) + (0 +
+> partC:visCueC|subject)  , data = all2, family = "binomial")
+>
+> > summary(all.lmer)
+>
+> Generalized linear mixed model fit by maximum likelihood (Laplace
+> Approximation) ['glmerMod']
+>
+> Family: binomial  ( logit )
+>
+> Formula: response ~ audCueC + visCueC * partC + (1 | subject) + (0 +
+> visCueC |      subject) + (0 + audCueC | subject) + (0 + partC | subject)
+> +
+>
+>     (0 + partC:visCueC | subject)
+>
+>    Data: all2
+>
+>
+>
+>      AIC      BIC   logLik deviance df.resid
+>
+>   2990.8   3048.6  -1485.4   2970.8     2390
+>
+>
+>
+> Scaled residuals:
+>
+>     Min      1Q  Median      3Q     Max
+>
+> -2.5295 -0.8518 -0.3538  0.8333  2.8263
+>
+>
+>
+> Random effects:
+>
+> Groups    Name          Variance Std.Dev.
+>
+> subject   (Intercept)   0.10041  0.3169
+>
+>  subject.1 visCueC       0.12616  0.3552
+>
+>  subject.2 audCueC       0.02822  0.1680
+>
+>  subject.3 partC         1.01827  1.0091
+>
+>  subject.4 partC:visCueC 0.87068  0.9331
+>
+> Number of obs: 2400, groups:  subject, 10
+>
+>
+>
+> Fixed effects:
+>
+>               Estimate Std. Error z value Pr(>|z|)
+>
+> (Intercept)    -0.0482     0.1101  -0.438 0.661617
+>
+> audCueC        -0.4081     0.1078  -3.784 0.000154 ***
+>
+> visCueC         1.0357     0.1475   7.021  2.2e-12 ***
+>
+> partC           0.4930     0.3319   1.485 0.137444
+>
+> visCueC:partC  -0.7224     0.3473  -2.080 0.037513 *
+>
+> ---
+>
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+>
+>
+>
+> Correlation of Fixed Effects:
+>
+>             (Intr) audCuC visCuC partC
+>
+> audCueC      0.002
+>
+> visCueC     -0.009  0.159
+>
+> partC       -0.003 -0.004  0.010
+>
+> visCuC:prtC  0.014  0.008 -0.011 -0.005
+>
+>
+>
+> *From:* Scott Jackson [mailto:scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org]
+> *Sent:* 13 February 2015 17:17
+> *To:* Holger Mitterer
+> *Cc:* R in Lingustics
+> *Subject:* Re: [R-lang] struggling with categorical lmer (again)
+>
+>
+>
+> Hi Holger,
+>
+>
+>
+> Two quick knee-jerk thoughts:
+>
+>
+>
+> 1. 10 people is a pretty small sample!  A power analysis might tell you
+> just how huge the effect would need to be to be significant at p < .05.
+>
+>
+>
+> 2. Uncorrelated effects can help the model converge (usually), because in
+> essence it means the model need to estimate fewer parameters, but it also
+> means that your model forces all of the random effects to be uncorrelated.
+> That is, the degree to which some subjects might be overall more accurate
+> (random effect on the intercept) is forced to be completely uncorrelated
+> with the degree to which some subjects display a bigger effect of visCueC,
+> and so on.  Depending on how well this assumption actually fits the data
+> could be leading to a converging-but-misfitting model, which could have
+> some weird impacts on the effect estimation.
+>
+>
+>
+> So, I think this all boils down to a pretty common problem: you may just
+> not have enough data, especially to support estimation of a pretty complex
+> model.
+>
+>
+>
+> hope that helps,
+>
+> -scott
+>
+>
+>
+>
+>
+>
+>
+> On Fri, Feb 13, 2015 at 10:55 AM, Holger Mitterer <
+> holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org> wrote:
+>
+> Hi R-peers,
+>
+>
+>
+> I was just analyzing a data set that looked at the effect of visual speech
+> under a blocked and a mixed condition.
+>
+> (Don’t bother what this means). The results were quite clear, the effect
+> of the visual signal was much less in the mixed conditions.
+>
+> If I put the results as percentage of /b/ responses, the result was
+>
+>
+>
+> Blocked Condition:          visual /b/: 68% visual /d/: 21%
+>
+> Mixed Condition:             visual /b/: 54%  visual /d/: 55%
+>
+>
+>
+> You would expect this huge effect to give rise to a clear interaction, and
+> while the beta weight for visualCue x condition was quite large,
+>
+> the significance level was only 0.04 in a glmer (See the formula for the
+> lmer below), which is somewhat surprising given the huge effect in the
+> descriptive data.
+>
+> (In fact, if we always found such clear effects, we probably would not
+> need statistics at all.)
+>
+>
+>
+> So, I thought, maybe there are huge inter-individual differences, but no,
+> if I look at the means for the 10 participants,
+> and calculate the difference in percentage /b/ responses for the two
+> visual conditions (visual /b/ and visual /d/) I get the following:
+>
+> (Yes, I should use logOdds for that, but I stay with percentages here, for
+> ease of presentation)
+>
+>
+>
+> blocked
+>
+> mixed
+>
+> 45
+>
+> 0
+>
+> 35
+>
+> 3
+>
+> 51
+>
+> 3
+>
+> 49
+>
+> -9
+>
+> 76
+>
+> -1
+>
+> 39
+>
+> -1
+>
+> 70
+>
+> -1
+>
+> 20
+>
+> 1
+>
+> 48
+>
+> -1
+>
+> 39
+>
+> -6
+>
+>
+>
+>
+>
+> This looks like a pretty consistent effect over subjects, and does not
+> rhyme well with the barely significant effect from the glmer.
+>
+>
+>
+> There is one reason I can see for that: The design was not balanced in
+> terms of visual and auditory cues. Because we thought that
+>
+> the incongruent trials (visual cue different from auditory cue) would
+> produce more noise, we actually used more of those than congruent trials.
+>
+> (So, that in fact, the cell means would be estimated with roughly similar
+> precision.)
+>
+>
+>
+> Therefore, the visual and auditory cues are not independent in the overall
+> analysis, since visual = /b/ makes it more likely that audio = /d/.
+>
+> (Since there are more incongruent trials.)  But I would have thought that
+> having a regression weight for “auditoryCue” would take care of that.
+>
+> Is the reason the glmer does not really reflect this huge and consistent
+> effect? Any other ideas why the glmer may find this barely significant?
+>
+>
+>
+> Kind regards,
+>
+> Holger
+>
+>
+>
+> P.S.: This is how the glmer was specified:
+>
+>
+>
+> all.lmer = glmer(response ~ audCueC + visCueC*partC + (1|subject) +
+> (0+visCueC|subject) + (0+audCueC|subject)+(0 + partC|subject) + (0 +
+> partC:visCueC|subject)  , data = all2, family = "binomial")
+>
+>
+>
+> Notes
+>
+> -          I used uncorrelated random slopes, since this is more likely
+> to converge.
+>
+> -          All predictors are binary coded as -0.5 versus 0.5, so that
+> the regression weight gives an effect size.
+>
+>
+>
+>
+>
+>
+>
+
+From claire.bowern-LrD5EImo2rg at public.gmane.org  Fri Feb 13 17:28:28 2015
+From: claire.bowern-LrD5EImo2rg at public.gmane.org (Claire Bowern)
+Date: Fri, 13 Feb 2015 12:28:28 -0500
+Subject: Best models for stress data?
+Message-ID: <CAPbY3nF6rbr5Gw_KvaGGoh_7--sL3YARiiSf=8+DrCzKkOhb8g@mail.gmail.com>
+
+Hi list members,
+I'm revising a paper where some colleagues and I worked with archival
+recordings to try to determine evidence for the position of lexical stress
+(and in
+particular, whether stress is on the initial syllable, or on
+phonemically long vowels). We did this in the original paper with
+paired t-tests (comparing F0, intensity, duration, and
+centralization), with a correction for multiple testing. There is
+ample precedent for this in the phonetics literature, although we are
+well aware that this makes simplifying assumptions (e.g. about the
+independence of the variables we are looking at).
+A reviewer has insisted that we instead use a mixed effects model,
+though they don't seem to give any reasons for this other than "this
+is what people do nowadays". The stress analyses that I have seen
+using lme4, for example, take stress as a fixed effect. We can't do
+that, because we don't have independent judgements of where stress is.
+That is, rather than asking "what are the significant acoustic
+correlates of stress in this language", we are asking "for each of
+these well-known correlates of stress, which syllable positions
+pattern together?"
+I'd be interested in your opinions about the best way to proceed here,
+whether we should simply cite precedents for our methods, or compare
+competing models of stress placement, or something else.
+Claire
+
+-- 
+
+Claire Bowern
+Associate Professor
+Director of Graduate Studies
+Department of Linguistics
+370 Temple St, Rm 313
+New Haven, CT  06511
+
+From holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org  Fri Feb 13 18:15:37 2015
+From: holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org (Holger Mitterer)
+Date: Fri, 13 Feb 2015 19:15:37 +0100
+Subject: Re: struggling with categorical lmer (again)
+In-Reply-To: <CAABSvoVL0uV0O_ZONyrTG1AUj9yGavf=9r_+y2iVF879k2s7Rw@mail.gmail.com>
+References: <027201d047a5$8ac16350$a04429f0$@um.edu.mt> <CAABSvoVL0uV0O_ZONyrTG1AUj9yGavf=9r_+y2iVF879k2s7Rw@mail.gmail.com>
+Message-ID: <032201d047b9$11b21630$35164290$@um.edu.mt>
+
+Hello Daniel,
+
+ 
+
+So I tried what you suggested (a model without the auditory parameter):
+
+response ~ visCueC * partC + (1 + visCueC *  partC | subject)
+
+ 
+
+The model converges without the auditory predictor
+
+and then the interaction is there where you would expect it:
+
+ 
+
+visCueC:partC -2.37547    0.40580  -5.854 4.81e-09 ***
+
+ 
+
+Actually, using uncorrelated random effects makes a huge difference
+
+visCueC:partC -2.30952    0.31356  -7.365 1.77e-13 ***,
+
+with four orders of magnitude on the p-value,
+
+but only in a part of the coordinate system, where we do not really care about it.
+
+ 
+
+Given this result, I further investigated the role of the unbalance design.
+
+To remind everyone, in each condition, each participant had the following trials numbers 
+
+                aud /b/                 aud /d/
+
+visual
+
+/b/         20                           40
+
+/d/         40                           20
+
+ 
+
+(This was not by accident, but based on the idea that the cell means of these incongruent trials would be more difficult to measure.)
+
+ 
+
+I tested the role of that by randomly rejecting half of the incongruent trials of each subject and condition.
+
+And then I get a result that kind of meets the expectation:
+
+ 
+
+Fixed effects:
+
+              Estimate Std. Error z value Pr(>|z|)    
+
+(Intercept)          -0.05298    0.10012  -0.529  0.59667    
+
+audCueC              -0.37555    0.13241  -2.836  0.00456 ** 
+
+visCueC                1.06206    0.16581   6.405 1.50e-10 ***
+
+partC                     0.57009    0.38818   1.469  0.14193    
+
+visCueC:partC    -2.41119    0.41463  -5.815 6.05e-09 ***
+
+ 
+
+This probably means I have to have another good look at Wurm’s paper on the counter-intuitive effects of residualizing,
+
+because this is what happens in the earlier model: First, there is the effect of auditory model is accounted for, and then 
+the other effects deal with the rest. 
+
+ 
+
+Kind regards,
+
+Holger
+
+ 
+
+ 
+
+ 
+
+From: Daniel Ezra Johnson [mailto:danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org] 
+Sent: 13 February 2015 18:17
+To: Holger Mitterer
+Cc: ling-r-lang-l
+Subject: Re: [R-lang] struggling with categorical lmer (again)
+
+ 
+
+The random effects are uncorrelated in the model, which is not to say that the BLUPs are uncorrelated when the model is applied to this data. (Similarly, the random effects are always normally distributed in the model, which is not to say that any set of BLUPs is normally distributed.)
+
+ 
+
+Agree with original post that something is 'wrong' here, subjects barely vary with respect to this interaction, so why isn't the p-value much lower? Can you get it to converge (to see what happens, as part of the investigation) by ignoring the auditory cue (either splitting the data, or just ignoring it) and using the ordinary syntax, that is to say, visCueC * partC + (visCueC * partC|subject)?
+
+ 
+
+On Fri, Feb 13, 2015 at 10:55 AM, Holger Mitterer <holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org <mailto:holger.mitterer-Mj5aoWcxWbpeoWH0uzbU5w at public.gmane.org> > wrote:
+
+Hi R-peers,
+
+ 
+
+I was just analyzing a data set that looked at the effect of visual speech under a blocked and a mixed condition.
+
+(Don’t bother what this means). The results were quite clear, the effect of the visual signal was much less in the mixed conditions.
+
+If I put the results as percentage of /b/ responses, the result was
+
+ 
+
+Blocked Condition:          visual /b/: 68% visual /d/: 21% 
+
+Mixed Condition:             visual /b/: 54%  visual /d/: 55%
+
+ 
+
+You would expect this huge effect to give rise to a clear interaction, and while the beta weight for visualCue x condition was quite large,
+
+the significance level was only 0.04 in a glmer (See the formula for the lmer below), which is somewhat surprising given the huge effect in the descriptive data.
+
+(In fact, if we always found such clear effects, we probably would not need statistics at all.)
+
+ 
+
+So, I thought, maybe there are huge inter-individual differences, but no, if I look at the means for the 10 participants,
+and calculate the difference in percentage /b/ responses for the two visual conditions (visual /b/ and visual /d/) I get the following:
+
+(Yes, I should use logOdds for that, but I stay with percentages here, for ease of presentation)
+
+ 
+
+
+blocked
+
+mixed
+
+
+45
+
+0
+
+
+35
+
+3
+
+
+51
+
+3
+
+
+49
+
+-9
+
+
+76
+
+-1
+
+
+39
+
+-1
+
+
+70
+
+-1
+
+
+20
+
+1
+
+
+48
+
+-1
+
+
+39
+
+-6
+
+ 
+
+ 
+
+This looks like a pretty consistent effect over subjects, and does not rhyme well with the barely significant effect from the glmer.
+
+ 
+
+There is one reason I can see for that: The design was not balanced in terms of visual and auditory cues. Because we thought that
+
+the incongruent trials (visual cue different from auditory cue) would produce more noise, we actually used more of those than congruent trials.
+
+(So, that in fact, the cell means would be estimated with roughly similar precision.)
+
+ 
+
+Therefore, the visual and auditory cues are not independent in the overall analysis, since visual = /b/ makes it more likely that audio = /d/.
+
+(Since there are more incongruent trials.)  But I would have thought that having a regression weight for “auditoryCue” would take care of that.
+
+Is the reason the glmer does not really reflect this huge and consistent effect? Any other ideas why the glmer may find this barely significant?
+
+ 
+
+Kind regards,
+
+Holger
+
+ 
+
+P.S.: This is how the glmer was specified:
+
+ 
+
+all.lmer = glmer(response ~ audCueC + visCueC*partC + (1|subject) + (0+visCueC|subject) + (0+audCueC|subject)+(0 + partC|subject) + (0 + partC:visCueC|subject)  , data = all2, family = "binomial")
+
+ 
+
+Notes
+
+-          I used uncorrelated random slopes, since this is more likely to converge. 
+
+-          All predictors are binary coded as -0.5 versus 0.5, so that the regression weight gives an effect size.
+
+From matt-goldrick-angj7XTnwNpXfO9P/gJGhg at public.gmane.org  Fri Feb 13 18:32:28 2015
+From: matt-goldrick-angj7XTnwNpXfO9P/gJGhg at public.gmane.org (Matt Goldrick)
+Date: Fri, 13 Feb 2015 12:32:28 -0600
+Subject: Re: Best models for stress data?
+In-Reply-To: <193f67bd0d054fc7a16a42dccd688f2f@CHCSPCAS1.ads.northwestern.edu>
+References: <193f67bd0d054fc7a16a42dccd688f2f@CHCSPCAS1.ads.northwestern.edu>
+Message-ID: <CADF1R0kv1-qYRBOmivVBRZNx7wust+jjiBt3SdKkkctrgmXV8w@mail.gmail.com>
+
+Dear Claire,
+
+On Fri, Feb 13, 2015 at 11:28 AM, Claire Bowern <claire.bowern-LrD5EImo2rg at public.gmane.org>
+wrote:
+
+>  Hi list members,
+> I'm revising a paper where some colleagues and I worked with archival
+> recordings to try to determine evidence for the position of lexical stress
+> (and in
+> particular, whether stress is on the initial syllable, or on
+> phonemically long vowels). We did this in the original paper with
+> paired t-tests (comparing F0, intensity, duration, and
+> centralization), with a correction for multiple testing.
+>
+
+What are your paired t-tests comparing? Based on your questions, my guess
+is that it's syllable/prosodic positions (initial vs. non-initial, long vs.
+short vowels). Your fixed effects should correspond to these comparisons.
+
+If you're diving into regression models for the first time, I'd definitely
+suggest reading up on how to code categorical predictors--some pointers:
+
+*http://hlplab.files.wordpress.com/2011/02/codingtutorial.pdf
+<http://hlplab.files.wordpress.com/2011/02/codingtutorial.pdf>*
+http://www.scottfraundorf.com/slides/Contrast_Coding_Fraundorf_Lam.pdf
+
+Matt
+
+From drmccloy-lfcS8c3Mqgg at public.gmane.org  Sat Feb 14 00:53:32 2015
+From: drmccloy-lfcS8c3Mqgg at public.gmane.org (Dan McCloy)
+Date: Sat, 14 Feb 2015 08:53:32 +0800
+Subject: Best models for stress data?
+Message-ID: <CAOE0pYm+DJo5VsiJHiXT8HezfXphYeAwmfy4zX7nqSO_wyWO3w@mail.gmail.com>
+
+Hi Claire,
+I infer that the archival recordings didn't come with native speaker
+judgments about stress placement, or else you wouldn't be asking this
+question. But thinking about how you would model it if you *did* have a
+priori information about stress (and were investigating which acoustic
+measures were correlates) can point the way to how you might answer the
+question without such a priori information.  If you knew stress position,
+you could use the native speaker judgment as the (binary) outcome you're
+trying to predict, and using the four acoustic measures as the predictors.
+This would be something like:
+
+speakerSaysItsStressed ~ fzero + intens + dur + centr
+
+This would be an ordinary GLM, not a mixed model, though you could include
+a random effect for "word" or "speaker" if you have several replicates of
+each word, or several different speakers (or both). Given this model
+specification, you could create variables to represent your two hypotheses,
+and run one model for each, then compare model fit.  In other words, a
+vector called "initialStress" with 1s for all data points that are initial
+syllables (and 0s elsewhere), and a vector called "lengthEqualsStress" with
+1s for all the syllables with long vowels (and 0s elsewhere).  Then the two
+models are
+
+initialStress ~ fzero + intens + dur + centr
+lengthEqualsStress ~ fzero + intens + dur + centr
+
+Hope that helps,
+-- dan
+
+Daniel McCloy
+http://dan.mccloy.info/
+Postdoctoral Research Fellow
+Institute for Learning and Brain Sciences
+University of Washington
+
+
+
+On Sat, Feb 14, 2015 at 2:17 AM, <ling-r-lang-l-request-xGejAJT2w6xeRyQZnrz35w at public.gmane.org>
+wrote:
+
+>
+> Message: 1
+> Date: Fri, 13 Feb 2015 12:28:28 -0500
+> From: Claire Bowern <claire.bowern-LrD5EImo2rg at public.gmane.org>
+> Subject: [R-lang]  Best models for stress data?
+> To: ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> Message-ID:
+>         <CAPbY3nF6rbr5Gw_KvaGGoh_7--sL3YARiiSf=
+> 8+DrCzKkOhb8g-JsoAwUIsXosN+BqQ9rBEUg at public.gmane.org>
+> Content-Type: text/plain; charset="utf-8"
+>
+> Hi list members,
+> I'm revising a paper where some colleagues and I worked with archival
+> recordings to try to determine evidence for the position of lexical stress
+> (and in
+> particular, whether stress is on the initial syllable, or on
+> phonemically long vowels). We did this in the original paper with
+> paired t-tests (comparing F0, intensity, duration, and
+> centralization), with a correction for multiple testing. There is
+> ample precedent for this in the phonetics literature, although we are
+> well aware that this makes simplifying assumptions (e.g. about the
+> independence of the variables we are looking at).
+> A reviewer has insisted that we instead use a mixed effects model,
+> though they don't seem to give any reasons for this other than "this
+> is what people do nowadays". The stress analyses that I have seen
+> using lme4, for example, take stress as a fixed effect. We can't do
+> that, because we don't have independent judgements of where stress is.
+> That is, rather than asking "what are the significant acoustic
+> correlates of stress in this language", we are asking "for each of
+> these well-known correlates of stress, which syllable positions
+> pattern together?"
+> I'd be interested in your opinions about the best way to proceed here,
+> whether we should simply cite precedents for our methods, or compare
+> competing models of stress placement, or something else.
+> Claire
+>
+> --
+>
+> Claire Bowern
+> Associate Professor
+> Director of Graduate Studies
+> Department of Linguistics
+> 370 Temple St, Rm 313
+> New Haven, CT  06511
+>
+
+From zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Feb 25 20:02:01 2015
+From: zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Zhenguang Cai)
+Date: Wed, 25 Feb 2015 20:02:01 -0000
+Subject: Correlated random effects
+Message-ID: <00c401d05135$ec46bdc0$c4d43940$@gmail.com>
+
+Hi all,
+
+ 
+
+I have a question concerning correlated random effects. Following Barr et al., I fitted my model with a maximal random effect structure:
+
+ 
+
+e1=glmer(Response~cGroup*cAccent+(1|Subject)+(cGroup*cAccent+1|Item),E1,family="binomial")
+
+ 
+
+However, the model failed to converge. So I next removed the correlation between item slopes and item intercept.
+
+ 
+
+e1b=glmer(Response~cGroup*cAccent+(1|Subject)+(cGroup*cAccent+0|Item)+(1|Item),E1,family="binomial")
+
+ 
+
+I hope the above is the right way of doing it in the new glmer. The model output suggests that there were strong correlations among the random slopes; and also, the variance for cAccent and the interaction item slope seemed to be very small.
+
+ 
+
+Random effects:
+
+Groups  Name           Variance Std.Dev. Corr       
+
+ Subject (Intercept)    0.12143  0.3485              
+
+ Item    cGroup         1.20142  1.0961              
+
+         cAccent        0.08034  0.2834   -0.97      
+
+         cGroup:cAccent 0.05026  0.2242    0.97 -1.00
+
+Item.1  (Intercept)    1.92902  1.3889              
+
+Number of obs: 2110, groups:  Subject, 120; Item, 22
+
+ 
+
+Fixed effects:
+
+               Estimate Std. Error z value Pr(>|z|)    
+
+(Intercept)     0.08724    0.30595   0.285   0.7755    
+
+cGroup          2.88675    0.28489  10.133   <2e-16 ***
+
+cAccent         0.29064    0.14806   1.963   0.0496 *  
+
+cGroup:cAccent -0.48178    0.27544  -1.749   0.0803 .  
+
+---
+
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+ 
+
+ 
+
+I wonder whether it matters to have highly correlated random effects. I seem to have read that these may cause problems. If they do, how to remedy this? Also, is it OK to get rid of random slopes with near-zero variances (sounds anti-Barr though).
+
+ 
+
+Thanks for any help,
+
+ 
+
+Zhenguang Cai
+

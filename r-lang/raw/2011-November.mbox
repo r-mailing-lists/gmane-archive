@@ -1,0 +1,2481 @@
+From Rachel.Smith-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org  Wed Nov  9 00:34:33 2011
+From: Rachel.Smith-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org (Rachel Smith)
+Date: Wed, 09 Nov 2011 00:34:33 +0000
+Subject: pvals.fnc and F statistic
+Message-ID: <4D20AC12B0DD1B41B3901228D1C40C2D3BFD68098E@CMS03.campus.gla.ac.uk>
+
+Hello all,
+
+I wonder if anyone can help me with a question about pvals.fnc and lmer.
+
+I'm running some re-analyses on a dataset analysed some years ago (2007), working with the languageR package.
+
+In the earlier analyses, to obtain values for reporting, we used the then current version of pvals.fnc, with the following code:
+
+x=pvals.fnc(model.lmer)
+x$summary
+x$anova
+
+x$summary gave outputs like:
+
+#                  Estimate Std.Error  DF t.value   pvals ci950 ci990 ci999
+#(Intercept)        42.4514    2.1493 973  19.751 0.00000  TRUE  TRUE  TRUE
+#typePsPr          -21.2240    1.7903 973 -11.855 0.00000  TRUE  TRUE  TRUE
+#stressPN           -5.0640    0.8967 973  -5.648 0.00000  TRUE  TRUE  TRUE
+#MorDMis             2.5627    1.7903 973   1.431 0.15275 FALSE FALSE FALSE
+#typePsPr:stressPN   5.8140    1.0298 973   5.646 0.00000  TRUE  TRUE  TRUE
+#stressPN:MorDMis    1.6569    1.0296 973   1.609 0.10794 FALSE FALSE FALSE
+
+while x$anova gave e.g.
+
+#            Df  SumSq MeanSq Denom         F   pvals
+#type         1 7379.4 7379.4   973 113.83044 0.00000
+#stress       1  398.6  398.6   973   6.14858 0.01332
+#MorD         1  256.3  256.3   973   3.95354 0.04705
+#type:stress  1 2069.7 2069.7   973  31.92602 0.00000
+#stress:MorD  1  167.9  167.9   973   2.58993 0.10787
+
+These days, based on a more recent version of languageR, my usual practice when running lmer is to do:
+
+pvals.fnc(model.lmer)$fixed
+
+This gives an output broadly similar to that of x$summary above, but with two sets of p values, one based on Monte Carlo Markov chains.
+
+What I can't seem to obtain is an output like that of x$anova above, i.e. one that includes SumSq, MeanSq, df and F.
+
+Does anyone know if this is possible?
+
+If not, what can I report as the equivalent of (in ANOVA) the df, F and p for a main effect or interaction term?
+
+Any advice very gratefully received.
+
+Best wishes,
+
+Rachel
+
+From jmkahn-vEoVa6Jh+/J4piUD7e9S/g at public.gmane.org  Thu Nov 10 21:49:07 2011
+From: jmkahn-vEoVa6Jh+/J4piUD7e9S/g at public.gmane.org (Jason Kahn)
+Date: Thu, 10 Nov 2011 16:49:07 -0500
+Subject: Helmert (or really any) contrasts, log-likelihood, and specificity
+Message-ID: <CAB8sAwP3FNCAQUHGBWnKGHz0FdZW4b2zk2oA8CZU9DC1L_oOng@mail.gmail.com>
+
+Hello everyone,
+
+I'm trying to set up a model with a three-way contrast: between linguistic,
+non-linguistic, and control. I'd like to compare all three to each other,
+but for the moment, I'll focus on one set of Helmert contrasts:
+
+  [,1] [,2]
+l   -1   -1
+n    1   -1
+c    0    2
+
+This should compare 1) linguistic to non-linguistic, and 2) 2 times control
+to the average of linguistic and non-linguistic. So far so good.
+
+My "baseline" model includes some control predictors, and more importantly,
+random intercepts and slopes for subject and item. The slopes are by
+"condition," and in this case I've used the contrasts, as follows:
+
+baseline<-lmer(logRT~(1+contr1+contr2|subject)+(1+contr1+contr2|item)+controlpredictors)
+
+This, in order to specify the "maximal" structure allowed/justified by the
+data. So far still so good (right?).
+
+Then I add the fixed effect contrasts:
+
+ofInterest<-update(baseline,.~.+contr1+contr2)
+
+The fixed effect output of this type of model indicates that, for one set
+of RT's, the t-value for both contrasts "should be" significant. The output
+for an identical model for a different set of RT's indicates that one (but
+not the other) "should be" significant.
+
+To get a usable significance, I have to use log-likelihood tests, because
+pvals.fnc() won't work with random slopes (or is it just covariances?
+Regardless...). But because my model comparison includes both contr1 and
+contr2, the test isn't going to spit out individual significance values for
+each, t-values or not. Is there some way to tell when contr1 is
+significant, independent of the significance of contr2, in a model like the
+one I've described? Can I rely on those t-values at all?
+
+I'm happy to provide more information if it would clarify anything I've
+muddied.
+
+Jason
+
+From rlevy-XkckGZ689+c at public.gmane.org  Fri Nov 11 03:08:31 2011
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Fri, 11 Nov 2011 03:08:31 +0000
+Subject: Re: Helmert (or really any) contrasts, log-likelihood, and specificity
+In-Reply-To: <CAB8sAwP3FNCAQUHGBWnKGHz0FdZW4b2zk2oA8CZU9DC1L_oOng@mail.gmail.com>
+References: <CAB8sAwP3FNCAQUHGBWnKGHz0FdZW4b2zk2oA8CZU9DC1L_oOng@mail.gmail.com>
+Message-ID: <17B9FBF4-56AC-45BA-8F0F-8F2054313D3B@ucsd.edu>
+
+
+On Nov 10, 2011, at 4:49 PM EST, Jason Kahn wrote:
+
+> Hello everyone,
+> 
+> I'm trying to set up a model with a three-way contrast: between linguistic, non-linguistic, and control. I'd like to compare all three to each other, but for the moment, I'll focus on one set of Helmert contrasts:
+> 
+>   [,1] [,2]
+> l   -1   -1
+> n    1   -1
+> c    0    2
+> 
+> This should compare 1) linguistic to non-linguistic, and 2) 2 times control to the average of linguistic and non-linguistic. So far so good.
+> 
+> My "baseline" model includes some control predictors, and more importantly, random intercepts and slopes for subject and item. The slopes are by "condition," and in this case I've used the contrasts, as follows:
+> 
+> baseline<-lmer(logRT~(1+contr1+contr2|subject)+(1+contr1+contr2|item)+controlpredictors)
+> 
+> This, in order to specify the "maximal" structure allowed/justified by the data. So far still so good (right?).
+> 
+> Then I add the fixed effect contrasts:
+> 
+> ofInterest<-update(baseline,.~.+contr1+contr2)
+> 
+> The fixed effect output of this type of model indicates that, for one set of RT's, the t-value for both contrasts "should be" significant. The output for an identical model for a different set of RT's indicates that one (but not the other) "should be" significant.
+> 
+> To get a usable significance, I have to use log-likelihood tests, because pvals.fnc() won't work with random slopes (or is it just covariances? Regardless...). But because my model comparison includes both contr1 and contr2, the test isn't going to spit out individual significance values for each, t-values or not. Is there some way to tell when contr1 is significant, independent of the significance of contr2, in a model like the one I've described? Can I rely on those t-values at all?
+
+Hi Jason,
+
+I'm not sure I understand your confusion -- isn't this precisely what the t-values associated with the two contrast parameters are for?
+
+Best
+
+Roger
+
+> 
+> I'm happy to provide more information if it would clarify anything I've muddied.
+> 
+> Jason
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+
+From jmkahn-vEoVa6Jh+/J4piUD7e9S/g at public.gmane.org  Fri Nov 11 04:23:02 2011
+From: jmkahn-vEoVa6Jh+/J4piUD7e9S/g at public.gmane.org (Jason Kahn)
+Date: Thu, 10 Nov 2011 23:23:02 -0500
+Subject: Re: Helmert (or really any) contrasts, log-likelihood, and specificity
+In-Reply-To: <17B9FBF4-56AC-45BA-8F0F-8F2054313D3B-XkckGZ689+c@public.gmane.org>
+References: <CAB8sAwP3FNCAQUHGBWnKGHz0FdZW4b2zk2oA8CZU9DC1L_oOng@mail.gmail.com> <17B9FBF4-56AC-45BA-8F0F-8F2054313D3B@ucsd.edu>
+Message-ID: <CAB8sAwMWuq-HJfG-e4+2E1b9HwuopVOrq2Au8OP8L=qvH3NCnw@mail.gmail.com>
+
+Hi Roger  (and still everyone),
+
+After an educational link from an anonymous well-wisher, and a glance back
+through Baayen (2008), I see that I'm confused. For the sake of anyone
+reading this who still shares my earlier confusion, let me run through what
+I've learned:
+
+Those t-values are actually more reliable than I thought. My original
+confusion came from reading a segment of Baayen too quickly - he recommends
+pvals.fnc() for small datasets, only /after/ saying that t values are fine
+for large datasets. "Large" here meaning something like thousands of
+observations (though cf. your "hundreds," following Pinheiro & Bates, in
+the link below).
+
+The link I mentioned (
+https://mailman.ucsd.edu/pipermail/ling-r-lang-l/2011-January/thread.html#198 -
+Alex Fine's thread at the bottom) has basically the same answer from you
+and Huge Quene. You cite Pinheiro and Bates (2000), and Quene cites Hox
+(2010), who cites Raudenbush & Bryk (1992). Everyone gives slightly
+different answers as to the recommended degrees of freedom, so anyone
+interested should see the thread (and, I suppose, ideally the references),
+but t values seem to work just fine in a pinch.
+
+There are a couple of other interesting alternatives in that thread, which
+I'd love to hear more about if they've developed more thoroughly, but for
+now it sounds like I have my solution.
+
+Thanks for clearing me up,
+Jason
+
+On Thu, Nov 10, 2011 at 10:08 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+
+>
+> Hi Jason,
+>
+> I'm not sure I understand your confusion -- isn't this precisely what the
+> t-values associated with the two contrast parameters are for?
+>
+> Best
+>
+> Roger
+>
+> >
+> > I'm happy to provide more information if it would clarify anything I've
+> muddied.
+> >
+> > Jason
+>
+> --
+>
+> Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+> Assistant Professor             Phone: 858-534-7219
+> Department of Linguistics       Fax:   858-534-4789
+> UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+
+From rlevy-XkckGZ689+c at public.gmane.org  Fri Nov 11 18:37:17 2011
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Fri, 11 Nov 2011 18:37:17 +0000
+Subject: Re: pvals.fnc and F statistic
+In-Reply-To: <4D20AC12B0DD1B41B3901228D1C40C2D3BFD68098E@CMS03.campus.gla.ac.uk>
+References: <4D20AC12B0DD1B41B3901228D1C40C2D3BFD68098E@CMS03.campus.gla.ac.uk>
+Message-ID: <BF20D5BC-6451-4643-AF08-1082690A7741@ucsd.edu>
+
+Dear Rachel,
+
+First off, this is the kind of question where it would really be helpful to know what versions of the relevant R package (languageR) you have been using.  When you say "these days", do you mean languageR package version 1.2 (the latest)?  Do you know what version you were using to get the output in the earlier analyses?
+
+Also, have you tried anova(model.lmer) directly?
+
+Best
+
+Roger
+
+On Nov 8, 2011, at 7:34 PM EST, Rachel Smith wrote:
+
+> Hello all,
+>  
+> I wonder if anyone can help me with a question about pvals.fnc and lmer.
+>  
+> I'm running some re-analyses on a dataset analysed some years ago (2007), working with the languageR package.
+>  
+> In the earlier analyses, to obtain values for reporting, we used the then current version of pvals.fnc, with the following code:
+>  
+> x=pvals.fnc(model.lmer)
+> x$summary
+> x$anova
+>  
+> x$summary gave outputs like:
+>  
+> #                  Estimate Std.Error  DF t.value   pvals ci950 ci990 ci999
+> #(Intercept)        42.4514    2.1493 973  19.751 0.00000  TRUE  TRUE  TRUE
+> #typePsPr          -21.2240    1.7903 973 -11.855 0.00000  TRUE  TRUE  TRUE
+> #stressPN           -5.0640    0.8967 973  -5.648 0.00000  TRUE  TRUE  TRUE
+> #MorDMis             2.5627    1.7903 973   1.431 0.15275 FALSE FALSE FALSE
+> #typePsPr:stressPN   5.8140    1.0298 973   5.646 0.00000  TRUE  TRUE  TRUE
+> #stressPN:MorDMis    1.6569    1.0296 973   1.609 0.10794 FALSE FALSE FALSE
+>  
+> while x$anova gave e.g.
+>  
+> #            Df  SumSq MeanSq Denom         F   pvals
+> #type         1 7379.4 7379.4   973 113.83044 0.00000
+> #stress       1  398.6  398.6   973   6.14858 0.01332
+> #MorD         1  256.3  256.3   973   3.95354 0.04705
+> #type:stress  1 2069.7 2069.7   973  31.92602 0.00000
+> #stress:MorD  1  167.9  167.9   973   2.58993 0.10787
+>  
+> These days, based on a more recent version of languageR, my usual practice when running lmer is to do:
+>  
+> pvals.fnc(model.lmer)$fixed
+>  
+> This gives an output broadly similar to that of x$summary above, but with two sets of p values, one based on Monte Carlo Markov chains. 
+>  
+> What I can't seem to obtain is an output like that of x$anova above, i.e. one that includes SumSq, MeanSq, df and F.
+>  
+> Does anyone know if this is possible?
+>  
+> If not, what can I report as the equivalent of (in ANOVA) the df, F and p for a main effect or interaction term?
+>  
+> Any advice very gratefully received.
+>  
+> Best wishes,
+>  
+> Rachel
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+
+From sunfakim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Nov 19 11:14:18 2011
+From: sunfakim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Sunfa Kim)
+Date: Sat, 19 Nov 2011 06:14:18 -0500
+Subject: Figuring out maximum random effects in mixed-effect regression models
+Message-ID: <CABAMqrfWvFMEZ2K3=deKWE0-TA0KaQ5BRgSPHDOPs7Q=+A+Muw@mail.gmail.com>
+
+To whom it may concern:
+
+I would like to use a mixed-effect regression approach to examine the
+adaptation effect (i.e., learning) during sentence comprehension.
+
+Right now, I am trying to figure out the maximum random effects.
+
+One of the models produced the following summary
+>summary(priming.lmer)
+
+
+
+Random effects:
+
+Groups
+
+Name
+
+Variance
+
+Std.Dev.
+
+Corr
+
+Subject
+
+(Intercept)
+
+19867.54
+
+140.952
+
+
+
+
+
+cPrimeType
+
+367.20
+
+19.162
+
+-1.000
+
+
+
+cCondition
+
+5558.49
+
+74.555
+
+-1.000
+
+
+
+clogLength
+
+8128.49
+
+90.158
+
+0.954
+
+
+
+cLogPresOrder
+
+3033.62
+
+55.078
+
+-0.216
+
+
+
+cPrimeType:cCondition
+
+17606.58
+
+132.690
+
+0.164
+
+
+
+cPrimeType:cCondition:cPresOrder
+
+351.92
+
+18.759
+
+0.142
+
+Item
+
+(Intercept)
+
+2870.65
+
+53.578
+
+
+
+
+
+cCondition
+
+3391.10
+
+58.233
+
+0.668
+
+
+
+cCondition:cPrimeType
+
+1224.53
+
+34.993
+
+-0.652
+
+Residual
+
+
+
+31654.56
+
+177.917
+
+
+
+
+
+Baayen, Davidson, and Bates (2008) noted that "the high correlation of the
+intercept and slope for the subject random effects (-1.00) indicates that
+the model has been overparameterized" (p. 395).
+
+So, I inspected the correlations and identified three high correlations
+from the table. Therefore, I simplified the model by removing the
+by-subject adjustments to the slopes of cPrimeType, cCondition, and
+clogLength.
+
+The simplified model produced the following summary.
+>summary(rev_priming.lmer)
+
+
+
+Random effects:
+
+Groups
+
+Name
+
+Variance
+
+Std.Dev.
+
+Corr
+
+Subject
+
+(Intercept)
+
+19443.07
+
+139.438
+
+
+
+
+
+cLogPresOrder
+
+2832.97
+
+53.226
+
+-0.341
+
+
+
+cPrimeType:cCondition
+
+1043.35
+
+32.301
+
+-0.133
+
+
+
+cPrimeType:cCondition:cPresOrder
+
+204.57
+
+14.303
+
+0.364
+
+Item
+
+(Intercept)
+
+2935.82
+
+54.183
+
+
+
+
+
+cCondition
+
+3545.04
+
+59.540
+
+0.740
+
+
+
+cCondition:cPrimeType
+
+1878.62
+
+43.343
+
+-0.656
+
+Residual
+
+
+
+36990.34
+
+192.329
+
+
+
+
+Now, the correlation values seem to be in the range of acceptable values
+(i.e., not too high).
+
+Finally, in order to verify that the simpler model is justified, I carried
+out a likelihood ratio test.
+
+> anova(priming.lmer, rev_priming.lmer)
+
+
+
+Df
+
+AIC
+
+BIC
+
+logLik
+
+Chisq Chi
+
+Df
+
+Pr(>Chisq)
+
+riming.lmer
+
+27
+
+22598
+
+22744
+
+-11272
+
+
+
+
+
+
+
+rev_priming.lmer
+
+45
+
+22474
+
+22718
+
+-11192
+
+159.35
+
+18
+
+< 2.2e-16 ***
+ ---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+My understanding is that this likelihood ratio test indicates that the
+removal of the by-subject adjustments to the slopes is NOT justified.
+
+My question is which model should I choose to report my results?
+priming.lmer or rev_priming.lmer?
+
+Thank you very much for your suggestions on this matter in advance!
+
+Best,
+Sunfa
+
+From kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org  Sat Nov 19 11:34:01 2011
+From: kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org (Reinhold Kliegl)
+Date: Sat, 19 Nov 2011 12:34:01 +0100
+Subject: Re: Figuring out maximum random effects in mixed-effect regression models
+In-Reply-To: <CABAMqrfWvFMEZ2K3=deKWE0-TA0KaQ5BRgSPHDOPs7Q=+A+Muw@mail.gmail.com>
+References: <CABAMqrfWvFMEZ2K3=deKWE0-TA0KaQ5BRgSPHDOPs7Q=+A+Muw@mail.gmail.com>
+Message-ID: <BB9BE165-7E7D-44DB-AE69-C8DF6ECCCCD0@uni-potsdam.de>
+
+I would recommend a slightly different approach.
+
+(1) Start with a full RE model but without correlation parameters.
+(2) Test for which REs you have reliable evidence for between-subject (betweein-item) variance components (drop-1 tests)
+(3) Remove the non-significant variance components
+(4) Estimate the correlation parameters only for the remaining model. (It does not make much sense to me to estimate a correlation parameter if you have evidence for reliable variance for one of the contributing components.)
+(5)  Test whether (4) is significantly better than (4). It is actually not trivial to estimate reliable correlation parameters in our usual psycholinguistic or psychological expertiments.
+
+Reinhold Kliegl
+
+On 19.11.2011, at 12:14, Sunfa Kim wrote:
+
+> To whom it may concern:
+> 
+> I would like to use a mixed-effect regression approach to examine the adaptation effect (i.e., learning) during sentence comprehension.
+> 
+> Right now, I am trying to figure out the maximum random effects.
+> 
+> One of the models produced the following summary
+> >summary(priming.lmer)
+>  
+> Random effects:
+> 
+> Groups
+> 
+> Name
+> 
+> Variance
+> 
+> Std.Dev.
+> 
+> Corr
+> 
+> Subject
+> 
+> (Intercept)
+> 
+> 19867.54
+> 
+> 140.952
+> 
+>  
+>  
+> cPrimeType
+> 
+> 367.20
+> 
+> 19.162
+> 
+> -1.000
+> 
+>  
+> cCondition
+> 
+> 5558.49
+> 
+> 74.555
+> 
+> -1.000
+> 
+>  
+> clogLength
+> 
+> 8128.49
+> 
+> 90.158
+> 
+> 0.954
+> 
+>  
+> cLogPresOrder
+> 
+> 3033.62
+> 
+> 55.078
+> 
+> -0.216
+> 
+>  
+> cPrimeType:cCondition
+> 
+> 17606.58
+> 
+> 132.690
+> 
+> 0.164
+> 
+>  
+> cPrimeType:cCondition:cPresOrder
+> 
+> 351.92
+> 
+> 18.759
+> 
+> 0.142
+> 
+> Item
+> 
+> (Intercept)
+> 
+> 2870.65
+> 
+> 53.578
+> 
+>  
+>  
+> cCondition
+> 
+> 3391.10
+> 
+> 58.233
+> 
+> 0.668
+> 
+>  
+> cCondition:cPrimeType
+> 
+> 1224.53
+> 
+> 34.993
+> 
+> -0.652
+> 
+> Residual
+> 
+>  
+> 31654.56
+> 
+> 177.917
+> 
+>  
+>  
+> 
+> Baayen, Davidson, and Bates (2008) noted that "the high correlation of the intercept and slope for the subject random effects (-1.00) indicates that the model has been overparameterized" (p. 395).
+> 
+> So, I inspected the correlations and identified three high correlations from the table. Therefore, I simplified the model by removing the by-subject adjustments to the slopes of cPrimeType, cCondition, and clogLength.
+> 
+> The simplified model produced the following summary.
+> >summary(rev_priming.lmer)
+>  
+> Random effects:
+> 
+> Groups
+> 
+> Name
+> 
+> Variance
+> 
+> Std.Dev.
+> 
+> Corr
+> 
+> Subject
+> 
+> (Intercept)
+> 
+> 19443.07
+> 
+> 139.438
+> 
+>  
+>  
+> cLogPresOrder
+> 
+> 2832.97
+> 
+> 53.226
+> 
+> -0.341
+> 
+>  
+> cPrimeType:cCondition
+> 
+> 1043.35
+> 
+> 32.301
+> 
+> -0.133
+> 
+>  
+> cPrimeType:cCondition:cPresOrder
+> 
+> 204.57
+> 
+> 14.303
+> 
+> 0.364
+> 
+> Item
+> 
+> (Intercept)
+> 
+> 2935.82
+> 
+> 54.183
+> 
+>  
+>  
+> cCondition
+> 
+> 3545.04
+> 
+> 59.540
+> 
+> 0.740
+> 
+>  
+> cCondition:cPrimeType
+> 
+> 1878.62
+> 
+> 43.343
+> 
+> -0.656
+> 
+> Residual
+> 
+>  
+> 36990.34
+> 
+> 192.329
+> 
+>  
+>  
+> Now, the correlation values seem to be in the range of acceptable values (i.e., not too high).
+> 
+> Finally, in order to verify that the simpler model is justified, I carried out a likelihood ratio test.
+> 
+> > anova(priming.lmer, rev_priming.lmer)
+>  
+> Df
+> 
+> AIC
+> 
+> BIC
+> 
+> logLik
+> 
+> Chisq Chi
+> 
+> Df
+> 
+> Pr(>Chisq)
+> 
+> riming.lmer
+> 
+> 27
+> 
+> 22598
+> 
+> 22744
+> 
+> -11272
+> 
+>  
+>  
+>  
+> rev_priming.lmer
+> 
+> 45
+> 
+> 22474
+> 
+> 22718
+> 
+> -11192
+> 
+> 159.35
+> 
+> 18
+> 
+> < 2.2e-16 ***
+> 
+> ---
+> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+> 
+> My understanding is that this likelihood ratio test indicates that the removal of the by-subject adjustments to the slopes is NOT justified.
+> 
+> My question is which model should I choose to report my results? priming.lmer or rev_priming.lmer?
+> 
+> Thank you very much for your suggestions on this matter in advance!
+> 
+> Best,
+> Sunfa
+
+----
+Reinhold Kliegl, Dept. of Psychology, University of Potsdam,
+Karl-Liebknecht-Strasse 24-25, 14476 Potsdam, Germany
+phone: +49 331 977 2868, fax: +49 331 977 2793
+http://read.psych.uni-potsdam.de
+http://www.dlexdb.de/
+
+From kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org  Sat Nov 19 11:57:49 2011
+From: kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org (Reinhold Kliegl)
+Date: Sat, 19 Nov 2011 12:57:49 +0100
+Subject: Re: Figuring out maximum random effects in mixed-effect regression models
+In-Reply-To: <BB9BE165-7E7D-44DB-AE69-C8DF6ECCCCD0@uni-potsdam.de>
+References: <CABAMqrfWvFMEZ2K3=deKWE0-TA0KaQ5BRgSPHDOPs7Q=+A+Muw@mail.gmail.com> <BB9BE165-7E7D-44DB-AE69-C8DF6ECCCCD0@uni-potsdam.de>
+Message-ID: <E558DE82-E10B-4A0D-8558-837CFABFF532@uni-potsdam.de>
+
+Sorry for the typos:
+in (4):  "if you have NO evidence ..."
+In (5): "Test whether (4) fits significantly better than (3)."
+
+I add: 
+(6) If you have specific hypotheses about correlation parameters, you may be able to test just those correlation parameters and keep the rest at zero.
+
+Finally, note that correlation parameters are linked to  the design (or model) matrix. They depend on what you pick as the intercept; they are NOT invariant to transformations of covariates, linear or non-linear. 
+
+Reinhold Kliegl
+
+----
+Reinhold Kliegl
+http://read.psych.uni-potsdam.de
+http://www.dlexdb.de/
+
+On 19.11.2011, at 12:34, Reinhold Kliegl wrote:
+
+> I would recommend a slightly different approach.
+> 
+> (1) Start with a full RE model but without correlation parameters.
+> (2) Test for which REs you have reliable evidence for between-subject (betweein-item) variance components (drop-1 tests)
+> (3) Remove the non-significant variance components
+> (4) Estimate the correlation parameters only for the remaining model. (It does not make much sense to me to estimate a correlation parameter if you have evidence for reliable variance for one of the contributing components.)
+> (5)  Test whether (4) is significantly better than (4). It is actually not trivial to estimate reliable correlation parameters in our usual psycholinguistic or psychological expertiments.
+> 
+> Reinhold Kliegl
+> 
+> On 19.11.2011, at 12:14, Sunfa Kim wrote:
+> 
+>> To whom it may concern:
+>> 
+>> I would like to use a mixed-effect regression approach to examine the adaptation effect (i.e., learning) during sentence comprehension.
+>> 
+>> Right now, I am trying to figure out the maximum random effects.
+>> 
+>> One of the models produced the following summary
+>> >summary(priming.lmer)
+>>  
+>> Random effects:
+>> 
+>> Groups
+>> 
+>> Name
+>> 
+>> Variance
+>> 
+>> Std.Dev.
+>> 
+>> Corr
+>> 
+>> Subject
+>> 
+>> (Intercept)
+>> 
+>> 19867.54
+>> 
+>> 140.952
+>> 
+>>  
+>>  
+>> cPrimeType
+>> 
+>> 367.20
+>> 
+>> 19.162
+>> 
+>> -1.000
+>> 
+>>  
+>> cCondition
+>> 
+>> 5558.49
+>> 
+>> 74.555
+>> 
+>> -1.000
+>> 
+>>  
+>> clogLength
+>> 
+>> 8128.49
+>> 
+>> 90.158
+>> 
+>> 0.954
+>> 
+>>  
+>> cLogPresOrder
+>> 
+>> 3033.62
+>> 
+>> 55.078
+>> 
+>> -0.216
+>> 
+>>  
+>> cPrimeType:cCondition
+>> 
+>> 17606.58
+>> 
+>> 132.690
+>> 
+>> 0.164
+>> 
+>>  
+>> cPrimeType:cCondition:cPresOrder
+>> 
+>> 351.92
+>> 
+>> 18.759
+>> 
+>> 0.142
+>> 
+>> Item
+>> 
+>> (Intercept)
+>> 
+>> 2870.65
+>> 
+>> 53.578
+>> 
+>>  
+>>  
+>> cCondition
+>> 
+>> 3391.10
+>> 
+>> 58.233
+>> 
+>> 0.668
+>> 
+>>  
+>> cCondition:cPrimeType
+>> 
+>> 1224.53
+>> 
+>> 34.993
+>> 
+>> -0.652
+>> 
+>> Residual
+>> 
+>>  
+>> 31654.56
+>> 
+>> 177.917
+>> 
+>>  
+>>  
+>> 
+>> Baayen, Davidson, and Bates (2008) noted that "the high correlation of the intercept and slope for the subject random effects (-1.00) indicates that the model has been overparameterized" (p. 395).
+>> 
+>> So, I inspected the correlations and identified three high correlations from the table. Therefore, I simplified the model by removing the by-subject adjustments to the slopes of cPrimeType, cCondition, and clogLength.
+>> 
+>> The simplified model produced the following summary.
+>> >summary(rev_priming.lmer)
+>>  
+>> Random effects:
+>> 
+>> Groups
+>> 
+>> Name
+>> 
+>> Variance
+>> 
+>> Std.Dev.
+>> 
+>> Corr
+>> 
+>> Subject
+>> 
+>> (Intercept)
+>> 
+>> 19443.07
+>> 
+>> 139.438
+>> 
+>>  
+>>  
+>> cLogPresOrder
+>> 
+>> 2832.97
+>> 
+>> 53.226
+>> 
+>> -0.341
+>> 
+>>  
+>> cPrimeType:cCondition
+>> 
+>> 1043.35
+>> 
+>> 32.301
+>> 
+>> -0.133
+>> 
+>>  
+>> cPrimeType:cCondition:cPresOrder
+>> 
+>> 204.57
+>> 
+>> 14.303
+>> 
+>> 0.364
+>> 
+>> Item
+>> 
+>> (Intercept)
+>> 
+>> 2935.82
+>> 
+>> 54.183
+>> 
+>>  
+>>  
+>> cCondition
+>> 
+>> 3545.04
+>> 
+>> 59.540
+>> 
+>> 0.740
+>> 
+>>  
+>> cCondition:cPrimeType
+>> 
+>> 1878.62
+>> 
+>> 43.343
+>> 
+>> -0.656
+>> 
+>> Residual
+>> 
+>>  
+>> 36990.34
+>> 
+>> 192.329
+>> 
+>>  
+>>  
+>> Now, the correlation values seem to be in the range of acceptable values (i.e., not too high).
+>> 
+>> Finally, in order to verify that the simpler model is justified, I carried out a likelihood ratio test.
+>> 
+>> > anova(priming.lmer, rev_priming.lmer)
+>>  
+>> Df
+>> 
+>> AIC
+>> 
+>> BIC
+>> 
+>> logLik
+>> 
+>> Chisq Chi
+>> 
+>> Df
+>> 
+>> Pr(>Chisq)
+>> 
+>> riming.lmer
+>> 
+>> 27
+>> 
+>> 22598
+>> 
+>> 22744
+>> 
+>> -11272
+>> 
+>>  
+>>  
+>>  
+>> rev_priming.lmer
+>> 
+>> 45
+>> 
+>> 22474
+>> 
+>> 22718
+>> 
+>> -11192
+>> 
+>> 159.35
+>> 
+>> 18
+>> 
+>> < 2.2e-16 ***
+>> 
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>> 
+>> My understanding is that this likelihood ratio test indicates that the removal of the by-subject adjustments to the slopes is NOT justified.
+>> 
+>> My question is which model should I choose to report my results? priming.lmer or rev_priming.lmer?
+>> 
+>> Thank you very much for your suggestions on this matter in advance!
+>> 
+>> Best,
+>> Sunfa
+
+From kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org  Sat Nov 19 12:01:06 2011
+From: kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org (Reinhold Kliegl)
+Date: Sat, 19 Nov 2011 13:01:06 +0100
+Subject: Re: Figuring out maximum random effects in mixed-effect regression models
+In-Reply-To: <BB9BE165-7E7D-44DB-AE69-C8DF6ECCCCD0@uni-potsdam.de>
+References: <CABAMqrfWvFMEZ2K3=deKWE0-TA0KaQ5BRgSPHDOPs7Q=+A+Muw@mail.gmail.com> <BB9BE165-7E7D-44DB-AE69-C8DF6ECCCCD0@uni-potsdam.de>
+Message-ID: <96042652-0391-4085-BB59-1BD1451AA641@uni-potsdam.de>
+
+Sorry for the typos ...
+
+in (4):  "if you have NO evidence ..."
+In (5): "Test whether (4) fits significantly better than (3)."
+
+I add: 
+(6) If you have specific hypotheses about correlation parameters, you may be able to test just those correlation parameters and keep the rest at zero.
+
+All tests are LRTs--with their own problems, but usually not so severe with our kind of data, I think. Finally, note that correlation parameters are linked to  the design (or model) matrix. They depend on what you pick as the intercept; they are NOT invariant to transformations of covariates, linear or non-linear. 
+
+Reinhold Kliegl
+
+----
+Reinhold Kliegl
+http://read.psych.uni-potsdam.de
+http://www.dlexdb.de/
+
+On 19.11.2011, at 12:34, Reinhold Kliegl wrote:
+
+> I would recommend a slightly different approach.
+> 
+> (1) Start with a full RE model but without correlation parameters.
+> (2) Test for which REs you have reliable evidence for between-subject (betweein-item) variance components (drop-1 tests)
+> (3) Remove the non-significant variance components
+> (4) Estimate the correlation parameters only for the remaining model. (It does not make much sense to me to estimate a correlation parameter if you have evidence for reliable variance for one of the contributing components.)
+> (5)  Test whether (4) is significantly better than (4). It is actually not trivial to estimate reliable correlation parameters in our usual psycholinguistic or psychological expertiments.
+> 
+> Reinhold Kliegl
+> 
+> On 19.11.2011, at 12:14, Sunfa Kim wrote:
+> 
+>> To whom it may concern:
+>> 
+>> I would like to use a mixed-effect regression approach to examine the adaptation effect (i.e., learning) during sentence comprehension.
+>> 
+>> Right now, I am trying to figure out the maximum random effects.
+>> 
+>> One of the models produced the following summary
+>> >summary(priming.lmer)
+>>  
+>> Random effects:
+>> 
+>> Groups
+>> 
+>> Name
+>> 
+>> Variance
+>> 
+>> Std.Dev.
+>> 
+>> Corr
+>> 
+>> Subject
+>> 
+>> (Intercept)
+>> 
+>> 19867.54
+>> 
+>> 140.952
+>> 
+>>  
+>>  
+>> cPrimeType
+>> 
+>> 367.20
+>> 
+>> 19.162
+>> 
+>> -1.000
+>> 
+>>  
+>> cCondition
+>> 
+>> 5558.49
+>> 
+>> 74.555
+>> 
+>> -1.000
+>> 
+>>  
+>> clogLength
+>> 
+>> 8128.49
+>> 
+>> 90.158
+>> 
+>> 0.954
+>> 
+>>  
+>> cLogPresOrder
+>> 
+>> 3033.62
+>> 
+>> 55.078
+>> 
+>> -0.216
+>> 
+>>  
+>> cPrimeType:cCondition
+>> 
+>> 17606.58
+>> 
+>> 132.690
+>> 
+>> 0.164
+>> 
+>>  
+>> cPrimeType:cCondition:cPresOrder
+>> 
+>> 351.92
+>> 
+>> 18.759
+>> 
+>> 0.142
+>> 
+>> Item
+>> 
+>> (Intercept)
+>> 
+>> 2870.65
+>> 
+>> 53.578
+>> 
+>>  
+>>  
+>> cCondition
+>> 
+>> 3391.10
+>> 
+>> 58.233
+>> 
+>> 0.668
+>> 
+>>  
+>> cCondition:cPrimeType
+>> 
+>> 1224.53
+>> 
+>> 34.993
+>> 
+>> -0.652
+>> 
+>> Residual
+>> 
+>>  
+>> 31654.56
+>> 
+>> 177.917
+>> 
+>>  
+>>  
+>> 
+>> Baayen, Davidson, and Bates (2008) noted that "the high correlation of the intercept and slope for the subject random effects (-1.00) indicates that the model has been overparameterized" (p. 395).
+>> 
+>> So, I inspected the correlations and identified three high correlations from the table. Therefore, I simplified the model by removing the by-subject adjustments to the slopes of cPrimeType, cCondition, and clogLength.
+>> 
+>> The simplified model produced the following summary.
+>> >summary(rev_priming.lmer)
+>>  
+>> Random effects:
+>> 
+>> Groups
+>> 
+>> Name
+>> 
+>> Variance
+>> 
+>> Std.Dev.
+>> 
+>> Corr
+>> 
+>> Subject
+>> 
+>> (Intercept)
+>> 
+>> 19443.07
+>> 
+>> 139.438
+>> 
+>>  
+>>  
+>> cLogPresOrder
+>> 
+>> 2832.97
+>> 
+>> 53.226
+>> 
+>> -0.341
+>> 
+>>  
+>> cPrimeType:cCondition
+>> 
+>> 1043.35
+>> 
+>> 32.301
+>> 
+>> -0.133
+>> 
+>>  
+>> cPrimeType:cCondition:cPresOrder
+>> 
+>> 204.57
+>> 
+>> 14.303
+>> 
+>> 0.364
+>> 
+>> Item
+>> 
+>> (Intercept)
+>> 
+>> 2935.82
+>> 
+>> 54.183
+>> 
+>>  
+>>  
+>> cCondition
+>> 
+>> 3545.04
+>> 
+>> 59.540
+>> 
+>> 0.740
+>> 
+>>  
+>> cCondition:cPrimeType
+>> 
+>> 1878.62
+>> 
+>> 43.343
+>> 
+>> -0.656
+>> 
+>> Residual
+>> 
+>>  
+>> 36990.34
+>> 
+>> 192.329
+>> 
+>>  
+>>  
+>> Now, the correlation values seem to be in the range of acceptable values (i.e., not too high).
+>> 
+>> Finally, in order to verify that the simpler model is justified, I carried out a likelihood ratio test.
+>> 
+>> > anova(priming.lmer, rev_priming.lmer)
+>>  
+>> Df
+>> 
+>> AIC
+>> 
+>> BIC
+>> 
+>> logLik
+>> 
+>> Chisq Chi
+>> 
+>> Df
+>> 
+>> Pr(>Chisq)
+>> 
+>> riming.lmer
+>> 
+>> 27
+>> 
+>> 22598
+>> 
+>> 22744
+>> 
+>> -11272
+>> 
+>>  
+>>  
+>>  
+>> rev_priming.lmer
+>> 
+>> 45
+>> 
+>> 22474
+>> 
+>> 22718
+>> 
+>> -11192
+>> 
+>> 159.35
+>> 
+>> 18
+>> 
+>> < 2.2e-16 ***
+>> 
+>> ---
+>> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+>> 
+>> My understanding is that this likelihood ratio test indicates that the removal of the by-subject adjustments to the slopes is NOT justified.
+>> 
+>> My question is which model should I choose to report my results? priming.lmer or rev_priming.lmer?
+>> 
+>> Thank you very much for your suggestions on this matter in advance!
+>> 
+>> Best,
+>> Sunfa
+> 
+>
+
+From sunfakim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Nov 19 13:07:19 2011
+From: sunfakim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Sunfa Kim)
+Date: Sat, 19 Nov 2011 08:07:19 -0500
+Subject: Re: ling-r-lang-L Digest, Vol 2, Issue 49
+In-Reply-To: <mailman.7.1321705024.22186.ling-r-lang-l@mailman.ucsd.edu>
+References: <mailman.7.1321705024.22186.ling-r-lang-l@mailman.ucsd.edu>
+Message-ID: <CABAMqrcWRPiKBx2ocrAX5UPeqSc12bZiEzRC4ZNsrohU+ioZLQ@mail.gmail.com>
+
+Dear Reinhold,
+
+Thank you very much for your response. Please let me ask two more questions.
+
+I started with the following Full Model.
+
+>
+priming_Full_Model.lmer<-lmer(RT~cPrimeType*cCondition*cPresOrder+clogLength+cLogPresOrder+(1+cPrimeType*cCondition*cPresOrder+clogLength+cLogPresOrder|Subject)+(1+cPrimeType*cCondition*cPresOrder+clogLength+cLogPresOrder|Item),data=priming)
+
+But the Full Model did not work. I received the following warning message.
+
+Warning message:
+In mer_finalize(ans) : iteration limit reached without convergence (9)
+
+
+In order to examine variances associated with each random effect, I used
+the following function.
+
+> summary(priming_Full_Model.lmer)
+
+
+Then, I started removing random effects one by one (I started with the
+random effect with the "smallest" variance) until the model finally worked
+in R.
+
+<<Question 1>>
+You recommended "(1) Start with a full RE model but without correlation
+parameters."
+How can I carry out this (i.e., "a model without correlation parameters")?
+
+Do I add "corr = FALSE" somewhere in the command line?
+
+<<Question 2>>
+You also recommended "(2) Test for which REs you have reliable evidence for
+between-subject (betweein-item) variance components (drop-1 tests)."
+How can I carry out this test? Is there a specific function to carry out
+this test?
+
+Thank you very much,
+
+Sincerely yours,
+Sunfa
+
+On Sat, Nov 19, 2011 at 7:17 AM, <ling-r-lang-l-request-xGejAJT2w6xeRyQZnrz35w at public.gmane.org>wrote:
+
+> Send ling-r-lang-L mailing list submissions to
+>        ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+>
+> To subscribe or unsubscribe via the World Wide Web, visit
+>        https://mailman.ucsd.edu/mailman/listinfo/ling-r-lang-l
+> or, via email, send a message with subject or body 'help' to
+>        ling-r-lang-l-request-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+>
+> You can reach the person managing the list at
+>        ling-r-lang-l-owner-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+>
+> When replying, please edit your Subject line so it is more specific
+> than "Re: Contents of ling-r-lang-L digest..."
+>
+>
+> Today's Topics:
+>
+>   1. Re: Figuring out maximum random effects in mixed-effect
+>      regression models (Reinhold Kliegl)
+>
+>
+> ----------------------------------------------------------------------
+>
+> Message: 1
+> Date: Sat, 19 Nov 2011 13:01:06 +0100
+> From: Reinhold Kliegl <kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org>
+> Subject: [R-lang] Re: Figuring out maximum random effects in
+>        mixed-effect    regression models
+> To: Reinhold Kliegl <kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org>
+> Cc: r-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org, sunfakim-LjRBWs/Th6SVc3sceRu5cw at public.gmane.org, Sunfa Kim
+>        <sunfakim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> Message-ID: <96042652-0391-4085-BB59-1BD1451AA641-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org>
+> Content-Type: text/plain; charset="us-ascii"
+>
+> Sorry for the typos ...
+>
+> in (4):  "if you have NO evidence ..."
+> In (5): "Test whether (4) fits significantly better than (3)."
+>
+> I add:
+> (6) If you have specific hypotheses about correlation parameters, you may
+> be able to test just those correlation parameters and keep the rest at zero.
+>
+> All tests are LRTs--with their own problems, but usually not so severe
+> with our kind of data, I think. Finally, note that correlation parameters
+> are linked to  the design (or model) matrix. They depend on what you pick
+> as the intercept; they are NOT invariant to transformations of covariates,
+> linear or non-linear.
+>
+> Reinhold Kliegl
+>
+> ----
+> Reinhold Kliegl
+> http://read.psych.uni-potsdam.de
+> http://www.dlexdb.de/
+>
+> On 19.11.2011, at 12:34, Reinhold Kliegl wrote:
+>
+> > I would recommend a slightly different approach.
+> >
+> > (1) Start with a full RE model but without correlation parameters.
+> > (2) Test for which REs you have reliable evidence for between-subject
+> (betweein-item) variance components (drop-1 tests)
+> > (3) Remove the non-significant variance components
+> > (4) Estimate the correlation parameters only for the remaining model.
+> (It does not make much sense to me to estimate a correlation parameter if
+> you have evidence for reliable variance for one of the contributing
+> components.)
+> > (5)  Test whether (4) is significantly better than (4). It is actually
+> not trivial to estimate reliable correlation parameters in our usual
+> psycholinguistic or psychological expertiments.
+> >
+> > Reinhold Kliegl
+> >
+> > On 19.11.2011, at 12:14, Sunfa Kim wrote:
+> >
+> >> To whom it may concern:
+> >>
+> >> I would like to use a mixed-effect regression approach to examine the
+> adaptation effect (i.e., learning) during sentence comprehension.
+> >>
+> >> Right now, I am trying to figure out the maximum random effects.
+> >>
+> >> One of the models produced the following summary
+> >> >summary(priming.lmer)
+> >>
+> >> Random effects:
+> >>
+> >> Groups
+> >>
+> >> Name
+> >>
+> >> Variance
+> >>
+> >> Std.Dev.
+> >>
+> >> Corr
+> >>
+> >> Subject
+> >>
+> >> (Intercept)
+> >>
+> >> 19867.54
+> >>
+> >> 140.952
+> >>
+> >>
+> >>
+> >> cPrimeType
+> >>
+> >> 367.20
+> >>
+> >> 19.162
+> >>
+> >> -1.000
+> >>
+> >>
+> >> cCondition
+> >>
+> >> 5558.49
+> >>
+> >> 74.555
+> >>
+> >> -1.000
+> >>
+> >>
+> >> clogLength
+> >>
+> >> 8128.49
+> >>
+> >> 90.158
+> >>
+> >> 0.954
+> >>
+> >>
+> >> cLogPresOrder
+> >>
+> >> 3033.62
+> >>
+> >> 55.078
+> >>
+> >> -0.216
+> >>
+> >>
+> >> cPrimeType:cCondition
+> >>
+> >> 17606.58
+> >>
+> >> 132.690
+> >>
+> >> 0.164
+> >>
+> >>
+> >> cPrimeType:cCondition:cPresOrder
+> >>
+> >> 351.92
+> >>
+> >> 18.759
+> >>
+> >> 0.142
+> >>
+> >> Item
+> >>
+> >> (Intercept)
+> >>
+> >> 2870.65
+> >>
+> >> 53.578
+> >>
+> >>
+> >>
+> >> cCondition
+> >>
+> >> 3391.10
+> >>
+> >> 58.233
+> >>
+> >> 0.668
+> >>
+> >>
+> >> cCondition:cPrimeType
+> >>
+> >> 1224.53
+> >>
+> >> 34.993
+> >>
+> >> -0.652
+> >>
+> >> Residual
+> >>
+> >>
+> >> 31654.56
+> >>
+> >> 177.917
+> >>
+> >>
+> >>
+> >>
+> >> Baayen, Davidson, and Bates (2008) noted that "the high correlation of
+> the intercept and slope for the subject random effects (-1.00) indicates
+> that the model has been overparameterized" (p. 395).
+> >>
+> >> So, I inspected the correlations and identified three high correlations
+> from the table. Therefore, I simplified the model by removing the
+> by-subject adjustments to the slopes of cPrimeType, cCondition, and
+> clogLength.
+> >>
+> >> The simplified model produced the following summary.
+> >> >summary(rev_priming.lmer)
+> >>
+> >> Random effects:
+> >>
+> >> Groups
+> >>
+> >> Name
+> >>
+> >> Variance
+> >>
+> >> Std.Dev.
+> >>
+> >> Corr
+> >>
+> >> Subject
+> >>
+> >> (Intercept)
+> >>
+> >> 19443.07
+> >>
+> >> 139.438
+> >>
+> >>
+> >>
+> >> cLogPresOrder
+> >>
+> >> 2832.97
+> >>
+> >> 53.226
+> >>
+> >> -0.341
+> >>
+> >>
+> >> cPrimeType:cCondition
+> >>
+> >> 1043.35
+> >>
+> >> 32.301
+> >>
+> >> -0.133
+> >>
+> >>
+> >> cPrimeType:cCondition:cPresOrder
+> >>
+> >> 204.57
+> >>
+> >> 14.303
+> >>
+> >> 0.364
+> >>
+> >> Item
+> >>
+> >> (Intercept)
+> >>
+> >> 2935.82
+> >>
+> >> 54.183
+> >>
+> >>
+> >>
+> >> cCondition
+> >>
+> >> 3545.04
+> >>
+> >> 59.540
+> >>
+> >> 0.740
+> >>
+> >>
+> >> cCondition:cPrimeType
+> >>
+> >> 1878.62
+> >>
+> >> 43.343
+> >>
+> >> -0.656
+> >>
+> >> Residual
+> >>
+> >>
+> >> 36990.34
+> >>
+> >> 192.329
+> >>
+> >>
+> >>
+> >> Now, the correlation values seem to be in the range of acceptable
+> values (i.e., not too high).
+> >>
+> >> Finally, in order to verify that the simpler model is justified, I
+> carried out a likelihood ratio test.
+> >>
+> >> > anova(priming.lmer, rev_priming.lmer)
+> >>
+> >> Df
+> >>
+> >> AIC
+> >>
+> >> BIC
+> >>
+> >> logLik
+> >>
+> >> Chisq Chi
+> >>
+> >> Df
+> >>
+> >> Pr(>Chisq)
+> >>
+> >> riming.lmer
+> >>
+> >> 27
+> >>
+> >> 22598
+> >>
+> >> 22744
+> >>
+> >> -11272
+> >>
+> >>
+> >>
+> >>
+> >> rev_priming.lmer
+> >>
+> >> 45
+> >>
+> >> 22474
+> >>
+> >> 22718
+> >>
+> >> -11192
+> >>
+> >> 159.35
+> >>
+> >> 18
+> >>
+> >> < 2.2e-16 ***
+> >>
+> >> ---
+> >> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+> >>
+> >> My understanding is that this likelihood ratio test indicates that the
+> removal of the by-subject adjustments to the slopes is NOT justified.
+> >>
+> >> My question is which model should I choose to report my results?
+> priming.lmer or rev_priming.lmer?
+> >>
+> >> Thank you very much for your suggestions on this matter in advance!
+> >>
+> >> Best,
+> >> Sunfa
+> >
+> >
+>
+>
+>
+>
+>
+>
+> -------------- next part --------------
+> An HTML attachment was scrubbed...
+> URL:
+> http://mailman.ucsd.edu/pipermail/ling-r-lang-l/attachments/20111119/f0bc13f6/attachment.html
+>
+> ------------------------------
+>
+> _______________________________________________
+> ling-r-lang-L mailing list
+> ling-r-lang-L-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> https://mailman.ucsd.edu/mailman/listinfo/ling-r-lang-l
+>
+>
+> End of ling-r-lang-L Digest, Vol 2, Issue 49
+> ********************************************
+>
+
+From kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org  Sat Nov 19 14:14:21 2011
+From: kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org (Reinhold Kliegl)
+Date: Sat, 19 Nov 2011 15:14:21 +0100
+Subject: Figuring out maximum random effects in mixed-effect regression models
+In-Reply-To: <CABAMqrcWRPiKBx2ocrAX5UPeqSc12bZiEzRC4ZNsrohU+ioZLQ@mail.gmail.com>
+References: <mailman.7.1321705024.22186.ling-r-lang-l@mailman.ucsd.edu> <CABAMqrcWRPiKBx2ocrAX5UPeqSc12bZiEzRC4ZNsrohU+ioZLQ@mail.gmail.com>
+Message-ID: <F35B65C1-385E-4098-80E1-DABCEC351441@uni-potsdam.de>
+
+It is highly unlikely that you have enough data to estimate so many variance components and correlation parameters. The program pretty much tells you as much. Further, taking a look at your variable names, I suspect that you did not distinguish between within-subject and between-subject  effects and also not between within-item and between-item effects. For example, a variable like cPresOrder is rarely a within-subject effect;  cLength is rarely a within-item effect. Random effects associated with subjects can only come from within-subject effects; random effects associated with items can only come from within-item effects. 
+
+A quick stab at your two questions; I suspect they will be more cryptic than I want them to be.
+(1) To get estimates of variance components without correlation parameters you need to specify them as independent components. The syntax in lmer to achieve this goes like this:
+
+m1 <- lmer( y ~  a*b*c + (1 | id) + (0+a | id) + (0 + b | id) + (0 + c | id)  + (0 + a | item) + (0 + b | item) + (0 + c | item) ), data = xxx).
+
+Note this assumes for now that a, b, c are within-subject and within-item factors and that they have two levels each (or represent contrasts derived from a complex design; using, e.g., contr.sum() as contrast attribute so that the intercept represents the grand mean). I also left out all the variance components associated with interactions between a, b, and c. 
+
+(2)  Suppose you want to test whether you have evidence for a significant variance component associated with the within-subject effect of a. Then, you could specify m2 without this term
+
+m2 <- lmer( y ~  a*b*c + (1 | id)  + (0 + b | id) + (0 + c | id)  + (0 + a | item) + (0 + b | item) + (0 + c | item) ), data = xxx).
+anova(m1, m2)
+
+yields a test whether dropping a  for id leads to a significant decrease in goodness of fit. If it does, you have evidence for reliable differences between subjects in the effect a. 
+
+Obviously, there are quite a large number of decisions you have to make for such an analysis. I described how I am approaching such issues--currently. As far as I know, there is no generally accepted procedure, but I do think that it does not make much sense to estimate correlation parameters in the absence of reliable variance components related to them.  I am interested in comments on this position.
+
+I am afraid LMMs are not as routine as F1/F2 ANOVAs. Therefore, actually, now I recommend that you get some local consultation on this analysis or find a script from an analysis of a different experiment that you can adopt for your analysis.  Good luck with your research.
+
+Best
+Reinhold Kliegl
+----
+http://read.psych.uni-potsdam.de
+http://www.dlexdb.de/
+
+On 19.11.2011, at 14:07, Sunfa Kim wrote:
+
+> Dear Reinhold,
+> 
+> Thank you very much for your response. Please let me ask two more questions.
+> 
+> I started with the following Full Model.
+> 
+> > priming_Full_Model.lmer<-lmer(RT~cPrimeType*cCondition*cPresOrder+clogLength+cLogPresOrder+(1+cPrimeType*cCondition*cPresOrder+clogLength+cLogPresOrder|Subject)+(1+cPrimeType*cCondition*cPresOrder+clogLength+cLogPresOrder|Item),data=priming)
+> 
+> But the Full Model did not work. I received the following warning message.
+> 
+> Warning message:
+> In mer_finalize(ans) : iteration limit reached without convergence (9)
+> 
+> 
+> In order to examine variances associated with each random effect, I used the following function.
+> 
+> > summary(priming_Full_Model.lmer)
+> 
+> 
+> Then, I started removing random effects one by one (I started with the random effect with the "smallest" variance) until the model finally worked in R.
+> 
+> <<Question 1>>
+> You recommended "(1) Start with a full RE model but without correlation parameters."
+> How can I carry out this (i.e., "a model without correlation parameters")?
+> 
+> Do I add "corr = FALSE" somewhere in the command line?
+> 
+> <<Question 2>>
+> You also recommended "(2) Test for which REs you have reliable evidence for between-subject (betweein-item) variance components (drop-1 tests)."
+> How can I carry out this test? Is there a specific function to carry out this test?
+> 
+> Thank you very much,
+> 
+> Sincerely yours,
+> Sunfa
+> 
+> On Sat, Nov 19, 2011 at 7:17 AM, <ling-r-lang-l-request-xGejAJT2w6xeRyQZnrz35w at public.gmane.org> wrote:
+> Send ling-r-lang-L mailing list submissions to
+>        ling-r-lang-l-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> 
+> To subscribe or unsubscribe via the World Wide Web, visit
+>        https://mailman.ucsd.edu/mailman/listinfo/ling-r-lang-l
+> or, via email, send a message with subject or body 'help' to
+>        ling-r-lang-l-request-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> 
+> You can reach the person managing the list at
+>        ling-r-lang-l-owner-xGejAJT2w6xeRyQZnrz35w at public.gmane.org
+> 
+> When replying, please edit your Subject line so it is more specific
+> than "Re: Contents of ling-r-lang-L digest..."
+> 
+> 
+> Today's Topics:
+> 
+>   1. Re: Figuring out maximum random effects in mixed-effect
+>      regression models (Reinhold Kliegl)
+> 
+> 
+> ----------------------------------------------------------------------
+> 
+> Message: 1
+> Date: Sat, 19 Nov 2011 13:01:06 +0100
+> From: Reinhold Kliegl <kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org>
+> Subject: [R-lang] Re: Figuring out maximum random effects in
+>        mixed-effect    regression models
+> To: Reinhold Kliegl <kliegl-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org>
+> Cc: r-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org, sunfakim-LjRBWs/Th6SVc3sceRu5cw at public.gmane.org, Sunfa Kim
+>        <sunfakim-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> Message-ID: <96042652-0391-4085-BB59-1BD1451AA641-KiJTPfjSHVUubQSw3dWLiw at public.gmane.org>
+> Content-Type: text/plain; charset="us-ascii"
+> 
+> Sorry for the typos ...
+> 
+> in (4):  "if you have NO evidence ..."
+> In (5): "Test whether (4) fits significantly better than (3)."
+> 
+> I add:
+> (6) If you have specific hypotheses about correlation parameters, you may be able to test just those correlation parameters and keep the rest at zero.
+> 
+> All tests are LRTs--with their own problems, but usually not so severe with our kind of data, I think. Finally, note that correlation parameters are linked to  the design (or model) matrix. They depend on what you pick as the intercept; they are NOT invariant to transformations of covariates, linear or non-linear.
+> 
+> Reinhold Kliegl
+> 
+> ----
+> Reinhold Kliegl
+> http://read.psych.uni-potsdam.de
+> http://www.dlexdb.de/
+> 
+> On 19.11.2011, at 12:34, Reinhold Kliegl wrote:
+> 
+> > I would recommend a slightly different approach.
+> >
+> > (1) Start with a full RE model but without correlation parameters.
+> > (2) Test for which REs you have reliable evidence for between-subject (betweein-item) variance components (drop-1 tests)
+> > (3) Remove the non-significant variance components
+> > (4) Estimate the correlation parameters only for the remaining model. (It does not make much sense to me to estimate a correlation parameter if you have evidence for reliable variance for one of the contributing components.)
+> > (5)  Test whether (4) is significantly better than (4). It is actually not trivial to estimate reliable correlation parameters in our usual psycholinguistic or psychological expertiments.
+> >
+> > Reinhold Kliegl
+> >
+
+From praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Nov 27 23:57:42 2011
+From: praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Xiao He)
+Date: Sun, 27 Nov 2011 15:57:42 -0800
+Subject: Collinearity and centering multi-level (more than 2 levels) fixed predictors
+Message-ID: <CAGBzz=Lp0vO8tPiRdZOMZe9kVvt=vAaN17+e4GZBsv2Mg-UAeA@mail.gmail.com>
+
+Dear r-lang users,
+
+I have a set of binary data from a 2 by 3 design study. I centered the
+two-level predictor ('LHcenter': local & LD) but did not centered the
+3 level predictor ('cond': A, B, & C). As you can see below in the
+triangular matrix towards the end of the lmer output, there is
+significant collinearity; the absolute values of some of the
+correlations are above 0.6.
+
+---8<----------------------------------------------------------------------------------------------------------------------------
+>glmer(true ~ cond * LHcenter + (1 | subject) + (1 | items), data=offlineTarget, family=binomial)
+
+Generalized linear mixed model fit by the Laplace approximation
+Formula: true ~ cond * LHcenter + (1 | subject) + (1 | items)
+   Data: offlineTarget
+   AIC   BIC   logLik deviance
+  747.8 785.9 -365.9    731.8
+
+Random effects:
+ Groups        Name    Variance     Std.Dev.
+ items     (Intercept)     0.13838     0.37199
+ subject   (Intercept)    1.44652     1.20271
+Number of obs: 864, groups: items, 30; subject, 29
+
+Fixed effects:
+                          Estimate    Std. Error     z value      Pr(>|z|)
+(Intercept)           -0.09775      0.30932      -0.316      0.75199
+condB                  0.62445      0.25534       2.446      0.01446   *
+condC                  0.70552      0.27286       2.586      0.00972   **
+LHcenter              4.86821      0.42482      11.459      < 2e-16   ***
+condB:LHcenter   -2.31392      0.51162      -4.523      6.1e-06    ***
+condC:LHcenter   -1.00381      0.54643      -1.837       0.06621   .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+                       (Intr)    condB    condC    LHcntr    cnB:LH
+condB            -0.526
+condC            -0.491    0.607
+LHcenter        -0.085    0.130      0.118
+cndB:LHcntr    0.070   -0.053     -0.093      -0.801
+cndC:LHcntr    0.066   -0.093      0.033      -0.735     0.607
+---8<----------------------------------------------------------------------------------------------------------------------------
+
+I also tested whether the interaction is significant by comparing the
+full model with one without the interaction term:
+
+glmer(true ~ cond * LHcenter + (1 | subject) + (1 | items),
+data=offlineTarget, family=binomial)
+glmer(true ~ cond  +  LHcenter + (1 | subject) + (1 | items),
+data=offlineTarget, family=binomial)
+
+And I observed a significant difference, suggesting that there is
+significant interaction.
+
+So I proceeded to conduct planned comparisons. To do so, I created a
+new predictor in the table object by merging the two factors (a 3
+level factor and a 2 level factor) together, resulting in a new factor
+named 'posthoc_cond' with 6 levels: Local_A, Local_B, Local_C, LD_A,
+LD_B, & LD_C
+
+I conducted glmer WITHOUT centering the 6-level fixed predictor 'posthoc_cond'.
+
+posthoc_result = glmer(true~posthoc_cond + (1|subject) + (1|item),
+data=offlineTarget, family="binomial")
+
+and then use glht() from 'multcomp' to conduct paired comparisons.
+
+The problem with posthoc_result, again, is high collinearity (see below)
+---8<----------------------------------------------------------------------------------------------------------------------------
+Correlation of Fixed Effects:
+                         (Intr)   pst_A_   p_B_LD   pst_B_   p_C_LD
+psthc_cndA_    -0.865
+psthc_cB_LD    -0.835  0.712
+psthc_cndB_    -0.944  0.896         0.734
+psthc_cC_LD    -0.928  0.810        0.779      0.896
+psthc_cndC_     -0.891  0.925        0.710      0.914      0.834
+---8<----------------------------------------------------------------------------------------------------------------------------
+
+So my question is, in my case, what can be done to reduce
+collinearity. It seems that centering those multi-level predictors is
+not applicable in my case since I am interested in whether different
+levels of the fixed predictors have different means. Centering these
+multilevel predictors would not allow me to test that.
+
+Thank you in advance for your help!!
+
+
+Best,
+Xiao
+
+From rlevy-XkckGZ689+c at public.gmane.org  Tue Nov 29 04:29:39 2011
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Tue, 29 Nov 2011 04:29:39 +0000
+Subject: Re: Collinearity and centering multi-level (more than 2 levels) fixed predictors
+In-Reply-To: <CAGBzz=Lp0vO8tPiRdZOMZe9kVvt=vAaN17+e4GZBsv2Mg-UAeA@mail.gmail.com>
+References: <CAGBzz=Lp0vO8tPiRdZOMZe9kVvt=vAaN17+e4GZBsv2Mg-UAeA@mail.gmail.com>
+Message-ID: <A05F1978-CEF4-4F0B-9A8E-C92AD97593DB@ucsd.edu>
+
+Hi Xiao,
+
+I'm a bit confused as to why you're concerned about collinearity in your model.  What are the goals of your analysis, and could you explain why you're concerned about the high correlation between the estimates of the different fixed effects?
+
+Best
+
+Roger
+
+On Nov 27, 2011, at 6:57 PM EST, Xiao He wrote:
+
+> Dear r-lang users,
+> 
+> I have a set of binary data from a 2 by 3 design study. I centered the
+> two-level predictor ('LHcenter': local & LD) but did not centered the
+> 3 level predictor ('cond': A, B, & C). As you can see below in the
+> triangular matrix towards the end of the lmer output, there is
+> significant collinearity; the absolute values of some of the
+> correlations are above 0.6.
+> 
+> ---8<----------------------------------------------------------------------------------------------------------------------------
+>> glmer(true ~ cond * LHcenter + (1 | subject) + (1 | items), data=offlineTarget, family=binomial)
+> 
+> Generalized linear mixed model fit by the Laplace approximation
+> Formula: true ~ cond * LHcenter + (1 | subject) + (1 | items)
+>   Data: offlineTarget
+>   AIC   BIC   logLik deviance
+>  747.8 785.9 -365.9    731.8
+> 
+> Random effects:
+> Groups        Name    Variance     Std.Dev.
+> items     (Intercept)     0.13838     0.37199
+> subject   (Intercept)    1.44652     1.20271
+> Number of obs: 864, groups: items, 30; subject, 29
+> 
+> Fixed effects:
+>                          Estimate    Std. Error     z value      Pr(>|z|)
+> (Intercept)           -0.09775      0.30932      -0.316      0.75199
+> condB                  0.62445      0.25534       2.446      0.01446   *
+> condC                  0.70552      0.27286       2.586      0.00972   **
+> LHcenter              4.86821      0.42482      11.459      < 2e-16   ***
+> condB:LHcenter   -2.31392      0.51162      -4.523      6.1e-06    ***
+> condC:LHcenter   -1.00381      0.54643      -1.837       0.06621   .
+> ---
+> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+> 
+> Correlation of Fixed Effects:
+>                       (Intr)    condB    condC    LHcntr    cnB:LH
+> condB            -0.526
+> condC            -0.491    0.607
+> LHcenter        -0.085    0.130      0.118
+> cndB:LHcntr    0.070   -0.053     -0.093      -0.801
+> cndC:LHcntr    0.066   -0.093      0.033      -0.735     0.607
+> ---8<----------------------------------------------------------------------------------------------------------------------------
+> 
+> I also tested whether the interaction is significant by comparing the
+> full model with one without the interaction term:
+> 
+> glmer(true ~ cond * LHcenter + (1 | subject) + (1 | items),
+> data=offlineTarget, family=binomial)
+> glmer(true ~ cond  +  LHcenter + (1 | subject) + (1 | items),
+> data=offlineTarget, family=binomial)
+> 
+> And I observed a significant difference, suggesting that there is
+> significant interaction.
+> 
+> So I proceeded to conduct planned comparisons. To do so, I created a
+> new predictor in the table object by merging the two factors (a 3
+> level factor and a 2 level factor) together, resulting in a new factor
+> named 'posthoc_cond' with 6 levels: Local_A, Local_B, Local_C, LD_A,
+> LD_B, & LD_C
+> 
+> I conducted glmer WITHOUT centering the 6-level fixed predictor 'posthoc_cond'.
+> 
+> posthoc_result = glmer(true~posthoc_cond + (1|subject) + (1|item),
+> data=offlineTarget, family="binomial")
+> 
+> and then use glht() from 'multcomp' to conduct paired comparisons.
+> 
+> The problem with posthoc_result, again, is high collinearity (see below)
+> ---8<----------------------------------------------------------------------------------------------------------------------------
+> Correlation of Fixed Effects:
+>                         (Intr)   pst_A_   p_B_LD   pst_B_   p_C_LD
+> psthc_cndA_    -0.865
+> psthc_cB_LD    -0.835  0.712
+> psthc_cndB_    -0.944  0.896         0.734
+> psthc_cC_LD    -0.928  0.810        0.779      0.896
+> psthc_cndC_     -0.891  0.925        0.710      0.914      0.834
+> ---8<----------------------------------------------------------------------------------------------------------------------------
+> 
+> So my question is, in my case, what can be done to reduce
+> collinearity. It seems that centering those multi-level predictors is
+> not applicable in my case since I am interested in whether different
+> levels of the fixed predictors have different means. Centering these
+> multilevel predictors would not allow me to test that.
+> 
+> Thank you in advance for your help!!
+> 
+> 
+> Best,
+> Xiao
+> 
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+
+From praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Nov 29 04:42:47 2011
+From: praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Xiao He)
+Date: Mon, 28 Nov 2011 20:42:47 -0800
+Subject: Re: Collinearity and centering multi-level (more than 2 levels) fixed predictors
+In-Reply-To: <A05F1978-CEF4-4F0B-9A8E-C92AD97593DB-XkckGZ689+c@public.gmane.org>
+References: <CAGBzz=Lp0vO8tPiRdZOMZe9kVvt=vAaN17+e4GZBsv2Mg-UAeA@mail.gmail.com> <A05F1978-CEF4-4F0B-9A8E-C92AD97593DB@ucsd.edu>
+Message-ID: <CAGBzz=L0_yOitYXZ9rG8czW06qAoY7YWwWdHX-FWA_yjnWSPDA@mail.gmail.com>
+
+Hi Roger,
+
+Various tutorials and posts I've read about regression analysis seem
+all suggest that high collinearity is problematic as it may cause
+spurious significance or it may hide significance. So I want to make
+sure that the results I obtained are not due to collinearity.
+
+
+Thanks!
+
+Best,
+Xiao
+
+From rlevy-XkckGZ689+c at public.gmane.org  Tue Nov 29 06:27:08 2011
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Tue, 29 Nov 2011 06:27:08 +0000
+Subject: Re: Collinearity and centering multi-level (more than 2 levels) fixed predictors
+In-Reply-To: <CAGBzz=L0_yOitYXZ9rG8czW06qAoY7YWwWdHX-FWA_yjnWSPDA@mail.gmail.com>
+References: <CAGBzz=Lp0vO8tPiRdZOMZe9kVvt=vAaN17+e4GZBsv2Mg-UAeA@mail.gmail.com> <A05F1978-CEF4-4F0B-9A8E-C92AD97593DB@ucsd.edu> <CAGBzz=L0_yOitYXZ9rG8czW06qAoY7YWwWdHX-FWA_yjnWSPDA@mail.gmail.com>
+Message-ID: <B49674F7-C387-4AD3-A74A-C8F74AE195BC@ucsd.edu>
+
+
+On Nov 28, 2011, at 11:42 PM EST, Xiao He wrote:
+
+> Hi Roger,
+> 
+> Various tutorials and posts I've read about regression analysis seem
+> all suggest that high collinearity is problematic as it may cause
+> spurious significance or it may hide significance. So I want to make
+> sure that the results I obtained are not due to collinearity.
+
+Hi Xiao,
+
+By "hide significance" I think you mean increase rate of Type II errors, or false negatives -- that is, reduce the chance that 
+you will find a significant effect of a predictor that truly does have an effect on your dependent variable.  Is this what you mean?  If so, yes, collinearity can do this.
+
+As for causing spurious significance, by which I think you mean increasing the rate of Type I error above nominal (or whatever rate it would be without multicollinearity) -- this should not happen.  If you have seen such an example given concretely, perhaps you could repost the example for the list and we can discuss it?
+
+Best
+
+Roger
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+
+From praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Nov 29 06:50:04 2011
+From: praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Xiao He)
+Date: Mon, 28 Nov 2011 22:50:04 -0800
+Subject: Re: Collinearity and centering multi-level (more than 2 levels) fixed predictors
+In-Reply-To: <CAG2Vd7jTc2vUa6FiOaW_WtptMyzgT_w-QYnX5mHBSVvSqnQwZQ@mail.gmail.com>
+References: <CAGBzz=Lp0vO8tPiRdZOMZe9kVvt=vAaN17+e4GZBsv2Mg-UAeA@mail.gmail.com> <A05F1978-CEF4-4F0B-9A8E-C92AD97593DB@ucsd.edu> <CAGBzz=L0_yOitYXZ9rG8czW06qAoY7YWwWdHX-FWA_yjnWSPDA@mail.gmail.com> <B49674F7-C387-4AD3-A74A-C8F74AE195BC@ucsd.edu> <CAG2Vd7jTc2vUa6FiOaW_WtptMyzgT_w-QYnX5mHBSVvSqnQwZQ@mail.gmail.com>
+Message-ID: <CAGBzz=Ktte6edc+sOOeKxkvHJxNqvceeR2NtEmvw0K227UeOtQ@mail.gmail.com>
+
+Hi,
+
+I think part of my concern is Type 1 and Type 2 Errors. From my
+experience with my own data, Type II error is a big concern, as I've
+encountered cases where reducing collinearity changes test results
+from non-significant to highly significant.
+
+A tutorial that Dr. Jaeger created on mixed effects model does mention
+that Type 1 error does not increase much in the presence of
+collinearity. But if I recall correctly, there is an example in the
+tutorial using the lexdec dataset where the presence of extremely high
+collinearity causes an (?)overestimate of significance.
+
+So in essence, without being able to reduce collinearity, I am afraid
+of not being able to detect significances when there are in fact
+significant differences (or vice versa), and interpreting coefficient
+estimates is also problematic.
+
+Thanks.
+
+Best,
+Xiao
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Tue Nov 29 06:55:52 2011
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Tue, 29 Nov 2011 01:55:52 -0500
+Subject: Re: Collinearity and centering multi-level (more than 2 levels) fixed predictors
+In-Reply-To: <CAGBzz=Ktte6edc+sOOeKxkvHJxNqvceeR2NtEmvw0K227UeOtQ@mail.gmail.com>
+References: <CAGBzz=Lp0vO8tPiRdZOMZe9kVvt=vAaN17+e4GZBsv2Mg-UAeA@mail.gmail.com> <A05F1978-CEF4-4F0B-9A8E-C92AD97593DB@ucsd.edu> <CAGBzz=L0_yOitYXZ9rG8czW06qAoY7YWwWdHX-FWA_yjnWSPDA@mail.gmail.com> <B49674F7-C387-4AD3-A74A-C8F74AE195BC@ucsd.edu> <CAG2Vd7jTc2vUa6FiOaW_WtptMyzgT_w-QYnX5mHBSVvSqnQwZQ@mail.gmail.com> <CAGBzz=Ktte6edc+sOOeKxkvHJxNqvceeR2NtEmvw0K227UeOtQ@mail.gmail.com>
+Message-ID: <CAG2Vd7haWwDQj0M18Cu_TuPYiMsHaB9ThDBJ9Qzffz4dnBhYhw@mail.gmail.com>
+
+On Tue, Nov 29, 2011 at 1:50 AM, Xiao He <praguewatermelon-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> Hi,
+>
+> I think part of my concern is Type 1 and Type 2 Errors. From my
+> experience with my own data, Type II error is a big concern, as I've
+> encountered cases where reducing collinearity changes test results
+> from non-significant to highly significant.
+>
+> A tutorial that Dr. Jaeger created on mixed effects model does mention
+> that Type 1 error does not increase much in the presence of
+> collinearity. But if I recall correctly, there is an example in the
+> tutorial using the lexdec dataset where the presence of extremely high
+> collinearity causes an (?)overestimate of significance.
+>
+
+well, not quite. I know the slide you're referring to. It's a case where
+collinearity leads to an apparently spurious significance because the
+ residuals of the two correlated predictors happen to be correlated with
+the another predictor that is not in the model. that third predictor has a
+strong effect on the dependent variable. i've seen this before when one
+considers a lot of predictors.
+
+but, to be clear, such cases aside, it should not be the case that Type I
+errors increases due to collinearity.
+
+HTH,
+
+Florian
+
+>
+> So in essence, without being able to reduce collinearity, I am afraid
+> of not being able to detect significances when there are in fact
+> significant differences (or vice versa), and interpreting coefficient
+> estimates is also problematic.
+>
+> Thanks.
+>
+> Best,
+> Xiao
+>
+

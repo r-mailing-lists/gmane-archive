@@ -1,0 +1,285 @@
+From daniel-MPNASETgcL69FHfhHBbuYA at public.gmane.org  Thu Jun 20 15:46:45 2013
+From: daniel-MPNASETgcL69FHfhHBbuYA at public.gmane.org (Daniel Lister)
+Date: Thu, 20 Jun 2013 08:46:45 -0700
+Subject: Re: [R-sig-DB] R and PostgreSQL - Writing data?
+In-Reply-To: <B697EB4C-5A96-414D-ABA5-DA68BBEE0B90@staff.kanazawa-u.ac.jp>
+References: <CAMu32ACFMBa7Z-6ZepagkdsXvqxi7ObSXCa-hn0FMcLQUZ9Y+g@mail.gmail.com> <CANeAVB=5Rm17sQnfvAThu0X7z3P=gOX5WcqadJjss+0J0QzBZA@mail.gmail.com> <CAMu32ADVRDn=ExeAYnVn-Xv7YDhFJgAe=qAJC4ai0OaQohV3qA@mail.gmail.com> <CANeAVBksja5EyLYNbCk_mz=msidSFjKU8RgCzr09-j9a5y23iQ@mail.gmail.com> <f3b9eca0-6059-440d-b636-729bf05438f0@default> <CAMu32ADKqtR44G6PrOm-GxkropMiuHSoNxpVn1n3rcjjVVUoLw@mail.gmail.com> <20664.53299.715207.913771@max.nulle.part> <B504D445-75F5-4417-A2A2-3D0CA433217D@staff.kanazawa-u.ac.jp> <3521b0fc-c37d-4fae-87c2-8cb06581480b@googlegroups.com> <8C603D7B-9D08-4096-91F6-752DBB72E9F8@staff.kanazawa-u.ac.jp> <57135f48-c958-4908-b37c-7aa3819acd5e@googlegroups.com> <B4887449-A463-4493-8B6E-ACC95928A608@staff.kanazawa-u.ac.jp> <01a78040-44d7-44c8-bb1c-8349ddb21815@googlegroups.com> <C7CF6E1B-7069-47A2-85BB-890EC309C9D1@staff.kanazawa-u.ac.jp> <f4d6d90f-78d0-45d0-9a0b-25aa54dc4699@googlegroups.com> <A783AD8A-673B-49AF-96BE-5A6400E1982B@staff.kanazawa-u.ac.jp> <0589b16d> <-46f3-489b-b0f9-0551013b3612@googlegroups.com> <B697EB4C-5A96-414D-ABA5-DA68BBEE0B90@staff.kanazawa-u.ac.jp>
+Message-ID: <d297b670-a07c-4c46-ac75-1b49dd9b7636@googlegroups.com>
+
+I would support Kevin's request for a patch as I have the same issue, and 
+had to resort to the same solution of forking the contents of 
+postgresqlWriteTable into my own dbWriteData function (with default 
+row.names=FALSE, append=TRUE since that suits my use case). IMHO it would 
+be much better if a solution could be provided within the RPostgreSQL 
+package and it would make dbWriteTable much more flexible. If other code is 
+effected by specifying the list of columns to be copied, then couldn't it 
+simply be made an extra parameter with appropriate default (eg 
+use.col.names=FALSE).
+
+My use case is where I want to write data from R to an existing database 
+table (append), but the data.frame contains only a subset of the columns in 
+the table - the remainder are columns which I'm happy to be populated with 
+default values. These are identifiers from a sequence, timestamps etc, but 
+could equally be a column which I don't want to cbind a lot of extra values 
+to my data frame. If a column list is provided to the COPY FROM command 
+then the defaults are handled gracefully, otherwise all columns and 
+associated values must be provided.
+
+You state that this use case doesn't fit the concept of dbWriteTable (the 
+intention being to write to a new table, although append parameter 
+contradicts this), but I cannot see any other function in the RPostgreSQL 
+package which enables you to simply write a data frame to an existing 
+table. The functionality is nearly there already, postgresqlWriteTable just 
+needs to be a little more flexible and a extra parameter would be much 
+appreciated.
+
+Thanks in advance
+
+Daniel
+
+On Thursday, 25 April 2013 05:48:33 UTC+1, Tomoaki wrote:
+>
+> The given patch also should not break anything because prior to the 
+> patched version, all columns in the table must have been given in the data 
+> frame, so simply listing the columns in the COPY statement will not change 
+> anything. 
+>
+>
+> This patch, in fact, destroys many of the existing use of dbWriteTable.
+> (you can run the tests with sh check_with_vars.sh after installing 
+> modified RPostgreSQL)
+> Your usecase doesnot seem to fit the concept of dbWriteTable, which is 
+> intended to write the R data.frame to a table whose structure is defined
+> by the driver rather than a table that preexisted.
+>
+> Perhaps, you are better coping the function under different name 
+> that represent what you want to do.
+>
+> <snip> 
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Fri Jun 21 01:36:59 2013
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (NISHIYAMA Tomoaki)
+Date: Fri, 21 Jun 2013 10:36:59 +0900
+Subject: Re: [R-sig-DB] R and PostgreSQL - Writing data?
+In-Reply-To: <d297b670-a07c-4c46-ac75-1b49dd9b7636@googlegroups.com>
+References: <CAMu32ACFMBa7Z-6ZepagkdsXvqxi7ObSXCa-hn0FMcLQUZ9Y+g@mail.gmail.com> <CANeAVB=5Rm17sQnfvAThu0X7z3P=gOX5WcqadJjss+0J0QzBZA@mail.gmail.com> <CAMu32ADVRDn=ExeAYnVn-Xv7YDhFJgAe=qAJC4ai0OaQohV3qA@mail.gmail.com> <CANeAVBksja5EyLYNbCk_mz=msidSFjKU8RgCzr09-j9a5y23iQ@mail.gmail.com> <f3b9eca0-6059-440d-b636-729bf05438f0@default> <CAMu32ADKqtR44G6PrOm-GxkropMiuHSoNxpVn1n3rcjjVVUoLw@mail.gmail.com> <20664.53299.715207.913771@max.nulle.part> <B504D445-75F5-4417-A2A2-3D0CA433217D@staff.kanazawa-u.ac.jp> <3521b0fc-c37d-4fae-87c2-8cb06581480b@googlegroups.com> <8C603D7B-9D08-4096-91F6-752DBB72E9F8@staff.kanazawa-u.ac.jp> <57135f48-c958-4908-b37c-7aa3819acd5e@googlegroups.com> <B4887449-A463-4493-8B6E-ACC95928A608@staff.kanazawa-u.ac.jp> <01a78040-44d7-44c8-bb1c-8349ddb21815@googlegroups.com> <C7CF6E1B-7069-47A2-85BB-890EC309C9D1@staff.kanazawa-u.ac.jp> <f4d6d90f-78d0-45d0-9a0b-25aa54dc4699@googlegroups.com> <A783AD8A-673B-49AF-96BE-5A6400E1982B@staff.kanazawa-u.ac.jp> <0589b16d > <-46f3-489b-b0f9-0551013b3612@googlegroups.com> <B697EB4C-5A96-414D-ABA5-DA68BBEE0B90@staff.kanazawa-u.ac.jp> <d297b670-a07c-4c46-ac75-1b49dd9b7636@googlegroups.com>
+Message-ID: <AB11EFAC-8083-427F-BF8A-7EC3FDB05263@staff.kanazawa-u.ac.jp>
+
+Hi,
+
+> You state that this use case doesn't fit the concept of dbWriteTable (the intention being to write to a new table, although append parameter contradicts this),
+
+append does not contradict to the concept that the structure is defined
+by the driver. Note that I did not write "new" table.
+You can append additional data to a table created by dbWriteTable
+from a data.frame with the same column structure. 
+
+So being able to append to arbitrary preexisting database is not specification.
+It may happen to work if you match the implementation detail.
+
+Shortcoming of Kevin's patch was that it did not properly quote the column names.
+The patch at the end does not break the test codes. 
+Does this help?
+
+Tomoaki
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+Index: RPostgreSQL/R/PostgreSQLSupport.R
+===================================================================
+--- RPostgreSQL/R/PostgreSQLSupport.R	(revision 249)
++++ RPostgreSQL/R/PostgreSQLSupport.R	(working copy)
+@@ -588,11 +588,6 @@
+ ## it with the values of the data.frame "value"
+ ## TODO: This function should execute its sql as a single transaction,
+ ##       and allow converter functions.
+-## TODO: In the unlikely event that value has a field called "row_names"
+-##       we could inadvertently overwrite it (here the user should set
+-##       row.names=F)  I'm (very) reluctantly adding the code re: row.names,
+-##       because I'm not 100% comfortable using data.frames as the basic
+-##       data for relations.
+ postgresqlWriteTable <- function(con, name, value, field.types, row.names = TRUE,
+                                  overwrite = FALSE, append = FALSE, ..., allow.keywords = FALSE) {
+     if(overwrite && append)
+@@ -649,7 +644,7 @@
+     })
+     oldenc <- dbGetQuery(new.con, "SHOW client_encoding")
+     postgresqlpqExec(new.con, "SET CLIENT_ENCODING TO 'UTF8'")
+-    sql4 <- paste("COPY", postgresqlTableRef(name), "FROM STDIN")
++    sql4 <- paste("COPY", postgresqlTableRef(name),"(",paste(postgresqlQuoteId(names(value)),collapse=","),") FROM STDIN")
+     postgresqlpqExec(new.con, sql4)
+     postgresqlCopyInDataframe(new.con, value)
+     rs<-postgresqlgetResult(new.con)
+Index: RPostgreSQL/tests/dbWriteTableTest.R
+===================================================================
+--- RPostgreSQL/tests/dbWriteTableTest.R	(revision 249)
++++ RPostgreSQL/tests/dbWriteTableTest.R	(working copy)
+@@ -32,13 +32,18 @@
+         dbRemoveTable(con, "rockdata")
+     }
+ 
+-    dbWriteTable(con, "rockdata", rock)
++    dbWriteTable(con, "rockdata", rock[1:5,])
+ 
+     ## run a simple query and show the query result
+     res <- dbGetQuery(con, "select * from rockdata limit 10")
+     print(res)
+ 
++    dbWriteTable(con, "rockdata", rock[6:15,], append=T)
+ 
++    ## run a simple query and show the query result
++    res <- dbGetQuery(con, "select * from rockdata limit 10")
++    print(res)
++
+     ## cleanup
+     if (dbExistsTable(con, "rockdata")) {
+         print("Removing rockdata\n")
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From daniel-MPNASETgcL69FHfhHBbuYA at public.gmane.org  Fri Jun 21 10:11:07 2013
+From: daniel-MPNASETgcL69FHfhHBbuYA at public.gmane.org (Daniel Lister)
+Date: Fri, 21 Jun 2013 11:11:07 +0100
+Subject: Re: [R-sig-DB] R and PostgreSQL - Writing data?
+In-Reply-To: <AB11EFAC-8083-427F-BF8A-7EC3FDB05263@staff.kanazawa-u.ac.jp>
+References: <CAMu32ACFMBa7Z-6ZepagkdsXvqxi7ObSXCa-hn0FMcLQUZ9Y+g@mail.gmail.com> <CAMu32ADKqtR44G6PrOm-GxkropMiuHSoNxpVn1n3rcjjVVUoLw@mail.gmail.com> <20664.53299.715207.913771@max.nulle.part> <B504D445-75F5-4417-A2A2-3D0CA433217D@staff.kanazawa-u.ac.jp> <3521b0fc-c37d-4fae-87c2-8cb06581480b@googlegroups.com> <8C603D7B-9D08-4096-91F6-752DBB72E9F8@staff.kanazawa-u.ac.jp> <57135f48-c958-4908-b37c-7aa3819acd5e@googlegroups.com> <B4887449-A463-4493-8B6E-ACC95928A608@staff.kanazawa-u.ac.jp> <01a78040-44d7-44c8-bb1c-8349ddb21815@googlegroups.com> <C7CF6E1B-7069-47A2-85BB-890EC309C9D1@staff.kanazawa-u.ac.jp> <f4d6d90f-78d0-45d0-9a0b-25aa54dc4699@googlegroups.com> <A783AD8A-673B-49AF-96BE-5A6400E1982B@staff.kanazawa-u.ac.jp> <0589b16d > <-46f3-489b-b0f9-0551013b3612@googlegroups.com> <B697EB4C-5A 96-414D-ABA5-DA68BBEE0B90@staff.kanazawa-u.ac.jp> <d297b670-a07c-4c46-ac75-1b49dd9b7636@googlegroups.com> <AB11EFAC-8083-427F-BF8A-7EC3FDB05263@staff.kanazawa-u.ac.jp>
+Message-ID: <51C426BB.3020407@mrlister.co.uk>
+
+On 21/06/2013 02:36, NISHIYAMA Tomoaki wrote:
+> append does not contradict to the concept that the structure is defined
+> by the driver. You can append additional data to a table created by dbWriteTable.
+
+Point taken on append.
+
+> So being able to append to arbitrary preexisting database is not
+> specification. It may happen to work if you match the implementation detail.
+
+For my case, reading and writing from/to an existing database is what 
+makes the package useful. It would be good if it's flexibility can be 
+extended to support this.
+
+> Shortcoming of Kevin's patch was that it did not properly quote the
+> column names. The patch at the end does not break the test codes. Does this help?
+
+Yes, this works well for me. I can see why this version is correct and 
+it would be great to have it included in the code base.
+
+Many thanks
+
+Daniel
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Fri Jun 21 11:15:22 2013
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (NISHIYAMA Tomoaki)
+Date: Fri, 21 Jun 2013 20:15:22 +0900
+Subject: Re: [R-sig-DB] R and PostgreSQL - Writing data?
+In-Reply-To: <51C426BB.3020407@mrlister.co.uk>
+References: <CAMu32ACFMBa7Z-6ZepagkdsXvqxi7ObSXCa-hn0FMcLQUZ9Y+g@mail.gmail.com> <CAMu32ADKqtR44G6PrOm-GxkropMiuHSoNxpVn1n3rcjjVVUoLw@mail.gmail.com> <20664.53299.715207.913771@max.nulle.part> <B504D445-75F5-4417-A2A2-3D0CA433217D@staff.kanazawa-u.ac.jp> <3521b0fc-c37d-4fae-87c2-8cb06581480b@googlegroups.com> <8C603D7B-9D08-4096-91F6-752DBB72E9F8@staff.kanazawa-u.ac.jp> <57135f48-c958-4908-b37c-7aa3819acd5e@googlegroups.com> <B4887449-A463-4493-8B6E-ACC95928A608@staff.kanazawa-u.ac.jp> <01a78040-44d7-44c8-bb1c-8349ddb21815@googlegroups.com> <C7CF6E1B-7069-47A2-85BB-890EC309C9D1@staff.kanazawa-u.ac.jp> <f4d6d90f-78d0-45d0-9a0b-25aa54dc4699@googlegroups.com> <A783AD8A-673B-49AF-96BE-5A6400E1982B@staff.kanazawa-u.ac.jp> <0589b16d > <-46f3-489b-b0f9-0551013b3612@googlegroups.com> <B697EB4C-5A 96-414D-ABA5-DA68BBEE0B90@staff.kanazawa-u.ac.jp> <d297b670-a07c-4c46-ac75-1b49dd9b7636@googlegroups.com> <AB11EFAC-8083-427F-BF8A-7EC3FDB05263@staff.kanazawa-u.ac.jp> <51C426BB.3020407@mrli ster.co.uk>
+Message-ID: <21D611CC-D15C-443F-AFBE-D6AB6B97836A@staff.kanazawa-u.ac.jp>
+
+Hi,
+
+> Yes, this works well for me. I can see why this version is correct and it would be great to have it included in the code base.
+
+
+Daniel,
+Thank you for testing the patch.
+Committed to the svn at r251.
+
+Kevin,
+Thank you for the original patch close to the final. Major difference was just one step.
+
+I am happier if the code works well for more people.
+
+However, please note that the interface for such use is not determined yet
+and we might decide to introduce optional argument like col.names for assignment,
+or change in accordance with DBI interface or other drivers. 
+db* functions will be designed to fulfil the request by DBI and 
+if DBI spec is changed we will also change.
+
+Best regards,
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2013/06/21, at 19:11, Daniel Lister wrote:
+
+> On 21/06/2013 02:36, NISHIYAMA Tomoaki wrote:
+>> append does not contradict to the concept that the structure is defined
+>> by the driver. You can append additional data to a table created by dbWriteTable.
+> 
+> Point taken on append.
+> 
+>> So being able to append to arbitrary preexisting database is not
+>> specification. It may happen to work if you match the implementation detail.
+> 
+> For my case, reading and writing from/to an existing database is what makes the package useful. It would be good if it's flexibility can be extended to support this.
+> 
+>> Shortcoming of Kevin's patch was that it did not properly quote the
+>> column names. The patch at the end does not break the test codes. Does this help?
+> 
+> Yes, this works well for me. I can see why this version is correct and it would be great to have it included in the code base.
+> 
+> Many thanks
+> 
+> Daniel
+> 
+> -- 
+> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/groups/opt_out.
+> 
+> 
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From daniel-MPNASETgcL69FHfhHBbuYA at public.gmane.org  Fri Jun 21 12:01:33 2013
+From: daniel-MPNASETgcL69FHfhHBbuYA at public.gmane.org (Daniel Lister)
+Date: Fri, 21 Jun 2013 13:01:33 +0100
+Subject: Re: [R-sig-DB] R and PostgreSQL - Writing data?
+In-Reply-To: <21D611CC-D15C-443F-AFBE-D6AB6B97836A@staff.kanazawa-u.ac.jp>
+References: <CAMu32ACFMBa7Z-6ZepagkdsXvqxi7ObSXCa-hn0FMcLQUZ9Y+g@mail.gmail.com> <20664.53299.715207.913771@max.nulle.part> <B504D445-75F5-4417-A2A2-3D0CA433217D@staff.kanazawa-u.ac.jp> <3521b0fc-c37d-4fae-87c2-8cb06581480b@googlegroups.com> <8C603D7B-9D08-4096-91F6-752DBB72E9F8@staff.kanazawa-u.ac.jp> <57135f48-c958-4908-b37c-7aa3819acd5e@googlegroups.com> <B4887449-A463-4493-8B6E-ACC95928A608@staff.kanazawa-u.ac.jp> <01a78040-44d7-44c8-bb1c-8349ddb21815@googlegroups.com> <C7CF6E1B-7069-47A2-85BB-890EC309C9D1@staff.kanazawa-u.ac.jp> <f4d6d90f-78d0-45d0-9a0b-25aa54dc4699@googlegroups.com> <A783AD8A-673B-49AF-96BE-5A6400E1982B@staff.kanazawa-u.ac.jp> <0589b16d > <-46f3-489b-b0f9-0551013b3612@googlegroups.com> <B697EB4C-5A96-414D-ABA5-DA68BBEE0B90@staff.kanazawa-u.ac.jp> <d297b670-a07c-4c46 -ac75-1b49dd9b7636@googlegroups.com> <AB11EFAC-8083-427F-BF8A-7EC3FDB05263@staff.kanazawa-u.ac.jp> <51C426BB.3020407@mrli ster.co.uk> <21D611CC-D15C-443F-AFBE-D6AB6B97836A@staff.kanazawa-u.ac.jp>
+Message-ID: <51C4409D.5010005@mrlister.co.uk>
+
+On 21/06/2013 12:15, NISHIYAMA Tomoaki wrote:
+> Committed to the svn at r251.
+
+Great! Thanks for this.
+
+> However, please note that the interface for such use is not determined yet
+> and we might decide to introduce optional argument like col.names for assignment,
+> or change in accordance with DBI interface or other drivers.
+
+Noted, and I'm happy to update when new db* functions become available. 
+However, it's good to have something which works for now.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+

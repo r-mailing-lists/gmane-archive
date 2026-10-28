@@ -1,0 +1,1568 @@
+From urbanek at research.att.com  Thu Nov  2 19:16:03 2006
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Thu, 02 Nov 2006 14:16:03 -0500
+Subject: Re: rjava -- are inner classes supported?
+In-Reply-To: <454A1FC5.2040003@kraeutler.net>
+References: <454A1FC5.2040003@kraeutler.net>
+Message-ID: <2DDFAD99-C1E8-4685-A250-827F556011E7@research.att.com>
+
+On Nov 2, 2006, at 11:41 AM, Vincent Kraeutler wrote:
+
+> hi,
+>
+> i seem to be unable to instantiate inner classes in rJava.
+>
+> doing
+>
+> .jnew("fully/qualified/class/name")
+>
+> works fine, but
+>
+> .jnew("fully/qualified/class/name/inner")
+>
+> fails. neither the documentation nor google seem to know anything  
+> about inner class support in rJava. am i just not trying hard  
+> enough, or is this expected behaviour?
+>
+
+Well, both :). Inner classes are referenced as ParentClass$InnerClass  
+in Java. Also you must supply the outer class to the constructor as  
+well. So for
+
+public class A { public class B { } }
+
+You can instantiate it as follows:
+
+a=.jnew("A")
+b=.jnew("A$B",a)
+
+Cheers,
+Simon
+
+From ljouneau at jouy.inra.fr  Tue Nov  7 03:12:59 2006
+From: ljouneau at jouy.inra.fr
+Date: Tue, 07 Nov 2006 04:12:59 +0100
+Subject: JRClient exception
+Message-ID: <1162869179.454ff9bb6069a@www.jouy.inra.fr>
+
+Hello,
+
+I encounter an exception while submitting an R command using Java R client
+interface.
+
+I have debugged it but do not feel well to try to solve it.
+The exception occurs in line 238-239 (Java R client release 503):
+	    for(i=0;i<b.length;i++)
+                rq[i+4]=b[i];
+
+Exception is "java.lang.ArrayIndexOutOfBoundsException - 853"
+The exact command I submitted is below between "----" lines:
+I hope this informations will help someone reproduce and solve it.
+Thanks in advance for some reply
+Luc
+-----------------------------------------------------
+out<-file("D:/dev/java/tomcat/webapps/GED/log/RServe.log","w");sink(file=out);tryCatch({setwd("D:/dev/java/tomcat/webapps/GED/temp/analysis/7734247")
+library(affy)
+
+#Read pheno data
+pd <-read.phenoData("pheno.txt",header=TRUE)
+af <- ReadAffy(phenoData=pd)
+
+#Normalization
+#TODO eset<-gcrma(af);
+eset<-rma(af);
+
+#Comparison
+#TODO : Faut il appliquer les étapes préalables expliquées dans
+#	http://www.bioconductor.org/workshops/2002/Summer02Course/Labs/basics.pdf
+anova_fuc <- function(y) anova(lm(y~Origin))
+res <- esApply(eset,1,anova_fuc)
+#TODO : utiliser library(genefilter) ; ? genefilter ; ?Anova
+capture.output(res,file="anova_result_7734247.txt");
+
+#Output normalized expression
+capture.output(exprs(eset),file="normalized_expression_7734247.txt");
+
+#Free objects
+rm(af)
+rm(eset)
+rm(res)
+},error=function(c) cat(str(c)));sink();close(out);
+-----------------------------------------------------
+
+From dreiss at systemsbiology.org  Wed Nov  8 05:27:51 2006
+From: dreiss at systemsbiology.org (David Reiss)
+Date: Tue, 07 Nov 2006 21:27:51 -0800
+Subject: R or Perl-based client for Rserve?
+Message-ID: <fd913b0d0611072127p491670f3o5bdf6baf88d0cb38@mail.gmail.com>
+
+Hi,
+does anyone know of a perl- or R-based client that has been written for Rserve?
+I could not find any information anywhere.
+thanks very much.
+-David
+
+From urbanek at research.att.com  Wed Nov  8 14:27:03 2006
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Wed, 08 Nov 2006 09:27:03 -0500
+Subject: Re: R or Perl-based client for Rserve?
+In-Reply-To: <fd913b0d0611072127p491670f3o5bdf6baf88d0cb38@mail.gmail.com>
+References: <fd913b0d0611072127p491670f3o5bdf6baf88d0cb38@mail.gmail.com>
+Message-ID: <26E1433A-ACFC-476B-AEA6-01B5253E821E@research.att.com>
+
+David,
+
+On Nov 8, 2006, at 12:27 AM, David Reiss wrote:
+
+> does anyone know of a perl- or R-based client that has been written  
+> for Rserve?
+
+R-based client doesn't make much sense to me (save for academic  
+interest), because then you don't need Rserve at all (R has both  
+serialization and socket support - see also snow's SOCK  
+implementation for R processes talking to each other). As of perl, I  
+remember someone giving it a shot, but I've never heard of it being  
+finished.
+
+However, if all you want is to just use R from a perl process for  
+batch computation (e.g. in cgi), you may consider using the C++  
+client, more precisely the rcmd example which runs an arbitrary  
+script via Rserve and returns the result. Also it should be fairly  
+easy to incorporate the same functionality into perl directly using XS.
+
+Finally, if you don't need the client/server approach, you may want  
+to have a look as RSPerl.
+
+Cheers,
+Simon
+
+From simon.urbanek at math.uni-augsburg.de  Wed Nov  8 14:13:37 2006
+From: simon.urbanek at math.uni-augsburg.de (Simon Urbanek)
+Date: Wed, 08 Nov 2006 09:13:37 -0500
+Subject: Re: JRClient exception
+In-Reply-To: <1162869179.454ff9bb6069a@www.jouy.inra.fr>
+References: <1162869179.454ff9bb6069a@www.jouy.inra.fr>
+Message-ID: <0264A9BD-DB13-43A7-A74D-083B752B80B4@math.uni-augsburg.de>
+
+Luc,
+
+thanks for the report. However, it doesn't tell us much as we have no  
+way to reproduce it (we'd need the data as well - if you 're right,  
+it has to do with the data values). Also you provided a line number  
+but no file.
+We would really appreciate if you could just send us a small  
+reproducible example such that we can pinpoint and solve the problem.
+
+Thanks,
+Simon
+
+On Nov 6, 2006, at 10:12 PM, ljouneau at jouy.inra.fr wrote:
+
+> Hello,
+>
+> I encounter an exception while submitting an R command using Java R  
+> client
+> interface.
+>
+> I have debugged it but do not feel well to try to solve it.
+> The exception occurs in line 238-239 (Java R client release 503):
+> 	    for(i=0;i<b.length;i++)
+>                 rq[i+4]=b[i];
+>
+> Exception is "java.lang.ArrayIndexOutOfBoundsException - 853"
+> The exact command I submitted is below between "----" lines:
+> I hope this informations will help someone reproduce and solve it.
+> Thanks in advance for some reply
+> Luc
+> -----------------------------------------------------
+> out<-file("D:/dev/java/tomcat/webapps/GED/log/RServe.log","w");sink 
+> (file=out);tryCatch({setwd("D:/dev/java/tomcat/webapps/GED/temp/ 
+> analysis/7734247")
+> library(affy)
+>
+> #Read pheno data
+> pd <-read.phenoData("pheno.txt",header=TRUE)
+> af <- ReadAffy(phenoData=pd)
+>
+> #Normalization
+> #TODO eset<-gcrma(af);
+> eset<-rma(af);
+>
+> #Comparison
+> #TODO : Faut il appliquer les étapes préalables expliquées dans
+> #	http://www.bioconductor.org/workshops/2002/Summer02Course/Labs/ 
+> basics.pdf
+> anova_fuc <- function(y) anova(lm(y~Origin))
+> res <- esApply(eset,1,anova_fuc)
+> #TODO : utiliser library(genefilter) ; ? genefilter ; ?Anova
+> capture.output(res,file="anova_result_7734247.txt");
+>
+> #Output normalized expression
+> capture.output(exprs(eset),file="normalized_expression_7734247.txt");
+>
+> #Free objects
+> rm(af)
+> rm(eset)
+> rm(res)
+> },error=function(c) cat(str(c)));sink();close(out);
+> -----------------------------------------------------
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From salgadoruben at hotmail.com  Wed Nov  8 19:27:16 2006
+From: salgadoruben at hotmail.com (ruben)
+Date: Wed, 08 Nov 2006 20:27:16 +0100
+Subject: How does rtest example works?
+Message-ID: <BAY105-DAV85F625DCD418A69F4ED73D2F10@phx.gbl>
+
+Hi everybody, I have successfully installed JRI, but I don't know how to use
+it very well. I have been trying to execute the rtest example, but I am not
+sure that the output is correct. I just write run.bat rtest in the console
+and I get (copied from the console):
+
+C:\JRI>run.bat rtest
+
+C:\ JRI>set PATH=C:\Archivos de programa\MiKTeX
+2.5\miktex\bin;C:\Perl\bin\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\system
+32\WBEM;C:\JAVA\j2sdk1.4.2_08\bin;C:\apache-ant-1.6.5\bin;C:\jakarta-tomcat-
+5.0.28\bin;C:\Archivos de programa\MATLAB71\bin\win32;C:\Archivos de
+programa\QuickTime\QTSystem\;C:\Archivos de
+programa\Statgraphics\STATGRAPHICS Centurion XV.I\;C:\Archivos de
+programa\Subversion\bin;C:\Documents and
+Settings\RUBEN\Escritorio\Universidad\IOI\PFC\Software\R\Windows
+toolset\tools\bin;C:\MinGW\bin;C:\Archivos de
+programa\R\R-2.3.1\bin;C:/ARCHIV~1/R/R-23~1.1\bin;C:/ARCHIV~1/R/R-23~1.1\lib
+
+ 
+
+C:\ JRI>C:/JAVA/J2SDK1~1.2_0/bin/java -cp .;examples;src/JRI.jar rtest $*
+
+Creating Rengine (with arguments)
+
+Rengine created, waiting for R
+
+RXP[string, id=60861600, o=iris]
+
+RXP[double[], id=60861376, o=[D@6b97fd]
+
+ 
+
+I don't even know if the input is correct. Please, anyone who tells me what
+it is wrong or what I have to do ????
+
+-------------- next part --------------
+
+
+From urbanek at research.att.com  Wed Nov  8 21:24:29 2006
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Wed, 08 Nov 2006 16:24:29 -0500
+Subject: Re: How does rtest example works?
+In-Reply-To: <BAY105-DAV85F625DCD418A69F4ED73D2F10@phx.gbl>
+References: <BAY105-DAV85F625DCD418A69F4ED73D2F10@phx.gbl>
+Message-ID: <FBEBB5F6-0C9E-421C-AB04-46154B3E8BA2@research.att.com>
+
+
+On Nov 8, 2006, at 2:27 PM, ruben wrote:
+
+> Hi everybody, I have successfully installed JRI, but I don’t know  
+> how to use it very well. I have been trying to execute the rtest  
+> example, but I am not sure that the output is correct. I just write  
+> run.bat rtest in the console and I get (copied from the console):
+>
+> C:\JRI>run.bat rtest
+>
+> C:\ JRI>set PATH=C:\Archivos de programa\MiKTeX 2.5\miktex\bin;C: 
+> \Perl\bin\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\system32 
+> \WBEM;C:\JAVA\j2sdk1.4.2_08\bin;C:\apache-ant-1.6.5\bin;C:\jakarta- 
+> tomcat-5.0.28\bin;C:\Archivos de programa\MATLAB71\bin\win32;C: 
+> \Archivos de programa\QuickTime\QTSystem\;C:\Archivos de programa 
+> \Statgraphics\STATGRAPHICS Centurion XV.I\;C:\Archivos de programa 
+> \Subversion\bin;C:\Documents and Settings\RUBEN\Escritorio 
+> \Universidad\IOI\PFC\Software\R\Windows toolset\tools\bin;C:\MinGW 
+> \bin;C:\Archivos de programa\R\R-2.3.1\bin;C:/ARCHIV~1/R/R-23~1.1 
+> \bin;C:/ARCHIV~1/R/R-23~1.1\lib
+>
+>
+>
+> C:\ JRI>C:/JAVA/J2SDK1~1.2_0/bin/java -cp ;examples;src/JRI.jar  
+> rtest $*
+>
+> Creating Rengine (with arguments)
+>
+> Rengine created, waiting for R
+>
+> RXP[string, id=60861600, o=iris]
+>
+> RXP[double[], id=60861376, o=[D@6b97fd]
+>
+>
+>
+> I don’t even know if the input is correct. Please, anyone who tells  
+> me what it is wrong or what I have to do ????
+
+Everything is fine, the example started R, performed some  
+computations and returned as expected - congratulations, your JRI  
+installation works perfectly.
+
+Now it's just up to you to write your program that uses R from Java  
+in any imaginable way. The API is documented via JavaDoc:
+http://www.rosuda.org/R/nightly/JavaDoc
+and click on org.rosuda.JRI in the top left frame.
+
+Cheers,
+Simon
+
+From ljouneau at jouy.inra.fr  Thu Nov  9 06:38:40 2006
+From: ljouneau at jouy.inra.fr
+Date: Thu, 09 Nov 2006 07:38:40 +0100
+Subject: Re: JRClient exception
+Message-ID: <1163054320.4552ccf056a59@www.jouy.inra.fr>
+
+Simon,
+
+Thanks for your quick answer, and sorry to have forgotten the name of the java
+class in which the exception occurs. It is Rtalk.java
+
+You do not need any of the underlying data to reproduce this bug since exception
+occurs BEFORE to submit the command to RServe.
+
+I have written two little debug Java classes.
+ReproduceBug1.java reproduces it with an R connection (although it just send a
+remark to R server)
+
+ReproduceBug2.java reproduces it without R connection.
+In this class, I have extracted from Rtalk the method throwing exception.
+I have modified it to add some debug traces.
+All modifications are not indented in order to distinguish modifications from
+original code.
+
+>>From my point of view, the origin of the bug is located here (Rtalk.java lines
+229-230) :
+                byte[] b=par.getBytes(Rconnection.transferCharset);
+                int sl=par.length()+1;
+
+Since afterward it is b array that is copied, we should compute sl not from
+par.length() but from b.length. Since there is a translation because of UTF8
+encoding, their lengthes may not be equal if some characters with accent by
+instance appear in the String).
+
+By the way, would it be possible to get rid of the try/catch block contained in
+this method. Except because of bugs (like this one ...), this part of code
+should not throw any exception. We could either get rid of it, or report
+proprely of the nature of the exception (Classname, message).
+
+Hope all this will this time help you understand the problem I encountered.
+
+Luc
+Selon Simon Urbanek <simon.urbanek at math.uni-augsburg.de>:
+
+> Luc,
+>
+> thanks for the report. However, it doesn't tell us much as we have no
+> way to reproduce it (we'd need the data as well - if you 're right,
+> it has to do with the data values). Also you provided a line number
+> but no file.
+> We would really appreciate if you could just send us a small
+> reproducible example such that we can pinpoint and solve the problem.
+>
+> Thanks,
+> Simon
+>
+> On Nov 6, 2006, at 10:12 PM, ljouneau at jouy.inra.fr wrote:
+>
+> > Hello,
+> >
+> > I encounter an exception while submitting an R command using Java R
+> > client
+> > interface.
+> >
+> > I have debugged it but do not feel well to try to solve it.
+> > The exception occurs in line 238-239 (Java R client release 503):
+> > 	    for(i=0;i<b.length;i++)
+> >                 rq[i+4]=b[i];
+> >
+> > Exception is "java.lang.ArrayIndexOutOfBoundsException - 853"
+> > The exact command I submitted is below between "----" lines:
+> > I hope this informations will help someone reproduce and solve it.
+> > Thanks in advance for some reply
+> > Luc
+> > -----------------------------------------------------
+> > out<-file("D:/dev/java/tomcat/webapps/GED/log/RServe.log","w");sink
+> > (file=out);tryCatch({setwd("D:/dev/java/tomcat/webapps/GED/temp/
+> > analysis/7734247")
+> > library(affy)
+> >
+> > #Read pheno data
+> > pd <-read.phenoData("pheno.txt",header=TRUE)
+> > af <- ReadAffy(phenoData=pd)
+> >
+> > #Normalization
+> > #TODO eset<-gcrma(af);
+> > eset<-rma(af);
+> >
+> > #Comparison
+> > #TODO : Faut il appliquer les étapes préalables expliquées dans
+> > #	http://www.bioconductor.org/workshops/2002/Summer02Course/Labs/
+> > basics.pdf
+> > anova_fuc <- function(y) anova(lm(y~Origin))
+> > res <- esApply(eset,1,anova_fuc)
+> > #TODO : utiliser library(genefilter) ; ? genefilter ; ?Anova
+> > capture.output(res,file="anova_result_7734247.txt");
+> >
+> > #Output normalized expression
+> > capture.output(exprs(eset),file="normalized_expression_7734247.txt");
+> >
+> > #Free objects
+> > rm(af)
+> > rm(eset)
+> > rm(res)
+> > },error=function(c) cat(str(c)));sink();close(out);
+> > -----------------------------------------------------
+> >
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: ReproduceBug1.java
+Type: application/octet-stream
+Size: 407 bytes
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: ReproduceBug2.java
+Type: application/octet-stream
+Size: 1207 bytes
+
+-------------- next part --------------
+
+
+From urbanek at research.att.com  Thu Nov  9 14:22:59 2006
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Thu, 09 Nov 2006 09:22:59 -0500
+Subject: Re: JRClient exception
+In-Reply-To: <1163054320.4552ccf056a59@www.jouy.inra.fr>
+References: <1163054320.4552ccf056a59@www.jouy.inra.fr>
+Message-ID: <78CA098A-1AD3-4B61-A41C-252819488804@research.att.com>
+
+Luc,
+
+many thanks, I wish all bug reports were like that :). I have  
+committed the fix so it should be in the nightly build tonight.
+
+Thanks,
+Simon
+
+On Nov 9, 2006, at 1:38 AM, ljouneau at jouy.inra.fr wrote:
+
+> Thanks for your quick answer, and sorry to have forgotten the name  
+> of the java class in which the exception occurs. It is Rtalk.java
+>
+> You do not need any of the underlying data to reproduce this bug  
+> since exception occurs BEFORE to submit the command to RServe.
+>
+
+Ok, I was assuming that you're sourcing the script, that's why it  
+didn't help ;).
+
+From pneal at mbl.edu  Mon Nov 13 22:18:42 2006
+From: pneal at mbl.edu (Phillip Neal)
+Date: Mon, 13 Nov 2006 17:18:42 -0500
+Subject: Mondrian , java , Linux ...sigh
+Message-ID: <1FEB1D7A-9973-41B0-BEAC-F658AEEBDA4C@mbl.edu>
+
+Hi All,
+
+I downloaded the jar file for linux from the Mondrian web site.
+I put it on my machine called arthur.
+
+[pneal@arthur ~]$ java -version
+java version "1.5.0_06"
+Java(TM) 2 Runtime Environment, Standard Edition (build 1.5.0_06-b05)
+Java HotSpot(TM) 64-Bit Server VM (build 1.5.0_06-b05, mixed mode)
+[pneal@arthur ~]$
+
+
+
+I set up my X11 display to talk with my Mac PowerBook G4 Running Mac  
+OSX 10.4.8
+
+
+I typed
+
+java -jar Mondrain.jar
+
+Mondrian started up , but  I did not get the pretty colors nor the  
+menus.
+
+I got:
+
+
+First connect try failed with: Cannot connect: Connection refused
+waiting for Rserve to start ... (java.lang.UNIXProcess@392d263f)
+Rserve>/xraid/bioware/linuxOpteron/R/lib/R/bin/Rcmd: line 45: exec:  
+Rserve: not
+found
+call terminated, let us try to connect ...
+Try failed with: Cannot connect: Connection refused
+Starting RServe ... false
+pneal on Linux
+Graphics Performance: 377
+
+The Mondrian interface popped up, but no menus, no colors, no nothing.
+
+Any suggestions ?
+
+Best regards,
+
+Phil Neal
+
+
+
+Phillip Neal
+pneal at mbl.edu
+
+How many goodly creatures are there here! - The Tempest, V, i
+
+-------------- next part --------------
+
+
+From pneal at mbl.edu  Mon Nov 13 22:22:35 2006
+From: pneal at mbl.edu (Phillip Neal)
+Date: Mon, 13 Nov 2006 17:22:35 -0500
+Subject: loading large datasets into Mondrian 560k rows
+Message-ID: <F0F5EA9C-DC1C-4882-A5EC-F8BA8863E3EF@mbl.edu>
+
+Hi Mondrian people,
+
+I was able to load a 560k row of data containing 8 variables into  
+Mondrian with a PowerBook G4 with
+1 GB of ram. It took about 9 minutes though.
+
+Has anybody loaded bigger datasets ?
+
+
+
+best,
+
+
+Phillip Neal
+pneal at mbl.edu
+
+"An ocean without its unnamed monsters would be like a completely  
+dreamless sleep."
+
+John Steinbeck - 'The Log from the Sea of Cortez'
+
+-------------- next part --------------
+
+
+From pneal at mbl.edu  Tue Nov 14 21:58:25 2006
+From: pneal at mbl.edu (Phillip Neal)
+Date: Tue, 14 Nov 2006 16:58:25 -0500
+Subject: Re: Mondrian , java , Linux ...sigh
+In-Reply-To: <4E65C3D5-3030-48A1-B37D-3FA90B55F6E9@theusRus.de>
+References: <1FEB1D7A-9973-41B0-BEAC-F658AEEBDA4C@mbl.edu> <4E65C3D5-3030-48A1-B37D-3FA90B55F6E9@theusRus.de>
+Message-ID: <31ED9810-B880-491F-97F5-0B51269B365D@mbl.edu>
+
+Hi Martin,
+
+Good idea. I will test that tomorrow.
+
+Many thanks,
+
+Phil
+
+On Nov 14, 2006, at 3:54 PM, Martin Theus wrote:
+
+> Phil,
+>
+> did you test other Java applications to check whether this is really
+> a Mondrian specific problem.
+>
+> It can well be that the JVM expects more colors than the X11 display
+> supports, which can result in strange displays.
+>
+> Martin
+>
+>
+> Am 13. Nov 2006 um 23:18 Uhr schrieb Phillip Neal:
+>
+>> Hi All,
+>>
+>> I downloaded the jar file for linux from the Mondrian web site.
+>> I put it on my machine called arthur.
+>>
+>> [pneal@arthur ~]$ java -version
+>> java version "1.5.0_06"
+>> Java(TM) 2 Runtime Environment, Standard Edition (build 1.5.0_06-b05)
+>> Java HotSpot(TM) 64-Bit Server VM (build 1.5.0_06-b05, mixed mode)
+>> [pneal@arthur ~]$
+>>
+>>
+>>
+>> I set up my X11 display to talk with my Mac PowerBook G4 Running  
+>> Mac OSX 10.4.8
+>>
+>>
+>> I typed
+>>
+>> java -jar Mondrain.jar
+>>
+>> Mondrian started up , but  I did not get the pretty colors nor the  
+>> menus.
+>>
+>> I got:
+>>
+>>
+>> First connect try failed with: Cannot connect: Connection refused
+>> waiting for Rserve to start ... (java.lang.UNIXProcess@392d263f)
+>> Rserve>/xraid/bioware/linuxOpteron/R/lib/R/bin/Rcmd: line 45:  
+>> exec: Rserve: not
+>> found
+>> call terminated, let us try to connect ...
+>> Try failed with: Cannot connect: Connection refused
+>> Starting RServe ... false
+>> pneal on Linux
+>> Graphics Performance: 377
+>>
+>> The Mondrian interface popped up, but no menus, no colors, no  
+>> nothing.
+>>
+>> Any suggestions ?
+>>
+>> Best regards,
+>>
+>> Phil Neal
+>>
+>>
+>>
+>> Phillip Neal
+>> pneal at mbl.edu
+>>
+>> How many goodly creatures are there here! - The Tempest, V, i
+>>
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+Phillip Neal
+pneal at mbl.edu
+
+"An ocean without its unnamed monsters would be like a completely  
+dreamless sleep."
+
+John Steinbeck - 'The Log from the Sea of Cortez'
+
+-------------- next part --------------
+
+
+From pneal at mbl.edu  Tue Nov 14 22:06:38 2006
+From: pneal at mbl.edu (Phillip Neal)
+Date: Tue, 14 Nov 2006 17:06:38 -0500
+Subject: Re: loading large datasets into Mondrian 560k rows
+In-Reply-To: <02E0B87F-FF0B-4E00-BC65-8AA6C7F8500B@theusRus.de>
+References: <F0F5EA9C-DC1C-4882-A5EC-F8BA8863E3EF@mbl.edu> <02E0B87F-FF0B-4E00-BC65-8AA6C7F8500B@theusRus.de>
+Message-ID: <142CEBAD-BD1C-41FA-9393-2069732F53AD@mbl.edu>
+
+HI Martin,
+
+On Nov 14, 2006, at 4:06 PM, Martin Theus wrote:
+
+> Phil,
+>
+> my largest file was a 65MB file with 2.5mio rows and 7 cols, which
+> takes about 15 secs on my PM G5.
+> What makes loading a long job are alpha-numerical variables with
+> very many categories, as parsing and checking categories for existence
+> is expensive.
+
+Yes.  My 'leaf' category has  a little less than 200 genera.
+
+>
+> If it took you 9mins, I guess you either have a distinct name for  
+> all the 560k
+> items
+
+So I should not use a unique id number ? I will test that tomorrow.
+(I have 560k records, each with a unique id.....)
+
+
+> or your PB did start to swap, which slows the procedure very much
+> down.
+>
+I am definitely swapping. My boss loaded his G5 with the data. He had  
+2 gb of ram.
+We used the system monitor and saw memory usage go over 1 gb. So I  
+will go get some
+more ram for my Powerbook.
+
+Thanks again,
+
+Phil
+
+
+
+Phillip Neal
+pneal at mbl.edu
+
+"An ocean without its unnamed monsters would be like a completely  
+dreamless sleep."
+
+John Steinbeck - 'The Log from the Sea of Cortez'
+
+-------------- next part --------------
+
+
+From martin at theusRus.de  Tue Nov 14 21:06:39 2006
+From: martin at theusRus.de (Martin Theus)
+Date: Tue, 14 Nov 2006 22:06:39 +0100
+Subject: Re: loading large datasets into Mondrian 560k rows
+In-Reply-To: <F0F5EA9C-DC1C-4882-A5EC-F8BA8863E3EF@mbl.edu>
+References: <F0F5EA9C-DC1C-4882-A5EC-F8BA8863E3EF@mbl.edu>
+Message-ID: <02E0B87F-FF0B-4E00-BC65-8AA6C7F8500B@theusRus.de>
+
+Phil,
+
+my largest file was a 65MB file with 2.5mio rows and 7 cols, which
+takes about 15 secs on my PM G5.
+
+What makes loading a long job are alpha-numerical variables with
+very many categories, as parsing and checking categories for existence
+is expensive.
+
+If it took you 9mins, I guess you either have a distinct name for all  
+the 560k
+items or your PB did start to swap, which slows the procedure very much
+down.
+
+Martin
+
+
+Am 13. Nov 2006 um 23:22 Uhr schrieb Phillip Neal:
+
+> Hi Mondrian people,
+>
+> I was able to load a 560k row of data containing 8 variables into  
+> Mondrian with a PowerBook G4 with
+> 1 GB of ram. It took about 9 minutes though.
+>
+> Has anybody loaded bigger datasets ?
+>
+>
+>
+> best,
+>
+>
+> Phillip Neal
+> pneal at mbl.edu
+>
+> "An ocean without its unnamed monsters would be like a completely  
+> dreamless sleep."
+>
+> John Steinbeck - 'The Log from the Sea of Cortez'
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+-------------- next part --------------
+
+
+From martin at theusRus.de  Tue Nov 14 20:54:00 2006
+From: martin at theusRus.de (Martin Theus)
+Date: Tue, 14 Nov 2006 21:54:00 +0100
+Subject: Re: Mondrian , java , Linux ...sigh
+In-Reply-To: <1FEB1D7A-9973-41B0-BEAC-F658AEEBDA4C@mbl.edu>
+References: <1FEB1D7A-9973-41B0-BEAC-F658AEEBDA4C@mbl.edu>
+Message-ID: <4E65C3D5-3030-48A1-B37D-3FA90B55F6E9@theusRus.de>
+
+Phil,
+
+did you test other Java applications to check whether this is really
+a Mondrian specific problem.
+
+It can well be that the JVM expects more colors than the X11 display
+supports, which can result in strange displays.
+
+Martin
+
+
+Am 13. Nov 2006 um 23:18 Uhr schrieb Phillip Neal:
+
+> Hi All,
+>
+> I downloaded the jar file for linux from the Mondrian web site.
+> I put it on my machine called arthur.
+>
+> [pneal@arthur ~]$ java -version
+> java version "1.5.0_06"
+> Java(TM) 2 Runtime Environment, Standard Edition (build 1.5.0_06-b05)
+> Java HotSpot(TM) 64-Bit Server VM (build 1.5.0_06-b05, mixed mode)
+> [pneal@arthur ~]$
+>
+>
+>
+> I set up my X11 display to talk with my Mac PowerBook G4 Running  
+> Mac OSX 10.4.8
+>
+>
+> I typed
+>
+> java -jar Mondrain.jar
+>
+> Mondrian started up , but  I did not get the pretty colors nor the  
+> menus.
+>
+> I got:
+>
+>
+> First connect try failed with: Cannot connect: Connection refused
+> waiting for Rserve to start ... (java.lang.UNIXProcess@392d263f)
+> Rserve>/xraid/bioware/linuxOpteron/R/lib/R/bin/Rcmd: line 45: exec:  
+> Rserve: not
+> found
+> call terminated, let us try to connect ...
+> Try failed with: Cannot connect: Connection refused
+> Starting RServe ... false
+> pneal on Linux
+> Graphics Performance: 377
+>
+> The Mondrian interface popped up, but no menus, no colors, no nothing.
+>
+> Any suggestions ?
+>
+> Best regards,
+>
+> Phil Neal
+>
+>
+>
+> Phillip Neal
+> pneal at mbl.edu
+>
+> How many goodly creatures are there here! - The Tempest, V, i
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+-------------- next part --------------
+
+
+From florian.bw at gmail.com  Wed Nov 15 03:59:10 2006
+From: florian.bw at gmail.com (florian bw)
+Date: Wed, 15 Nov 2006 14:59:10 +1100
+Subject: Error loading iplots; java.lang.NoClassDefFoundError
+Message-ID: <9098b3c70611141959i3bfb974ao517c38e1d02852de@mail.gmail.com>
+
+Hi everyone,
+
+I have a problem loading JGR / iplots on Mepis Linux with R 2.4.0 and
+Sun JDK 1.5 Update 9.
+
+> library(JGR)
+Loading required package: iplots
+Exception in thread "main" java.lang.NoClassDefFoundError
+        at org.rosuda.iplots.Framework.<init>(Framework.java:43)
+Error in .jnew("org/rosuda/iplots/Framework") :
+        Failed to create object of class `org/rosuda/iplots/Framework'
+In addition: Warning message:
+NewObject("org/rosuda/iplots/Framework","()V",...) failed
+Error: package 'iplots' could not be loaded
+>
+
+The problem appears with the packages from cran and with the nightlies
+from rosuda.
+
+Any ideas?
+
+Thank you,
+Florian
+
+From pneal at mbl.edu  Thu Nov 16 14:34:28 2006
+From: pneal at mbl.edu (Phillip Neal)
+Date: Thu, 16 Nov 2006 09:34:28 -0500
+Subject: Re: loading large datasets into Mondrian 560k rows
+In-Reply-To: <142CEBAD-BD1C-41FA-9393-2069732F53AD@mbl.edu>
+References: <F0F5EA9C-DC1C-4882-A5EC-F8BA8863E3EF@mbl.edu> <02E0B87F-FF0B-4E00-BC65-8AA6C7F8500B@theusRus.de> <142CEBAD-BD1C-41FA-9393-2069732F53AD@mbl.edu>
+Message-ID: <5B41687A-7408-4FDB-805C-2E2B32EEB642@mbl.edu>
+
+Hi Mondrian people,
+
+I took out the unique id from my data set and it  loaded a lot faster.
+
+Phil
+
+On Nov 14, 2006, at 5:06 PM, Phillip Neal wrote:
+
+> HI Martin,
+>
+> On Nov 14, 2006, at 4:06 PM, Martin Theus wrote:
+>
+>> Phil,
+>>
+>> my largest file was a 65MB file with 2.5mio rows and 7 cols, which
+>> takes about 15 secs on my PM G5.
+>> What makes loading a long job are alpha-numerical variables with
+>> very many categories, as parsing and checking categories for  
+>> existence
+>> is expensive.
+>
+> Yes.  My 'leaf' category has  a little less than 200 genera.
+>
+>>
+>> If it took you 9mins, I guess you either have a distinct name for  
+>> all the 560k
+>> items
+>
+> So I should not use a unique id number ? I will test that tomorrow.
+> (I have 560k records, each with a unique id.....)
+>
+>
+>> or your PB did start to swap, which slows the procedure very much
+>> down.
+>>
+> I am definitely swapping. My boss loaded his G5 with the data. He  
+> had 2 gb of ram.
+> We used the system monitor and saw memory usage go over 1 gb. So I  
+> will go get some
+> more ram for my Powerbook.
+>
+> Thanks again,
+>
+> Phil
+>
+>
+>
+> Phillip Neal
+> pneal at mbl.edu
+>
+> "An ocean without its unnamed monsters would be like a completely  
+> dreamless sleep."
+>
+> John Steinbeck - 'The Log from the Sea of Cortez'
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+Phillip Neal
+pneal at mbl.edu
+
+How many goodly creatures are there here! - The Tempest, V, i
+
+-------------- next part --------------
+
+
+From bjorn.vancampenhout at ua.ac.be  Wed Nov 22 10:03:05 2006
+From: bjorn.vancampenhout at ua.ac.be (Van Campenhout Bjorn)
+Date: Wed, 22 Nov 2006 11:03:05 +0100
+Subject: export: 41: graphics,: bad variable name
+Message-ID: <0EE866100C01984EAE6AC3AE56EDFE530C20F4@xmail05.ad.ua.ac.be>
+
+hi all,
+
+i am having some issues running JGR on ubuntu 6.10.  I followed the instructions on the site: I compiled R 2.4.0 from source with the --enable-R-shlib option.  Then i did 
+
+install.packages("JGR",dep=TRUE)
+library(JGR)
+
+Loading required package: rJava
+Loading required package: JavaGD
+Loading required package: iplots
+
+Please use the corresponding JGR launcher to start JGR.
+Run JGR() for details. You can also use JGR(update=TRUE) to update JGR.
+
+> JGR()
+Starting JGR ...
+(You can use /usr/local/lib/R/library/JGR/cont/run to start JGR directly)
+> export: 41: graphics,: bad variable name
+
+what is wrong?
+
+Bjorn
+
+-------------- next part --------------
+
+
+From nono.231 at gmail.com  Wed Nov 22 10:42:59 2006
+From: nono.231 at gmail.com (Ilias Soumpasis)
+Date: Wed, 22 Nov 2006 12:42:59 +0200
+Subject: Re: export: 41: graphics,: bad variable name
+In-Reply-To: <0EE866100C01984EAE6AC3AE56EDFE530C20F4@xmail05.ad.ua.ac.be>
+References: <0EE866100C01984EAE6AC3AE56EDFE530C20F4@xmail05.ad.ua.ac.be>
+Message-ID: <3ff92a550611220242i1024f812t10ea195b3373a16f@mail.gmail.com>
+
+I have the same problem. I already sent e-mail with no response. I
+Delete the .JGRprefsrc every time I want to start JGR, but this is not
+an acceptable solution.
+
+Specs: Ubuntu 6.10
+R 2.4.0 from source with the --enable-R-shlib option
+Sun Java jdk1.5.0_09
+
+The problem started from the 1.4-11 or 1.4-12 version of JGR (do not
+rember any more), and it was even at the ubuntu 6.0.6.
+
+2006/11/22, Van Campenhout Bjorn <bjorn.vancampenhout at ua.ac.be>:
+>
+>
+>
+> hi all,
+>
+>  i am having some issues running JGR on ubuntu 6.10.  I followed the
+> instructions on the site: I compiled R 2.4.0 from source with the
+> --enable-R-shlib option.  Then i did
+>
+>  install.packages("JGR",dep=TRUE)
+>  library(JGR)
+>
+>  Loading required package: rJava
+>  Loading required package: JavaGD
+>  Loading required package: iplots
+>
+>  Please use the corresponding JGR launcher to start JGR.
+>  Run JGR() for details. You can also use JGR(update=TRUE) to update JGR.
+>
+>  > JGR()
+>  Starting JGR ...
+>  (You can use /usr/local/lib/R/library/JGR/cont/run to
+> start JGR directly)
+>  > export: 41: graphics,: bad variable name
+>
+>  what is wrong?
+>
+>  Bjorn
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+>
+
+From info at markushelbig.de  Wed Nov 22 11:04:01 2006
+From: info at markushelbig.de (Markus Helbig)
+Date: Wed, 22 Nov 2006 12:04:01 +0100
+Subject: Re: export: 41: graphics,: bad variable name
+In-Reply-To: <3ff92a550611220242i1024f812t10ea195b3373a16f@mail.gmail.com>
+References: <0EE866100C01984EAE6AC3AE56EDFE530C20F4@xmail05.ad.ua.ac.be> <3ff92a550611220242i1024f812t10ea195b3373a16f@mail.gmail.com>
+Message-ID: <1164193441.45642ea19f1bc@webmail.konsole-h.de>
+
+Hi,
+
+can you attach your .JGRprefsrc which causes this error and additionally the
+run-script.
+
+Thx
+
+Markus
+
+Quoting Ilias Soumpasis <nono.231 at gmail.com>:
+
+> I have the same problem. I already sent e-mail with no response. I
+> Delete the .JGRprefsrc every time I want to start JGR, but this is not
+> an acceptable solution.
+> 
+> Specs: Ubuntu 6.10
+> R 2.4.0 from source with the --enable-R-shlib option
+> Sun Java jdk1.5.0_09
+> 
+> The problem started from the 1.4-11 or 1.4-12 version of JGR (do not
+> rember any more), and it was even at the ubuntu 6.0.6.
+> 
+> 2006/11/22, Van Campenhout Bjorn <bjorn.vancampenhout at ua.ac.be>:
+> >
+> >
+> >
+> > hi all,
+> >
+> >  i am having some issues running JGR on ubuntu 6.10.  I followed the
+> > instructions on the site: I compiled R 2.4.0 from source with the
+> > --enable-R-shlib option.  Then i did
+> >
+> >  install.packages("JGR",dep=TRUE)
+> >  library(JGR)
+> >
+> >  Loading required package: rJava
+> >  Loading required package: JavaGD
+> >  Loading required package: iplots
+> >
+> >  Please use the corresponding JGR launcher to start JGR.
+> >  Run JGR() for details. You can also use JGR(update=TRUE) to update JGR.
+> >
+> >  > JGR()
+> >  Starting JGR ...
+> >  (You can use /usr/local/lib/R/library/JGR/cont/run to
+> > start JGR directly)
+> >  > export: 41: graphics,: bad variable name
+> >
+> >  what is wrong?
+> >
+> >  Bjorn
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> >
+> >
+> >
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From nono.231 at gmail.com  Wed Nov 22 11:25:42 2006
+From: nono.231 at gmail.com (Ilias Soumpasis)
+Date: Wed, 22 Nov 2006 13:25:42 +0200
+Subject: Re: export: 41: graphics,: bad variable name
+In-Reply-To: <1164193441.45642ea19f1bc@webmail.konsole-h.de>
+References: <0EE866100C01984EAE6AC3AE56EDFE530C20F4@xmail05.ad.ua.ac.be> <3ff92a550611220242i1024f812t10ea195b3373a16f@mail.gmail.com> <1164193441.45642ea19f1bc@webmail.konsole-h.de>
+Message-ID: <3ff92a550611220325l369a0dd0t328ad4fb3acb19d2@mail.gmail.com>
+
+Here it is.
+
+2006/11/22, Markus Helbig <info at markushelbig.de>:
+> Hi,
+>
+> can you attach your .JGRprefsrc which causes this error and additionally the
+> run-script.
+>
+> Thx
+>
+> Markus
+>
+> Quoting Ilias Soumpasis <nono.231 at gmail.com>:
+>
+> > I have the same problem. I already sent e-mail with no response. I
+> > Delete the .JGRprefsrc every time I want to start JGR, but this is not
+> > an acceptable solution.
+> >
+> > Specs: Ubuntu 6.10
+> > R 2.4.0 from source with the --enable-R-shlib option
+> > Sun Java jdk1.5.0_09
+> >
+> > The problem started from the 1.4-11 or 1.4-12 version of JGR (do not
+> > rember any more), and it was even at the ubuntu 6.0.6.
+> >
+> > 2006/11/22, Van Campenhout Bjorn <bjorn.vancampenhout at ua.ac.be>:
+> > >
+> > >
+> > >
+> > > hi all,
+> > >
+> > >  i am having some issues running JGR on ubuntu 6.10.  I followed the
+> > > instructions on the site: I compiled R 2.4.0 from source with the
+> > > --enable-R-shlib option.  Then i did
+> > >
+> > >  install.packages("JGR",dep=TRUE)
+> > >  library(JGR)
+> > >
+> > >  Loading required package: rJava
+> > >  Loading required package: JavaGD
+> > >  Loading required package: iplots
+> > >
+> > >  Please use the corresponding JGR launcher to start JGR.
+> > >  Run JGR() for details. You can also use JGR(update=TRUE) to update JGR.
+> > >
+> > >  > JGR()
+> > >  Starting JGR ...
+> > >  (You can use /usr/local/lib/R/library/JGR/cont/run to
+> > > start JGR directly)
+> > >  > export: 41: graphics,: bad variable name
+> > >
+> > >  what is wrong?
+> > >
+> > >  Bjorn
+> > > _______________________________________________
+> > > stats-rosuda-devel mailing list
+> > > stats-rosuda-devel at listserv.uni-augsburg.de
+> > > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> > >
+> > >
+> > >
+> >
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> >
+>
+>
+>
+>
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: JGRprefsrc
+Type: application/octet-stream
+Size: 2657 bytes
+
+-------------- next part --------------
+
+
+From lgautier at gmail.com  Sun Nov 19 02:44:46 2006
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Sun, 19 Nov 2006 10:44:46 +0800
+Subject: rJava fails at loading with R.1.4.0 on Linux
+Message-ID: <27d1e6020611181844t7caad568id7940d0a065bb504@mail.gmail.com>
+
+rJava installs, but does not load...
+
+> library(rJava)
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+        unable to load shared library
+'/usr/local/packages/R-2.4.0/lib/R/library/rJava/libs/rJava.so':
+  /usr/local/packages/R-2.4.0/lib/R/library/rJava/libs/rJava.so:
+undefined symbol: JNI_GetCreatedJavaVMs
+Error in library(rJava) : .First.lib failed for 'rJava'
+
+I believe the configuration to be correct:
+
+$ R CMD javareconf
+Java interpreter : /usr/local/packages/java/jdk1.5.0_08//jre/bin/java
+Java version     : 1.5.0_08
+Java home path   : /usr/local/packages/java/jdk1.5.0_08/
+Java library path:
+$(JAVA_HOME)jre/lib/i386/client:$(JAVA_HOME)jre/lib/i386:$(JAVA_HOME)jre/../lib/i386
+JNI linker flags : -L$(JAVA_HOME)jre/lib/i386/client
+-L$(JAVA_HOME)jre/lib/i386 -L$(JAVA_HOME)jre/../lib/i386 -ljvm
+
+ $ echo $LD_LIBRARY_PATH
+/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/server:/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client:/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386:/usr/local/packages/R-2.4.0/lib/R/library/rJava/libs/:/usr/local/lib:
+
+
+Any hint ?
+
+The log when installing are below:
+
+* Installing *source* package 'rJava' ...
+checking for gcc... gcc -std=gnu99
+checking for C compiler default output file name... a.out
+checking whether the C compiler works... yes
+checking whether we are cross compiling... no
+checking for suffix of executables...
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc -std=gnu99 accepts -g... yes
+checking for gcc -std=gnu99 option to accept ANSI C... none needed
+checking how to run the C preprocessor... gcc -std=gnu99 -E
+checking for egrep... grep -E
+checking for ANSI C header files... yes
+checking for sys/wait.h that is POSIX.1 compatible... yes
+checking for sys/types.h... yes
+checking for sys/stat.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for memory.h... yes
+checking for strings.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for unistd.h... yes
+checking for string.h... (cached) yes
+checking sys/time.h usability... yes
+checking sys/time.h presence... yes
+checking for sys/time.h... yes
+checking for unistd.h... (cached) yes
+checking for an ANSI C-conforming const... yes
+checking whether time.h and sys/time.h may both be included... yes
+checking for stdlib.h... (cached) yes
+checking for GNU libc compatible malloc... yes
+checking for java... /usr/local/packages/java/jdk1.5.0_08//jre/bin/java
+checking Java environment home... in /usr/local/packages/java/jdk1.5.0_08/
+checking for /usr/local/packages/java/jdk1.5.0_08//include/jni.h... yes
+checking for /usr/local/packages/java/jdk1.5.0_08//include/./jni_md.h... no
+checking for /usr/local/packages/java/jdk1.5.0_08//include/linux/jni_md.h... yes
+checking whether JNI programs can be compiled... yes
+checking JNI data types... ok
+checking whether JRI should be compiled (autodetect)... yes
+checking whether debugging output should be enabled... no
+checking whether threads support is requested... no
+checking whether JNI cache support is requested... no
+checking whether JRI is requested... yes
+configure: creating ./config.status
+config.status: creating src/Makevars
+config.status: creating R/zzz.R
+config.status: creating src/config.h
+configure: configuring in jri
+configure: running /bin/sh './configure' --prefix=/usr/local
+--cache-file=/dev/null --srcdir=.
+checking build system type... i686-pc-linux-gnu
+checking host system type... i686-pc-linux-gnu
+checking for gcc... gcc -std=gnu99
+checking for C compiler default output file name... a.out
+checking whether the C compiler works... yes
+checking whether we are cross compiling... no
+checking for suffix of executables...
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc -std=gnu99 accepts -g... yes
+checking for gcc -std=gnu99 option to accept ANSI C... none needed
+checking how to run the C preprocessor... gcc -std=gnu99 -E
+checking for egrep... grep -E
+checking for ANSI C header files... yes
+checking for java... /usr/local/packages/java/jdk1.5.0_08//bin/java
+checking for javac... /usr/local/packages/java/jdk1.5.0_08//bin/javac
+checking for javah... /usr/local/packages/java/jdk1.5.0_08//bin/javah
+checking for jar... /usr/local/packages/java/jdk1.5.0_08//bin/jar
+checking whether Java interpreter works... yes
+checking for Java environment... in /usr/local/packages/java/jdk1.5.0_08/
+checking for /usr/local/packages/java/jdk1.5.0_08//include/jni.h... yes
+checking for /usr/local/packages/java/jdk1.5.0_08//include/./jni_md.h... no
+checking for /usr/local/packages/java/jdk1.5.0_08//include/linux/jni_md.h... yes
+checking whether JNI programs can be compiled... yes
+checking whether JNI programs can be run... yes
+checking JNI data types... ok
+checking whether Rinterface.h exports R_CStackXXX variables... yes
+checking whether Rinterface.h exports R_SignalHandlers... yes
+configure: creating ./config.status
+config.status: creating src/Makefile
+config.status: creating Makefile
+config.status: creating run
+config.status: creating src/config.h
+** libs
+gcc -std=gnu99 -I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include  -I/usr/local/include
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fpic  -g -O2 -c
+callJNI.c -o callJNI.o
+callJNI.c: In function 'errJNI':
+callJNI.c:25: warning: implicit declaration of function 'Rf_warning'
+gcc -std=gnu99 -I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include  -I/usr/local/include
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fpic  -g -O2 -c
+jri_glue.c -o jri_glue.o
+gcc -std=gnu99 -I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include  -I/usr/local/include
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fpic  -g -O2 -c
+Rglue.c -o Rglue.o
+gcc -std=gnu99 -I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include  -I/usr/local/include
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fpic  -g -O2 -c
+rJava.c -o rJava.o
+gcc -std=gnu99 -shared -L/usr/local/lib -o rJava.so callJNI.o
+jri_glue.o Rglue.o rJava.o
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/R-2.4.0/lib/R/lib -L/usr/local/lib
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/R-2.4.0/lib/R/lib -L/usr/local/lib
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client/
+-L/usr/local/packages/R-2.4.0/lib/R/library/rJava/libs/
+-L/usr/local/lib -L -ljvm  -L/usr/local/packages/R-2.4.0/lib/R/lib -lR
+make -C ../jri/
+make[1]: Entering directory `/home/laurent/tmp/R.INSTALL.Ru9798/rJava/jri'
+make -C src JRI.jar
+make[2]: Entering directory `/home/laurent/tmp/R.INSTALL.Ru9798/rJava/jri/src'
+/usr/local/packages/java/jdk1.5.0_08//bin/javac -target 1.4 -source
+1.4 -d . ../Mutex.java ../RBool.java ../Rengine.java ../REXP.java
+../RFactor.java ../RList.java ../RMainLoopCallbacks.java
+../RVector.java
+/usr/local/packages/java/jdk1.5.0_08//bin/javah -d . -classpath .
+org.rosuda.JRI.Rengine
+gcc -std=gnu99 -c -o Rengine.o Rengine.c -g -Iinclude
+-DRIF_HAS_CSTACK -DRIF_HAS_RSIGHAND -g -O2
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fPIC
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux
+-I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include
+gcc -std=gnu99 -c -o jri.o jri.c -g -Iinclude  -DRIF_HAS_CSTACK
+-DRIF_HAS_RSIGHAND -g -O2
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fPIC
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux
+-I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include
+gcc -std=gnu99 -c -o Rcallbacks.o Rcallbacks.c -g -Iinclude
+-DRIF_HAS_CSTACK -DRIF_HAS_RSIGHAND -g -O2
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fPIC
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux
+-I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include
+gcc -std=gnu99 -c -o Rinit.o Rinit.c -g -Iinclude  -DRIF_HAS_CSTACK
+-DRIF_HAS_RSIGHAND -g -O2
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fPIC
+-I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include
+-I/usr/local/packages/R-2.4.0/lib/R/include
+gcc -std=gnu99 -c -o globals.o globals.c -g -Iinclude
+-DRIF_HAS_CSTACK -DRIF_HAS_RSIGHAND -g -O2
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux -fPIC
+-I/usr/local/packages/java/jdk1.5.0_08//include
+-I/usr/local/packages/java/jdk1.5.0_08//include/linux
+gcc -std=gnu99 -o libjri.so Rengine.o jri.o Rcallbacks.o Rinit.o
+globals.o  -shared
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/R-2.4.0/lib/R/lib -L/usr/local/lib
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/R-2.4.0/lib/R/lib -L/usr/local/lib
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client/
+-L/usr/local/packages/R-2.4.0/lib/R/library/rJava/libs/
+-L/usr/local/lib -L
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/R-2.4.0/lib/R/lib -L/usr/local/lib
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/R-2.4.0/lib/R/lib -L/usr/local/lib
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/../lib/i386
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/
+-L/usr/local/packages/java/jdk1.5.0_08/jre/lib/i386/client/
+-L/usr/local/packages/R-2.4.0/lib/R/library/rJava/libs/
+-L/usr/local/lib -L -ljvm -L/usr/local/packages/R-2.4.0/lib/R/lib -lR
+/usr/local/packages/java/jdk1.5.0_08//bin/javac -target 1.4 -source
+1.4 -d . ../Mutex.java ../RBool.java ../Rengine.java ../REXP.java
+../RFactor.java ../RList.java ../RMainLoopCallbacks.java
+../RVector.java
+/usr/local/packages/java/jdk1.5.0_08//bin/jar fc JRI.jar org libjri.so
+make[2]: Leaving directory `/home/laurent/tmp/R.INSTALL.Ru9798/rJava/jri/src'
+rm -f libjri.so
+cp src/libjri.so libjri.so
+/usr/local/packages/java/jdk1.5.0_08//bin/javac -target 1.4 -source
+1.4 -target 1.4 -source 1.4 -classpath src/JRI.jar -d examples
+examples/rtest2.java
+Note: examples/rtest2.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+/usr/local/packages/java/jdk1.5.0_08//bin/javac -target 1.4 -source
+1.4 -target 1.4 -source 1.4 -classpath src/JRI.jar -d examples
+examples/rtest.java
+Note: examples/rtest.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+make[1]: Leaving directory `/home/laurent/tmp/R.INSTALL.Ru9798/rJava/jri'
+** R
+** inst
+** preparing package for lazy loading
+** help
+ >>> Building/Updating help pages for package 'rJava'
+     Formats: text html latex example
+  accessOp                          text    html    latex   example
+  jarray                            text    html    latex   example
+  jarrayRef-class                   text    html    latex
+  jcall                             text    html    latex   example
+  jcast                             text    html    latex   example
+  jcastToArray                      text    html    latex   example
+  jcheck                            text    html    latex   example
+  jequals                           text    html    latex   example
+  jfield                            text    html    latex   example
+  jfloat-class                      text    html    latex
+  jfloat                            text    html    latex
+  jinit                             text    html    latex   example
+  jnew                              text    html    latex   example
+  jnull                             text    html    latex   example
+  jobjRef-class                     text    html    latex
+  jreflection                       text    html    latex   example
+  jsimplify                         text    html    latex   example
+  show                              text    html    latex
+** building package indices ...
+* DONE (rJava)
+
+The downloaded packages are in
+        /home/laurent/tmp/RtmpSqovMt/downloaded_packages
+
+From pensterfuzzer at yahoo.de  Tue Nov 21 23:22:06 2006
+From: pensterfuzzer at yahoo.de (Werner Wernersen)
+Date: Wed, 22 Nov 2006 00:22:06 +0100
+Subject: Install problem
+Message-ID: <203422.42124.qm@web23012.mail.ird.yahoo.com>
+
+Hi,
+
+I tried to install JGR 1.4-6 on Windows but I get an
+"Can't find R home in 
+registry." error. I just used the default install from
+R 2.4.0 so I don't know 
+what could have gone wrong.
+
+Has anybody an idea?
+
+Thanks a million,
+   Werner
+
+
+		
+___________________________________________________________ 
+Telefonate ohne weitere Kosten vom PC zum PC: http://messenger.yahoo.de
+
+From urbanek at research.att.com  Thu Nov 30 20:54:23 2006
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Thu, 30 Nov 2006 15:54:23 -0500
+Subject: Re: Install problem
+In-Reply-To: <203422.42124.qm@web23012.mail.ird.yahoo.com>
+References: <203422.42124.qm@web23012.mail.ird.yahoo.com>
+Message-ID: <C174450A-1986-415F-A95A-BC58AE885698@research.att.com>
+
+
+On Nov 21, 2006, at 6:22 PM, Werner Wernersen wrote:
+
+> Hi,
+>
+> I tried to install JGR 1.4-6 on Windows but I get an
+> "Can't find R home in
+> registry." error. I just used the default install from
+> R 2.4.0 so I don't know
+> what could have gone wrong.
+>
+> Has anybody an idea?
+>
+
+If you don't have write permissions in HKEY_LOCAL_MACHINE then R  
+installer possibly didn't set the path. Please start the registry  
+editor (Start  -> Run ... -> type "regedit"), and look for Software\R- 
+code in both HKEY_LOCAL_MACHINE and HKEY_CURRENT_USER. If you find  
+it, please export it and send me the output.
+
+Thanks,
+Simon
+

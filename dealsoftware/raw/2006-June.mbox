@@ -1,0 +1,653 @@
+From young2 at swissinfo.org  Wed Jun 21 01:50:05 2006
+From: young2 at swissinfo.org
+Date: Wed, 21 Jun 2006 03:50:05 +0200
+Subject: Bug in use of informative priors?
+In-Reply-To: <42E611B90005BDFD@mail.swissinfo.org>
+References: <42E611B90005BDFD@mail.swissinfo.org>
+Message-ID: <42E611B9000709FB@mail.swissinfo.org>
+
+
+Dear Deal Users
+
+I think I?ve found a bug in the way ?deal? handles informative priors. I?d
+appreciate (1) comment on whether this is indeed a bug and (2), if it is
+a bug, ideas on how to fix it.
+
+First I?ve recreated the problem using the ?ksl? data set that comes with
+the package. First I select three variables from this data set just to keep
+things simple. For the same reason, I make each variable into a discrete
+node. I use a different number of levels for each node, because I suspect
+the problem is only apparent when some nodes have more than 2 levels.
+
+rm(list=ls(all=TRUE))
+library(deal)
+data(ksl)
+simple.df <- subset(ksl,select=2:4)
+simple.df$Kol <- cut(simple.df$Kol, breaks=4, labels=c('1','2','3','4'))
+simple.df$Hyp <- cut(simple.df$Hyp, breaks=2, labels=c('No','Yes'))
+simple.df$logBMI <- cut(simple.df$logBMI, breaks=3, labels=c('Lo', 'Med',
+'Hi'))
+
+Second I just use the default which is an unspecified network and equi-probable
+levels within each node. I set the imaginary database size to 1000, and after
+learning the network, look at how the cases in the imaginary database have
+been distributed among the levels of each node. As expected, the imaginary
+database is spread out equally among the levels.
+
+simple.nw <- network(simple.df)
+simple.nw$nodes$Hyp$prob
+simple.pr <- jointprior(simple.nw,1000)
+simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+simple.nw$nodes$Hyp$prob
+simple.nw$nodes$Hyp$condprior[[1]]$alpha
+sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+
+Third I repeat this but supply prior probabilities for each node. Oddly the
+imaginary data base size now exceeds 1000, and the spread across the levels
+of each node does not seem to reflect the priors I specified.
+
+simple.nw <- network(simple.df)
+simple.nw$nodes$Kol$prob <- c(0.1,0.1,0.1,0.7)
+simple.nw$nodes$Hyp$prob <- c(0.1,0.9)
+simple.nw$nodes$logBMI$prob <- c(0.25,0.25,0.50)
+simple.nw$nodes$Hyp$prob
+simple.pr <- jointprior(simple.nw,1000)
+simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+simple.nw$nodes$Hyp$prob
+simple.nw$nodes$Hyp$condprior[[1]]$alpha
+sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+
+Finally ? just to make absolutely sure ? I set the prior probabilities of
+just one node. The imaginary data base size is now 1000 as expected but its
+cases are distributed equally across the two levels of this node, which is
+contrary to the prior probabilities I set for this node. 
+
+simple.nw <- network(simple.df)
+simple.nw$nodes$Hyp$prob <- c(0.1,0.9)
+simple.nw$nodes$Hyp$prob
+simple.pr <- jointprior(simple.nw,1000)
+simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+simple.nw$nodes$Hyp$prob
+simple.nw$nodes$Hyp$condprior[[1]]$alpha
+sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+
+So I really don?t think this is right. I have traced this odd behaviour to
+?jointdisc?, an internal ?deal? function. But of course, there are no comments
+with the code so it?s hard for me to know what each line in this function
+is supposed to do. Therefore it?s hard to know what?s going wrong and how
+to fix it.
+
+Best wishes Jim
+
+
+_______________________________________________________________________
+Your Site for Swiss Maps: http://www.swissinfo-geo.org/
+
+
+
+
+
+
+------------------------ Yahoo! Groups Sponsor --------------------~--> 
+Something is new at Yahoo! Groups.  Check out the enhanced email design.
+http://us.click.yahoo.com/qTZcGA/gOaOAA/79vVAA/AIYolB/TM
+--------------------------------------------------------------------~->
+
+From young2 at swissinfo.org  Wed Jun 21 23:28:05 2006
+From: young2 at swissinfo.org
+Date: Thu, 22 Jun 2006 01:28:05 +0200
+Subject: RE: Bug in use of informative priors?
+In-Reply-To: <42E611B9000709FB@mail.swissinfo.org>
+References: <42E611B9000709FB@mail.swissinfo.org>
+Message-ID: <42E611B900070F3A@mail.swissinfo.org>
+
+Dear Deal Users
+
+Further to my email of yesterday, I think in function jointdisc, the line:
+
+ivek <- c(pidx, setdiff(jidx,pidx))
+
+should read:
+
+ivek <- c(idx, setdiff(jidx,idx)).
+
+Well it seems to work for my example, but I hardly know what I am doing here
+so who knows if solves a more general problem.
+
+Best wishes Jim
+ 
+
+>-- Original Message --
+>To: dealsoftware at yahoogroups.com
+>From: young2 at swissinfo.org
+>Date: Wed, 21 Jun 2006 03:50:05 +0200
+>Subject: [dealsoftware] Bug in use of informative priors?
+>Reply-To: dealsoftware at yahoogroups.com
+>
+>
+>
+>Dear Deal Users
+>
+>I think I?ve found a bug in the way ?deal? handles informative priors. I?d
+>appreciate (1) comment on whether this is indeed a bug and (2), if it is
+>a bug, ideas on how to fix it.
+>
+>First I?ve recreated the problem using the ?ksl? data set that comes with
+>the package. First I select three variables from this data set just to keep
+>things simple. For the same reason, I make each variable into a discrete
+>node. I use a different number of levels for each node, because I suspect
+>the problem is only apparent when some nodes have more than 2 levels.
+>
+>rm(list=ls(all=TRUE))
+>library(deal)
+>data(ksl)
+>simple.df <- subset(ksl,select=2:4)
+>simple.df$Kol <- cut(simple.df$Kol, breaks=4, labels=c('1','2','3','4'))
+>simple.df$Hyp <- cut(simple.df$Hyp, breaks=2, labels=c('No','Yes'))
+>simple.df$logBMI <- cut(simple.df$logBMI, breaks=3, labels=c('Lo', 'Med',
+>'Hi'))
+>
+>Second I just use the default which is an unspecified network and equi-probable
+>levels within each node. I set the imaginary database size to 1000, and
+after
+>learning the network, look at how the cases in the imaginary database have
+>been distributed among the levels of each node. As expected, the imaginary
+>database is spread out equally among the levels.
+>
+>simple.nw <- network(simple.df)
+>simple.nw$nodes$Hyp$prob
+>simple.pr <- jointprior(simple.nw,1000)
+>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>simple.nw$nodes$Hyp$prob
+>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>
+>Third I repeat this but supply prior probabilities for each node. Oddly
+the
+>imaginary data base size now exceeds 1000, and the spread across the levels
+>of each node does not seem to reflect the priors I specified.
+>
+>simple.nw <- network(simple.df)
+>simple.nw$nodes$Kol$prob <- c(0.1,0.1,0.1,0.7)
+>simple.nw$nodes$Hyp$prob <- c(0.1,0.9)
+>simple.nw$nodes$logBMI$prob <- c(0.25,0.25,0.50)
+>simple.nw$nodes$Hyp$prob
+>simple.pr <- jointprior(simple.nw,1000)
+>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>simple.nw$nodes$Hyp$prob
+>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>
+>Finally ? just to make absolutely sure ? I set the prior probabilities of
+>just one node. The imaginary data base size is now 1000 as expected but
+its
+>cases are distributed equally across the two levels of this node, which
+is
+>contrary to the prior probabilities I set for this node. 
+>
+>simple.nw <- network(simple.df)
+>simple.nw$nodes$Hyp$prob <- c(0.1,0.9)
+>simple.nw$nodes$Hyp$prob
+>simple.pr <- jointprior(simple.nw,1000)
+>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>simple.nw$nodes$Hyp$prob
+>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>
+>So I really don?t think this is right. I have traced this odd behaviour
+to
+>?jointdisc?, an internal ?deal? function. But of course, there are no comments
+>with the code so it?s hard for me to know what each line in this function
+>is supposed to do. Therefore it?s hard to know what?s going wrong and how
+>to fix it.
+>
+>Best wishes Jim
+>
+>
+>_______________________________________________________________________
+>Your Site for Swiss Maps: http://www.swissinfo-geo.org/
+>
+>
+>
+>
+>
+>
+
+>
+> 
+>Yahoo! Groups Links
+>
+>
+>
+> 
+>
+>
+>
+>
+
+
+_______________________________________________________________________
+Your Site for Swiss Maps: http://www.swissinfo-geo.org/
+
+
+
+
+
+
+------------------------ Yahoo! Groups Sponsor --------------------~--> 
+Great things are happening at Yahoo! Groups.  See the new email design.
+http://us.click.yahoo.com/rTZcGA/hOaOAA/79vVAA/AIYolB/TM
+--------------------------------------------------------------------~->
+
+From aas.claus.dethlefsen at nja.dk  Thu Jun 22 14:00:31 2006
+From: aas.claus.dethlefsen at nja.dk (Claus Dethlefsen / Aalborg Sygehus)
+Date: Thu, 22 Jun 2006 16:00:31 +0200
+Subject: SV: Bug in use of informative priors?
+Message-ID: <35F45D1048ED5D479EE2223581BDD89A18E38E@SFEXC00002.amtg.NJA.local>
+
+Dear Jim
+
+It certainly seems that you have found a bug in 'deal'. Your fix works in your small example, but when I used it in 'demo(ksl)', it crashed so it is not a general fix. I have sparse time, but will try to look at it when possible.
+
+Best,
+Claus
+________________________________
+Claus Dethlefsen, MSc, PhD
+Biostatistiker ved Kardiovaskulært Forskningscenter
+
+Forskningens Hus
+Aalborg Sygehus 
+Sdr. Skovvej 15
+9000 Aalborg
+Tlf:   9932 6863
+email: aas.claus.dethlefsen at nja.dk 
+ 
+
+>-----Oprindelig meddelelse-----
+>Fra: dealsoftware at yahoogroups.com 
+>[mailto:dealsoftware at yahoogroups.com] På vegne af young2 at swissinfo.org
+>Sendt: 22. juni 2006 01:28
+>Til: dealsoftware at yahoogroups.com
+>Emne: RE: [dealsoftware] Bug in use of informative priors?
+>
+>Dear Deal Users
+>
+>Further to my email of yesterday, I think in function 
+>jointdisc, the line:
+>
+>ivek <- c(pidx, setdiff(jidx,pidx))
+>
+>should read:
+>
+>ivek <- c(idx, setdiff(jidx,idx)).
+>
+>Well it seems to work for my example, but I hardly know what I 
+>am doing here
+>so who knows if solves a more general problem.
+>
+>Best wishes Jim
+> 
+>
+>>-- Original Message --
+>>To: dealsoftware at yahoogroups.com
+>>From: young2 at swissinfo.org
+>>Date: Wed, 21 Jun 2006 03:50:05 +0200
+>>Subject: [dealsoftware] Bug in use of informative priors?
+>>Reply-To: dealsoftware at yahoogroups.com
+>>
+>>
+>>
+>>Dear Deal Users
+>>
+>>I think I?ve found a bug in the way ?deal? handles 
+>informative priors. I?d
+>>appreciate (1) comment on whether this is indeed a bug and 
+>(2), if it is
+>>a bug, ideas on how to fix it.
+>>
+>>First I?ve recreated the problem using the ?ksl? data set 
+>that comes with
+>>the package. First I select three variables from this data 
+>set just to keep
+>>things simple. For the same reason, I make each variable into 
+>a discrete
+>>node. I use a different number of levels for each node, 
+>because I suspect
+>>the problem is only apparent when some nodes have more than 2 levels.
+>>
+>>rm(list=ls(all=TRUE))
+>>library(deal)
+>>data(ksl)
+>>simple.df <- subset(ksl,select=2:4)
+>>simple.df$Kol <- cut(simple.df$Kol, breaks=4, 
+>labels=c('1','2','3','4'))
+>>simple.df$Hyp <- cut(simple.df$Hyp, breaks=2, labels=c('No','Yes'))
+>>simple.df$logBMI <- cut(simple.df$logBMI, breaks=3, 
+>labels=c('Lo', 'Med',
+>>'Hi'))
+>>
+>>Second I just use the default which is an unspecified network 
+>and equi-probable
+>>levels within each node. I set the imaginary database size to 
+>1000, and
+>after
+>>learning the network, look at how the cases in the imaginary 
+>database have
+>>been distributed among the levels of each node. As expected, 
+>the imaginary
+>>database is spread out equally among the levels.
+>>
+>>simple.nw <- network(simple.df)
+>>simple.nw$nodes$Hyp$prob
+>>simple.pr <- jointprior(simple.nw,1000)
+>>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>>simple.nw$nodes$Hyp$prob
+>>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>>
+>>Third I repeat this but supply prior probabilities for each 
+>node. Oddly
+>the
+>>imaginary data base size now exceeds 1000, and the spread 
+>across the levels
+>>of each node does not seem to reflect the priors I specified.
+>>
+>>simple.nw <- network(simple.df)
+>>simple.nw$nodes$Kol$prob <- c(0.1,0.1,0.1,0.7)
+>>simple.nw$nodes$Hyp$prob <- c(0.1,0.9)
+>>simple.nw$nodes$logBMI$prob <- c(0.25,0.25,0.50)
+>>simple.nw$nodes$Hyp$prob
+>>simple.pr <- jointprior(simple.nw,1000)
+>>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>>simple.nw$nodes$Hyp$prob
+>>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>>
+>>Finally ? just to make absolutely sure ? I set the prior 
+>probabilities of
+>>just one node. The imaginary data base size is now 1000 as 
+>expected but
+>its
+>>cases are distributed equally across the two levels of this 
+>node, which
+>is
+>>contrary to the prior probabilities I set for this node. 
+>>
+>>simple.nw <- network(simple.df)
+>>simple.nw$nodes$Hyp$prob <- c(0.1,0.9)
+>>simple.nw$nodes$Hyp$prob
+>>simple.pr <- jointprior(simple.nw,1000)
+>>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>>simple.nw$nodes$Hyp$prob
+>>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>>
+>>So I really don?t think this is right. I have traced this odd 
+>behaviour
+>to
+>>?jointdisc?, an internal ?deal? function. But of course, 
+>there are no comments
+>>with the code so it?s hard for me to know what each line in 
+>this function
+>>is supposed to do. Therefore it?s hard to know what?s going 
+>wrong and how
+>>to fix it.
+>>
+>>Best wishes Jim
+>>
+>>
+>>______________________________________________________________
+>_________
+>>Your Site for Swiss Maps: http://www.swissinfo-geo.org/
+>>
+>>
+>>
+>>
+>>
+>>
+>
+>>
+>> 
+>>Yahoo! Groups Links
+>>
+>>
+>>
+
+
+------------------------ Yahoo! Groups Sponsor --------------------~--> 
+Great things are happening at Yahoo! Groups.  See the new email design.
+http://us.click.yahoo.com/TISQkA/hOaOAA/yQLSAA/AIYolB/TM
+--------------------------------------------------------------------~->
+
+From young2 at swissinfo.org  Mon Jun 26 03:54:19 2006
+From: young2 at swissinfo.org
+Date: Mon, 26 Jun 2006 05:54:19 +0200
+Subject: RE: SV: Bug in use of informative priors?
+In-Reply-To: <35F45D1048ED5D479EE2223581BDD89A18E38E@SFEXC00002.amtg.NJA.local>
+References: <35F45D1048ED5D479EE2223581BDD89A18E38E@SFEXC00002.amtg.NJA.local>
+Message-ID: <42E611B900071E70@mail.swissinfo.org>
+
+Dear Claus
+
+Thanks for looking into this. I would have been amazed if my suggestion had
+completely solved the problem. I?ve used it successfully on my example, where
+I start with an unspecified network with five discrete nodes and these nodes
+have 10, 3, 3, 2 and 2 levels respectively. And it seems to work on an example
+I created using the ksl data with three discrete nodes, where one node has
+a parent. So at best my suggestion might work for networks that consist entirely
+of discrete nodes.
+
+For networks with only discrete nodes, it?s easy to check whether everything
+is working or not. After learning the parameters of the network, check the
+?condprior? property of each node and make sure the cases sum to the imaginary
+database size and are distributed as you asserted.
+
+Best wishes Jim
+
+>-- Original Message --
+>To: <dealsoftware at yahoogroups.com>
+>From: "Claus Dethlefsen / Aalborg Sygehus" <aas.claus.dethlefsen at nja.dk>
+>Date: Thu, 22 Jun 2006 16:00:31 +0200
+>Subject: SV: [dealsoftware] Bug in use of informative priors?
+>Reply-To: dealsoftware at yahoogroups.com
+>
+>
+>Dear Jim
+>
+>It certainly seems that you have found a bug in 'deal'. Your fix works in
+>your small example, but when I used it in 'demo(ksl)', it crashed so it
+is
+>not a general fix. I have sparse time, but will try to look at it when possible.
+>
+>Best,
+>Claus
+>________________________________
+>Claus Dethlefsen, MSc, PhD
+>Biostatistiker ved Kardiovaskulært Forskningscenter
+>
+>Forskningens Hus
+>Aalborg Sygehus 
+>Sdr. Skovvej 15
+>9000 Aalborg
+>Tlf:   9932 6863
+>email: aas.claus.dethlefsen at nja.dk 
+> 
+>
+>>-----Oprindelig meddelelse-----
+>>Fra: dealsoftware at yahoogroups.com 
+>>[mailto:dealsoftware at yahoogroups.com] På vegne af young2 at swissinfo.org
+>>Sendt: 22. juni 2006 01:28
+>>Til: dealsoftware at yahoogroups.com
+>>Emne: RE: [dealsoftware] Bug in use of informative priors?
+>>
+>>Dear Deal Users
+>>
+>>Further to my email of yesterday, I think in function 
+>>jointdisc, the line:
+>>
+>>ivek <- c(pidx, setdiff(jidx,pidx))
+>>
+>>should read:
+>>
+>>ivek <- c(idx, setdiff(jidx,idx)).
+>>
+>>Well it seems to work for my example, but I hardly know what I 
+>>am doing here
+>>so who knows if solves a more general problem.
+>>
+>>Best wishes Jim
+>> 
+>>
+>>>-- Original Message --
+>>>To: dealsoftware at yahoogroups.com
+>>>From: young2 at swissinfo.org
+>>>Date: Wed, 21 Jun 2006 03:50:05 +0200
+>>>Subject: [dealsoftware] Bug in use of informative priors?
+>>>Reply-To: dealsoftware at yahoogroups.com
+>>>
+>>>
+>>>
+>>>Dear Deal Users
+>>>
+>>>I think I?ve found a bug in the way ?deal? handles 
+>>informative priors. I?d
+>>>appreciate (1) comment on whether this is indeed a bug and 
+>>(2), if it is
+>>>a bug, ideas on how to fix it.
+>>>
+>>>First I?ve recreated the problem using the ?ksl? data set 
+>>that comes with
+>>>the package. First I select three variables from this data 
+>>set just to keep
+>>>things simple. For the same reason, I make each variable into 
+>>a discrete
+>>>node. I use a different number of levels for each node, 
+>>because I suspect
+>>>the problem is only apparent when some nodes have more than 2 levels.
+>>>
+>>>rm(list=ls(all=TRUE))
+>>>library(deal)
+>>>data(ksl)
+>>>simple.df <- subset(ksl,select=2:4)
+>>>simple.df$Kol <- cut(simple.df$Kol, breaks=4, 
+>>labels=c('1','2','3','4'))
+>>>simple.df$Hyp <- cut(simple.df$Hyp, breaks=2, labels=c('No','Yes'))
+>>>simple.df$logBMI <- cut(simple.df$logBMI, breaks=3, 
+>>labels=c('Lo', 'Med',
+>>>'Hi'))
+>>>
+>>>Second I just use the default which is an unspecified network 
+>>and equi-probable
+>>>levels within each node. I set the imaginary database size to 
+>>1000, and
+>>after
+>>>learning the network, look at how the cases in the imaginary 
+>>database have
+>>>been distributed among the levels of each node. As expected, 
+>>the imaginary
+>>>database is spread out equally among the levels.
+>>>
+>>>simple.nw <- network(simple.df)
+>>>simple.nw$nodes$Hyp$prob
+>>>simple.pr <- jointprior(simple.nw,1000)
+>>>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>>>simple.nw$nodes$Hyp$prob
+>>>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>>>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>>>
+>>>Third I repeat this but supply prior probabilities for each 
+>>node. Oddly
+>>the
+>>>imaginary data base size now exceeds 1000, and the spread 
+>>across the levels
+>>>of each node does not seem to reflect the priors I specified.
+>>>
+>>>simple.nw <- network(simple.df)
+>>>simple.nw$nodes$Kol$prob <- c(0.1,0.1,0.1,0.7)
+>>>simple.nw$nodes$Hyp$prob <- c(0.1,0.9)
+>>>simple.nw$nodes$logBMI$prob <- c(0.25,0.25,0.50)
+>>>simple.nw$nodes$Hyp$prob
+>>>simple.pr <- jointprior(simple.nw,1000)
+>>>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>>>simple.nw$nodes$Hyp$prob
+>>>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>>>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>>>
+>>>Finally ? just to make absolutely sure ? I set the prior 
+>>probabilities of
+>>>just one node. The imaginary data base size is now 1000 as 
+>>expected but
+>>its
+>>>cases are distributed equally across the two levels of this 
+>>node, which
+>>is
+>>>contrary to the prior probabilities I set for this node. 
+>>>
+>>>simple.nw <- network(simple.df)
+>>>simple.nw$nodes$Hyp$prob <- c(0.1,0.9)
+>>>simple.nw$nodes$Hyp$prob
+>>>simple.pr <- jointprior(simple.nw,1000)
+>>>simple.nw <- learn(simple.nw,simple.df,simple.pr)$nw
+>>>simple.nw$nodes$Hyp$prob
+>>>simple.nw$nodes$Hyp$condprior[[1]]$alpha
+>>>sum(simple.nw$nodes$Hyp$condprior[[1]]$alpha)
+>>>
+>>>So I really don?t think this is right. I have traced this odd 
+>>behaviour
+>>to
+>>>?jointdisc?, an internal ?deal? function. But of course, 
+>>there are no comments
+>>>with the code so it?s hard for me to know what each line in 
+>>this function
+>>>is supposed to do. Therefore it?s hard to know what?s going 
+>>wrong and how
+>>>to fix it.
+>>>
+>>>Best wishes Jim
+>>>
+>>>
+>>>______________________________________________________________
+>>_________
+>>>Your Site for Swiss Maps: http://www.swissinfo-geo.org/
+>>>
+>>>
+>>>
+>>>
+>>>
+>>>
+>>
+>>>
+>>> 
+>>>Yahoo! Groups Links
+>>>
+>>>
+>>>
+>
+>
+
+>
+> 
+>Yahoo! Groups Links
+>
+>
+>
+> 
+>
+>
+>
+>
+
+
+_______________________________________________________________________
+Your Site for Swiss Maps: http://www.swissinfo-geo.org/
+
+
+
+
+
+
+------------------------ Yahoo! Groups Sponsor --------------------~--> 
+Something is new at Yahoo! Groups.  Check out the enhanced email design.
+http://us.click.yahoo.com/SISQkA/gOaOAA/yQLSAA/AIYolB/TM
+--------------------------------------------------------------------~->
+

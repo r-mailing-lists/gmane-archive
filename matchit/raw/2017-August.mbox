@@ -1,0 +1,536 @@
+From janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Aug  8 21:13:02 2017
+From: janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Janet Rosenbaum)
+Date: Tue, 08 Aug 2017 17:13:02 -0400
+Subject: Error in mahvars[pool, , drop = F] : subscript out of bounds
+In-Reply-To: <C46FBDDB-31A4-47D6-8743-1B27BDBFA040@gmail.com>
+References: <C46FBDDB-31A4-47D6-8743-1B27BDBFA040@gmail.com>
+Message-ID: <6967A366-14B4-49CF-8BDC-908F2054E06D@gmail.com>
+
+Dear all,
+
+I’m another person who gets the following error with the Mahalanobis matching option for matchit:
+
+Error in mahvars[pool, , drop = F] : subscript out of bounds
+
+I have done Mahalanobis matching a thousand times before without problems.  Now I’ve exported a slightly different version of the data — slightly different sample size, slightly different set of variables.  Running one matchit command with the first version of the data is fine.  Running the exact same matchit command with the second version of the data gives the error; if I take out the mahvars option, the command runs fine.  Which is unfortunate because Mahalanobis matching seems to work with the earlier version of the data.  
+
+An earlier poster said that the row names may be different, but in my case, I don’t have row names for either dataset.  Both datasets are csv files exported from Stata with the same command, with only slight variations.  Stata version is the same.  I did upgrade R today from 3.4.0 to 3.4.1.
+
+I replicated the problem by exporting a small version of my data file with only 8 variables:  I can do nearest-neighbor matching without the mahvars option, but it doesn’t work if I specify the option.  I can do full matching with this data.  Any ideas how to proceed or how I can figure out what might be causing the problem?  I tried debugging the data and looked at the variable pool noted in the error message, but I didn’t know where to go from there.  
+
+I recall having had a student in my class of 17 last spring who was the only student in the class who had this error, and I wasn’t able to help them either; the student just used full matching for their term paper.  
+
+> dim(Small)
+[1] 7756    8
+> names(Small)
+[1] "treatment" "male"      "age1"      "black"     "gonorrhea" "chlamydia" "tricho"   
+[8] "any_sti3" 
+> model1<-matchit(formula= treatment ~ male, exact=c("black"), mahvars=c("age1"), data=Small, method="nearest", distance = "logit",  caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+Nearest neighbor matching... 
+Matching Treated: Error in mahvars[pool, , drop = F] : subscript out of bounds
+> model0<-matchit(formula= treatment ~ male  +  age1, exact=c("black"), data=Small, method="nearest", distance = "logit",  caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+Nearest neighbor matching... 
+Matching Treated: 10%...20%...30%...40%...50%...60%...70%...80%...90%...100%...Done
+> model0
+
+Call: 
+matchit(formula = treatment ~ male + age1, data = Small, method = "nearest", 
+   distance = "logit", exact = c("black"), caliper = 0.25, replace = T, 
+   calclosest = T, ratio = 3, verbose = T)
+
+Sample sizes:
+         Control Treated
+All          7375     381
+Matched      1061     381
+Unmatched    6314       0
+Discarded       0       0
+
+> 
+> model.full<-matchit(formula= treatment ~ male  + priv_ah + black + age1, data=Small, method="full", verbose=T)
+Error in eval(predvars, data, env) : object 'priv_ah' not found
+> model.full
+
+Call: 
+matchit(formula = suspended_lastyr2 ~ male + priv_ah + black + 
+   age1, data = Small, method = "full", verbose = T)
+
+Sample sizes:
+         Control Treated
+All          7375     381
+Matched      7375     381
+Discarded       0       0
+
+Thanks,
+
+Janet
+
+Janet Rosenbaum, Ph.D.
+Assistant Professor of Epidemiology
+School of Public Health, SUNY Downstate Medical Center, Brooklyn, NY
+janet at post.harvard.edu
+
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit at lists.gking.harvard.edu
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit at lists.gking.harvard.edu
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Aug  9 15:04:10 2017
+From: janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Janet Rosenbaum)
+Date: Wed, 09 Aug 2017 11:04:10 -0400
+Subject: Fixed subscript out of bounds using my advice from 2007
+Message-ID: <909A0127-6930-4881-B50B-8F7BB60036AB@gmail.com>
+
+Dear all,
+
+I fixed the subscript out of bounds problem in matchit using a solution that I discovered 10 years ago and sent to the matchit mailing list.  
+
+Here is my post from 2007:  
+
+https://lists.gking.harvard.edu/pipermail/matchit/2007-September/000029.html
+
+I have a dataset called Small without missing values.  I get a subscript out of bounds error.  When I create a new dataset that is exactly the same as the old dataset, matchit works.  See the below code.  The two data frames are the same data types, and they have the same row names.  I do not know how they are different, but for some reason only the second one works.  
+
+I can’t give you this data to replicate the problem in for data confidentiality reasons, but perhaps someone else has data that creates this error.  
+
+> sum(apply(apply(Small, 1, is.na), 1, sum))
+[1] 0
+> model1<-matchit(formula= treatment ~ male, exact=c("black"), mahvars=c("age1"), data=Small, method="nearest", distance = "logit",  caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+Nearest neighbor matching... 
+Matching Treated: Error in mahvars[pool, , drop = F] : subscript out of bounds
+> dim(Small)
+[1] 7756    8
+> 
+> nrow(Small)
+[1] 7756
+>  Small2=Small[1:nrow(Small),]
+> 
+> model1<-matchit(formula= treatment ~ male, exact=c("black"), mahvars=c("age1"), data=Small2, method="nearest", distance = "logit",  caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+Nearest neighbor matching... 
+Matching Treated: 10%...20%...30%...40%...50%...60%...70%...80%...90%...100%...Done
+> is.data.frame(Small)
+[1] TRUE
+> is.data.frame(Small2)
+[1] TRUE
+> is.matrix(Small)
+[1] FALSE
+> is.matrix(Small2)
+[1] FALSE
+> rownames(Small)[1:4]
+[1] "1" "2" "3" "4"
+> rownames(Small2)[1:4]
+[1] "1" "2" "3" “4”
+
+Janet
+
+Janet Rosenbaum, Ph.D.
+Assistant Professor of Epidemiology
+School of Public Health, SUNY Downstate Medical Center, Brooklyn, NY
+janet at post.harvard.edu
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit at lists.gking.harvard.edu
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit at lists.gking.harvard.edu
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Sat Aug 12 00:35:55 2017
+From: kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Kosuke Imai)
+Date: Fri, 11 Aug 2017 20:35:55 -0400
+Subject: Re: Fixed subscript out of bounds using my advice from 2007
+In-Reply-To: <909A0127-6930-4881-B50B-8F7BB60036AB@gmail.com>
+References: <909A0127-6930-4881-B50B-8F7BB60036AB@gmail.com>
+Message-ID: <CAFiYZ5wbF7N-5jVaOKSeSjnoxMiuG1RUs7hYVR03CQNrS3k+PQ@mail.gmail.com>
+
+It would be great if you could come up with an example data set that can be
+used to reproduce this problem...
+
+Kosuke Imai
+Professor, Department of Politics
+Center for Statistics and Machine Learning
+Princeton University
+http://imai.princeton.edu
+
+On Wed, Aug 9, 2017 at 11:04 AM, Janet Rosenbaum <janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+wrote:
+
+> Dear all,
+>
+> I fixed the subscript out of bounds problem in matchit using a solution
+> that I discovered 10 years ago and sent to the matchit mailing list.
+>
+> Here is my post from 2007:
+>
+> https://lists.gking.harvard.edu/pipermail/matchit/2007-
+> September/000029.html
+>
+> I have a dataset called Small without missing values.  I get a subscript
+> out of bounds error.  When I create a new dataset that is exactly the same
+> as the old dataset, matchit works.  See the below code.  The two data
+> frames are the same data types, and they have the same row names.  I do not
+> know how they are different, but for some reason only the second one works.
+>
+> I can’t give you this data to replicate the problem in for data
+> confidentiality reasons, but perhaps someone else has data that creates
+> this error.
+>
+> > sum(apply(apply(Small, 1, is.na), 1, sum))
+> [1] 0
+> > model1<-matchit(formula= treatment ~ male, exact=c("black"),
+> mahvars=c("age1"), data=Small, method="nearest", distance = "logit",
+> caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+> Nearest neighbor matching...
+> Matching Treated: Error in mahvars[pool, , drop = F] : subscript out of
+> bounds
+> > dim(Small)
+> [1] 7756    8
+> >
+> > nrow(Small)
+> [1] 7756
+> >  Small2=Small[1:nrow(Small),]
+> >
+> > model1<-matchit(formula= treatment ~ male, exact=c("black"),
+> mahvars=c("age1"), data=Small2, method="nearest", distance = "logit",
+> caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+> Nearest neighbor matching...
+> Matching Treated: 10%...20%...30%...40%...50%...
+> 60%...70%...80%...90%...100%...Done
+> > is.data.frame(Small)
+> [1] TRUE
+> > is.data.frame(Small2)
+> [1] TRUE
+> > is.matrix(Small)
+> [1] FALSE
+> > is.matrix(Small2)
+> [1] FALSE
+> > rownames(Small)[1:4]
+> [1] "1" "2" "3" "4"
+> > rownames(Small2)[1:4]
+> [1] "1" "2" "3" “4”
+>
+> Janet
+>
+> Janet Rosenbaum, Ph.D.
+> Assistant Professor of Epidemiology
+> School of Public Health, SUNY Downstate Medical Center, Brooklyn, NY
+> janet-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org
+>
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive: http://lists.gking.harvard.
+> edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>
+> To unsubscribe from this list or get other information:
+>
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Aug 17 12:55:30 2017
+From: janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Janet Rosenbaum)
+Date: Thu, 17 Aug 2017 08:55:30 -0400
+Subject: Re: Fixed subscript out of bounds using my advice from 2007
+In-Reply-To: <CAFiYZ5wbF7N-5jVaOKSeSjnoxMiuG1RUs7hYVR03CQNrS3k+PQ@mail.gmail.com>
+References: <909A0127-6930-4881-B50B-8F7BB60036AB@gmail.com> <CAFiYZ5wbF7N-5jVaOKSeSjnoxMiuG1RUs7hYVR03CQNrS3k+PQ@mail.gmail.com>
+Message-ID: <4B0AEF21-72C0-4644-AB65-E47FC51693D9@gmail.com>
+
+I’ll try to come up with an example dataset.
+
+I also noticed that the columns for the summary output are not uniform between full matching and nearest-neighbor matching.  For full matching, the standardized difference is in the 3rd column of the output and for nearest-neighbor, it’s in the 4th column.  
+
+> names(m.out$sum.matched)
+[1] "Means Treated"   "Means Control"   "Std. Mean Diff." "eCDF Med"        "eCDF Mean"      
+[6] "eCDF Max"       
+> names(m.out1$sum.matched)
+[1] "Means Treated"   "Means Control"   "SD Control"      "Std. Mean Diff." "eCDF Med"       
+[6] "eCDF Mean"       "eCDF Max"       
+
+That makes it hard to use the same code for Love plots.  
+
+Janet
+
+> On Aug 11, 2017, at 8:35 PM, Kosuke Imai <kimai at Princeton.Edu> wrote:
+> 
+> It would be great if you could come up with an example data set that can be used to reproduce this problem...
+> 
+> Kosuke Imai 
+> Professor, Department of Politics 
+> Center for Statistics and Machine Learning
+> Princeton University
+> http://imai.princeton.edu
+> 
+> On Wed, Aug 9, 2017 at 11:04 AM, Janet Rosenbaum <janet.rosenbaum at gmail.com> wrote:
+> Dear all,
+> 
+> I fixed the subscript out of bounds problem in matchit using a solution that I discovered 10 years ago and sent to the matchit mailing list.
+> 
+> Here is my post from 2007:
+> 
+> https://lists.gking.harvard.edu/pipermail/matchit/2007-September/000029.html
+> 
+> I have a dataset called Small without missing values.  I get a subscript out of bounds error.  When I create a new dataset that is exactly the same as the old dataset, matchit works.  See the below code.  The two data frames are the same data types, and they have the same row names.  I do not know how they are different, but for some reason only the second one works.
+> 
+> I can’t give you this data to replicate the problem in for data confidentiality reasons, but perhaps someone else has data that creates this error.
+> 
+> > sum(apply(apply(Small, 1, is.na), 1, sum))
+> [1] 0
+> > model1<-matchit(formula= treatment ~ male, exact=c("black"), mahvars=c("age1"), data=Small, method="nearest", distance = "logit",  caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+> Nearest neighbor matching...
+> Matching Treated: Error in mahvars[pool, , drop = F] : subscript out of bounds
+> > dim(Small)
+> [1] 7756    8
+> >
+> > nrow(Small)
+> [1] 7756
+> >  Small2=Small[1:nrow(Small),]
+> >
+> > model1<-matchit(formula= treatment ~ male, exact=c("black"), mahvars=c("age1"), data=Small2, method="nearest", distance = "logit",  caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+> Nearest neighbor matching...
+> Matching Treated: 10%...20%...30%...40%...50%...60%...70%...80%...90%...100%...Done
+> > is.data.frame(Small)
+> [1] TRUE
+> > is.data.frame(Small2)
+> [1] TRUE
+> > is.matrix(Small)
+> [1] FALSE
+> > is.matrix(Small2)
+> [1] FALSE
+> > rownames(Small)[1:4]
+> [1] "1" "2" "3" "4"
+> > rownames(Small2)[1:4]
+> [1] "1" "2" "3" “4”
+> 
+> Janet
+> 
+> Janet Rosenbaum, Ph.D.
+> Assistant Professor of Epidemiology
+> School of Public Health, SUNY Downstate Medical Center, Brooklyn, NY
+> janet at post.harvard.edu
+> 
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit at lists.gking.harvard.edu
+> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+> Matchit mailing list
+> Matchit at lists.gking.harvard.edu
+> 
+> To unsubscribe from this list or get other information:
+> 
+> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+> 
+
+
+
+Janet Rosenbaum, Ph.D.
+Assistant Professor of Epidemiology
+School of Public Health, SUNY Downstate Medical Center, Brooklyn, NY
+janet at post.harvard.edu
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit at lists.gking.harvard.edu
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit at lists.gking.harvard.edu
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Fri Aug 18 00:58:10 2017
+From: kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Kosuke Imai)
+Date: Thu, 17 Aug 2017 20:58:10 -0400
+Subject: Re: Fixed subscript out of bounds using my advice from 2007
+In-Reply-To: <4B0AEF21-72C0-4644-AB65-E47FC51693D9@gmail.com>
+References: <909A0127-6930-4881-B50B-8F7BB60036AB@gmail.com> <CAFiYZ5wbF7N-5jVaOKSeSjnoxMiuG1RUs7hYVR03CQNrS3k+PQ@mail.gmail.com> <4B0AEF21-72C0-4644-AB65-E47FC51693D9@gmail.com>
+Message-ID: <CAFiYZ5xO_RAR_5cc9Ys=K=4h9ccUZiQB1G4fo0On9RkuBSi7VQ@mail.gmail.com>
+
+Would you mind reporting this error with a replicable example at here?
+https://github.com/kosukeimai/MatchIt/issues  Thanks.
+
+Kosuke Imai
+Professor, Department of Politics
+Center for Statistics and Machine Learning
+Princeton University
+http://imai.princeton.edu
+
+On Thu, Aug 17, 2017 at 8:55 AM, Janet Rosenbaum <janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+wrote:
+
+> I’ll try to come up with an example dataset.
+>
+> I also noticed that the columns for the summary output are not uniform
+> between full matching and nearest-neighbor matching.  For full matching,
+> the standardized difference is in the 3rd column of the output and for
+> nearest-neighbor, it’s in the 4th column.
+>
+> > names(m.out$sum.matched)
+> [1] "Means Treated"   "Means Control"   "Std. Mean Diff." "eCDF Med"
+>   "eCDF Mean"
+> [6] "eCDF Max"
+> > names(m.out1$sum.matched)
+> [1] "Means Treated"   "Means Control"   "SD Control"      "Std. Mean
+> Diff." "eCDF Med"
+> [6] "eCDF Mean"       "eCDF Max"
+>
+> That makes it hard to use the same code for Love plots.
+>
+> Janet
+>
+> > On Aug 11, 2017, at 8:35 PM, Kosuke Imai <kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org> wrote:
+> >
+> > It would be great if you could come up with an example data set that can
+> be used to reproduce this problem...
+> >
+> > Kosuke Imai
+> > Professor, Department of Politics
+> > Center for Statistics and Machine Learning
+> > Princeton University
+> > http://imai.princeton.edu
+> >
+> > On Wed, Aug 9, 2017 at 11:04 AM, Janet Rosenbaum <
+> janet.rosenbaum-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> > Dear all,
+> >
+> > I fixed the subscript out of bounds problem in matchit using a solution
+> that I discovered 10 years ago and sent to the matchit mailing list.
+> >
+> > Here is my post from 2007:
+> >
+> > https://lists.gking.harvard.edu/pipermail/matchit/2007-
+> September/000029.html
+> >
+> > I have a dataset called Small without missing values.  I get a subscript
+> out of bounds error.  When I create a new dataset that is exactly the same
+> as the old dataset, matchit works.  See the below code.  The two data
+> frames are the same data types, and they have the same row names.  I do not
+> know how they are different, but for some reason only the second one works.
+> >
+> > I can’t give you this data to replicate the problem in for data
+> confidentiality reasons, but perhaps someone else has data that creates
+> this error.
+> >
+> > > sum(apply(apply(Small, 1, is.na), 1, sum))
+> > [1] 0
+> > > model1<-matchit(formula= treatment ~ male, exact=c("black"),
+> mahvars=c("age1"), data=Small, method="nearest", distance = "logit",
+> caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+> > Nearest neighbor matching...
+> > Matching Treated: Error in mahvars[pool, , drop = F] : subscript out of
+> bounds
+> > > dim(Small)
+> > [1] 7756    8
+> > >
+> > > nrow(Small)
+> > [1] 7756
+> > >  Small2=Small[1:nrow(Small),]
+> > >
+> > > model1<-matchit(formula= treatment ~ male, exact=c("black"),
+> mahvars=c("age1"), data=Small2, method="nearest", distance = "logit",
+> caliper=0.25, replace=T, calclosest=T, ratio=3, verbose=T)
+> > Nearest neighbor matching...
+> > Matching Treated: 10%...20%...30%...40%...50%...
+> 60%...70%...80%...90%...100%...Done
+> > > is.data.frame(Small)
+> > [1] TRUE
+> > > is.data.frame(Small2)
+> > [1] TRUE
+> > > is.matrix(Small)
+> > [1] FALSE
+> > > is.matrix(Small2)
+> > [1] FALSE
+> > > rownames(Small)[1:4]
+> > [1] "1" "2" "3" "4"
+> > > rownames(Small2)[1:4]
+> > [1] "1" "2" "3" “4”
+> >
+> > Janet
+> >
+> > Janet Rosenbaum, Ph.D.
+> > Assistant Professor of Epidemiology
+> > School of Public Health, SUNY Downstate Medical Center, Brooklyn, NY
+> > janet-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org
+> >
+> > -
+> > ---
+> > MatchIt mailing list served by HUIT
+> > List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> > Subscribe/Unsubscribe: http://lists.gking.harvard.
+> edu/mailman/listinfo/ei
+> > MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> > Browse/Search List Archive: http://lists.gking.harvard.
+> edu/mailman/private/matchit/
+> > Matchit mailing list
+> > Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> >
+> > To unsubscribe from this list or get other information:
+> >
+> > https://lists.gking.harvard.edu/mailman/listinfo/matchit
+> >
+>
+>
+>
+> Janet Rosenbaum, Ph.D.
+> Assistant Professor of Epidemiology
+> School of Public Health, SUNY Downstate Medical Center, Brooklyn, NY
+> janet-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org
+>
+>
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+
+To unsubscribe from this list or get other information:
+
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+

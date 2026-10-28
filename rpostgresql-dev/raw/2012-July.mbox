@@ -1,0 +1,377 @@
+From tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org  Mon Jul 30 09:13:28 2012
+From: tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org (Tomoaki NISHIYAMA)
+Date: Mon, 30 Jul 2012 18:13:28 +0900
+Subject: Re: [Fwd: Re: RPostgreSQL: halflife tables]
+In-Reply-To: <50164A1A.70201@molecularhealth.com>
+References: <50164A1A.70201@molecularhealth.com>
+Message-ID: <1E99CB0A-6225-4495-A888-9FA6B83FC475@kenroku.kanazawa-u.ac.jp>
+
+Hi,
+
+> | I tried prepending the name of the schema (separated with a dot); it did
+> | not work either.
+
+
+Schema is not fully supported and considered to have breaks.
+Tables written with dbWriteTable would be readable with dbReadTable.
+
+Currently, dbListTable is defined as
+
+setMethod("dbListTables", "PostgreSQLConnection",
+          def = function(conn, ...){
+              out <- dbGetQuery(conn,
+                                paste("select tablename from pg_tables where schemaname !='information_schema'",
+                                      "and schemaname !='pg_catalog'", ...))
+              if (is.null(out) || nrow(out) == 0)
+                  out <- character(0)
+              else
+                  out <- out[, 1]
+              out
+          },
+          valueClass = "character"
+          )
+
+Therefore, dbListTable will return every tablename in every schema without the schema name.
+
+If you know the schema name,
+dbExistsTable( con, c("the_schema", "binf_projects") )
+dbReadTable( con, c("the_schema", "binf_projects") )
+will probably work.
+
+
+> Otherwise, I wonder: is there any way to get more insight on what is
+> happing internally to the package in my case? Like, could some debug
+> level be increased, or some log be generated, so that I have a chance to
+> understand and fix the problem.
+
+You could connect to the database with psql
+and use 
+\dt
+and other commands to see what tables are present.
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2012/07/30, at 17:47, Alexander Zien wrote:
+
+> Hi Tomoaki,
+> 
+> Do you happen to have any idea what the reason could be for the strange
+> behavior (see below) of my RPostgreSQL? Briefly, what happens is that
+> tables are listed, but are claimed to not exist and cannot be read.
+> 
+> Otherwise, I wonder: is there any way to get more insight on what is
+> happing internally to the package in my case? Like, could some debug
+> level be increased, or some log be generated, so that I have a chance to
+> understand and fix the problem.
+> 
+> It would be great if you could help. And do you think it would be
+> worthwhile to also contact Postgres on this issue? From my point of
+> view, it could well be that the source of the problem is on the side of
+> the database itself.
+> 
+> Best,
+> Alex
+> 
+> -- 
+> Dr. Alexander Zien
+> Senior Analyst Bioinformatics
+> Molecular Health GmbH
+> Belfortstr. 2
+> 69115 Heidelberg, Germany
+> Tel:    +49.6221.43851.209
+> Fax: 	+49.6221.43851.100
+> Email:  Alexander.Zien-zBJuI1hSphWAlY6fQ75L3EEOCMrvLtNR at public.gmane.org
+> http://www.molecularhealth.com/
+> 
+> ___________________________________________
+> 
+> Molecular Health GmbH
+> 
+> Geschäftsführer: Dr. Stephan Brock /
+> Dr. Friedrich von Bohlen und Halbach
+> 
+> Sitz der Gesellschaft: Heidelberg
+> Handelsregister: Amtsgericht Mannheim - HRB 338037
+> ___________________________________________
+> 
+> 差出人: Dirk Eddelbuettel <edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org>
+> 日時: 2012年7月26日 20:42:52JST
+> 宛先: Alexander Zien <Alexander.Zien-zBJuI1hSphWAlY6fQ75L3EEOCMrvLtNR at public.gmane.org>
+> Cc: Tomoaki NISHIYAMA <tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org>
+> 件名: Re: RPostgreSQL: halflife tables
+> 
+> 
+> 
+> Alexander,
+> 
+> Sameer has not been involved in RPostgreSQL in many years. I acted as
+> caretaker for a bit, and the project is now maintained very well by 
+> Tomoaki Nishiyama who greatly updated the code.
+> 
+> The best way to contact the developers is via the mailing list.
+> 
+> And you should try upgrading to a recent version as this works here now with
+> version 0.3-2:
+> 
+> i)  create a table in a PostgreSQL session:
+> 
+>    beancounter=# create table foo_bar ( a integer, b integer );
+>    CREATE TABLE
+>    beancounter=# insert into foo_bar values(1,2);
+>    INSERT 0 1
+>    beancounter=# insert into foo_bar values(42,21);
+>    INSERT 0 1
+>    beancounter=# 
+> 
+> ii) Use it from R:
+> 
+>    R> suppressMessages(library(RPostgreSQL))
+>    R> drv <- dbDriver("PostgreSQL")
+>    R> con <- dbConnect(drv, dbname="beancounter",user="....",password="....") 
+>    R> dbGetQuery(con, paste("select * from foo_bar;"))
+>       a  b
+>    1  1  2
+>    2 42 21
+>    R> 
+> 
+> So you see that foo_bar is working table here in my default db session.
+> 
+> Hope this helps,  Dirk
+> 
+> 
+> On 26 July 2012 at 12:31, Alexander Zien wrote:
+> | Hi Sameer,
+> | 
+> | In trying to access our database from R with your package RPostgreSQL, I
+> | experience some mysterious behavior and hope that you may be able to
+> | help me.
+> | 
+> | The problem seems to be about existence or non-existence of tables. I
+> | have established a connection "con", and find lots of tables as expected:
+> | 
+> | > t = dbListTables( con )
+> | > head( t )
+> | [1] "binf_projects"            "dual"
+> | [3] "edb$snap"                 "edb$system_waits"
+> | [5] "author"                   "edb$session_wait_history"
+> | 
+> | However when I check for one of them individually, it fails:
+> | 
+> | > dbExistsTable( con, "binf_projects" )
+> | [1] FALSE
+> | 
+> | Consequently I can also not read any of the tables:
+> | 
+> | > T <- dbReadTable( con, "binf_projects" )
+> | Error in postgresqlExecStatement(conn, statement, ...) :
+> |   RS-DBI driver: (could not Retrieve the result : ERROR:  relation
+> | "binf_projects" does not exist at character 15
+> | )
+> | Error in names(out) <- make.names(names(out), unique = TRUE) :
+> |   attempt to set an attribute on NULL
+> | In addition: Warning message:
+> | In postgresqlQuickSQL(conn, statement, ...) :
+> |   Could not create executeSELECT * from "binf_projects"
+> | >
+> | > traceback()
+> | 5: postgresqlReadTable(conn, name, ...)
+> | 4: is(object, Cl)
+> | 3: is(object, Cl)
+> | 2: .valueClassTest(standardGeneric("dbReadTable"), "data.frame",
+> |        "dbReadTable")
+> | 1: dbReadTable(con, "binf_projects")
+> | >
+> | 
+> | I tried prepending the name of the schema (separated with a dot); it did
+> | not work either.
+> | 
+> | Do you have any ideas what the reason could be? Also, is there a way to
+> | get more insight into what's going on internally (eg by some log file)?
+> | I'd appreciate your help very much.
+> | 
+> | 
+> | Cheers,
+> | Alex
+> | 
+> | 
+> | > sessionInfo()
+> | R version 2.14.1 (2011-12-22)
+> | Platform: x86_64-redhat-linux-gnu (64-bit)
+> | 
+> | locale:
+> |  [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C
+> |  [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8
+> |  [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8
+> |  [7] LC_PAPER=C                 LC_NAME=C
+> |  [9] LC_ADDRESS=C               LC_TELEPHONE=C
+> | [11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C
+> | 
+> | attached base packages:
+> | [1] stats     graphics  grDevices utils     datasets  methods   base
+> | 
+> | other attached packages:
+> | [1] RPostgreSQL_0.3-2 DBI_0.2-5
+> | 
+> | 
+> | 
+> | -- 
+> | Dr. Alexander Zien
+> | Senior Analyst Bioinformatics
+> | Molecular Health GmbH
+> | Belfortstr. 2
+> | 69115 Heidelberg, Germany
+> | Tel:    +49.6221.43851.209
+> | Fax: 	+49.6221.43851.100
+> | Email:  Alexander.Zien-zBJuI1hSphWAlY6fQ75L3EEOCMrvLtNR at public.gmane.org
+> | http://www.molecularhealth.com/
+> | 
+> | ___________________________________________
+> | 
+> | Molecular Health GmbH
+> | 
+> | Geschäftsführer: Dr. Stephan Brock /
+> | Dr. Friedrich von Bohlen und Halbach
+> | 
+> | Sitz der Gesellschaft: Heidelberg
+> | Handelsregister: Amtsgericht Mannheim - HRB 338037
+> | ___________________________________________
+> 
+> -- 
+> Dirk Eddelbuettel | edd-8fiUuRrzOP0dnm+yROfE0A at public.gmane.org | http://dirk.eddelbuettel.com  
+> 
+>
+
+From tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org  Tue Jul 31 00:06:05 2012
+From: tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org (Tomoaki NISHIYAMA)
+Date: Tue, 31 Jul 2012 09:06:05 +0900
+Subject: Re: [Fwd: Re: RPostgreSQL: halflife tables]
+In-Reply-To: <50168CE9.5020305@molecularhealth.com>
+References: <50164A1A.70201@molecularhealth.com> <1E99CB0A-6225-4495-A888-9FA6B83FC475@kenroku.kanazawa-u.ac.jp> <50168CE9.5020305@molecularhealth.com>
+Message-ID: <FBE66421-7553-46A3-AF72-24D029F179B3@kenroku.kanazawa-u.ac.jp>
+
+Hi,
+
+> However the latter is closer to the SQL statements, and indeed
+>  query <- sprintf( "SELECT * FROM %s.%s", schema.name, tab.name )
+>  rs <- dbSendQuery( con, query )
+>  T <- fetch( rs, n=-1 )
+> works, so the syntax of dbReadTable is, as you say, a break.
+
+R allows dots in most labels including data.frame, column, and row names.
+PostgreSQL allows dots within the table name or schema name.
+You can 
+SELECT * FROM "schema.name"."tab.name"
+and it is different from
+SELECT * FROM schema.name.tab.name
+
+dbListTables not aware of schema could be considered as a break, but
+there is no simple way to implement it in a compatible manner.
+We might restrict to current schema, though.
+
+Schema IS a database dependent feature, and cannot be handled 
+in a database independent manner.
+So, I don't think DBI functions will have a full support for schema.
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2012/07/30, at 22:32, Alexander Zien wrote:
+
+> Hi again, Tomoaki,
+> 
+> Are there any plans to implement full support for schemas?
+> 
+> Now that you told me, I know that I have to write
+>  T <- dbReadTable( con, c( schema.name, tab.name ) )
+> where usually I'd rather do something like
+>  T <- dbReadTable( con, paste( schema.name, tab.name, sep="." ) )
+> 
+> However the latter is closer to the SQL statements, and indeed
+>  query <- sprintf( "SELECT * FROM %s.%s", schema.name, tab.name )
+>  rs <- dbSendQuery( con, query )
+>  T <- fetch( rs, n=-1 )
+> works, so the syntax of dbReadTable is, as you say, a break.
+> 
+> Best wishes,
+> Alex
+> 
+> 
+> Tomoaki NISHIYAMA wrote:
+>> Hi,
+>> 
+>>> | I tried prepending the name of the schema (separated with a dot); it did
+>>> | not work either.
+>> 
+>> 
+>> Schema is not fully supported and considered to have breaks.
+>> Tables written with dbWriteTable would be readable with dbReadTable.
+>> 
+>> Currently, dbListTable is defined as
+>> 
+>> setMethod("dbListTables", "PostgreSQLConnection",
+>>          def = function(conn, ...){
+>>              out <- dbGetQuery(conn,
+>>                                paste("select tablename from pg_tables where schemaname !='information_schema'",
+>>                                      "and schemaname !='pg_catalog'", ...))
+>>              if (is.null(out) || nrow(out) == 0)
+>>                  out <- character(0)
+>>              else
+>>                  out <- out[, 1]
+>>              out
+>>          },
+>>          valueClass = "character"
+>>          )
+>> 
+>> Therefore, dbListTable will return every tablename in every schema without the schema name.
+>> 
+>> If you know the schema name,
+>> dbExistsTable( con, c("the_schema", "binf_projects") )
+>> dbReadTable( con, c("the_schema", "binf_projects") )
+>> will probably work.
+>> 
+>> 
+>>> Otherwise, I wonder: is there any way to get more insight on what is
+>>> happing internally to the package in my case? Like, could some debug
+>>> level be increased, or some log be generated, so that I have a chance to
+>>> understand and fix the problem.
+>> 
+>> You could connect to the database with psql
+>> and use 
+>> \dt
+>> and other commands to see what tables are present.
+> 
+> 
+> 
+> -- 
+> Dr. Alexander Zien
+> Senior Analyst Bioinformatics
+> Molecular Health GmbH
+> Belfortstr. 2
+> 69115 Heidelberg, Germany
+> Tel:    +49.6221.43851.209
+> Fax: 	+49.6221.43851.100
+> Email:  Alexander.Zien-zBJuI1hSphWAlY6fQ75L3EEOCMrvLtNR at public.gmane.org
+> http://www.molecularhealth.com/
+> 
+> ___________________________________________
+> 
+> Molecular Health GmbH
+> 
+> Geschäftsführer: Dr. Stephan Brock /
+> Dr. Friedrich von Bohlen und Halbach
+> 
+> Sitz der Gesellschaft: Heidelberg
+> Handelsregister: Amtsgericht Mannheim - HRB 338037
+> ___________________________________________
+

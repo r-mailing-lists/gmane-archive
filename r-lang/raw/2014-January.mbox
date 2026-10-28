@@ -1,0 +1,1395 @@
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Mon Jan 20 20:36:35 2014
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Mon, 20 Jan 2014 22:36:35 +0200
+Subject: Choosing appropriate analysis for proportion data
+Message-ID: <52DD88D3.3060507@sabanciuniv.edu>
+
+I have data from an L2 oral task that has elicited two types of pronouns 
+X and Y -plus
+some other category which is irrelevant to the study- from two L1s. In a 
+table I have reported counts and % proportion for each type of pronoun + 
+other category over the total amount of possible contexts produced
+(total x + total y + total z= grand total contexts).
+
+The objective is to verify whether the two groups differ in use of the 
+two types pronoun, x and y.
+Crawley (2012, p.590) suggests modelling proportion data as lmer 
+following a binomial distribution ('family' function in R) since 5 
+proportions vary between 0 and 100%. There are of course advantages and 
+disadvantages
+to this method compared to say counts or binary responses, but 
+ultimately I need to cope with the fact I
+have counts, and not items as in experimental tasks, which has 
+consequences for the model assumed.
+
+Following this line of reasoning Crawley suggests the following measures
+
+y<-cbind(dead,alive) # the proportions for the two types of pronoun are 
+binded under 1 column I label 'response'
+
+model<-lmer(y~block+treatment+(1block/treatment),binomial,data=data)
+
+First note, nowadays a binomial family analysis needs to be carried out 
+in glmer and not lmer.
+
+I decide to go down this route, plot my data with a bwplot and remove 
+outliers. One problem with the data is there are several 0%s but these 
+are genuine 0s (and not NAs) because subjects had a chance to produce 
+pronouns but opted to produce only the second type or the other 
+category, or a mix of both, instead. If my understanding is correct, 
+then, I can continue with the binomial distribution fit.
+
+My 'response' variable includes the proportions for the two pronoun 
+types only but not the other category because these are not important. 
+So here is a first question: does the fact the proportion of the two 
+pronouns not add up to 100% make a difference to statistical analysis? I 
+assume not.
+
+After cbind on the proportion of the two pronoun types (outcome 
+variable), I add a by-participant random effect.  Running glmer I get 
+the following output:
+
+otdataITTopS3<-glmer(response~L1+(1+L1|Participant), family=binomial, 
+data=otdataITTopS)
+
+Warning message:
+In eval(expr, envir, enclos) : non-integer counts in a binomial glm!
+
+# I ignore the warning
+
+Generalized linear mixed model fit by maximum likelihood ['glmerMod']
+  Family: binomial ( logit )
+Formula: response ~ 1 + L1 + (1 + L1 | Participant)
+    Data: otdataITTopS
+
+      AIC      BIC   logLik deviance
+  16.8927  24.0627  -3.4464   6.8927
+
+Random effects:
+  Groups      Name        Variance  Std.Dev.  Corr
+  Participant (Intercept) 3.695e-15 6.079e-08
+              L1Sp        6.035e-15 7.769e-08 -1.00
+Number of obs: 31, groups: Participant, 31
+
+Fixed effects:
+               Estimate Std. Error z value Pr(>|z|)
+(Intercept)     -19.38 8454922.14       0        1
+L11              16.98 8454922.14       0        1
+
+Correlation of Fixed Effects:
+     (Intr)
+
+L11 -1.000
+
+
+
+Some data In table format:
+
+Participant    L1    Response.V1    Response.V2
+
+1    A    50    23
+2    A    43    17
+3    B    11    67
+
+
+Something is not right but I don't know what. It looks like I am fitting 
+to the wrong type of distribution. Any suggestions are welcome.
+
+Finally, from the model output it looks like glmer only took half of the 
+observations into consideration, say Response.V1 or V2. In total there 
+should be 62 (31 for each pronoun type). Why so?
+
+Many thanks in advance.
+
+-- 
+Frank Romano
+
+Sabanci University
+website: http://sabanciuniv.academia.edu/FrancescoRomano
+
+From jan.vanhove-3DjnVrp8uWc at public.gmane.org  Tue Jan 21 08:02:30 2014
+From: jan.vanhove-3DjnVrp8uWc at public.gmane.org (Jan Vanhove)
+Date: Tue, 21 Jan 2014 09:02:30 +0100
+Subject: Re: Choosing appropriate analysis for proportion data
+In-Reply-To: <52DD88D3.3060507@sabanciuniv.edu>
+References: <52DD88D3.3060507@sabanciuniv.edu>
+Message-ID: <52DE2996.1040103@unifr.ch>
+
+Hello Francesco,
+
+ From your description I gather that the task was a free production 
+task. I'm not sure whether it's okay to model data from such a task in a 
+logistic model, but let's go with it for the moment.
+
+A few pointers:
+
+- The warning "In eval(expr, envir, enclos) : non-integer counts in a 
+binomial-- glm!" means that glmer() requires you to provide it with the 
+raw, binary data, not with the aggregated responses or proportions.
+
+- You already aggregated your data over participants, so you don't need 
+to model participants as random effects.
+
+- Try:
+
+m <- glm(response ~ L1, data = otdataITTopS, family = binomial)
+
+
+
+The others may give you some additional pointers, but I've gotta dash now.
+
+Best,
+
+Jan
+
+From tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org  Tue Jan 21 16:54:37 2014
+From: tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org (Meredith Tamminga)
+Date: Tue, 21 Jan 2014 11:54:37 -0500
+Subject: Relationship between individual speaker mean and priming in conversational speech data
+Message-ID: <CAHue2ppggwX8kYQc=JLK_AR4aiPEDP_dPYUyYLD3=R6Qqp4Oqw@mail.gmail.com>
+
+Hello R-lang,
+
+I have a dataset consisting of observations of the binary variable ING
+(e.g. workin' vs working) from conversational speech. I am interested in
+the priming effect on this variable: to what extent does the most recent
+prior observation (the prime) affect the outcome of the current observation
+(the target)? To assess this, I am using the dependent variable of "rep" --
+does the target have the same value (/in/ or /ing/) as the prime? I intend
+to use this as the response variable for logistic regression. Available
+predictors are prime.var (is the prime a token of /ing/ or /in/?),
+target.var (is the prime a token of /ing/ or /in/?), same.word (are prime
+and target the same lexical item?), same.gram (do prime and target have the
+same grammatical status?), log.lag (log2 of the distance in seconds between
+the prime and the target), and spkr.mean (the mean rate of /ing/ use by the
+speaker who produced the token). There are 4879 observations (prime/target
+pairs) from 90 different speakers who have very different mean rates of
+/ing/ use. The prime and the target are always from the same speaker.
+
+So here's the problem: I can't figure out how to account for the fact that
+repetition of the variant is more likely as a matter of course (rather than
+as a matter of priming) when speakers have rates of /ing/ use near 0% or
+100%. I am particularly interested in testing the hypothesis of an
+interaction between prime.var and spkr.mean: that for speakers who have low
+/in/ rates, /in/ is a stronger prime than /ing/, whereas for speakers who
+have low /ing/ rates, /ing/ is a stronger prime than /in/. If I include
+prime.var * spkr.mean in the model, though, the effect I am looking for is
+obscured by the trivial fact that speakers who use /ing/ a lot will
+naturally be likely to have another /ing/ target after an /ing/ prime, and
+speakers who use /in/ a lot will naturally be likely to have an /in/ target
+after an /in/ prime. What I'm trying to figure out is whether there is an
+interaction of prime.var and spkr.mean *beyond* what is expected just given
+that the prime and target share a bias.
+
+If anyone can make any suggestions for how to proceed here it would be much
+appreciated. Please let me know if there's anything I can clarify or add.
+
+Thanks!
+Meredith
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Wed Jan 22 10:02:01 2014
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Wed, 22 Jan 2014 12:02:01 +0200
+Subject: Re: Choosing appropriate analysis for proportion data
+In-Reply-To: <52DE2996.1040103-3DjnVrp8uWc@public.gmane.org>
+References: <52DD88D3.3060507@sabanciuniv.edu> <52DE2996.1040103@unifr.ch>
+Message-ID: <52DF9719.7080801@sabanciuniv.edu>
+
+Thanks for the reply Jan.
+It might be helpful if I could access the practice
+file mentioned in Crawley on the same page: insects.txt.
+I don't know where to locate it though because I only have
+the pdf version of the book with no accompanying software.
+
+Maybe the DV in that data is binary and I am misunderstanding
+the suggestion to model proportion data with a binomial distribution
+in glmer or even glm for all that matters. I found this post as well:
+
+http://r.789695.n4.nabble.com/From-THE-R-BOOK-gt-Warning-In-eval-expr-envir-enclos-non-integer-successes-in-a-binomial-glm-td1745312.html
+
+If this is the best way to model the data, it looks like I need to 
+provide an IV
+with the number of counts for each binary response for each participant.
+Wouldn't this dis-aggregate the data though
+because in that case I would have the following variables:
+
+Participant    L1    Count    Pronoun Type [X,Y]    Response [1,0]
+
+At this point I still can't figure out what the effect of cbind on 
+proportions
+was in previous post.
+
+Frank
+
+
+On 1/21/14 10:02 AM, Jan Vanhove wrote:
+> Hello Francesco,
+>
+> From your description I gather that the task was a free production 
+> task. I'm not sure whether it's okay to model data from such a task in 
+> a logistic model, but let's go with it for the moment.
+>
+> A few pointers:
+>
+> - The warning "In eval(expr, envir, enclos) : non-integer counts in a 
+> binomial-- glm!" means that glmer() requires you to provide it with 
+> the raw, binary data, not with the aggregated responses or proportions.
+>
+> - You already aggregated your data over participants, so you don't 
+> need to model participants as random effects.
+>
+> - Try:
+>
+> m <- glm(response ~ L1, data = otdataITTopS, family = binomial)
+>
+>
+>
+> The others may give you some additional pointers, but I've gotta dash 
+> now.
+>
+> Best,
+>
+> Jan
+
+-- 
+Frank Romano
+
+Sabanci University
+website: http://sabanciuniv.academia.edu/FrancescoRomano
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Thu Jan 23 04:53:43 2014
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Wed, 22 Jan 2014 23:53:43 -0500
+Subject: Re: Relationship between individual speaker mean and priming in conversational speech data
+In-Reply-To: <CAHue2ppggwX8kYQc=JLK_AR4aiPEDP_dPYUyYLD3=R6Qqp4Oqw@mail.gmail.com>
+References: <CAHue2ppggwX8kYQc=JLK_AR4aiPEDP_dPYUyYLD3=R6Qqp4Oqw@mail.gmail.com>
+Message-ID: <CAG2Vd7iCNHsN=u8WBu9Uaye_Z86h_hNPBTjk2EfpmZ3FykxhjQ@mail.gmail.com>
+
+Hi Meredith,
+
+I think that a mixed model with a random by-speaker intercept should
+successfully filter out the speaker baseline usage effect (though I haven't
+simulated how well this works, depending on the distribution of
+between-speaker differences). This approach is used in e.g., Jaeger (2006,
+2010) and Jaeger & Snider (2013, Study 1). A slightly different approach is
+presented by Reitter (2006 and follow up) who focuses on the idea of
+distance-based decay of priming (rather than a priming main effect). There
+are variety of alternative approaches discussed in the literature. For
+example, researchers from Frank Keller's lab have used a first half vs.
+second half of conversation comparison. I forgot the reference to the
+original proposal they cite, but if memory serves right Dubbey et al. 2010
+discuss and use this approach.
+
+You might also want into Gries 2005 and Szmrecsanyi 2005 though I don't
+recall whether they in any way controlled for the baseline issue.
+
+HTH & sorry if I misrepresented anyone's work,
+
+Florian
+
+Gries, S. T. (2005). Syntactic priming: a corpus-based approach. Journal of
+Psycholinguistic Research, 34(4), 365–99. doi:10.1007/s10936-005-6139-3
+Jaeger, T. F., & Snider, N. E. (2013). Alignment as a consequence of
+expectation adaptation: Syntactic priming is affected by the prime’s
+prediction error given both prior and recent experience. Cognition, 127(1),
+57–83. doi:10.1016/j.cognition.2012.10.013
+Reitter, D., Moore, J. D., & Keller, F. (2006). Priming of Syntactic Rules
+in Task-Oriented Dialogue and Spontaneous Conversation. In Proceedings of
+the 28th Annual Conference of the Cognitive Science Society (pp. 1–6).Sturt,
+Patrick, Frank Keller, and Amit Dubey. "Syntactic priming in comprehension:
+Parallelism effects with and without coordination." *Journal of Memory and
+Language* 62.4 (2010): 333-351.
+Szmrecsanyi, B. (2005). Language users as creatures of habit: A
+corpus-based analysis of persistence in spoken English. Corpus Linguistics
+and Linguistic Theory, 1(1), 113–150. doi:10.1515/cllt.2005.1.1.113
+
+
+
+On Tue, Jan 21, 2014 at 11:54 AM, Meredith Tamminga <
+tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org> wrote:
+
+> Hello R-lang,
+>
+> I have a dataset consisting of observations of the binary variable ING
+> (e.g. workin' vs working) from conversational speech. I am interested in
+> the priming effect on this variable: to what extent does the most recent
+> prior observation (the prime) affect the outcome of the current observation
+> (the target)? To assess this, I am using the dependent variable of "rep" --
+> does the target have the same value (/in/ or /ing/) as the prime? I intend
+> to use this as the response variable for logistic regression. Available
+> predictors are prime.var (is the prime a token of /ing/ or /in/?),
+> target.var (is the prime a token of /ing/ or /in/?), same.word (are prime
+> and target the same lexical item?), same.gram (do prime and target have the
+> same grammatical status?), log.lag (log2 of the distance in seconds between
+> the prime and the target), and spkr.mean (the mean rate of /ing/ use by the
+> speaker who produced the token). There are 4879 observations (prime/target
+> pairs) from 90 different speakers who have very different mean rates of
+> /ing/ use. The prime and the target are always from the same speaker.
+>
+> So here's the problem: I can't figure out how to account for the fact that
+> repetition of the variant is more likely as a matter of course (rather than
+> as a matter of priming) when speakers have rates of /ing/ use near 0% or
+> 100%. I am particularly interested in testing the hypothesis of an
+> interaction between prime.var and spkr.mean: that for speakers who have low
+> /in/ rates, /in/ is a stronger prime than /ing/, whereas for speakers who
+> have low /ing/ rates, /ing/ is a stronger prime than /in/. If I include
+> prime.var * spkr.mean in the model, though, the effect I am looking for is
+> obscured by the trivial fact that speakers who use /ing/ a lot will
+> naturally be likely to have another /ing/ target after an /ing/ prime, and
+> speakers who use /in/ a lot will naturally be likely to have an /in/ target
+> after an /in/ prime. What I'm trying to figure out is whether there is an
+> interaction of prime.var and spkr.mean *beyond* what is expected just given
+> that the prime and target share a bias.
+>
+> If anyone can make any suggestions for how to proceed here it would be
+> much appreciated. Please let me know if there's anything I can clarify or
+> add.
+>
+> Thanks!
+> Meredith
+>
+
+From tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org  Fri Jan 24 14:57:09 2014
+From: tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org (Meredith Tamminga)
+Date: Fri, 24 Jan 2014 09:57:09 -0500
+Subject: Re: Relationship between individual speaker mean and priming in conversational speech data
+In-Reply-To: <CAG2Vd7iCNHsN=u8WBu9Uaye_Z86h_hNPBTjk2EfpmZ3FykxhjQ@mail.gmail.com>
+References: <CAHue2ppggwX8kYQc=JLK_AR4aiPEDP_dPYUyYLD3=R6Qqp4Oqw@mail.gmail.com> <CAG2Vd7iCNHsN=u8WBu9Uaye_Z86h_hNPBTjk2EfpmZ3FykxhjQ@mail.gmail.com>
+Message-ID: <CAHue2ponQcB165n2P-88qxY6c+f4Kv646VFuREGz84zSS582hQ@mail.gmail.com>
+
+Hi Florian,
+
+Thanks for the response. I'm reassured that you think a random by-speaker
+intercept will filter out the speaker baseline usage effect, since I've
+been using that approach in other portions of this project. I've done a bit
+of simulation testing this out and it does seem to be fine, at least for
+the distributions of between-speaker differences I'm working with.
+
+But, I'm still not sure how to then separate out and identify any
+*true*effect of the speaker baseline rate on persistence. In Jaeger &
+Snider 2007
+you ask the very interesting question "probable given what?" about how
+surprisal affects the strength of the persistence effect. What I really
+want to ask here is whether there is an effect of an individual speaker's
+habitual usage in terms of whether /in/ or /ing/ seems more surprising, or
+whether the speakers generally share an evaluation where, say, /in/
+provokes a larger persistence effect because it is nonstandard. In other
+words, could one aspect of the surprisal effect on persistence be "probable
+given the speaker's own preferences"? The problem, then, is to disentangle
+the uninteresting effect (that speakers with more extreme baselines have
+more apparent clustering as a matter of course) from the potential effect
+of interest (an effect where different speaker baselines produce greater or
+lesser degrees of persistence *beyond* the amount expected if there were no
+priming at work).
+
+I'm not aware of any other work in this area that has really grappled with
+this issue yet -- since it's a question that I don't believe has been
+asked. Your work on the preference of individual verbs for certain
+constructions doesn't face this problem, I don't think, because the prime
+and target aren't constrained to be drawn from the same distribution.
+
+One possibility I've been considering is some sort of transformation of the
+speaker baseline, so that in simulated data generated through a set of
+binomial trials with the weights of the empirical speaker baselines there
+would be no apparent relationship between baseline and amount of
+clustering. I haven't worked out quite what transformation that should be,
+and I'm not entirely convinced it's a good approach.
+
+Any further thoughts are much appreciated!
+
+Meredith
+
+
+
+
+On Wed, Jan 22, 2014 at 11:53 PM, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Q at public.gmane.orgu
+> wrote:
+
+> Hi Meredith,
+>
+> I think that a mixed model with a random by-speaker intercept should
+> successfully filter out the speaker baseline usage effect (though I haven't
+> simulated how well this works, depending on the distribution of
+> between-speaker differences). This approach is used in e.g., Jaeger (2006,
+> 2010) and Jaeger & Snider (2013, Study 1). A slightly different approach is
+> presented by Reitter (2006 and follow up) who focuses on the idea of
+> distance-based decay of priming (rather than a priming main effect). There
+> are variety of alternative approaches discussed in the literature. For
+> example, researchers from Frank Keller's lab have used a first half vs.
+> second half of conversation comparison. I forgot the reference to the
+> original proposal they cite, but if memory serves right Dubbey et al. 2010
+> discuss and use this approach.
+>
+> You might also want into Gries 2005 and Szmrecsanyi 2005 though I don't
+> recall whether they in any way controlled for the baseline issue.
+>
+> HTH & sorry if I misrepresented anyone's work,
+>
+> Florian
+>
+> Gries, S. T. (2005). Syntactic priming: a corpus-based approach. Journal
+> of Psycholinguistic Research, 34(4), 365–99. doi:10.1007/s10936-005-6139-3
+> Jaeger, T. F., & Snider, N. E. (2013). Alignment as a consequence of
+> expectation adaptation: Syntactic priming is affected by the prime’s
+> prediction error given both prior and recent experience. Cognition, 127(1),
+> 57–83. doi:10.1016/j.cognition.2012.10.013
+> Reitter, D., Moore, J. D., & Keller, F. (2006). Priming of Syntactic Rules
+> in Task-Oriented Dialogue and Spontaneous Conversation. In Proceedings of
+> the 28th Annual Conference of the Cognitive Science Society (pp. 1–6).Sturt,
+> Patrick, Frank Keller, and Amit Dubey. "Syntactic priming in comprehension:
+> Parallelism effects with and without coordination." *Journal of Memory
+> and Language* 62.4 (2010): 333-351.
+> Szmrecsanyi, B. (2005). Language users as creatures of habit: A
+> corpus-based analysis of persistence in spoken English. Corpus Linguistics
+> and Linguistic Theory, 1(1), 113–150. doi:10.1515/cllt.2005.1.1.113
+>
+>
+>
+> On Tue, Jan 21, 2014 at 11:54 AM, Meredith Tamminga <
+> tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org> wrote:
+>
+>> Hello R-lang,
+>>
+>> I have a dataset consisting of observations of the binary variable ING
+>> (e.g. workin' vs working) from conversational speech. I am interested in
+>> the priming effect on this variable: to what extent does the most recent
+>> prior observation (the prime) affect the outcome of the current observation
+>> (the target)? To assess this, I am using the dependent variable of "rep" --
+>> does the target have the same value (/in/ or /ing/) as the prime? I intend
+>> to use this as the response variable for logistic regression. Available
+>> predictors are prime.var (is the prime a token of /ing/ or /in/?),
+>> target.var (is the prime a token of /ing/ or /in/?), same.word (are prime
+>> and target the same lexical item?), same.gram (do prime and target have the
+>> same grammatical status?), log.lag (log2 of the distance in seconds between
+>> the prime and the target), and spkr.mean (the mean rate of /ing/ use by the
+>> speaker who produced the token). There are 4879 observations (prime/target
+>> pairs) from 90 different speakers who have very different mean rates of
+>> /ing/ use. The prime and the target are always from the same speaker.
+>>
+>> So here's the problem: I can't figure out how to account for the fact
+>> that repetition of the variant is more likely as a matter of course (rather
+>> than as a matter of priming) when speakers have rates of /ing/ use near 0%
+>> or 100%. I am particularly interested in testing the hypothesis of an
+>> interaction between prime.var and spkr.mean: that for speakers who have low
+>> /in/ rates, /in/ is a stronger prime than /ing/, whereas for speakers who
+>> have low /ing/ rates, /ing/ is a stronger prime than /in/. If I include
+>> prime.var * spkr.mean in the model, though, the effect I am looking for is
+>> obscured by the trivial fact that speakers who use /ing/ a lot will
+>> naturally be likely to have another /ing/ target after an /ing/ prime, and
+>> speakers who use /in/ a lot will naturally be likely to have an /in/ target
+>> after an /in/ prime. What I'm trying to figure out is whether there is an
+>> interaction of prime.var and spkr.mean *beyond* what is expected just given
+>> that the prime and target share a bias.
+>>
+>> If anyone can make any suggestions for how to proceed here it would be
+>> much appreciated. Please let me know if there's anything I can clarify or
+>> add.
+>>
+>> Thanks!
+>> Meredith
+>>
+>
+>
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Sun Jan 26 03:28:15 2014
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Sat, 25 Jan 2014 22:28:15 -0500
+Subject: Re: Relationship between individual speaker mean and priming in conversational speech data
+In-Reply-To: <CAHue2ponQcB165n2P-88qxY6c+f4Kv646VFuREGz84zSS582hQ@mail.gmail.com>
+References: <CAHue2ppggwX8kYQc=JLK_AR4aiPEDP_dPYUyYLD3=R6Qqp4Oqw@mail.gmail.com> <CAG2Vd7iCNHsN=u8WBu9Uaye_Z86h_hNPBTjk2EfpmZ3FykxhjQ@mail.gmail.com> <CAHue2ponQcB165n2P-88qxY6c+f4Kv646VFuREGz84zSS582hQ@mail.gmail.com>
+Message-ID: <CAG2Vd7hSKcUT0jGs5iq5WJyhwPS3Vhed8u=ystbF-XcN-yMCvg@mail.gmail.com>
+
+Hi Meredith,
+
+ha, i love that question (yours). I recall that in the preparation of
+Jaeger & Snider 2013-Cognition, we looked into whether we could answer that
+question in the Switchboard, but there were too few speakers with
+sufficiently many sentences. probably something like Buckeye would be the
+corpus to use. And using -ing as you suggest probably gives you much more
+data than the ditransitives we had. There's some preliminary evidence in
+favor of a positive answer to your question. In Jaeger 2010 -CogPsych, I
+discuss evidence from complement clause priming. I point to the finding
+that complementizer presence primes more strongly in conversational speech
+data (where it's rare) but less strongly in sentence production studies
+(where it's the majority choice). If you search that paper for "syntactic
+priming", you'll find this in the middle of my other ramblings.
+
+Ok, but back to your question.What type of data do you have? If you can
+solidly estimate the production bias of a speaker (ideally for a variety of
+a verbs), e.g., when not talking to anyone or when talking to interlocutor
+A, you should be able to use that to predict how surprising primes during
+*comprehension* are when the same speaker listens to interlocutor B. By
+checking how much the speaker then deviates from her own baseline after a
+comprehension prime, you should be able to tease things apart, no (i.e., in
+this case, you'd be looking at comprehension-to-production priming)? This
+might make sense anyway -- in Jaeger & Snider 13 it seemed like the
+surprisal effects might originate in comprehension, though we discuss
+alternative interpretations, too (see Section 5.4). Are you wondering
+exclusively about production-to-production priming?
+
+Florian
+
+
+On Fri, Jan 24, 2014 at 9:57 AM, Meredith Tamminga <
+tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org> wrote:
+
+> Hi Florian,
+>
+> Thanks for the response. I'm reassured that you think a random by-speaker
+> intercept will filter out the speaker baseline usage effect, since I've
+> been using that approach in other portions of this project. I've done a bit
+> of simulation testing this out and it does seem to be fine, at least for
+> the distributions of between-speaker differences I'm working with.
+>
+> But, I'm still not sure how to then separate out and identify any *true*effect of the speaker baseline rate on persistence. In Jaeger & Snider 2007
+> you ask the very interesting question "probable given what?" about how
+> surprisal affects the strength of the persistence effect. What I really
+> want to ask here is whether there is an effect of an individual speaker's
+> habitual usage in terms of whether /in/ or /ing/ seems more surprising, or
+> whether the speakers generally share an evaluation where, say, /in/
+> provokes a larger persistence effect because it is nonstandard. In other
+> words, could one aspect of the surprisal effect on persistence be "probable
+> given the speaker's own preferences"? The problem, then, is to disentangle
+> the uninteresting effect (that speakers with more extreme baselines have
+> more apparent clustering as a matter of course) from the potential effect
+> of interest (an effect where different speaker baselines produce greater or
+> lesser degrees of persistence *beyond* the amount expected if there were
+> no priming at work).
+>
+> I'm not aware of any other work in this area that has really grappled with
+> this issue yet -- since it's a question that I don't believe has been
+> asked. Your work on the preference of individual verbs for certain
+> constructions doesn't face this problem, I don't think, because the prime
+> and target aren't constrained to be drawn from the same distribution.
+>
+> One possibility I've been considering is some sort of transformation of
+> the speaker baseline, so that in simulated data generated through a set of
+> binomial trials with the weights of the empirical speaker baselines there
+> would be no apparent relationship between baseline and amount of
+> clustering. I haven't worked out quite what transformation that should be,
+> and I'm not entirely convinced it's a good approach.
+>
+> Any further thoughts are much appreciated!
+>
+> Meredith
+>
+>
+>
+>
+> On Wed, Jan 22, 2014 at 11:53 PM, T. Florian Jaeger <
+> tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:
+>
+>> Hi Meredith,
+>>
+>> I think that a mixed model with a random by-speaker intercept should
+>> successfully filter out the speaker baseline usage effect (though I haven't
+>> simulated how well this works, depending on the distribution of
+>> between-speaker differences). This approach is used in e.g., Jaeger (2006,
+>> 2010) and Jaeger & Snider (2013, Study 1). A slightly different approach is
+>> presented by Reitter (2006 and follow up) who focuses on the idea of
+>> distance-based decay of priming (rather than a priming main effect). There
+>> are variety of alternative approaches discussed in the literature. For
+>> example, researchers from Frank Keller's lab have used a first half vs.
+>> second half of conversation comparison. I forgot the reference to the
+>> original proposal they cite, but if memory serves right Dubbey et al. 2010
+>> discuss and use this approach.
+>>
+>> You might also want into Gries 2005 and Szmrecsanyi 2005 though I don't
+>> recall whether they in any way controlled for the baseline issue.
+>>
+>> HTH & sorry if I misrepresented anyone's work,
+>>
+>> Florian
+>>
+>> Gries, S. T. (2005). Syntactic priming: a corpus-based approach. Journal
+>> of Psycholinguistic Research, 34(4), 365–99. doi:10.1007/s10936-005-6139-3
+>> Jaeger, T. F., & Snider, N. E. (2013). Alignment as a consequence of
+>> expectation adaptation: Syntactic priming is affected by the prime’s
+>> prediction error given both prior and recent experience. Cognition, 127(1),
+>> 57–83. doi:10.1016/j.cognition.2012.10.013
+>> Reitter, D., Moore, J. D., & Keller, F. (2006). Priming of Syntactic
+>> Rules in Task-Oriented Dialogue and Spontaneous Conversation. In
+>> Proceedings of the 28th Annual Conference of the Cognitive Science Society
+>> (pp. 1–6).Sturt, Patrick, Frank Keller, and Amit Dubey. "Syntactic
+>> priming in comprehension: Parallelism effects with and without
+>> coordination." *Journal of Memory and Language* 62.4 (2010): 333-351.
+>> Szmrecsanyi, B. (2005). Language users as creatures of habit: A
+>> corpus-based analysis of persistence in spoken English. Corpus Linguistics
+>> and Linguistic Theory, 1(1), 113–150. doi:10.1515/cllt.2005.1.1.113
+>>
+>>
+>>
+>> On Tue, Jan 21, 2014 at 11:54 AM, Meredith Tamminga <
+>> tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org> wrote:
+>>
+>>> Hello R-lang,
+>>>
+>>> I have a dataset consisting of observations of the binary variable ING
+>>> (e.g. workin' vs working) from conversational speech. I am interested in
+>>> the priming effect on this variable: to what extent does the most recent
+>>> prior observation (the prime) affect the outcome of the current observation
+>>> (the target)? To assess this, I am using the dependent variable of "rep" --
+>>> does the target have the same value (/in/ or /ing/) as the prime? I intend
+>>> to use this as the response variable for logistic regression. Available
+>>> predictors are prime.var (is the prime a token of /ing/ or /in/?),
+>>> target.var (is the prime a token of /ing/ or /in/?), same.word (are prime
+>>> and target the same lexical item?), same.gram (do prime and target have the
+>>> same grammatical status?), log.lag (log2 of the distance in seconds between
+>>> the prime and the target), and spkr.mean (the mean rate of /ing/ use by the
+>>> speaker who produced the token). There are 4879 observations (prime/target
+>>> pairs) from 90 different speakers who have very different mean rates of
+>>> /ing/ use. The prime and the target are always from the same speaker.
+>>>
+>>> So here's the problem: I can't figure out how to account for the fact
+>>> that repetition of the variant is more likely as a matter of course (rather
+>>> than as a matter of priming) when speakers have rates of /ing/ use near 0%
+>>> or 100%. I am particularly interested in testing the hypothesis of an
+>>> interaction between prime.var and spkr.mean: that for speakers who have low
+>>> /in/ rates, /in/ is a stronger prime than /ing/, whereas for speakers who
+>>> have low /ing/ rates, /ing/ is a stronger prime than /in/. If I include
+>>> prime.var * spkr.mean in the model, though, the effect I am looking for is
+>>> obscured by the trivial fact that speakers who use /ing/ a lot will
+>>> naturally be likely to have another /ing/ target after an /ing/ prime, and
+>>> speakers who use /in/ a lot will naturally be likely to have an /in/ target
+>>> after an /in/ prime. What I'm trying to figure out is whether there is an
+>>> interaction of prime.var and spkr.mean *beyond* what is expected just given
+>>> that the prime and target share a bias.
+>>>
+>>> If anyone can make any suggestions for how to proceed here it would be
+>>> much appreciated. Please let me know if there's anything I can clarify or
+>>> add.
+>>>
+>>> Thanks!
+>>> Meredith
+>>>
+>>
+>>
+>
+
+From tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org  Sun Jan 26 04:02:30 2014
+From: tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org (Meredith Tamminga)
+Date: Sat, 25 Jan 2014 23:02:30 -0500
+Subject: Re: Relationship between individual speaker mean and priming in conversational speech data
+In-Reply-To: <CAG2Vd7hSKcUT0jGs5iq5WJyhwPS3Vhed8u=ystbF-XcN-yMCvg@mail.gmail.com>
+References: <CAHue2ppggwX8kYQc=JLK_AR4aiPEDP_dPYUyYLD3=R6Qqp4Oqw@mail.gmail.com> <CAG2Vd7iCNHsN=u8WBu9Uaye_Z86h_hNPBTjk2EfpmZ3FykxhjQ@mail.gmail.com> <CAHue2ponQcB165n2P-88qxY6c+f4Kv646VFuREGz84zSS582hQ@mail.gmail.com> <CAG2Vd7hSKcUT0jGs5iq5WJyhwPS3Vhed8u=ystbF-XcN-yMCvg@mail.gmail.com>
+Message-ID: <CAHue2poX1c9rufQDxEOFJ5WRZPbrFdR4zxLN4SWC6+K1aLtQRg@mail.gmail.com>
+
+Hi Florian,
+
+Ah, yeah turning it around to comprehension-to-production priming would
+definitely do the trick! I hadn't thought of that. Unfortunately right now
+I don't have that data because I haven't coded the interlocutor speech, so
+I only have production-to-production data (and I exclude observations where
+the target should be considered "primed" by some other interlocutor).
+Here's what I do have: 122 interviews from the Philadelphia Neighborhood
+Corpus, with /ing/-vs-/in/ coded for all types of ING (not just verbs, also
+nouns etc). There's an average of 39 tokens for each speaker, total N=4803,
+but some speakers have a lot more data than other. So for example if I
+exclude speakers with fewer than 50 tokens, there are 45 speakers with a
+mean of 83 tokens each.
+
+Let me know if there's any other info I can provide or if you'd like me to
+send the data your way. I'm starting to think that even with what I
+originally thought was a lot of data (ditched Buckeye as insufficient a
+while ago!), it's still not going to be possible to do what I'm trying to
+do. In which case I may have to table the question until I get the
+interlocutor data coded to try out your suggestion...
+
+Thanks!
+Meredith
+
+
+
+
+On Sat, Jan 25, 2014 at 10:28 PM, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Q at public.gmane.orgu
+> wrote:
+
+> Hi Meredith,
+>
+> ha, i love that question (yours). I recall that in the preparation of
+> Jaeger & Snider 2013-Cognition, we looked into whether we could answer that
+> question in the Switchboard, but there were too few speakers with
+> sufficiently many sentences. probably something like Buckeye would be the
+> corpus to use. And using -ing as you suggest probably gives you much more
+> data than the ditransitives we had. There's some preliminary evidence in
+> favor of a positive answer to your question. In Jaeger 2010 -CogPsych, I
+> discuss evidence from complement clause priming. I point to the finding
+> that complementizer presence primes more strongly in conversational speech
+> data (where it's rare) but less strongly in sentence production studies
+> (where it's the majority choice). If you search that paper for "syntactic
+> priming", you'll find this in the middle of my other ramblings.
+>
+> Ok, but back to your question.What type of data do you have? If you can
+> solidly estimate the production bias of a speaker (ideally for a variety of
+> a verbs), e.g., when not talking to anyone or when talking to interlocutor
+> A, you should be able to use that to predict how surprising primes during
+> *comprehension* are when the same speaker listens to interlocutor B. By
+> checking how much the speaker then deviates from her own baseline after a
+> comprehension prime, you should be able to tease things apart, no (i.e., in
+> this case, you'd be looking at comprehension-to-production priming)? This
+> might make sense anyway -- in Jaeger & Snider 13 it seemed like the
+> surprisal effects might originate in comprehension, though we discuss
+> alternative interpretations, too (see Section 5.4). Are you wondering
+> exclusively about production-to-production priming?
+>
+> Florian
+>
+>
+> On Fri, Jan 24, 2014 at 9:57 AM, Meredith Tamminga <
+> tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org> wrote:
+>
+>> Hi Florian,
+>>
+>> Thanks for the response. I'm reassured that you think a random by-speaker
+>> intercept will filter out the speaker baseline usage effect, since I've
+>> been using that approach in other portions of this project. I've done a bit
+>> of simulation testing this out and it does seem to be fine, at least for
+>> the distributions of between-speaker differences I'm working with.
+>>
+>> But, I'm still not sure how to then separate out and identify any *true*effect of the speaker baseline rate on persistence. In Jaeger & Snider 2007
+>> you ask the very interesting question "probable given what?" about how
+>> surprisal affects the strength of the persistence effect. What I really
+>> want to ask here is whether there is an effect of an individual speaker's
+>> habitual usage in terms of whether /in/ or /ing/ seems more surprising, or
+>> whether the speakers generally share an evaluation where, say, /in/
+>> provokes a larger persistence effect because it is nonstandard. In other
+>> words, could one aspect of the surprisal effect on persistence be "probable
+>> given the speaker's own preferences"? The problem, then, is to disentangle
+>> the uninteresting effect (that speakers with more extreme baselines have
+>> more apparent clustering as a matter of course) from the potential effect
+>> of interest (an effect where different speaker baselines produce greater or
+>> lesser degrees of persistence *beyond* the amount expected if there were
+>> no priming at work).
+>>
+>> I'm not aware of any other work in this area that has really grappled
+>> with this issue yet -- since it's a question that I don't believe has been
+>> asked. Your work on the preference of individual verbs for certain
+>> constructions doesn't face this problem, I don't think, because the prime
+>> and target aren't constrained to be drawn from the same distribution.
+>>
+>> One possibility I've been considering is some sort of transformation of
+>> the speaker baseline, so that in simulated data generated through a set of
+>> binomial trials with the weights of the empirical speaker baselines there
+>> would be no apparent relationship between baseline and amount of
+>> clustering. I haven't worked out quite what transformation that should be,
+>> and I'm not entirely convinced it's a good approach.
+>>
+>> Any further thoughts are much appreciated!
+>>
+>> Meredith
+>>
+>>
+>>
+>>
+>> On Wed, Jan 22, 2014 at 11:53 PM, T. Florian Jaeger <
+>> tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:
+>>
+>>> Hi Meredith,
+>>>
+>>> I think that a mixed model with a random by-speaker intercept should
+>>> successfully filter out the speaker baseline usage effect (though I haven't
+>>> simulated how well this works, depending on the distribution of
+>>> between-speaker differences). This approach is used in e.g., Jaeger (2006,
+>>> 2010) and Jaeger & Snider (2013, Study 1). A slightly different approach is
+>>> presented by Reitter (2006 and follow up) who focuses on the idea of
+>>> distance-based decay of priming (rather than a priming main effect). There
+>>> are variety of alternative approaches discussed in the literature. For
+>>> example, researchers from Frank Keller's lab have used a first half vs.
+>>> second half of conversation comparison. I forgot the reference to the
+>>> original proposal they cite, but if memory serves right Dubbey et al. 2010
+>>> discuss and use this approach.
+>>>
+>>> You might also want into Gries 2005 and Szmrecsanyi 2005 though I don't
+>>> recall whether they in any way controlled for the baseline issue.
+>>>
+>>> HTH & sorry if I misrepresented anyone's work,
+>>>
+>>> Florian
+>>>
+>>> Gries, S. T. (2005). Syntactic priming: a corpus-based approach. Journal
+>>> of Psycholinguistic Research, 34(4), 365–99. doi:10.1007/s10936-005-6139-3
+>>> Jaeger, T. F., & Snider, N. E. (2013). Alignment as a consequence of
+>>> expectation adaptation: Syntactic priming is affected by the prime’s
+>>> prediction error given both prior and recent experience. Cognition, 127(1),
+>>> 57–83. doi:10.1016/j.cognition.2012.10.013
+>>> Reitter, D., Moore, J. D., & Keller, F. (2006). Priming of Syntactic
+>>> Rules in Task-Oriented Dialogue and Spontaneous Conversation. In
+>>> Proceedings of the 28th Annual Conference of the Cognitive Science Society
+>>> (pp. 1–6).Sturt, Patrick, Frank Keller, and Amit Dubey. "Syntactic
+>>> priming in comprehension: Parallelism effects with and without
+>>> coordination." *Journal of Memory and Language* 62.4 (2010): 333-351.
+>>> Szmrecsanyi, B. (2005). Language users as creatures of habit: A
+>>> corpus-based analysis of persistence in spoken English. Corpus Linguistics
+>>> and Linguistic Theory, 1(1), 113–150. doi:10.1515/cllt.2005.1.1.113
+>>>
+>>>
+>>>
+>>> On Tue, Jan 21, 2014 at 11:54 AM, Meredith Tamminga <
+>>> tamminga-7VyBIop1SPtHKdhZPQGBvvZ8FUJU4vz8 at public.gmane.org> wrote:
+>>>
+>>>> Hello R-lang,
+>>>>
+>>>> I have a dataset consisting of observations of the binary variable ING
+>>>> (e.g. workin' vs working) from conversational speech. I am interested in
+>>>> the priming effect on this variable: to what extent does the most recent
+>>>> prior observation (the prime) affect the outcome of the current observation
+>>>> (the target)? To assess this, I am using the dependent variable of "rep" --
+>>>> does the target have the same value (/in/ or /ing/) as the prime? I intend
+>>>> to use this as the response variable for logistic regression. Available
+>>>> predictors are prime.var (is the prime a token of /ing/ or /in/?),
+>>>> target.var (is the prime a token of /ing/ or /in/?), same.word (are prime
+>>>> and target the same lexical item?), same.gram (do prime and target have the
+>>>> same grammatical status?), log.lag (log2 of the distance in seconds between
+>>>> the prime and the target), and spkr.mean (the mean rate of /ing/ use by the
+>>>> speaker who produced the token). There are 4879 observations (prime/target
+>>>> pairs) from 90 different speakers who have very different mean rates of
+>>>> /ing/ use. The prime and the target are always from the same speaker.
+>>>>
+>>>> So here's the problem: I can't figure out how to account for the fact
+>>>> that repetition of the variant is more likely as a matter of course (rather
+>>>> than as a matter of priming) when speakers have rates of /ing/ use near 0%
+>>>> or 100%. I am particularly interested in testing the hypothesis of an
+>>>> interaction between prime.var and spkr.mean: that for speakers who have low
+>>>> /in/ rates, /in/ is a stronger prime than /ing/, whereas for speakers who
+>>>> have low /ing/ rates, /ing/ is a stronger prime than /in/. If I include
+>>>> prime.var * spkr.mean in the model, though, the effect I am looking for is
+>>>> obscured by the trivial fact that speakers who use /ing/ a lot will
+>>>> naturally be likely to have another /ing/ target after an /ing/ prime, and
+>>>> speakers who use /in/ a lot will naturally be likely to have an /in/ target
+>>>> after an /in/ prime. What I'm trying to figure out is whether there is an
+>>>> interaction of prime.var and spkr.mean *beyond* what is expected just given
+>>>> that the prime and target share a bias.
+>>>>
+>>>> If anyone can make any suggestions for how to proceed here it would be
+>>>> much appreciated. Please let me know if there's anything I can clarify or
+>>>> add.
+>>>>
+>>>> Thanks!
+>>>> Meredith
+>>>>
+>>>
+>>>
+>>
+>
+
+From kaan-hnhdhkBXzx8 at public.gmane.org  Wed Jan 29 01:36:05 2014
+From: kaan-hnhdhkBXzx8 at public.gmane.org (Edith Kaan)
+Date: Wed, 29 Jan 2014 01:36:05 +0000
+Subject: Recommended text books?
+Message-ID: <874A1E27FEEC874CBD00A34FF8EDEBC63C0E85FC@UFEXCH-MBXN04.ad.ufl.edu>
+
+Dear R-Lang community,
+
+
+
+I am looking for a simple book, or other text, that introduces R and multilevel modelling to psycholinguists. Any recommendations?
+
+Thanks!
+
+
+
+Edith Kaan
+University of Florida
+kaan-hnhdhkBXzx8 at public.gmane.org<mailto:kaan-hnhdhkBXzx8 at public.gmane.org>
+
+From maya.dank-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Jan 29 06:46:02 2014
+From: maya.dank-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Maya Dank)
+Date: Wed, 29 Jan 2014 08:46:02 +0200
+Subject: Re: Recommended text books?
+In-Reply-To: <874A1E27FEEC874CBD00A34FF8EDEBC63C0E85FC@UFEXCH-MBXN04.ad.ufl.edu>
+References: <874A1E27FEEC874CBD00A34FF8EDEBC63C0E85FC@UFEXCH-MBXN04.ad.ufl.edu>
+Message-ID: <CAMGe451CLoWkPj6w-JEJowATmYPZKCty_G5RLTHvTFN8OHHgJw@mail.gmail.com>
+
+Hi,
+
+I recommend Baayen's *Analyzing Linguistic Data: A Practical Guide to
+Statistics using R*.
+Hope it helps!
+
+Maya Dank
+
+
+On Wed, Jan 29, 2014 at 3:36 AM, Edith Kaan <kaan-hnhdhkBXzx8 at public.gmane.org> wrote:
+
+>   Dear R-Lang community,
+>
+>
+>
+> I am looking for a simple book, or other text, that introduces R and
+> multilevel modelling to psycholinguists. Any recommendations?
+>
+> Thanks!
+>
+>
+>  Edith Kaan
+> University of Florida
+> kaan-hnhdhkBXzx8 at public.gmane.org
+>
+>
+>
+>
+>
+
+From max.coltheart-EKjDg2YBFtyHXe+LvDLADg at public.gmane.org  Wed Jan 29 13:16:23 2014
+From: max.coltheart-EKjDg2YBFtyHXe+LvDLADg at public.gmane.org (Max Coltheart)
+Date: Thu, 30 Jan 2014 00:16:23 +1100
+Subject: Re: Recommended text books?
+In-Reply-To: <CAMGe451CLoWkPj6w-JEJowATmYPZKCty_G5RLTHvTFN8OHHgJw@mail.gmail.com>
+References: <874A1E27FEEC874CBD00A34FF8EDEBC63C0E85FC@UFEXCH-MBXN04.ad.ufl.edu> <CAMGe451CLoWkPj6w-JEJowATmYPZKCty_G5RLTHvTFN8OHHgJw@mail.gmail.com>
+Message-ID: <714DD818-F49C-4A49-B737-16E2A0D61009@mq.edu.au>
+
+
+On 29/01/2014, at 5:46 PM, Maya Dank <maya.dank-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> Hi,
+> 
+> I recommend Baayen's Analyzing Linguistic Data: A Practical Guide to Statistics using R.
+> Hope it helps!
+
+I second that.
+
+I also think that Andy Field's "Discovering Statistics Using R" is very handy.
+
+Max C
+
+
+> 
+> Maya Dank  
+> 
+> 
+> On Wed, Jan 29, 2014 at 3:36 AM, Edith Kaan <kaan-hnhdhkBXzx8 at public.gmane.org> wrote:
+> Dear R-Lang community,
+> 
+>  
+> I am looking for a simple book, or other text, that introduces R and multilevel modelling to psycholinguists. Any recommendations?
+> 
+> Thanks!
+> 
+>  
+> Edith Kaan
+> University of Florida  
+> kaan-hnhdhkBXzx8 at public.gmane.org
+>  
+>  
+>  
+>  
+> 
+> 
+> 
+> 
+
+--------------------------------------------------------
+
+Professor Max Coltheart AM DSc Hon D Litt (Macq) FASSA FAA FBA
+
+ARC Centre of Excellence in Cognition and its Disorders (CCD), and Department of Cognitive Science, Macquarie University.
+
+Emeritus Professor of Cognitive Science, Macquarie University
+
+Honorary Professor of Psychology, University of Queensland
+
+Email:  max.coltheart-EKjDg2YBFtyHXe+LvDLADg at public.gmane.org
+
+Tel: 0431 468 390
+
+Fax: +61 2 9850 6067 (work)  +61 2 9418 7101 (home)
+
+Twitter: @maxcoltheart
+
+Mailing address: Department of Cognitive Science, Macquarie University, Sydney NSW 2109 AUSTRALIA
+
+Office: Level 3 room 822 Australian Hearing Hub building
+
+My whereabouts:
+
+  http://www.google.com/calendar/embed?src=max.coltheart at mq.edu.au&ctz=Australia/Sydney
+
+From Martin.Corley-5WhEfG1TI8k at public.gmane.org  Wed Jan 29 16:53:06 2014
+From: Martin.Corley-5WhEfG1TI8k at public.gmane.org (Martin Corley)
+Date: Wed, 29 Jan 2014 16:53:06 +0000
+Subject: Re: Recommended text books?
+In-Reply-To: <714DD818-F49C-4A49-B737-16E2A0D61009@mq.edu.au>
+References: <874A1E27FEEC874CBD00A34FF8EDEBC63C0E85FC@UFEXCH-MBXN04.ad.ufl.edu> <CAMGe451CLoWkPj6w-JEJowATmYPZKCty_G5RLTHvTFN8OHHgJw@mail.gmail.com> <714DD818-F49C-4A49-B737-16E2A0D61009@mq.edu.au>
+Message-ID: <52E931F2.6000505@ed.ac.uk>
+
+On 29/01/14 13:16, Max Coltheart wrote:
+>> Hi,
+>> > 
+>> > I recommend Baayen's Analyzing Linguistic Data: A Practical Guide to Statistics using R.
+>> > Hope it helps!
+> I second that.
+> 
+> I also think that Andy Field's "Discovering Statistics Using R" is very handy.
+
+Hi Edith,
+
+it depends a lot who you're teaching.  Baayen's book is good for people
+with a decent background in stats, a good linguistic vocabulary, and no
+fear of programming; Field's book is OK, I guess, but really seems to be
+aimed at replicating SPSS in R (and there are some weird decisions, not
+least the recommendation of R Commander over R Studio!).
+
+We've tried both (and homebrew) for Masters-level courses at Edinburgh;
+we've been teaching R for about 5 years now, each year to ~70 students
+from highly diverse backgrounds.  Neither book has worked very well.
+Many of our students don't seem to have the right background for Baayen,
+and find it intimidating; those with Psych/SPSS backgrounds can't work
+out why you'd want to do SPSS "the hard way" in Field, and it has a
+mixed reception from the rest, not least because we have to tell them to
+ignore quite a bit of his advice.
+
+We've decided that the only sensible way to teach our MSc students is to
+run a stats course which starts (nearly) from scratch, allowing us to
+ensure that they speak a common statistical language, and to introduce
+core concepts and R alongside each other. If students' foundations in
+regression etc. are good, it's relatively easy for them to grasp
+multilevel modelling.
+
+Luckily, there's a pretty good book, if this is the way you choose to
+go: Daniel Navarro's (free!) "Learning Statistics with R",
+http://health.adelaide.edu.au/psychology/ccs/teaching/lsr/.  It doesn't
+get as far as repeated measures (let alone mixed models), but it
+provides solid and in-depth foundations in statistics and in R.  I think
+it's one of the better books I've seen; maybe it will suit your purposes.
+
+--MC
+
+-- 
+Martin Corley                                  Martin.Corley-5WhEfG1TI8k at public.gmane.org
+                http://homepages.ed.ac.uk/martinc/
+Philosophy, Psychology and Language Sciences, University of Edinburgh
+
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+From abfine-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Jan 29 16:54:23 2014
+From: abfine-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Alex Fine)
+Date: Wed, 29 Jan 2014 10:54:23 -0600
+Subject: Re: Recommended text books?
+In-Reply-To: <714DD818-F49C-4A49-B737-16E2A0D61009@mq.edu.au>
+References: <874A1E27FEEC874CBD00A34FF8EDEBC63C0E85FC@UFEXCH-MBXN04.ad.ufl.edu> <CAMGe451CLoWkPj6w-JEJowATmYPZKCty_G5RLTHvTFN8OHHgJw@mail.gmail.com> <714DD818-F49C-4A49-B737-16E2A0D61009@mq.edu.au>
+Message-ID: <CAJ6ui+Nq6s9Cgj5gVpyT83+VaxBDCZbLqUE_76ouEPyfAT7TbQ@mail.gmail.com>
+
+A few years ago, some of us in Florian Jaeger's lab worked through several
+chapters of Andrew Gelman and Jennifer Hill's 2007 book, _Data analysis
+using regression and multilevel/hierarchical models_.  We all really liked
+it (right, guys?).  It's not directed at psycholinguists, but the
+exposition is really thorough and clear, and the examples in each chapter
+are useful (and worked out in R).  I still refer to it all the time.
+
+The book assumes you already know how to use R, though.  It could serve as
+a more technical supplement to the Baayen book, maybe.
+
+
+On Wed, Jan 29, 2014 at 7:16 AM, Max Coltheart <max.coltheart-EKjDg2YBFtyHXe+LvDLADg at public.gmane.org>wrote:
+
+>
+> On 29/01/2014, at 5:46 PM, Maya Dank <maya.dank-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>
+> Hi,
+>
+> I recommend Baayen's *Analyzing Linguistic Data: A Practical Guide to
+> Statistics using R*.
+> Hope it helps!
+>
+>
+> I second that.
+>
+> I also think that Andy Field's "Discovering Statistics Using R" is very
+> handy.
+>
+> Max C
+>
+>
+>
+> Maya Dank
+>
+>
+> On Wed, Jan 29, 2014 at 3:36 AM, Edith Kaan <kaan-hnhdhkBXzx8 at public.gmane.org> wrote:
+>
+>>  Dear R-Lang community,
+>>
+>>
+>> I am looking for a simple book, or other text, that introduces R and
+>> multilevel modelling to psycholinguists. Any recommendations?
+>>
+>> Thanks!
+>>
+>>  Edith Kaan
+>> University of Florida
+>> kaan-hnhdhkBXzx8 at public.gmane.org
+>>
+>>
+>>
+>>
+>>
+>
+>
+>
+>
+>
+> --------------------------------------------------------
+>
+> Professor Max Coltheart AM DSc Hon D Litt (Macq) FASSA FAA FBA
+>
+> ARC Centre of Excellence in Cognition and its Disorders (CCD), and
+> Department of Cognitive Science, Macquarie University.
+>
+> Emeritus Professor of Cognitive Science, Macquarie University
+>
+> Honorary Professor of Psychology, University of Queensland
+>
+> Email:  max.coltheart-EKjDg2YBFtyHXe+LvDLADg at public.gmane.org
+>
+> Tel: 0431 468 390
+>
+> Fax: +61 2 9850 6067 (work)  +61 2 9418 7101 (home)
+>
+> Twitter: @maxcoltheart
+>
+> Mailing address: Department of Cognitive Science, Macquarie University,
+> Sydney NSW 2109 AUSTRALIA
+>
+> Office: Level 3 room 822 Australian Hearing Hub building
+>
+> My whereabouts:
+>
+>
+> http://www.google.com/calendar/embed?src=max.coltheart at mq.edu.au&ctz=Australia/Sydney
+>
+>
+>
+>
+>
+>
+>
+
+
+-- 
+Alex Fine
+NIH Post-doctoral Fellow
+Psychology Department
+University of Illinois at Urbana-Champaign
+phone:  336.302.3251
+web:  http://internal.psychology.illinois.edu/~abfine/<http://internal.psychology.illinois.edu/~abfine/AlexFineHome.html>
+
+From Martin.Corley-5WhEfG1TI8k at public.gmane.org  Wed Jan 29 16:59:16 2014
+From: Martin.Corley-5WhEfG1TI8k at public.gmane.org (Martin Corley)
+Date: Wed, 29 Jan 2014 16:59:16 +0000
+Subject: Re: Recommended text books?
+In-Reply-To: <CAJ6ui+Nq6s9Cgj5gVpyT83+VaxBDCZbLqUE_76ouEPyfAT7TbQ@mail.gmail.com>
+References: <874A1E27FEEC874CBD00A34FF8EDEBC63C0E85FC@UFEXCH-MBXN04.ad.ufl.edu> <CAMGe451CLoWkPj6w-JEJowATmYPZKCty_G5RLTHvTFN8OHHgJw@mail.gmail.com> <714DD818-F49C-4A49-B737-16E2A0D61009@mq.edu.au> <CAJ6ui+Nq6s9Cgj5gVpyT83+VaxBDCZbLqUE_76ouEPyfAT7TbQ@mail.gmail.com>
+Message-ID: <52E93364.1020707@ed.ac.uk>
+
+On 29/01/14 16:54, Alex Fine wrote:
+> A few years ago, some of us in Florian Jaeger's lab worked through several
+> chapters of Andrew Gelman and Jennifer Hill's 2007 book, _Data analysis
+> using regression and multilevel/hierarchical models_.  We all really liked
+> it (right, guys?).
+
+Seconded.  Great book.
+
+--MC
+
+
+-- 
+Martin Corley                                  Martin.Corley-5WhEfG1TI8k at public.gmane.org
+                http://homepages.ed.ac.uk/martinc/
+Philosophy, Psychology and Language Sciences, University of Edinburgh
+
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Wed Jan 29 17:17:20 2014
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Wed, 29 Jan 2014 12:17:20 -0500
+Subject: Re: Recommended text books?
+In-Reply-To: <52E93364.1020707-5WhEfG1TI8k@public.gmane.org>
+References: <874A1E27FEEC874CBD00A34FF8EDEBC63C0E85FC@UFEXCH-MBXN04.ad.ufl.edu> <CAMGe451CLoWkPj6w-JEJowATmYPZKCty_G5RLTHvTFN8OHHgJw@mail.gmail.com> <714DD818-F49C-4A49-B737-16E2A0D61009@mq.edu.au> <CAJ6ui+Nq6s9Cgj5gVpyT83+VaxBDCZbLqUE_76ouEPyfAT7TbQ@mail.gmail.com> <52E93364.1020707@ed.ac.uk>
+Message-ID: <CAG2Vd7hP1So1Waqm=t7rhNxtqtEScTZ5WDCfC3B5zEfgjJDirw@mail.gmail.com>
+
+I second/third both Martin's points about Baayen's book (which I really
+like, but it's not for beginners, unlike they are the type of person who
+sits down and learns a programming language) and Alex's enthusiasm about
+Gelman and Hill. It's a very accessible introduction to regression and
+multilevel modeling (through R, though not primarily).
+
+I think Shravan's new textbook is worth a look (
+http://www.amazon.com/The-Foundations-Statistics-Simulation-based-Approach/dp/3642163122).
+I worked with earlier versions and liked them -- provided you have an
+audience that wants to get an intuitive understanding of the underlying
+mathematical concepts, rather than primarily learning to apply models (I
+think both are fair goals, depending on your priorities).
+
+For some of the more complex concepts, Roger Levy has a collection of
+lecture notes (perhaps in press, Roger?) that I find very illuminating. In
+case it's useful, I also have a bunch of lecture slides on regression and
+mixed models created in knitr (with RStudio), i.e., where the code shown on
+the slides is the one that created the slides. There's further slides by
+Maureen Gillespie (on coding) and Dave Kleinschmidt (on plyr, data
+reshaping, and simulation-based approaches to e.g., Type I error analysis).
+Let me know. Happy to share.
+
+Florian
+
+
+On Wed, Jan 29, 2014 at 11:59 AM, Martin Corley <Martin.Corley-5WhEfG1TI8k at public.gmane.org>wrote:
+
+> On 29/01/14 16:54, Alex Fine wrote:
+> > A few years ago, some of us in Florian Jaeger's lab worked through
+> several
+> > chapters of Andrew Gelman and Jennifer Hill's 2007 book, _Data analysis
+> > using regression and multilevel/hierarchical models_.  We all really
+> liked
+> > it (right, guys?).
+>
+> Seconded.  Great book.
+>
+> --MC
+>
+>
+> --
+> Martin Corley                                  Martin.Corley-5WhEfG1TI8k at public.gmane.org
+>                 http://homepages.ed.ac.uk/martinc/
+> Philosophy, Psychology and Language Sciences, University of Edinburgh
+>
+> The University of Edinburgh is a charitable body, registered in
+> Scotland, with registration number SC005336.
+>
+>
+
+From jl.verissimo-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Jan 31 15:27:52 2014
+From: jl.verissimo-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (=?utf-8?q?Jo=C3=A3o_Ver=C3=ADssimo?=)
+Date: Fri, 31 Jan 2014 16:27:52 +0100
+Subject: Re: Choosing appropriate analysis for proportion data
+Message-ID: <1391182072.2596.22.camel@Joao>
+
+Hi Frank,
+
+If I'm seeing this right, one possibility is fitting a glm(), like Francesco suggested.
+
+resp <- cbind(resp.x, resp.y)
+m.glm <- glm(resp ~ L1, data = yourdata, family = binomial)
+
+But glm() can take as response a "two-column matrix with the columns giving the numbers of successes and failures".
+So you use cbind() on the counts, not on the proportions.
+
+If you fit a mixed-effects model, then you'll use glmer().
+Possible responses should be 0 and 1, and you model all the data points, for each participant.
+
+m.glmer <- glmer(resp.bin ~ L1 + (1|Participant), family=binomial)
+
+I suppose the L1 factor is a between-subjects variable, so it isn't included as a by-participant adjustment.
+But another random intercept can be Item, for every item in you task (with possibly a by-item random slope):
+m.glmer.i <- glmer(resp.bin ~ L1 + (1|Participant) + (1+L1|Item), family=binomial)
+
+(note that, to simplify, I'm ignoring the third type of response here...
+but one solution is fitting a model to x responses vs. all others;
+and then do the same for y responses vs. all others)
+
+Hope this helps,
+João
+
+> I have data from an L2 oral task that has elicited two types of pronouns 
+> X and Y -plus
+> some other category which is irrelevant to the study- from two L1s. In a 
+> table I have reported counts and % proportion for each type of pronoun + 
+> other category over the total amount of possible contexts produced
+> (total x + total y + total z= grand total contexts).
+> 
+> The objective is to verify whether the two groups differ in use of the 
+> two types pronoun, x and y.
+> Crawley (2012, p.590) suggests modelling proportion data as lmer 
+> following a binomial distribution ('family' function in R) since 5 
+> proportions vary between 0 and 100%. There are of course advantages and 
+> disadvantages
+> to this method compared to say counts or binary responses, but 
+> ultimately I need to cope with the fact I
+> have counts, and not items as in experimental tasks, which has 
+> consequences for the model assumed.
+> 
+> Following this line of reasoning Crawley suggests the following measures
+> 
+> y<-cbind(dead,alive) # the proportions for the two types of pronoun are 
+> binded under 1 column I label 'response'
+> 
+> model<-lmer(y~block+treatment+(1block/treatment),binomial,data=data)
+> 
+> First note, nowadays a binomial family analysis needs to be carried out 
+> in glmer and not lmer.
+> 
+> I decide to go down this route, plot my data with a bwplot and remove 
+> outliers. One problem with the data is there are several 0%s but these 
+> are genuine 0s (and not NAs) because subjects had a chance to produce 
+> pronouns but opted to produce only the second type or the other 
+> category, or a mix of both, instead. If my understanding is correct, 
+> then, I can continue with the binomial distribution fit.
+> 
+> My 'response' variable includes the proportions for the two pronoun 
+> types only but not the other category because these are not important. 
+> So here is a first question: does the fact the proportion of the two 
+> pronouns not add up to 100% make a difference to statistical analysis? I 
+> assume not.
+> 
+> After cbind on the proportion of the two pronoun types (outcome 
+> variable), I add a by-participant random effect.  Running glmer I get 
+> the following output:
+> 
+> otdataITTopS3<-glmer(response~L1+(1+L1|Participant), family=binomial, 
+> data=otdataITTopS)
+> 
+> Warning message:
+> In eval(expr, envir, enclos) : non-integer counts in a binomial glm!
+> 
+> # I ignore the warning
+> 
+> Generalized linear mixed model fit by maximum likelihood ['glmerMod']
+>   Family: binomial ( logit )
+> Formula: response ~ 1 + L1 + (1 + L1 | Participant)
+>     Data: otdataITTopS
+> 
+>       AIC      BIC   logLik deviance
+>   16.8927  24.0627  -3.4464   6.8927
+> 
+> Random effects:
+>   Groups      Name        Variance  Std.Dev.  Corr
+>   Participant (Intercept) 3.695e-15 6.079e-08
+>               L1Sp        6.035e-15 7.769e-08 -1.00
+> Number of obs: 31, groups: Participant, 31
+> 
+> Fixed effects:
+>                Estimate Std. Error z value Pr(>|z|)
+> (Intercept)     -19.38 8454922.14       0        1
+> L11              16.98 8454922.14       0        1
+> 
+> Correlation of Fixed Effects:
+>      (Intr)
+> 
+> L11 -1.000
+> 
+> 
+> 
+> Some data In table format:
+> 
+> Participant    L1    Response.V1    Response.V2
+> 
+> 1    A    50    23
+> 2    A    43    17
+> 3    B    11    67
+> 
+> 
+> Something is not right but I don't know what. It looks like I am fitting 
+> to the wrong type of distribution. Any suggestions are welcome.
+> 
+> Finally, from the model output it looks like glmer only took half of the 
+> observations into consideration, say Response.V1 or V2. In total there 
+> should be 62 (31 for each pronoun type). Why so?
+> 
+> Many thanks in advance.
+> 
+> -- 
+> Frank Romano
+> 
+> Sabanci University
+> website: http://sabanciuniv.academia.edu/FrancescoRomano
+

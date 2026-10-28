@@ -1,0 +1,274 @@
+From denis.papathanasiou at gmail.com  Mon Aug  5 23:50:47 2013
+From: denis.papathanasiou at gmail.com (Denis Papathanasiou)
+Date: Mon, 05 Aug 2013 19:50:47 -0400
+Subject: [Rpy] rpy2 matrix object has inaccessible column data
+Message-ID: <CAEpnaGxFbD2D_UEVk=peUiPM+k6pSgUDRdz9ctAUgx5o5PNogQ@mail.gmail.com>
+
+I'm using rpy2 to access quantmod functions like this:
+
+>>> from rpy2.robjects import r
+>>> r('library(quantmod)')
+>>> r('getSymbols("GOOG")')
+>>> g = r('quarterlyReturn(GOOG)')
+
+When I print g, I see it has the dates in the leftmost column:
+
+>>> print g
+           quarterly.returns
+2007-03-30      -0.016824034
+2007-06-29       0.140867819
+2007-09-28       0.085268797
+2007-12-31       0.218960989
+2008-03-31      -0.363003991
+2008-06-30       0.195132472
+2008-09-30      -0.239162646
+2008-12-31      -0.231873564
+2009-03-31       0.131350561
+2009-06-30       0.211256680
+2009-09-30       0.176142698
+2009-12-31       0.250337804
+2010-03-31      -0.085260815
+2010-06-30      -0.215421780
+2010-09-30       0.181683335
+2010-12-31       0.129671542
+2011-03-31      -0.012138660
+2011-06-30      -0.136989570
+2011-09-30       0.017101781
+2011-12-30       0.254077353
+2012-03-30      -0.007214739
+2012-06-29      -0.095393300
+2012-09-28       0.300705087
+2012-12-31      -0.062451955
+2013-03-28       0.122720461
+2013-06-28       0.108513076
+2013-08-02       0.029760214
+
+but when I try to access those dates using native python or R matrix access
+methods, the date data is missing:
+
+>>> g.rx(1, True)
+<Matrix - Python:0x3e237a0 / R:0x483b278>
+[-0.016824]
+>>> g[0]
+-0.01682403433476387
+>>> g[1]
+0.14086781910249702
+>>> g.rx(1, True)
+<Matrix - Python:0x3e237a0 / R:0x483b278>
+[-0.016824]
+
+I also tried explicitly converting g (which *seems* to be a R matrix object
+already) to an R matrix object like this:
+
+>>> import rpy2.robjects as ro
+>>> m = ro.r.matrix(g)
+
+but that stripped out the left column completely:
+
+>>> print m
+              [,1]
+ [1,] -0.016824034
+ [2,]  0.140867819
+ [3,]  0.085268797
+ [4,]  0.218960989
+ [5,] -0.363003991
+ [6,]  0.195132472
+ [7,] -0.239162646
+ [8,] -0.231873564
+ [9,]  0.131350561
+[10,]  0.211256680
+[11,]  0.176142698
+[12,]  0.250337804
+[13,] -0.085260815
+[14,] -0.215421780
+[15,]  0.181683335
+[16,]  0.129671542
+[17,] -0.012138660
+[18,] -0.136989570
+[19,]  0.017101781
+[20,]  0.254077353
+[21,] -0.007214739
+[22,] -0.095393300
+[23,]  0.300705087
+[24,] -0.062451955
+[25,]  0.122720461
+[26,]  0.108513076
+[27,]  0.029760214
+
+While I can print g to a file object to preserve all the data:
+
+>>> f=open('/tmp/goog.dat', 'w'); print >>f, g; f.close()
+
+Then read it back in and split on two columns to get back a simulation of
+the original matrix:
+
+>>> f=open('/tmp/goog.dat', 'r'); goog_matrix = map(lambda x: x.split(),
+f.read().splitlines()); f.close()
+
+That seems like a huge kludge, considering g has the data somewhere...
+
+Any ideas on what I might be doing wrong?
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Get your SQL database under version control now!
+Version control is standard for application code, but databases havent 
+caught up. So what steps can you take to put your SQL databases under 
+version control? Why should you start doing it? Read more to find out.
+http://pubads.g.doubleclick.net/gampad/clk?id=48897031&iu=/4140/ostg.clktrk
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From sdavis2 at mail.nih.gov  Tue Aug  6 00:03:08 2013
+From: sdavis2 at mail.nih.gov (Sean Davis)
+Date: Mon, 05 Aug 2013 20:03:08 -0400
+Subject: Re: [Rpy] rpy2 matrix object has inaccessible column data
+In-Reply-To: <CAEpnaGxFbD2D_UEVk=peUiPM+k6pSgUDRdz9ctAUgx5o5PNogQ@mail.gmail.com>
+References: <CAEpnaGxFbD2D_UEVk=peUiPM+k6pSgUDRdz9ctAUgx5o5PNogQ@mail.gmail.com>
+Message-ID: <CANeAVB=p7Oki=5F4quaCVqWJyve82Lkj=mn5wbM+Es7m2i2cQA@mail.gmail.com>
+
+On Aug 5, 2013 7:51 PM, "Denis Papathanasiou" <denis.papathanasiou at gmail.com>
+wrote:
+>
+> I'm using rpy2 to access quantmod functions like this:
+>
+> >>> from rpy2.robjects import r
+> >>> r('library(quantmod)')
+> >>> r('getSymbols("GOOG")')
+> >>> g = r('quarterlyReturn(GOOG)')
+>
+> When I print g, I see it has the dates in the leftmost column:
+>
+> >>> print g
+
+Try g.rownames().  Does that get you what you need?
+
+Sean
+
+>            quarterly.returns
+> 2007-03-30      -0.016824034
+> 2007-06-29       0.140867819
+> 2007-09-28       0.085268797
+> 2007-12-31       0.218960989
+> 2008-03-31      -0.363003991
+> 2008-06-30       0.195132472
+> 2008-09-30      -0.239162646
+> 2008-12-31      -0.231873564
+> 2009-03-31       0.131350561
+> 2009-06-30       0.211256680
+> 2009-09-30       0.176142698
+> 2009-12-31       0.250337804
+> 2010-03-31      -0.085260815
+> 2010-06-30      -0.215421780
+> 2010-09-30       0.181683335
+> 2010-12-31       0.129671542
+> 2011-03-31      -0.012138660
+> 2011-06-30      -0.136989570
+> 2011-09-30       0.017101781
+> 2011-12-30       0.254077353
+> 2012-03-30      -0.007214739
+> 2012-06-29      -0.095393300
+> 2012-09-28       0.300705087
+> 2012-12-31      -0.062451955
+> 2013-03-28       0.122720461
+> 2013-06-28       0.108513076
+> 2013-08-02       0.029760214
+>
+> but when I try to access those dates using native python or R matrix
+access methods, the date data is missing:
+>
+> >>> g.rx(1, True)
+> <Matrix - Python:0x3e237a0 / R:0x483b278>
+> [-0.016824]
+> >>> g[0]
+> -0.01682403433476387
+> >>> g[1]
+> 0.14086781910249702
+> >>> g.rx(1, True)
+> <Matrix - Python:0x3e237a0 / R:0x483b278>
+> [-0.016824]
+>
+> I also tried explicitly converting g (which *seems* to be a R matrix
+object already) to an R matrix object like this:
+>
+> >>> import rpy2.robjects as ro
+> >>> m = ro.r.matrix(g)
+>
+> but that stripped out the left column completely:
+>
+> >>> print m
+>               [,1]
+>  [1,] -0.016824034
+>  [2,]  0.140867819
+>  [3,]  0.085268797
+>  [4,]  0.218960989
+>  [5,] -0.363003991
+>  [6,]  0.195132472
+>  [7,] -0.239162646
+>  [8,] -0.231873564
+>  [9,]  0.131350561
+> [10,]  0.211256680
+> [11,]  0.176142698
+> [12,]  0.250337804
+> [13,] -0.085260815
+> [14,] -0.215421780
+> [15,]  0.181683335
+> [16,]  0.129671542
+> [17,] -0.012138660
+> [18,] -0.136989570
+> [19,]  0.017101781
+> [20,]  0.254077353
+> [21,] -0.007214739
+> [22,] -0.095393300
+> [23,]  0.300705087
+> [24,] -0.062451955
+> [25,]  0.122720461
+> [26,]  0.108513076
+> [27,]  0.029760214
+>
+> While I can print g to a file object to preserve all the data:
+>
+> >>> f=open('/tmp/goog.dat', 'w'); print >>f, g; f.close()
+>
+> Then read it back in and split on two columns to get back a simulation of
+the original matrix:
+>
+> >>> f=open('/tmp/goog.dat', 'r'); goog_matrix = map(lambda x: x.split(),
+f.read().splitlines()); f.close()
+>
+> That seems like a huge kludge, considering g has the data somewhere...
+>
+> Any ideas on what I might be doing wrong?
+>
+>
+------------------------------------------------------------------------------
+> Get your SQL database under version control now!
+> Version control is standard for application code, but databases havent
+> caught up. So what steps can you take to put your SQL databases under
+> version control? Why should you start doing it? Read more to find out.
+>
+http://pubads.g.doubleclick.net/gampad/clk?id=48897031&iu=/4140/ostg.clktrk
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------- next part --------------
+------------------------------------------------------------------------------
+Get your SQL database under version control now!
+Version control is standard for application code, but databases havent 
+caught up. So what steps can you take to put your SQL databases under 
+version control? Why should you start doing it? Read more to find out.
+http://pubads.g.doubleclick.net/gampad/clk?id=48897031&iu=/4140/ostg.clktrk
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+

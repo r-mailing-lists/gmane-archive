@@ -1,0 +1,538 @@
+From magda.mroz at uni-ulm.de  Tue Jul 13 12:27:42 2010
+From: magda.mroz at uni-ulm.de (Magda Mroz)
+Date: Tue, 13 Jul 2010 14:27:42 +0200
+Subject: JGR functionality
+Message-ID: <1279024062.1952.3.camel@Laptop>
+
+Dear developers,
+
+I wonder if there is a possibility to switch of the new (version >=
+1.7-2) functionality of JGR to "redirect Java stdout/err to JGR
+console"? Can you give me some hint how to accomplish this on my own?
+Otherwise, it would be great to give the switch-off possibility in the
+preferences.
+Thanks a lot,
+best regards,
+Magda
+
+
+-- 
+----------------------
+Dipl.-Math. Magda Mroz
+Graduiertenkolleg 1100
+Institut für Zahlentheorie und Wahrscheinlichkeitstheorie
+Helmholtzstrasse 22, E13
+Telefon (+49) 731 50 31083
+E-Mail magda.mroz at uni-ulm.de  
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From info at markushelbig.de  Wed Jul 14 17:52:45 2010
+From: info at markushelbig.de (Markus Helbig)
+Date: Wed, 14 Jul 2010 19:52:45 +0200
+Subject: Re: JGR functionality
+In-Reply-To: <1279024062.1952.3.camel@Laptop>
+References: <1279024062.1952.3.camel@Laptop>
+Message-ID: <AANLkTikW2yoLfDTYSF-1CBstwdUssz5wmHaVbxZuHfHB@mail.gmail.com>
+
+Hi,
+
+currently there is no switch ... the only possibility is to modify the Java
+source and recompile JGR. Maybe the preferences switch will be the best
+solution ... i try to add within next time.
+
+BTW: why do you want to switch off?
+
+Cheers,
+
+Markus
+
+On Tue, Jul 13, 2010 at 14:27, Magda Mroz <magda.mroz at uni-ulm.de> wrote:
+
+> Dear developers,
+>
+> I wonder if there is a possibility to switch of the new (version >=
+> 1.7-2) functionality of JGR to "redirect Java stdout/err to JGR
+> console"? Can you give me some hint how to accomplish this on my own?
+> Otherwise, it would be great to give the switch-off possibility in the
+> preferences.
+> Thanks a lot,
+> best regards,
+> Magda
+>
+>
+> --
+> ----------------------
+> Dipl.-Math. Magda Mroz
+> Graduiertenkolleg 1100
+> Institut für Zahlentheorie und Wahrscheinlichkeitstheorie
+> Helmholtzstrasse 22, E13
+> Telefon (+49) 731 50 31083
+> E-Mail magda.mroz at uni-ulm.de
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Jul 20 18:45:06 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 20 Jul 2010 14:45:06 -0400
+Subject: Re: Non-blocking Eval
+In-Reply-To: <COL117-W30C37D77057267045E331EC0A00@phx.gbl>
+References: <COL117-W11775CC4DBBCB41511CEA7C0BF0@phx.gbl> <A84E66CA-9A25-4991-8533-208FE241AC9E@r-project.org> <COL117-W30C37D77057267045E331EC0A00@phx.gbl>
+Message-ID: <7A0A6598-EA8F-4AC8-A0AF-86307E63F4FE@r-project.org>
+
+Martin,
+
+On Jul 20, 2010, at 8:10 AM, Martin Kerr wrote:
+
+> 
+> Sorry I phrased that badly.
+> What I'm trying to do is asynchronously add data to R, i.e. a program will periodically dump some readings to the Rserver and then later on another program will run some analysis scripts on them.
+
+That is an entirely different concept - the Rserve control commands (CMD_ctrlEval and CMD_ctrlSource) allow you to do that:  evaluate code in the master server process. All subsequent clients are then working on the updated data.
+
+However, there is no support for control commands in the C++ client so following the same directions you'd have to add it (this time there is truly no data in the response as it is asynchronous so sending the request is sufficient).
+
+
+> I have managed to add the data via CMD_detachedVoidEval as you suggested. 
+> How exactly do I go about attaching to the session again? I know it involves some form of session key that comes back from the detach call, but what from does it take? And how do I use this? 
+
+The detach command will return a 32-byte session key which you use with the attach command. It is opaque to the application. However, this is a whole different story - the assumption was that you only need asynchronous evaluation so you would actually quit R in the client once detached. The session support (detach/attach) is for a different use - if you start a long computation but don't want to wait for the result and only come back later to collect the result.
+
+Cheers,
+Simon
+
+PS: please continue the discussion on stat-rosuda-devel as that is the correct place.
+
+
+> Thanks AgainMartin
+>> Subject: Re: [Rd] Non-blocking Eval
+>> From: simon.urbanek at r-project.org
+>> Date: Mon, 19 Jul 2010 11:34:29 -0400
+>> CC: r-devel at r-project.org
+>> To: mk2391 at hotmail.com
+>> 
+>> On Jul 19, 2010, at 10:58 AM, Martin Kerr wrote:
+>> 
+>>> 
+>>> Hello,
+>>> I'm currently working with the C++ version of the Rserve Client as part of a student project.
+>>> Is there an implementation of a non-blocking interface to Rserve in C++? I can find one via the Java JRI but no equivalent in C++.
+>> 
+>> (Please note that stats-rosuda-devel is the correct list for this.)
+>> 
+>> I'm not quite sure what you mean, because in JRI there is idleEval() which is non-blocking in the sense that it doesn't do anything if R is busy but that doesn't apply to Rserve as by definition R cannot be busy there. There is no non-blocking interface to JRI - all calls are synchronous.
+>> 
+>> If your question is whether you can start an evaluation in Rserve and not wait for the result then there is CMD_detachedVoidEval in Rserve, but the C++ client only implements a subset of the API which does not include that -- however, it is trivial to implement (just send a request with CMD_detachedVoidEval as there is nothing to decode).
+>> 
+>> Cheers,
+>> Simon
+>> 
+> 		 	   		  
+> _________________________________________________________________
+> 
+> Do you have a story that started on Hotmail? Tell us now
+> 	[[alternative HTML version deleted]]
+> 
+> ______________________________________________
+> R-devel at r-project.org mailing list
+> https://stat.ethz.ch/mailman/listinfo/r-devel
+> 
+>
+
+From mk2391 at hotmail.com  Wed Jul 21 15:12:55 2010
+From: mk2391 at hotmail.com (Martin Kerr)
+Date: Wed, 21 Jul 2010 16:12:55 +0100
+Subject: Re: [Rd] Non-blocking Eval
+In-Reply-To: <7A0A6598-EA8F-4AC8-A0AF-86307E63F4FE@r-project.org>
+References: <COL117-W11775CC4DBBCB41511CEA7C0BF0@phx.gbl> <A84E66CA-9A25-4991-8533-208FE241AC9E@r-project.org> <COL117-W30C37D77057267045E331EC0A00@phx.gbl> <7A0A6598-EA8F-4AC8-A0AF-86307E63F4FE@r-project.org>
+Message-ID: <COL117-W63F70B28CC51884F67DFF7C0A10@phx.gbl>
+
+
+I'm going to need the detach/attach later on anyway and it's my main sticking point.
+What I have at the moment is this:
+	Rmessage* rawmsg = new Rmessage();	Rmessage* cmdmsg = new Rmessage(CMD_detachedVoidEval, "x <- 1+1"   //really trivial example	int res = rc -> request(rawmsg,cmdmsg);
+	char sessionID[32];
+	for (int count = 0; count <32 count++)		sessionID[count] = rawmsg->data[count+12];		char* session = sessionID;		Rmessage* response = new Rmessage();	Rmessage* rcon = new Rmessage(CMD_attach_session, session);
+	res = rc ->request(response,rcon);
+This detaches correctly but crashes in the middle of sending the reconnect request.
+Any suggestions would be greatly appreciated.
+Thank You
+
+
+> Subject: Re: [Rd] Non-blocking Eval
+> From: simon.urbanek at r-project.org
+> Date: Tue, 20 Jul 2010 14:45:06 -0400
+> CC: r-devel at r-project.org; stats-rosuda-devel at listserv.uni-augsburg.de
+> To: mk2391 at hotmail.com
+> 
+> Martin,
+> 
+> On Jul 20, 2010, at 8:10 AM, Martin Kerr wrote:
+> 
+> > 
+> > Sorry I phrased that badly.
+> > What I'm trying to do is asynchronously add data to R, i.e. a program will periodically dump some readings to the Rserver and then later on another program will run some analysis scripts on them.
+> 
+> That is an entirely different concept - the Rserve control commands (CMD_ctrlEval and CMD_ctrlSource) allow you to do that:  evaluate code in the master server process. All subsequent clients are then working on the updated data.
+> 
+> However, there is no support for control commands in the C++ client so following the same directions you'd have to add it (this time there is truly no data in the response as it is asynchronous so sending the request is sufficient).
+> 
+> 
+> > I have managed to add the data via CMD_detachedVoidEval as you suggested. 
+> > How exactly do I go about attaching to the session again? I know it involves some form of session key that comes back from the detach call, but what from does it take? And how do I use this? 
+> 
+> The detach command will return a 32-byte session key which you use with the attach command. It is opaque to the application. However, this is a whole different story - the assumption was that you only need asynchronous evaluation so you would actually quit R in the client once detached. The session support (detach/attach) is for a different use - if you start a long computation but don't want to wait for the result and only come back later to collect the result.
+> 
+> Cheers,
+> Simon
+> 
+> PS: please continue the discussion on stat-rosuda-devel as that is the correct place.
+> 
+> 
+> > Thanks AgainMartin
+> >> Subject: Re: [Rd] Non-blocking Eval
+> >> From: simon.urbanek at r-project.org
+> >> Date: Mon, 19 Jul 2010 11:34:29 -0400
+> >> CC: r-devel at r-project.org
+> >> To: mk2391 at hotmail.com
+> >> 
+> >> On Jul 19, 2010, at 10:58 AM, Martin Kerr wrote:
+> >> 
+> >>> 
+> >>> Hello,
+> >>> I'm currently working with the C++ version of the Rserve Client as part of a student project.
+> >>> Is there an implementation of a non-blocking interface to Rserve in C++? I can find one via the Java JRI but no equivalent in C++.
+> >> 
+> >> (Please note that stats-rosuda-devel is the correct list for this.)
+> >> 
+> >> I'm not quite sure what you mean, because in JRI there is idleEval() which is non-blocking in the sense that it doesn't do anything if R is busy but that doesn't apply to Rserve as by definition R cannot be busy there. There is no non-blocking interface to JRI - all calls are synchronous.
+> >> 
+> >> If your question is whether you can start an evaluation in Rserve and not wait for the result then there is CMD_detachedVoidEval in Rserve, but the C++ client only implements a subset of the API which does not include that -- however, it is trivial to implement (just send a request with CMD_detachedVoidEval as there is nothing to decode).
+> >> 
+> >> Cheers,
+> >> Simon
+> >> 
+> > 		 	   		  
+> > _________________________________________________________________
+> > 
+> > Do you have a story that started on Hotmail? Tell us now
+> > 	[[alternative HTML version deleted]]
+> > 
+> > ______________________________________________
+> > R-devel at r-project.org mailing list
+> > https://stat.ethz.ch/mailman/listinfo/r-devel
+> > 
+> > 
+> 
+ 		 	   		  
+_________________________________________________________________
+http://clk.atdmt.com/UKM/go/197222280/direct/01/
+Do you have a story that started on Hotmail? Tell us now
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Jul 21 17:15:40 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 21 Jul 2010 13:15:40 -0400
+Subject: Re: [Rd] Non-blocking Eval
+In-Reply-To: <COL117-W63F70B28CC51884F67DFF7C0A10@phx.gbl>
+References: <COL117-W11775CC4DBBCB41511CEA7C0BF0@phx.gbl> <A84E66CA-9A25-4991-8533-208FE241AC9E@r-project.org> <COL117-W30C37D77057267045E331EC0A00@phx.gbl> <7A0A6598-EA8F-4AC8-A0AF-86307E63F4FE@r-project.org> <COL117-W63F70B28CC51884F67DFF7C0A10@phx.gbl>
+Message-ID: <518699DD-7F9C-461A-8CDE-C833A26900D2@r-project.org>
+
+
+On Jul 21, 2010, at 11:12 AM, Martin Kerr wrote:
+
+> I'm going to need the detach/attach later on anyway and it's my main sticking point.
+> 
+
+Ok, I have added session support to the C++ client (it's a bit more legwork than what you have since you need to get both the port and the key and actually create a new connection to the session). The usage is roughly as follows (w/o error handling):
+
+// assuming you have active, open Rconnection *c;
+
+Rsession *session = c->detachedEval("x=rnorm(10)");
+delete c; // close it, it's gone
+
+// ok, do what you want ... just spend enough time for the eval to finish ;).
+
+c = new Rconnection(session);
+if (c->connect()) {
+  // the session is not ready yet or something went wrong ...
+}
+
+// that's it = now you can talk to resumed session
+Rdouble *x = (Rdouble*) rc->eval("x");
+// ...
+
+
+Cheers,
+Simon
+
+PS: I noticed that the C++ client actually has support for control commands - there is serverEval(), serverSource() and serverShutdown()
+
+
+
+> What I have at the moment is this:
+> 
+> 	Rmessage* rawmsg = new Rmessage();
+> 	Rmessage* cmdmsg = new Rmessage(CMD_detachedVoidEval, "x <- 1+1"   //really trivial example
+> 	int res = rc -> request(rawmsg,cmdmsg);
+> 
+> 	char sessionID[32];
+> 
+> 	for (int count = 0; count <32 count++)
+> 		sessionID[count] = rawmsg->data[count+12];
+> 	
+> 	char* session = sessionID;
+> 	
+> 	Rmessage* response = new Rmessage();
+> 	Rmessage* rcon = new Rmessage(CMD_attach_session, session);
+> 
+> 	res = rc ->request(response,rcon);
+> 
+> This detaches correctly but crashes in the middle of sending the reconnect request.
+> 
+> Any suggestions would be greatly appreciated.
+> 
+> Thank You
+> 
+> 
+> 
+> > Subject: Re: [Rd] Non-blocking Eval
+> > From: simon.urbanek at r-project.org
+> > Date: Tue, 20 Jul 2010 14:45:06 -0400
+> > CC: r-devel at r-project.org; stats-rosuda-devel at listserv.uni-augsburg.de
+> > To: mk2391 at hotmail.com
+> > 
+> > Martin,
+> > 
+> > On Jul 20, 2010, at 8:10 AM, Martin Kerr wrote:
+> > 
+> > > 
+> > > Sorry I phrased that badly.
+> > > What I'm trying to do is asynchronously add data to R, i.e. a program will periodically dump some readings to the Rserver and then later on another program will run some analysis scripts on them.
+> > 
+> > That is an entirely different concept - the Rserve control commands (CMD_ctrlEval and CMD_ctrlSource) allow you to do that: evaluate code in the master server process. All subsequent clients are then working on the updated data.
+> > 
+> > However, there is no support for control commands in the C++ client so following the same directions you'd have to add it (this time there is truly no data in the response as it is asynchronous so sending the request is sufficient).
+> > 
+> > 
+> > > I have managed to add the data via CMD_detachedVoidEval as you suggested. 
+> > > How exactly do I go about attaching to the session again? I know it involves some form of session key that comes back from the detach call, but what from does it take? And how do I use this? 
+> > 
+> > The detach command will return a 32-byte session key which you use with the attach command. It is opaque to the application. However, this is a whole different story - the assumption was that you only need asynchronous evaluation so you would actually quit R in the client once detached. The session support (detach/attach) is for a different use - if you start a long computation but don't want to wait for the result and only come back later to collect the result.
+> > 
+> > Cheers,
+> > Simon
+> > 
+> > PS: please continue the discussion on stat-rosuda-devel as that is the correct place.
+> > 
+> > 
+> > > Thanks AgainMartin
+> > >> Subject: Re: [Rd] Non-blocking Eval
+> > >> From: simon.urbanek at r-project.org
+> > >> Date: Mon, 19 Jul 2010 11:34:29 -0400
+> > >> CC: r-devel at r-project.org
+> > >> To: mk2391 at hotmail.com
+> > >> 
+> > >> On Jul 19, 2010, at 10:58 AM, Martin Kerr wrote:
+> > >> 
+> > >>> 
+> > >>> Hello,
+> > >>> I'm currently working with the C++ version of the Rserve Client as part of a student project.
+> > >>> Is there an implementation of a non-blocking interface to Rserve in C++? I can find one via the Java JRI but no equivalent in C++.
+> > >> 
+> > >> (Please note that stats-rosuda-devel is the correct list for this.)
+> > >> 
+> > >> I'm not quite sure what you mean, because in JRI there is idleEval() which is non-blocking in the sense that it doesn't do anything if R is busy but that doesn't apply to Rserve as by definition R cannot be busy there. There is no non-blocking interface to JRI - all calls are synchronous.
+> > >> 
+> > >> If your question is whether you can start an evaluation in Rserve and not wait for the result then there is CMD_detachedVoidEval in Rserve, but the C++ client only implements a subset of the API which does not include that -- however, it is trivial to implement (just send a request with CMD_detachedVoidEval as there is nothing to decode).
+> > >> 
+> > >> Cheers,
+> > >> Simon
+> > >> 
+> > > 
+> > > _________________________________________________________________
+> > > 
+> > > Do you have a story that started on Hotmail? Tell us now
+> > > [[alternative HTML version deleted]]
+> > > 
+> > > ______________________________________________
+> > > R-devel at r-project.org mailing list
+> > > https://stat.ethz.ch/mailman/listinfo/r-devel
+> > > 
+> > > 
+> > 
+> 
+> Get a new e-mail account with Hotmail - Free. Sign-up now. _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From madzientist at gmail.com  Sun Jul 25 12:53:00 2010
+From: madzientist at gmail.com (Suresh Krishna)
+Date: Sun, 25 Jul 2010 13:53:00 +0100
+Subject: Rserve, RJava, RMatlab
+Message-ID: <op.vgegqlqahgmlxk@osiris.gwdg.de>
+
+
+Hello,
+
+I first posted this on R-SIG-Mac, and then realized that the Rosuda  
+mailing lists would be a better option. Sorry for the cross-posting.
+
+Since I have to switch from Windows to the Mac OS (10.6.4, Intel mac), I  
+have to find a new solution to call R from Matlab, since the R-(D)Com  
+solution no longer works. I found Rserve and RJava and successfully  
+installed them (after some googling to solve minor installation issues).
+
+I am now going through existing Java code projects like RSession and R to  
+figure out how to issue the calling instructions from Matlab using its  
+Java interface.
+
+In the meantime, I had 2 questions:
+
+a) I superficially understand the basic difference between Rserve and  
+RJava (Rserve is a client-server interface while RJava is a JNI based  
+solution) and that Rserve allows one to maintain multiple R sessions. I  
+would be grateful if someone could expand on the advantages of JRI (RJava)  
+over Rserve, if any.
+
+Also, in a single-user, single-computer (multi-core) scenario, is there  
+any advantage to being able to call multiple R sessions ?
+
+b) I also came across the RMatlab project in OmegaHat. I didn't pursue it  
+much because the description on the web page, though it appears quite  
+powerful, also dates from 2004 or so. Also, I am afraid of Matlab MEX-file  
+compilation issues. Would someone be able to give me a comparison of  
+features/ease-of-use of RMatlab compared to RJava/Rserve.
+
+Thanks much,
+
+Suresh
+
+From madzientist at gmail.com  Sun Jul 25 21:58:34 2010
+From: madzientist at gmail.com (Suresh Krishna)
+Date: Sun, 25 Jul 2010 22:58:34 +0100
+Subject: REngine.jar
+Message-ID: <op.vge5zwjvhgmlxk@osiris.gwdg.de>
+
+
+Hello,
+
+Are the REngine.jar files distributed from the Rserve page (  
+http://www.rforge.net/Rserve/files/ ) and in the RJava package indeed  
+identical ?
+
+Thanks much, Suresh
+
+From simon.urbanek at r-project.org  Sun Jul 25 23:53:06 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sun, 25 Jul 2010 19:53:06 -0400
+Subject: Re: Rserve, RJava, RMatlab
+In-Reply-To: <op.vgegqlqahgmlxk@osiris.gwdg.de>
+References: <op.vgegqlqahgmlxk@osiris.gwdg.de>
+Message-ID: <89593111-3A9E-4294-A58C-482C44019D7D@r-project.org>
+
+
+On Jul 25, 2010, at 8:53 AM, Suresh Krishna wrote:
+
+> 
+> Hello,
+> 
+> I first posted this on R-SIG-Mac, and then realized that the Rosuda mailing lists would be a better option. Sorry for the cross-posting.
+> 
+> Since I have to switch from Windows to the Mac OS (10.6.4, Intel mac), I have to find a new solution to call R from Matlab, since the R-(D)Com solution no longer works. I found Rserve and RJava and successfully installed them (after some googling to solve minor installation issues).
+> 
+> I am now going through existing Java code projects like RSession and R to figure out how to issue the calling instructions from Matlab using its Java interface.
+> 
+> In the meantime, I had 2 questions:
+> 
+> a) I superficially understand the basic difference between Rserve and RJava (Rserve is a client-server interface while RJava is a JNI based solution) and that Rserve allows one to maintain multiple R sessions. I would be grateful if someone could expand on the advantages of JRI (RJava) over Rserve, if any.
+> 
+
+rJava supports references since it embeds R into your Java application and also REPL callbacks. This is usually useful to R GUIs (such as JGR). The disadvantage is that due to the lack of separation if R crashes so does your Java application and vice versa. Also the setup can be more daunting than Rserve as it involves shared libraries. In addition, since R is single-threaded you can only have one synchronous R thread in your Java application and there is no way to re-start R.
+
+
+> Also, in a single-user, single-computer (multi-core) scenario, is there any advantage to being able to call multiple R sessions ?
+> 
+
+In general R is single threaded so using multiple R instances is useful for parallel computing (although there are now other options such as the multicore package).
+
+
+
+> b) I also came across the RMatlab project in OmegaHat. I didn't pursue it much because the description on the web page, though it appears quite powerful, also dates from 2004 or so. Also, I am afraid of Matlab MEX-file compilation issues. Would someone be able to give me a comparison of features/ease-of-use of RMatlab compared to RJava/Rserve.
+> 
+
+I'm not familiar with RMatlab so I would not know and cannot comment.
+
+Cheers,
+Simon
+
+From simon.urbanek at r-project.org  Sun Jul 25 23:55:04 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sun, 25 Jul 2010 19:55:04 -0400
+Subject: Re: REngine.jar
+In-Reply-To: <op.vge5zwjvhgmlxk@osiris.gwdg.de>
+References: <op.vge5zwjvhgmlxk@osiris.gwdg.de>
+Message-ID: <738D24FF-143E-4A24-9D0C-B877084915AA@r-project.org>
+
+
+On Jul 25, 2010, at 5:58 PM, Suresh Krishna wrote:
+
+> 
+> Hello,
+> 
+> Are the REngine.jar files distributed from the Rserve page ( http://www.rforge.net/Rserve/files/ ) and in the RJava package indeed identical ?
+> 
+
+In principle, yes, they are based on the same sources. They will vary only by date depending when each has been packaged. REngine is backend-agnostic so you can use it with both Rserve, JRI and other back-ends. 
+
+Cheers,
+Simon
+
+From madzientist at gmail.com  Mon Jul 26 04:19:47 2010
+From: madzientist at gmail.com (Suresh Krishna)
+Date: Mon, 26 Jul 2010 05:19:47 +0100
+Subject: Re: Rserve, RJava, RMatlab
+In-Reply-To: <89593111-3A9E-4294-A58C-482C44019D7D@r-project.org>
+References: <op.vgegqlqahgmlxk@osiris.gwdg.de> <89593111-3A9E-4294-A58C-482C44019D7D@r-project.org>
+Message-ID: <op.vgfnm9yxhgmlxk@osiris.gwdg.de>
+
+
+>> I am now going through existing Java code projects like RSession and R  
+>> to figure out how to issue the calling instructions from Matlab using  
+>> its Java interface.
+
+Just for reference, I meant to say "existing Java code projects like  
+RSession and RUtils (http://icb.med.cornell.edu/wiki/index.php/RUtils)".
+
+> rJava supports references since it embeds R into your Java application  
+> and also REPL callbacks. This is usually useful to R GUIs (such as JGR).  
+> The disadvantage is that due to the lack of separation if R crashes so  
+> does your Java application and vice versa. Also the setup can be more  
+> daunting than Rserve as it involves shared libraries. In addition, since  
+> R is single-threaded you can only have one synchronous R thread in your  
+> Java application and there is no way to re-start R.
+
+> In general R is single threaded so using multiple R instances is useful  
+> for parallel computing (although there are now other options such as the  
+> multicore package).
+
+Thank you for the valuable info ! I think I will start with Rserve, since  
+it appears to be the more straightforward and more commonly used option.
+
+Best, Suresh
+

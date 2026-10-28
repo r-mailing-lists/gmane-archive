@@ -1,0 +1,863 @@
+From adrian_d at eskimo.com  Mon Dec  7 17:23:41 2015
+From: adrian_d at eskimo.com (Adrian Dragulescu)
+Date: Mon, 07 Dec 2015 09:23:41 -0800
+Subject: problem matching signature with .jcall for generic arrays
+Message-ID: <Pine.LNX.4.64.1512070911300.23471@shellx.eskimo.com>
+
+
+A user wanted to add a chart to a spreadsheet using the xlsx package. 
+I've been stuck on this for a few hours now to pass the right arguments 
+to a java method.
+
+I'm trying to call the method:
+http://poi.apache.org/apidocs/org/apache/poi/ss/usermodel/charts/DataSources.html#fromArray(T[])
+
+>  jX <- .jcall('org.apache.poi.ss.usermodel.charts.DataSources',
++          "Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",
++          "fromArray",
++          .jarray(c(0,1,2,3)))
+Error in .jcall("org.apache.poi.ss.usermodel.charts.DataSources", 
+"Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",  :
+   method fromArray with signature 
+([D)Lorg.apache.poi.ss.usermodel.charts.ChartDataSource; not found
+
+I can see that I don't match the argument, I need an Object[].  I tried to 
+use a .jcast, but it did not work either.
+
+To reproduce the error:
+library(xlsx)
+jX <- .jcall('org.apache.poi.ss.usermodel.charts.DataSources',
+          "Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",
+          "fromArray",
+          .jarray(c(0,1,2,3)))
+
+Thank you for any suggestions,
+Adrian
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Mon Dec  7 18:41:51 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 07 Dec 2015 13:41:51 -0500
+Subject: Re: problem matching signature with .jcall for generic arrays
+In-Reply-To: <Pine.LNX.4.64.1512070911300.23471@shellx.eskimo.com>
+References: <Pine.LNX.4.64.1512070911300.23471@shellx.eskimo.com>
+Message-ID: <A89DFE50-AF21-4ED5-99AF-5B6CF06ABD6F@r-project.org>
+
+
+On Dec 7, 2015, at 12:23 PM, Adrian Dragulescu <adrian_d at eskimo.com> wrote:
+
+> 
+> A user wanted to add a chart to a spreadsheet using the xlsx package. I've been stuck on this for a few hours now to pass the right arguments to a java method.
+> 
+> I'm trying to call the method:
+> http://poi.apache.org/apidocs/org/apache/poi/ss/usermodel/charts/DataSources.html#fromArray(T[])
+> 
+>> jX <- .jcall('org.apache.poi.ss.usermodel.charts.DataSources',
+> +          "Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",
+> +          "fromArray",
+> +          .jarray(c(0,1,2,3)))
+> Error in .jcall("org.apache.poi.ss.usermodel.charts.DataSources", "Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",  :
+>  method fromArray with signature ([D)Lorg.apache.poi.ss.usermodel.charts.ChartDataSource; not found
+> 
+
+
+Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;
+is not valid - Java uses / instead of . in actual names
+
+so what you can use is
+
+.jcall("org.apache.poi.ss.usermodel.charts.DataSources",
+  "Lorg/apache/poi/ss/usermodel/charts/ChartDataSource;",
+  "fromArray",
+  .jcast(.jarray(c(0,1,2,3)),"[Ljava/lang/Object;"))
+
+However, I don't know if arrays of unboxed types are supported by the code you're using. If not, you'll have to create boxed types.
+
+Cheers,
+Simon
+
+
+> I can see that I don't match the argument, I need an Object[].  I tried to use a .jcast, but it did not work either.
+> 
+> To reproduce the error:
+> library(xlsx)
+> jX <- .jcall('org.apache.poi.ss.usermodel.charts.DataSources',
+>         "Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",
+>         "fromArray",
+>         .jarray(c(0,1,2,3)))
+> 
+> Thank you for any suggestions,
+> Adrian
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From adrian_d at eskimo.com  Mon Dec  7 18:53:56 2015
+From: adrian_d at eskimo.com (Adrian Dragulescu)
+Date: Mon, 07 Dec 2015 10:53:56 -0800
+Subject: Re: problem matching signature with .jcall for generic arrays
+In-Reply-To: <A89DFE50-AF21-4ED5-99AF-5B6CF06ABD6F@r-project.org>
+References: <Pine.LNX.4.64.1512070911300.23471@shellx.eskimo.com> <A89DFE50-AF21-4ED5-99AF-5B6CF06ABD6F@r-project.org>
+Message-ID: <Pine.LNX.4.64.1512071052350.24427@shellx.eskimo.com>
+
+
+Thank you very much, it worked.
+
+Adrian
+
+
+
+On Mon, 7 Dec 2015, Simon Urbanek wrote:
+
+> Date: Mon, 7 Dec 2015 13:41:51 -0500
+> From: Simon Urbanek <simon.urbanek at r-project.org>
+> To: Adrian Dragulescu <adrian_d at eskimo.com>
+> Cc: Apple Inc. <stats-rosuda-devel at listserv.uni-augsburg.de>
+> Subject: Re: [stats-rosuda-devel] problem matching signature with .jcall for
+>     generic arrays
+> 
+>
+> On Dec 7, 2015, at 12:23 PM, Adrian Dragulescu <adrian_d at eskimo.com> wrote:
+>
+>>
+>> A user wanted to add a chart to a spreadsheet using the xlsx package. I've been stuck on this for a few hours now to pass the right arguments to a java method.
+>>
+>> I'm trying to call the method:
+>> http://poi.apache.org/apidocs/org/apache/poi/ss/usermodel/charts/DataSources.html#fromArray(T[])
+>>
+>>> jX <- .jcall('org.apache.poi.ss.usermodel.charts.DataSources',
+>> +          "Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",
+>> +          "fromArray",
+>> +          .jarray(c(0,1,2,3)))
+>> Error in .jcall("org.apache.poi.ss.usermodel.charts.DataSources", "Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",  :
+>>  method fromArray with signature ([D)Lorg.apache.poi.ss.usermodel.charts.ChartDataSource; not found
+>>
+>
+>
+> Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;
+> is not valid - Java uses / instead of . in actual names
+>
+> so what you can use is
+>
+> .jcall("org.apache.poi.ss.usermodel.charts.DataSources",
+>  "Lorg/apache/poi/ss/usermodel/charts/ChartDataSource;",
+>  "fromArray",
+>  .jcast(.jarray(c(0,1,2,3)),"[Ljava/lang/Object;"))
+>
+> However, I don't know if arrays of unboxed types are supported by the code you're using. If not, you'll have to create boxed types.
+>
+> Cheers,
+> Simon
+>
+>
+>> I can see that I don't match the argument, I need an Object[].  I tried to use a .jcast, but it did not work either.
+>>
+>> To reproduce the error:
+>> library(xlsx)
+>> jX <- .jcall('org.apache.poi.ss.usermodel.charts.DataSources',
+>>         "Lorg.apache.poi.ss.usermodel.charts.ChartDataSource;",
+>>         "fromArray",
+>>         .jarray(c(0,1,2,3)))
+>>
+>> Thank you for any suggestions,
+>> Adrian
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From raiyan006 at yahoo.co.in  Wed Dec  9 12:43:43 2015
+From: raiyan006 at yahoo.co.in (mohamed raiyan)
+Date: Wed, 09 Dec 2015 12:43:43 +0000
+Subject: R server taking up high CPU on killing eval
+References: <1114230997.15255610.1449665023813.JavaMail.yahoo.ref@mail.yahoo.com>
+Message-ID: <1114230997.15255610.1449665023813.JavaMail.yahoo@mail.yahoo.com>
+
+Hi,
+I have been working on the Rserve client for Java for sometime now. Some operations i do take a really long time and I wanted to kill them mid-way. After minimal research i came across the following method to do the same.
+http://stackoverflow.com/questions/27066588/rserve-server-how-to-terminate-a-blocking-instance-eval-taking-forever/27144407?noredirect=1#comment56007066_27144407
+
+My problem is as discussed on the thread.
+I have Rserver running on a linux machine and i connect to that server using windows. Several connections could be made at a time from different client machines. On killing an eval, Rserve CPU utiliization on the server goes up and it doesnt allow any further connections. 
+This happens after command to kill the targeted instance evals successfully and  returns.
+At first i was using a global reference to the RserverConnection() and then i used a local variable as given in the above example. (See the comments on the above thread).The problem was solved, but when i try to make a connection at the exact time when someone is trying to kill another instance , Rserve freezes and doesnt allow that connection or any other afterwards.
+I then tried to kill the eval using a system command with the targeted pid (I send commands to the server using ssh in java from the client). The problem still comes up but i cannot pin point the exact point. It happens on random when multiple clients are connected to the Rserve and someone requests a cancel. 
+Do you have any idea why this might be happening and is there a neater way to kill an ongoing eval, a way  which doesnt freeze the Rserve?
+Thanks and Regards,
+Mohamed Raiyan
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Wed Dec  9 14:18:49 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 09 Dec 2015 09:18:49 -0500
+Subject: Re: R server taking up high CPU on killing eval
+In-Reply-To: <1114230997.15255610.1449665023813.JavaMail.yahoo@mail.yahoo.com>
+References: <1114230997.15255610.1449665023813.JavaMail.yahoo.ref@mail.yahoo.com> <1114230997.15255610.1449665023813.JavaMail.yahoo@mail.yahoo.com>
+Message-ID: <9D340AF2-B04A-4BB3-948D-1F01F4BAF4F3@r-project.org>
+
+Mohamed,
+
+> On Dec 9, 2015, at 7:43 AM, mohamed raiyan <raiyan006 at yahoo.co.in> wrote:
+> 
+> Hi,
+> 
+> I have been working on the Rserve client for Java for sometime now. Some operations i do take a really long time and I wanted to kill them mid-way. After minimal research i came across the following method to do the same.
+> 
+> http://stackoverflow.com/questions/27066588/rserve-server-how-to-terminate-a-blocking-instance-eval-taking-forever/27144407?noredirect=1#comment56007066_27144407
+> 
+> My problem is as discussed on the thread.
+> 
+> I have Rserver running on a linux machine and i connect to that server using windows. Several connections could be made at a time from different client machines.
+>  
+> On killing an eval, Rserve CPU utiliization on the server goes up and it doesnt allow any further connections. 
+> 
+> This happens after command to kill the targeted instance evals successfully and  returns.
+> 
+> At first i was using a global reference to the RserverConnection() and then i used a local variable as given in the above example. (See the comments on the above thread).
+> The problem was solved, but when i try to make a connection at the exact time when someone is trying to kill another instance , Rserve freezes and doesnt allow that connection or any other afterwards.
+> 
+> I then tried to kill the eval using a system command with the targeted pid (I send commands to the server using ssh in java from the client). The problem still comes up but i cannot pin point the exact point. It happens on random when multiple clients are connected to the Rserve and someone requests a cancel. 
+> 
+> Do you have any idea why this might be happening and is there a neater way to kill an ongoing eval, a way  which doesnt freeze the Rserve?
+> 
+
+The client Rserve session are completely independent of the server, so it seems as if you're issuing signal to the wrong process. Another pointer may be that if you're using some common resource in your client sessions that can freezes your code across any connection (e.g. if you load a pre-load some packages or code) - but that's independent of Rserve.
+
+So essentially we'll need the complete code for the minimal example to reproduce since this is likely something related to exactly what you're doing as opposed to Rserve itself.
+
+Cheers,
+Simon
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From Dougherty.Gregory at mayo.edu  Thu Dec 10 22:37:32 2015
+From: Dougherty.Gregory at mayo.edu (Dougherty, Gregory T., M.S.)
+Date: Thu, 10 Dec 2015 22:37:32 +0000
+Subject: Need help with .jcall
+Message-ID: <c10f8b$21kq9q@ironport10.mayo.edu>
+
+Hello,
+
+I need some help using .jcall.  So far I have not found any good complicated examples on the web.  Can anyone point me to any?  Thank you.
+
+I wish to call the following Java routine:
+
+public static String[][] annotate (String[][] data, String build, Catalog[] catalogs, String[][] fields)
+
+My questions are: how do I create a two dimensional java array?  I can’t use a matrix because the usb arrays do not have equal lengths.
+
+My attempts, successes, and failures are below.  Sample code, pointers to sample code, pointers to how to search the archives, pointers to the place in the archives where this has been discussed 10^5 times before all greatly appreciated.
+
+> control = bior.control()
+> catalogs <- c()
+> for (i in 1:length(control$catalogs$name)) {
++ catalogs <- c(catalogs, .jnew ("edu/mayo/bior/util/Catalog", control$catalogs$name[i],
++ control$catalogs$path[i], control$catalogs$overlap[i]))
++ }
+> catalogs <- .jarray(catalogs, contents.class = "edu/mayo/bior/util/Catalog")
+> catalogs
+[1] "Java-Array-Object[Ledu/mayo/bior/util/Catalog;:[Ledu.mayo.bior.util.Catalog;@6526804e"
+
+> fields <- c()
+> theNames <- names(control$fields)
+> for (i in 1:length(theNames)) {
++ fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]), contents.class = "java/lang/String"))
++ }
+> fields <- .jarray(fields, contents.class = "[java/lang/String")
+Error in .jarray(fields, contents.class = "[java/lang/String") :
+  Cannot find class [java/lang/String.
+> fields <- c()
+> theNames <- names(control$fields)
+> for (i in 1:length(theNames)) {
++ fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]), contents.class = "java/lang/String"))
++ }
+> fields <- .jarray(fields, contents.class = "java/lang/String")
+> fields
+[1] "Java-Array-Object[Ljava/lang/String;:[Ljava.lang.String;@20d2906a”
+
+> data <- c(.jarray(c("ted", "bike"), contents.class = "java/lang/String"), .jarray(c("mike", "ike"), contents.class = "java/lang/String"))
+> data <- .jarray(data, contents.class = "java/lang/String")
+> data
+[1] "Java-Array-Object[Ljava/lang/String;:[Ljava.lang.String;@77df38fd”
+
+> output <- .jcall (control$target, "[[Ljava/lang/String;", "annotate", data, control$build, catalogs, fields)
+Error in .jcall(control$target, "[[Ljava/lang/String;", "annotate", data,  :
+  method annotate with signature ([Ljava/lang/String;Ljava/lang/String;[Ledu/mayo/bior/util/Catalog;[Ljava/lang/String;)[[Ljava/lang/String; not found
+
+
+--
+Gregory Dougherty
+Sr. Analyst/Programmer | Information Technology
+Information Technology
+(507) 284-8493 | dougherty.gregory at mayo.edu<mailto:dougherty.gregory at mayo.edu>
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From Dougherty.Gregory at mayo.edu  Thu Dec 10 22:49:34 2015
+From: Dougherty.Gregory at mayo.edu (Dougherty, Gregory T., M.S.)
+Date: Thu, 10 Dec 2015 22:49:34 +0000
+Subject: Re: Need help with .jcall
+Message-ID: <c10f8b$21kteh@ironport10.mayo.edu>
+
+I thought I found the answer:
+
+> fields <- c()
+> theNames <- names(control$fields)
+> for (i in 1:length(theNames)) {
++ fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]), contents.class = "java/lang/String"))
++ }
+> fields <- .jarray(fields, contents.class = "[Ljava/lang/String;")
+> data <- c()
+> data <- c(.jarray(c("ted", "bike"), contents.class = "java/lang/String"), .jarray(c("mike", "ike"), contents.class = "java/lang/String"))
+> data <- .jarray(data, contents.class = "[Ljava/lang/String;")
+> data
+[1] "Java-Array-Object[[Ljava/lang/String;:[[Ljava.lang.String;@6016a786"
+> output <- .jcall (control$target, "[[Ljava/lang/String;", "annotate", data, control$build, catalogs, fields)
+Error in .jcall(control$target, "[[Ljava/lang/String;", "annotate", bar,  :
+  java.lang.ClassNotFoundException: [java/lang/String;
+
+So no joy there.
+--
+Gregory Dougherty
+Sr. Analyst/Programmer | Information Technology
+Information Technology
+(507) 284-8493 | dougherty.gregory at mayo.edu<mailto:dougherty.gregory at mayo.edu>
+
+
+From: stats-rosuda-devel <stats-rosuda-devel-bounces+dougherty.gregory=mayo.edu at listserv.uni-augsburg.de<mailto:stats-rosuda-devel-bounces+dougherty.gregory=mayo.edu at listserv.uni-augsburg.de>> on behalf of "Dougherty , Gregory T., M.S." <Dougherty.Gregory at mayo.edu<mailto:Dougherty.Gregory at mayo.edu>>
+Date: Thursday, December 10, 2015 at 4:37 PM
+To: "stats-rosuda-devel at listserv.uni-augsburg.de<mailto:stats-rosuda-devel at listserv.uni-augsburg.de>" <stats-rosuda-devel at listserv.uni-augsburg.de<mailto:stats-rosuda-devel at listserv.uni-augsburg.de>>
+Subject: [stats-rosuda-devel] Need help with .jcall
+
+Hello,
+
+I need some help using .jcall.  So far I have not found any good complicated examples on the web.  Can anyone point me to any?  Thank you.
+
+I wish to call the following Java routine:
+
+publicstatic String[][] annotate (String[][] data, String build, Catalog[] catalogs, String[][] fields)
+
+My questions are: how do I create a two dimensional java array?  I can’t use a matrix because the usb arrays do not have equal lengths.
+
+My attempts, successes, and failures are below.  Sample code, pointers to sample code, pointers to how to search the archives, pointers to the place in the archives where this has been discussed 10^5 times before all greatly appreciated.
+
+> control = bior.control()
+> catalogs <- c()
+> for (i in 1:length(control$catalogs$name)) {
++ catalogs <- c(catalogs, .jnew ("edu/mayo/bior/util/Catalog", control$catalogs$name[i],
++ control$catalogs$path[i], control$catalogs$overlap[i]))
++ }
+> catalogs <- .jarray(catalogs, contents.class = "edu/mayo/bior/util/Catalog")
+> catalogs
+[1] "Java-Array-Object[Ledu/mayo/bior/util/Catalog;:[Ledu.mayo.bior.util.Catalog;@6526804e"
+
+> fields <- c()
+> theNames <- names(control$fields)
+> for (i in 1:length(theNames)) {
++ fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]), contents.class = "java/lang/String"))
++ }
+> fields <- .jarray(fields, contents.class = "[java/lang/String")
+Error in .jarray(fields, contents.class = "[java/lang/String") :
+  Cannot find class [java/lang/String.
+> fields <- c()
+> theNames <- names(control$fields)
+> for (i in 1:length(theNames)) {
++ fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]), contents.class = "java/lang/String"))
++ }
+> fields <- .jarray(fields, contents.class = "java/lang/String")
+> fields
+[1] "Java-Array-Object[Ljava/lang/String;:[Ljava.lang.String;@20d2906a”
+
+> data <- c(.jarray(c("ted", "bike"), contents.class = "java/lang/String"), .jarray(c("mike", "ike"), contents.class = "java/lang/String"))
+> data <- .jarray(data, contents.class = "java/lang/String")
+> data
+[1] "Java-Array-Object[Ljava/lang/String;:[Ljava.lang.String;@77df38fd”
+
+> output <- .jcall (control$target, "[[Ljava/lang/String;", "annotate", data, control$build, catalogs, fields)
+Error in .jcall(control$target, "[[Ljava/lang/String;", "annotate", data,  :
+  method annotate with signature ([Ljava/lang/String;Ljava/lang/String;[Ledu/mayo/bior/util/Catalog;[Ljava/lang/String;)[[Ljava/lang/String; not found
+
+
+--
+Gregory Dougherty
+Sr. Analyst/Programmer | Information Technology
+Information Technology
+(507) 284-8493 | dougherty.gregory at mayo.edu<mailto:dougherty.gregory at mayo.edu>
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Fri Dec 11 01:14:27 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 10 Dec 2015 20:14:27 -0500
+Subject: Re: Need help with .jcall
+In-Reply-To: <c10f8b$21kq9q@ironport10.mayo.edu>
+References: <c10f8b$21kq9q@ironport10.mayo.edu>
+Message-ID: <3503F72B-AD49-4E51-A107-FCFA6EA4FD0B@r-project.org>
+
+
+On Dec 10, 2015, at 5:37 PM, Dougherty, Gregory T., M.S. <Dougherty.Gregory at mayo.edu> wrote:
+
+> Hello,
+> 
+> I need some help using .jcall.  So far I have not found any good complicated examples on the web.  Can anyone point me to any?  Thank you.
+> 
+> I wish to call the following Java routine:
+> public static String[][] annotate (String[][] data, String build, Catalog[] catalogs, String[][] fields)
+> 
+> My questions are: how do I create a two dimensional java array?  
+
+
+> .jarray(lapply(list(c("a","b","c"),c("d","e")), .jarray), "[Ljava/lang/String;")
+[1] "Java-Array-Object[[Ljava/lang/String;:[[Ljava.lang.String;@42b988a6"
+
+Cheers,
+Simon
+
+
+> I can’t use a matrix because the usb arrays do not have equal lengths.
+> 
+> My attempts, successes, and failures are below.  Sample code, pointers to sample code, pointers to how to search the archives, pointers to the place in the archives where this has been discussed 10^5 times before all greatly appreciated.
+> 
+> > control = bior.control()
+> > 
+> catalogs <- c()
+> > 
+> for (i in 1:length(control$catalogs$name)) {
+> + 
+> catalogs <- c(catalogs, .jnew ("edu/mayo/bior/util/Catalog", control$catalogs$name[i], 
+> + 
+> control$catalogs$path[i], control$catalogs$overlap[i]))
+> + 
+> }
+> > 
+> catalogs <- .jarray(catalogs, contents.class = "edu/mayo/bior/util/Catalog")
+> > catalogs
+> [1] "Java-Array-Object[Ledu/mayo/bior/util/Catalog;:[Ledu.mayo.bior.util.Catalog;@6526804e"
+> 
+> > 
+> fields <- c()
+> > 
+> theNames <- names(control$fields)
+> > 
+> for (i in 1:length(theNames)) {
+> + 
+> fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]), contents.class = "java/lang/String"))
+> + 
+> }
+> > 
+> fields <- .jarray(fields, contents.class = "[java/lang/String")
+> Error in .jarray(fields, contents.class = "[java/lang/String") : 
+>   Cannot find class [java/lang/String.
+> > fields <- c()
+> > 
+> theNames <- names(control$fields)
+> > 
+> for (i in 1:length(theNames)) {
+> + 
+> fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]), contents.class = "java/lang/String"))
+> + 
+> }
+> > 
+> fields <- .jarray(fields, contents.class = "java/lang/String")
+> > fields
+> [1] "Java-Array-Object[Ljava/lang/String;:[Ljava.lang.String;@20d2906a”
+> 
+> > 
+> data <- c(.jarray(c("ted", "bike"), contents.class = "java/lang/String"), .jarray(c("mike", "ike"), contents.class = "java/lang/String"))
+> > 
+> data <- .jarray(data, contents.class = "java/lang/String")
+> > data
+> [1] "Java-Array-Object[Ljava/lang/String;:[Ljava.lang.String;@77df38fd”
+> 
+> > output <- .jcall (control$target, "[[Ljava/lang/String;", "annotate", data, control$build, catalogs, fields)
+> Error in .jcall(control$target, "[[Ljava/lang/String;", "annotate", data,  : 
+>   method annotate with signature ([Ljava/lang/String;Ljava/lang/String;[Ledu/mayo/bior/util/Catalog;[Ljava/lang/String;)[[Ljava/lang/String; not found
+>  
+> 
+> -- 
+> Gregory Dougherty
+> Sr. Analyst/Programmer | Information Technology
+> Information Technology
+> (507) 284-8493 | dougherty.gregory at mayo.edu
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From Dougherty.Gregory at mayo.edu  Fri Dec 11 18:23:23 2015
+From: Dougherty.Gregory at mayo.edu (Dougherty, Gregory T., M.S.)
+Date: Fri, 11 Dec 2015 18:23:23 +0000
+Subject: Re: Need help with .jcall
+In-Reply-To: <3503F72B-AD49-4E51-A107-FCFA6EA4FD0B@r-project.org>
+References: <c10f8b$21kq9q@ironport10.mayo.edu> <3503F72B-AD49-4E51-A107-FCFA6EA4FD0B@r-project.org>
+Message-ID: <c10f8b$21qn7c@ironport10.mayo.edu>
+
+Thank you, Simon, that worked.
+-- 
+Gregory Dougherty
+Sr. Analyst/Programmer | Information Technology
+Information Technology
+(507) 284-8493 | dougherty.gregory at mayo.edu
+
+
+
+
+
+
+
+On 12/10/15, 7:14 PM, "Simon Urbanek" <simon.urbanek at r-project.org> wrote:
+
+>
+>On Dec 10, 2015, at 5:37 PM, Dougherty, Gregory T., M.S.
+><Dougherty.Gregory at mayo.edu> wrote:
+>
+>> Hello,
+>> 
+>> I need some help using .jcall.  So far I have not found any good
+>>complicated examples on the web.  Can anyone point me to any?  Thank you.
+>> 
+>> I wish to call the following Java routine:
+>> public static String[][] annotate (String[][] data, String build,
+>>Catalog[] catalogs, String[][] fields)
+>> 
+>> My questions are: how do I create a two dimensional java array?
+>
+>
+>> .jarray(lapply(list(c("a","b","c"),c("d","e")), .jarray),
+>>"[Ljava/lang/String;")
+>[1] "Java-Array-Object[[Ljava/lang/String;:[[Ljava.lang.String;@42b988a6"
+>
+>Cheers,
+>Simon
+>
+>
+>> I can¹t use a matrix because the usb arrays do not have equal lengths.
+>> 
+>> My attempts, successes, and failures are below.  Sample code, pointers
+>>to sample code, pointers to how to search the archives, pointers to the
+>>place in the archives where this has been discussed 10^5 times before
+>>all greatly appreciated.
+>> 
+>> > control = bior.control()
+>> > 
+>> catalogs <- c()
+>> > 
+>> for (i in 1:length(control$catalogs$name)) {
+>> + 
+>> catalogs <- c(catalogs, .jnew ("edu/mayo/bior/util/Catalog",
+>>control$catalogs$name[i],
+>> + 
+>> control$catalogs$path[i], control$catalogs$overlap[i]))
+>> + 
+>> }
+>> > 
+>> catalogs <- .jarray(catalogs, contents.class =
+>>"edu/mayo/bior/util/Catalog")
+>> > catalogs
+>> [1] 
+>>"Java-Array-Object[Ledu/mayo/bior/util/Catalog;:[Ledu.mayo.bior.util.Cata
+>>log;@6526804e"
+>> 
+>> > 
+>> fields <- c()
+>> > 
+>> theNames <- names(control$fields)
+>> > 
+>> for (i in 1:length(theNames)) {
+>> + 
+>> fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]),
+>>contents.class = "java/lang/String"))
+>> + 
+>> }
+>> > 
+>> fields <- .jarray(fields, contents.class = "[java/lang/String")
+>> Error in .jarray(fields, contents.class = "[java/lang/String") :
+>>   Cannot find class [java/lang/String.
+>> > fields <- c()
+>> > 
+>> theNames <- names(control$fields)
+>> > 
+>> for (i in 1:length(theNames)) {
+>> + 
+>> fields <- c(fields, .jarray(c(theNames[i], control$fields[[i]]),
+>>contents.class = "java/lang/String"))
+>> + 
+>> }
+>> > 
+>> fields <- .jarray(fields, contents.class = "java/lang/String")
+>> > fields
+>> [1] "Java-Array-Object[Ljava/lang/String;:[Ljava.lang.String;@20d2906a²
+>> 
+>> > 
+>> data <- c(.jarray(c("ted", "bike"), contents.class =
+>>"java/lang/String"), .jarray(c("mike", "ike"), contents.class =
+>>"java/lang/String"))
+>> > 
+>> data <- .jarray(data, contents.class = "java/lang/String")
+>> > data
+>> [1] "Java-Array-Object[Ljava/lang/String;:[Ljava.lang.String;@77df38fd²
+>> 
+>> > output <- .jcall (control$target, "[[Ljava/lang/String;", "annotate",
+>>data, control$build, catalogs, fields)
+>> Error in .jcall(control$target, "[[Ljava/lang/String;", "annotate",
+>>data,  : 
+>>   method annotate with signature
+>>([Ljava/lang/String;Ljava/lang/String;[Ledu/mayo/bior/util/Catalog;[Ljava
+>>/lang/String;)[[Ljava/lang/String; not found
+>>  
+>> 
+>> -- 
+>> Gregory Dougherty
+>> Sr. Analyst/Programmer | Information Technology
+>> Information Technology
+>> (507) 284-8493 | dougherty.gregory at mayo.edu
+>> 
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From mff at aya.yale.edu  Wed Dec 16 16:57:07 2015
+From: mff at aya.yale.edu (M Felix Freshwater)
+Date: Wed, 16 Dec 2015 11:57:07 -0500
+Subject: Using JGR with Apple OS after Mavericks 10.9.5
+Message-ID: <CAEz9zcxieOHsoC2pZ7x-YKbjF77EZMfjQiZAQFzqgaKRxn2T3g@mail.gmail.com>
+
+I tried to launch JGR 1.7-16 with Yosemite and then with El Capitan.All
+package dependencies were updated with R. Both R and RStudio load without
+problem. JGR crashes immediately. No guidance is offered from the JGR
+website <http://www.rforge.net/JGR/> that has no activity since 2013.
+Anybody know of a workaround?
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Thu Dec 17 14:03:11 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 17 Dec 2015 09:03:11 -0500
+Subject: Re: Using JGR with Apple OS after Mavericks 10.9.5
+In-Reply-To: <CAEz9zcxieOHsoC2pZ7x-YKbjF77EZMfjQiZAQFzqgaKRxn2T3g@mail.gmail.com>
+References: <CAEz9zcxieOHsoC2pZ7x-YKbjF77EZMfjQiZAQFzqgaKRxn2T3g@mail.gmail.com>
+Message-ID: <70E1C297-D7DC-43F8-94DC-755F664CDAC1@r-project.org>
+
+How are you starting it? Have you installed Oracle Java + working rJava?
+
+First, you should test form R directly with
+
+library(JGR)
+JGR()
+
+That should start JGR. If not, you should see some errors that will point you in the right direction. Note that in El Capitan you will have to use rJava 0.9-8 due to a combination of bugs in Oracle Java and OS X. That means you'll need Xcode command line tools and use something like in R (not RStudio!):
+install.packages("rJava",,"http://rforge.net")
+
+If you have any specific questions, please post the exact error and details about your setup.
+
+Cheers,
+Simon
+
+
+
+
+> On Dec 16, 2015, at 11:57 AM, M Felix Freshwater <mff at aya.yale.edu> wrote:
+> 
+> I tried to launch JGR 1.7-16 with Yosemite and then with El Capitan.All package dependencies were updated with R. Both R and RStudio load without problem. JGR crashes immediately. No guidance is offered from the JGR website that has no activity since 2013. Anybody know of a workaround?
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From saptarshi.guha at gmail.com  Mon Dec 21 20:22:16 2015
+From: saptarshi.guha at gmail.com (Saptarshi Guha)
+Date: Mon, 21 Dec 2015 12:22:16 -0800
+Subject: rJava, segfaults on EC2 computers
+Message-ID: <CAJDot1qTMJTeZKGJGJb-0dD_fmf2E=6RtzDz2=10wBnDDa+GXQ@mail.gmail.com>
+
+Hello,
+
+I'd like to clarify that I'm emailing this list only because the
+segfaults happen during rJava calls. The real reason could well be
+elsewhere(RHIPE).
+
+I've started an Elastic MapReduce cluster using AMI 3.3.2, c3.2xlarge nodes .
+
+R is see below and rJava is "0.9-7" and Sun's java is
+java version "1.7.0_71"
+Java(TM) SE Runtime Environment (build 1.7.0_71-b14)
+Java HotSpot(TM) 64-Bit Server VM (build 24.71-b01, mixed mode)
+
+When I've started RHIPE, which makes extensive use of rJava, not
+immediately, but sometime into the session, calling an rJava commands
+results in
+
+
+Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  :
+  ignoring SIGPIPE signal
+> Warning: stack imbalance in '.External', 86 then -1
+Warning: stack imbalance in '<-', 84 then -3
+Warning: stack imbalance in 'if', 82 then -5
+Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  :
+
+My question: has there been any issues running rJava on EC2 instances?
+Is there something I can do debug this e..g track the culprit etc?
+
+Cheers
+Saptarshi
+
+
+platform       x86_64-redhat-linux-gnu
+arch           x86_64
+os             linux-gnu
+system         x86_64, linux-gnu
+status
+major          3
+minor          1.1
+year           2014
+month          07
+day            10
+svn rev        66115
+language       R
+version.string R version 3.1.1 (2014-07-10)
+nickname       Sock it to Me
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Tue Dec 22 00:47:04 2015
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 21 Dec 2015 19:47:04 -0500
+Subject: Re: rJava, segfaults on EC2 computers
+In-Reply-To: <CAJDot1qTMJTeZKGJGJb-0dD_fmf2E=6RtzDz2=10wBnDDa+GXQ@mail.gmail.com>
+References: <CAJDot1qTMJTeZKGJGJb-0dD_fmf2E=6RtzDz2=10wBnDDa+GXQ@mail.gmail.com>
+Message-ID: <46247EF4-8A3A-4A6D-913C-9F02C10AB0B6@r-project.org>
+
+Saptarshi,
+
+the issue seems related to the SIGPIPE error - apparently this happens somewhere deep inside where the error wreaks havoc. This typically means that you're closing some pipe (e.g. stdout/err or some direct socket) and then write to it (either intentionally or inadvertently). When using R with any native code you have to be very careful about pipes/sockets since R treats writing to a closed pipe as a bad error (and it's *anyone* writing to a closed socket, not just R itself). I don't think it has anything with EC2 but rather the exact sequence of events and code involved. From rJava's point of view I'd be interested which call exactly you get that error from, i.e. a backtrace from the C code would be very valuable here.
+
+Thanks,
+Simon
+
+
+On Dec 21, 2015, at 3:22 PM, Saptarshi Guha <saptarshi.guha at gmail.com> wrote:
+
+> Hello,
+> 
+> I'd like to clarify that I'm emailing this list only because the
+> segfaults happen during rJava calls. The real reason could well be
+> elsewhere(RHIPE).
+> 
+> I've started an Elastic MapReduce cluster using AMI 3.3.2, c3.2xlarge nodes .
+> 
+> R is see below and rJava is "0.9-7" and Sun's java is
+> java version "1.7.0_71"
+> Java(TM) SE Runtime Environment (build 1.7.0_71-b14)
+> Java HotSpot(TM) 64-Bit Server VM (build 24.71-b01, mixed mode)
+> 
+> When I've started RHIPE, which makes extensive use of rJava, not
+> immediately, but sometime into the session, calling an rJava commands
+> results in
+> 
+> 
+> Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  :
+>  ignoring SIGPIPE signal
+>> Warning: stack imbalance in '.External', 86 then -1
+> Warning: stack imbalance in '<-', 84 then -3
+> Warning: stack imbalance in 'if', 82 then -5
+> Error in .jcall("RJavaTools", "Ljava/lang/Object;", "invokeMethod", cl,  :
+> 
+> My question: has there been any issues running rJava on EC2 instances?
+> Is there something I can do debug this e..g track the culprit etc?
+> 
+> Cheers
+> Saptarshi
+> 
+> 
+> platform       x86_64-redhat-linux-gnu
+> arch           x86_64
+> os             linux-gnu
+> system         x86_64, linux-gnu
+> status
+> major          3
+> minor          1.1
+> year           2014
+> month          07
+> day            10
+> svn rev        66115
+> language       R
+> version.string R version 3.1.1 (2014-07-10)
+> nickname       Sock it to Me
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

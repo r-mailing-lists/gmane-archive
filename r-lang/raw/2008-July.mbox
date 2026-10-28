@@ -1,0 +1,244 @@
+From Claire.Delleluche-vVthMfXIA16euIaGz8sd2Q at public.gmane.org  Mon Jul 28 15:08:17 2008
+From: Claire.Delleluche-vVthMfXIA16euIaGz8sd2Q at public.gmane.org (Claire Delle Luche)
+Date: Mon, 28 Jul 2008 17:08:17 +0200
+Subject: SPR experiment: using lmer, transforming data, collinearity, and using a covariable
+Message-ID: <19629624.354681217257698915.JavaMail.root@co4>
+
+Dear R-lang users,
+
+I try to analyse a self paced reading experiment where I have two fixed variables (Relativiser, Attachment), two random variables (Participant, ItemNbr), and one covariable (BiasValue). The dependant variable is RT, reading time region by region.
+
+My main aim is to remove the variance induced by BiasValue on Attachment, but I did not find any code for that.
+
+My procedure is the following, elaborated from bits and tips: 
+- fit the data distribution, suggesting an inverse square root transform, rather than the classical log transform (on all RTs)
+- exclude deviant participants
+- calculate residual RTs (quite common in SPR experiments)
+- check for collinearity
+- then run the analysis region by region, with BiasValue as a covariate
+- obtain HPD intervals (it fails)
+
+I am unsure about my script and would appreciate your help. 
+
+Thank you very much in advance.
+
+Claire Delle Luche
+Laboratoire Dynamique du Langage
+Lyon, FRANCE
+
+Here is my script:
+
+
+library(lme4)
+library(languageR)
+
+SPR = read.table("DataWord.txt", header=TRUE)  # read data
+
+# fixed factors are Relativiser (qui, lequel), Attachment (N1, N2)
+# BiasValue is the result from a pretest evaluating a bias for one construction over an other, used as covariable with Attachment
+# random factors are Participant and ItemNbr
+# the dependant variable is RT
+# the "Word" column distinguish between FILLERS and experimental words, coded for their function in the sentence
+
+###### data transformation: classical log or a transformation fitting the distribution better
+#  Box-Cox transform
+SPR.lm <- lm(RT ~ Relativiser * Attachment + Participant + ItemNbr + BiasValue, data = SPR)
+SPR.bc <- MASS:::boxcox(SPR.lm)
+SPR.bc$x[which.max(SPR.bc$y)]
+# the result suggest an inverse square root transform would be best
+
+# comparison between a log transform and an inverse square root transform 
+SPR.lm <- lm(log(RT) ~ Relativiser * Attachment + Participant + ItemNbr + BiasValue, data = SPR)
+SPR.lm2 <- lm(I(RT^(-1/2)) ~ Relativiser * Attachment + Participant + ItemNbr + BiasValue, data = SPR)
+par(mfrow = c(2, 2))
+plot(SPR.lm, which = 1:2)	
+plot(SPR.lm2, which = 1:2)	
+# the 2nd transformation is better
+
+SPR$transRT <- I((SPR$RT)^(-1/2))
+
+#####
+
+# identification of deviant participants
+abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR$Participant))), mean)))) < 3
+abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR$Participant))), mean)))) < 2.5
+abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR$Participant))), mean)))) < 2
+# exclude deviant participants
+SPR.RTcor <- subset(SPR, Participant != ("IM") , Participant != ("PL"))
+SPR.RTcorr <- subset(SPR, Participant != ("AF"))
+
+#### comparison of data distributions, without deviants
+SPR.lm3 <- lm(I(RT^(-1/2)) ~ Relativiser * Attachment + Participant + ItemNbr + BiasValue, data = SPR.RTcorr)
+par(mfrow = c(2, 2))
+plot(SPR.lm2, which = 1:2)	
+plot(SPR.lm3, which = 1:2)
+# maybe delete the deviant data points as seen in the graph	
+
+# maybe add a spillover procedure
+
+# regression against Nbr of characters, position in the sentence and in the list
+SPR.anal = lmer(transRT ~ CharNbr + WdNbr + SentNbr + (1| Participant), SPR.RTcorr)
+
+# residual RTs
+SPR.RTcorr$RTResidual <- residuals(SPR.anal)
+
+# centering
+SPR.RTcorr$cRelativiser <- as.numeric(scale(ifelse(SPR.RTcorr$Relativiser == "Qui",1,0), scale=F))
+SPR.RTcorr$cAttachment <- as.numeric(scale(ifelse(SPR.RTcorr$Attachment == "N1",1,0), scale=F))
+SPR.RTcorr$cBiasValue <- as.numeric(scale(SPR.RTcorr$BiasValue, scale=F))
+
+# subset for experimental data only
+SPR.exp <- subset(SPR.RTcorr, Word != "FILLER")
+
+# analysis for experimental trials only and log transformed residual RTs
+SPR.anal = lmer(RTResidual ~ cRelativiser * cAttachment + (1|Participant) + (1|ItemNbr) + cBiasValue, data=SPR.exp)
+summary(SPR.anal)
+# the highest value is 0.57
+
+# regression with residuals
+SPR.exp$iRelAtt <- residuals(lm(I(cRelativiser * cAttachment) ~ cRelativiser + cAttachment, SPR.exp))
+
+SPR.anal1 = lmer(RTResidual ~ cRelativiser + cAttachment + iRelAtt + (1|Participant) + (1|ItemNbr) + cBiasValue, data=SPR.exp)
+summary(SPR.anal)
+# the highest value is 0.57
+
+##### is there collinearity problem?
+
+
+#### analysis of the data word by word, here with RELATIVISER ONLY
+#### Relativiser and Attachment are two fixed factors and BiasValue should be a covariate for Attachment, to remove the variance due to BiasValue
+SPR.RELATIVISER <- subset (SPR.exp, Word == "Rel")
+SPR.RELATIVISER = lmer(RTResidual ~Relativiser*Attachment + (1|Participant) + (1|ItemNbr) + BiasValue, data=SPR.RELATIVISER)
+summary(SPR.RELATIVISER)  # Print results of LME analysis
+plot(fitted(SPR.RELATIVISER), residuals(SPR.RELATIVISER))
+qqnorm(residuals(SPR.RELATIVISER))
+
+SPR.RELATIVISER.mc <- mcmcsamp(SPR.RELATIVISER, 10000)
+densityplot(SPR.RELATIVISER.mc)
+qqmath(SPR.RELATIVISER.mc)
+xyplot(SPR.RELATIVISER.mc)
+HPDinterval(SPR.RELATIVISER.mc)
+# I get an error for HPDinterval
+
+From Claire.Delleluche-vVthMfXIA16euIaGz8sd2Q at public.gmane.org  Mon Jul 28 15:07:13 2008
+From: Claire.Delleluche-vVthMfXIA16euIaGz8sd2Q at public.gmane.org (Claire Delle Luche)
+Date: Mon, 28 Jul 2008 17:07:13 +0200
+Subject: SPR experiment: using lmer, transforming data, collinearity, and using a covariable
+Message-ID: <18156759.354661217257635804.JavaMail.root@co4>
+
+Dear R-lang users,
+
+I try to analyse a self paced reading experiment where I have two fixed variables (Relativiser, Attachment), two random variables (Participant, ItemNbr), and one covariable (BiasValue). The dependant variable is RT, reading time region by region.
+
+My main aim is to remove the variance induced by BiasValue on Attachment, but I did not find any code for that.
+
+My procedure is the following, elaborated from bits and tips: 
+- fit the data distribution, suggesting an inverse square root transform, rather than the classical log transform (on all RTs)
+- exclude deviant participants
+- calculate residual RTs (quite common in SPR experiments)
+- check for collinearity
+- then run the analysis region by region, with BiasValue as a covariate
+- obtain HPD intervals (it fails)
+
+I am unsure about my script and would appreciate your help. 
+
+Thank you very much in advance.
+
+Claire Delle Luche
+Laboratoire Dynamique du Langage
+Lyon, FRANCE
+
+Here is my script:
+
+
+library(lme4)
+library(languageR)
+
+SPR = read.table("DataWord.txt", header=TRUE)  # read data
+
+# fixed factors are Relativiser (qui, lequel), Attachment (N1, N2)
+# BiasValue is the result from a pretest evaluating a bias for one construction over an other, used as covariable with Attachment
+# random factors are Participant and ItemNbr
+# the dependant variable is RT
+# the "Word" column distinguish between FILLERS and experimental words, coded for their function in the sentence
+
+###### data transformation: classical log or a transformation fitting the distribution better
+#  Box-Cox transform
+SPR.lm <- lm(RT ~ Relativiser * Attachment + Participant + ItemNbr + BiasValue, data = SPR)
+SPR.bc <- MASS:::boxcox(SPR.lm)
+SPR.bc$x[which.max(SPR.bc$y)]
+# the result suggest an inverse square root transform would be best
+
+# comparison between a log transform and an inverse square root transform 
+SPR.lm <- lm(log(RT) ~ Relativiser * Attachment + Participant + ItemNbr + BiasValue, data = SPR)
+SPR.lm2 <- lm(I(RT^(-1/2)) ~ Relativiser * Attachment + Participant + ItemNbr + BiasValue, data = SPR)
+par(mfrow = c(2, 2))
+plot(SPR.lm, which = 1:2)	
+plot(SPR.lm2, which = 1:2)	
+# the 2nd transformation is better
+
+SPR$transRT <- I((SPR$RT)^(-1/2))
+
+#####
+
+# identification of deviant participants
+abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR$Participant))), mean)))) < 3
+abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR$Participant))), mean)))) < 2.5
+abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR$Participant))), mean)))) < 2
+# exclude deviant participants
+SPR.RTcor <- subset(SPR, Participant != ("IM") , Participant != ("PL"))
+SPR.RTcorr <- subset(SPR, Participant != ("AF"))
+
+#### comparison of data distributions, without deviants
+SPR.lm3 <- lm(I(RT^(-1/2)) ~ Relativiser * Attachment + Participant + ItemNbr + BiasValue, data = SPR.RTcorr)
+par(mfrow = c(2, 2))
+plot(SPR.lm2, which = 1:2)	
+plot(SPR.lm3, which = 1:2)
+# maybe delete the deviant data points as seen in the graph	
+
+# maybe add a spillover procedure
+
+# regression against Nbr of characters, position in the sentence and in the list
+SPR.anal = lmer(transRT ~ CharNbr + WdNbr + SentNbr + (1| Participant), SPR.RTcorr)
+
+# residual RTs
+SPR.RTcorr$RTResidual <- residuals(SPR.anal)
+
+# centering
+SPR.RTcorr$cRelativiser <- as.numeric(scale(ifelse(SPR.RTcorr$Relativiser == "Qui",1,0), scale=F))
+SPR.RTcorr$cAttachment <- as.numeric(scale(ifelse(SPR.RTcorr$Attachment == "N1",1,0), scale=F))
+SPR.RTcorr$cBiasValue <- as.numeric(scale(SPR.RTcorr$BiasValue, scale=F))
+
+# subset for experimental data only
+SPR.exp <- subset(SPR.RTcorr, Word != "FILLER")
+
+# analysis for experimental trials only and log transformed residual RTs
+SPR.anal = lmer(RTResidual ~ cRelativiser * cAttachment + (1|Participant) + (1|ItemNbr) + cBiasValue, data=SPR.exp)
+summary(SPR.anal)
+# the highest value is 0.57
+
+# regression with residuals
+SPR.exp$iRelAtt <- residuals(lm(I(cRelativiser * cAttachment) ~ cRelativiser + cAttachment, SPR.exp))
+
+SPR.anal1 = lmer(RTResidual ~ cRelativiser + cAttachment + iRelAtt + (1|Participant) + (1|ItemNbr) + cBiasValue, data=SPR.exp)
+summary(SPR.anal)
+# the highest value is 0.57
+
+##### is there collinearity problem?
+
+
+#### analysis of the data word by word, here with RELATIVISER ONLY
+#### Relativiser and Attachment are two fixed factors and BiasValue should be a covariate for Attachment, to remove the variance due to BiasValue
+SPR.RELATIVISER <- subset (SPR.exp, Word == "Rel")
+SPR.RELATIVISER = lmer(RTResidual ~Relativiser*Attachment + (1|Participant) + (1|ItemNbr) + BiasValue, data=SPR.RELATIVISER)
+summary(SPR.RELATIVISER)  # Print results of LME analysis
+plot(fitted(SPR.RELATIVISER), residuals(SPR.RELATIVISER))
+qqnorm(residuals(SPR.RELATIVISER))
+
+SPR.RELATIVISER.mc <- mcmcsamp(SPR.RELATIVISER, 10000)
+densityplot(SPR.RELATIVISER.mc)
+qqmath(SPR.RELATIVISER.mc)
+xyplot(SPR.RELATIVISER.mc)
+HPDinterval(SPR.RELATIVISER.mc)
+# I get an error for HPDinterval
+

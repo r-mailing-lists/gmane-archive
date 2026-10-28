@@ -1,0 +1,623 @@
+From f.calboli at gmail.com  Fri Dec  2 15:17:43 2011
+From: f.calboli at gmail.com (Federico Calboli)
+Date: Fri, 02 Dec 2011 15:17:43 +0000
+Subject: changing background colour in JGR
+Message-ID: <6D950D8A-EA74-43B8-8030-34D6AD18F11B@gmail.com>
+
+Hi,
+
+as by subject: I like white text over a black background. Is there any way of achieving such thing?
+
+Best wishes,
+
+Federico
+
+--
+Federico Calboli
+f.calboli at gmail.com
+
+From victor.pascual at gmail.com  Mon Dec 12 17:01:27 2011
+From: victor.pascual at gmail.com (=?utf-8?q?V=C3=ADctor_Pascual_Cid?=)
+Date: Mon, 12 Dec 2011 18:01:27 +0100
+Subject: Recovering data frames and complex R objects
+Message-ID: <9F8EB0BF-C039-470E-90B6-1188C4C11DF8@gmail.com>
+
+Hi all,
+
+I'm a new user of RServe, and I have a few doubts.
+First of all, I've been able to create a simple Java R console that uses R with Rserve installed in a server.
+I've been also able to create a REXPDecoder that converts REXP objects into Java data types using rexp.asInteger, rexp.asDoubles, rexp.asDoubleMatrix(), rexp.asStrings() and so on.
+
+I wonder how can I do the same with data frames as it looks like Rserve interprets this data structure as only "bytes". Moreover, I wonder how can I inspect and convert into Java data structures complex R objects (those objects that contain more than one vector and matrix inside).
+
+Any help will be much appreciated.
+Thanks,
+
+Victor
+
+From simon.urbanek at r-project.org  Tue Dec 13 00:58:19 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 12 Dec 2011 19:58:19 -0500
+Subject: Re: Recovering data frames and complex R objects
+In-Reply-To: <9F8EB0BF-C039-470E-90B6-1188C4C11DF8@gmail.com>
+References: <9F8EB0BF-C039-470E-90B6-1188C4C11DF8@gmail.com>
+Message-ID: <D33D4F55-3A97-446F-8FB0-87EDEDB4B2DA@r-project.org>
+
+
+On Dec 12, 2011, at 12:01 PM, Víctor Pascual Cid wrote:
+
+> Hi all,
+> 
+> I'm a new user of RServe, and I have a few doubts.
+> First of all, I've been able to create a simple Java R console that uses R with Rserve installed in a server.
+> I've been also able to create a REXPDecoder that converts REXP objects into Java data types using rexp.asInteger, rexp.asDoubles, rexp.asDoubleMatrix(), rexp.asStrings() and so on.
+> 
+> I wonder how can I do the same with data frames as it looks like Rserve interprets this data structure as only "bytes".
+
+That's not true, data frames are simply lists.
+
+
+> Moreover, I wonder how can I inspect and convert into Java data structures complex R objects (those objects that contain more than one vector and matrix inside).
+> 
+
+The client actually does that already. The REXP methods you mentioned above are just accessor methods, the contents are already Java native types stored in the REXP as they come back. I suspect that you just didn't consider lists (generic vectors) which are the basic recursive structures in R.
+
+Cheers,
+Simon
+
+From D.Strbenac at garvan.org.au  Thu Dec 15 00:30:26 2011
+From: D.Strbenac at garvan.org.au (Dario Strbenac)
+Date: Thu, 15 Dec 2011 11:30:26 +1100
+Subject: Creating data.frames with JRI
+Message-ID: <20111215113026.BPH06529@gimr.garvan.unsw.edu.au>
+
+Hello,
+
+Using the JRI API, what's the right way to create a data.frame in R, from a List in Java ? I tried following Oliver Mannion's design pattern in jamsim of creating column arrays and doing rList.put() but the API has changed, and the constructor for RList he used no longer exists, and either does the put method for an RList object.
+
+Say that I already have my columns in Java arrays :
+
+String[] colNames = {"chr", "position"};
+String[] chrs = {"chr1", "chr2", "chr3"};
+Integer[] pos = {1000, 2000, 5000};
+
+How do I get from there to a data.frame using the instance of Rengine I have created ?
+
+--------------------------------------
+Dario Strbenac
+Research Assistant
+Cancer Epigenetics
+Garvan Institute of Medical Research
+Darlinghurst NSW 2010
+Australia
+
+From simon.urbanek at r-project.org  Thu Dec 15 03:15:21 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 14 Dec 2011 22:15:21 -0500
+Subject: Re: Creating data.frames with JRI
+In-Reply-To: <20111215113026.BPH06529@gimr.garvan.unsw.edu.au>
+References: <20111215113026.BPH06529@gimr.garvan.unsw.edu.au>
+Message-ID: <4C5CA50F-3DDC-4CB4-A7CA-8E26B4E0C99C@r-project.org>
+
+
+On Dec 14, 2011, at 7:30 PM, Dario Strbenac wrote:
+
+> Hello,
+> 
+> Using the JRI API, what's the right way to create a data.frame in R, from a List in Java ? I tried following Oliver Mannion's design pattern in jamsim of creating column arrays and doing rList.put() but the API has changed, and the constructor for RList he used no longer exists, and either does the put method for an RList object.
+> 
+> Say that I already have my columns in Java arrays :
+> 
+> String[] colNames = {"chr", "position"};
+> String[] chrs = {"chr1", "chr2", "chr3"};
+> Integer[] pos = {1000, 2000, 5000};
+> 
+> How do I get from there to a data.frame using the instance of Rengine I have created ?
+> 
+
+			    String[] colNames = {"chr", "position"};
+			    String[] chrs = {"chr1", "chr2", "chr3"};
+			    int[] pos = {1000, 2000, 5000};
+
+			    REXP df = new REXPGenericVector(new RList(new REXP[] { new REXPString(chrs), new REXPInteger(pos) }, colNames));
+			    eng.assign("df", df);
+			    eng.parseAndEval("print(as.data.frame(df))");
+
+
+   chr position
+1 chr1     1000
+2 chr2     2000
+3 chr3     5000
+
+
+If you don't want to use as.data.frame() on the list, you have to do some extra work to create the "class" and "row.names" attributes.
+
+Cheers,
+Simon
+
+From simon.urbanek at r-project.org  Thu Dec 15 03:19:50 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 14 Dec 2011 22:19:50 -0500
+Subject: Re: Creating data.frames with JRI
+In-Reply-To: <4C5CA50F-3DDC-4CB4-A7CA-8E26B4E0C99C@r-project.org>
+References: <20111215113026.BPH06529@gimr.garvan.unsw.edu.au> <4C5CA50F-3DDC-4CB4-A7CA-8E26B4E0C99C@r-project.org>
+Message-ID: <6981F194-CCE9-4950-84BF-B720DA9FB69D@r-project.org>
+
+Actually, I have forgotten about REXP.createDataFrame() - it creates the extra attributes for you - so it's even easier:
+
+REXP df = REXP.createDataFrame(new RList(new REXP[] { new REXPString(chrs), new REXPInteger(pos) }, colNames));
+eng.assign("df", df);
+eng.parseAndEval("print(df)");
+
+.. and in fact it's in one of the examples in RTest.java ...
+  
+Cheers,
+Simon
+
+On Dec 14, 2011, at 10:15 PM, Simon Urbanek wrote:
+
+> 
+> On Dec 14, 2011, at 7:30 PM, Dario Strbenac wrote:
+> 
+>> Hello,
+>> 
+>> Using the JRI API, what's the right way to create a data.frame in R, from a List in Java ? I tried following Oliver Mannion's design pattern in jamsim of creating column arrays and doing rList.put() but the API has changed, and the constructor for RList he used no longer exists, and either does the put method for an RList object.
+>> 
+>> Say that I already have my columns in Java arrays :
+>> 
+>> String[] colNames = {"chr", "position"};
+>> String[] chrs = {"chr1", "chr2", "chr3"};
+>> Integer[] pos = {1000, 2000, 5000};
+>> 
+>> How do I get from there to a data.frame using the instance of Rengine I have created ?
+>> 
+> 
+> 			    String[] colNames = {"chr", "position"};
+> 			    String[] chrs = {"chr1", "chr2", "chr3"};
+> 			    int[] pos = {1000, 2000, 5000};
+> 
+> 			    REXP df = new REXPGenericVector(new RList(new REXP[] { new REXPString(chrs), new REXPInteger(pos) }, colNames));
+> 			    eng.assign("df", df);
+> 			    eng.parseAndEval("print(as.data.frame(df))");
+> 
+> 
+>   chr position
+> 1 chr1     1000
+> 2 chr2     2000
+> 3 chr3     5000
+> 
+> 
+> If you don't want to use as.data.frame() on the list, you have to do some extra work to create the "class" and "row.names" attributes.
+> 
+> Cheers,
+> Simon
+>
+
+From D.Strbenac at garvan.org.au  Thu Dec 15 04:00:09 2011
+From: D.Strbenac at garvan.org.au (Dario Strbenac)
+Date: Thu, 15 Dec 2011 15:00:09 +1100
+Subject: Re: Creating data.frames with JRI
+Message-ID: <20111215150009.BPH11792@gimr.garvan.unsw.edu.au>
+
+>Actually, I have forgotten about REXP.createDataFrame()
+
+>.. and in fact it's in one of the examples in RTest.java ...
+
+Hmm, I have version 0.9-2 of the package, and word searching for createDataFrame in rTest and rTest2 java files gives nothing. Maybe you meant all of those RNI methods at the bottom of the file I was trying to avoid.
+
+Thanks for the example, though. It's clear and helpful to me.
+
+- Dario.
+
+From f.calboli at gmail.com  Thu Dec 15 16:04:55 2011
+From: f.calboli at gmail.com (Federico Calboli)
+Date: Thu, 15 Dec 2011 16:04:55 +0000
+Subject: Re: changing background colour in JGR
+In-Reply-To: <6D950D8A-EA74-43B8-8030-34D6AD18F11B@gmail.com>
+References: <6D950D8A-EA74-43B8-8030-34D6AD18F11B@gmail.com>
+Message-ID: <59A85E79-44E6-4F05-96A1-90A3A41A29E0@gmail.com>
+
+On 2 Dec 2011, at 15:17, Federico Calboli wrote:
+
+> Hi,
+> 
+> as by subject: I like white text over a black background. Is there any way of achieving such thing?
+
+Am I correct to understand that the answer is no?
+
+bw
+
+F
+
+
+
+--
+Federico Calboli
+f.calboli at gmail.com
+
+From simon.urbanek at r-project.org  Thu Dec 15 16:38:38 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 15 Dec 2011 11:38:38 -0500
+Subject: Re: Creating data.frames with JRI
+In-Reply-To: <20111215150009.BPH11792@gimr.garvan.unsw.edu.au>
+References: <20111215150009.BPH11792@gimr.garvan.unsw.edu.au>
+Message-ID: <A0FC418F-ADB0-49B3-BE2B-F335F10C0D8A@r-project.org>
+
+
+On Dec 14, 2011, at 11:00 PM, Dario Strbenac wrote:
+
+>> Actually, I have forgotten about REXP.createDataFrame()
+> 
+>> .. and in fact it's in one of the examples in RTest.java ...
+> 
+> Hmm, I have version 0.9-2 of the package, and word searching for createDataFrame in rTest and rTest2 java files gives nothing. Maybe you meant all of those RNI methods at the bottom of the file I was trying to avoid.
+> 
+
+No, you're looking at the wrong API then. The high-level API is org.rosuda.REngine. What you are probably looking at is the low-level org.rosdua.JRI API which you can use, but I would recommend using the high-level API instead.
+
+Cheers,
+Simon
+
+
+> Thanks for the example, though. It's clear and helpful to me.
+> 
+> - Dario.
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From simon.urbanek at r-project.org  Thu Dec 15 16:39:32 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 15 Dec 2011 11:39:32 -0500
+Subject: Re: changing background colour in JGR
+In-Reply-To: <59A85E79-44E6-4F05-96A1-90A3A41A29E0@gmail.com>
+References: <6D950D8A-EA74-43B8-8030-34D6AD18F11B@gmail.com> <59A85E79-44E6-4F05-96A1-90A3A41A29E0@gmail.com>
+Message-ID: <E542E708-DEFE-45CB-A74E-8B0D3D3C7709@r-project.org>
+
+
+On Dec 15, 2011, at 11:04 AM, Federico Calboli wrote:
+
+> On 2 Dec 2011, at 15:17, Federico Calboli wrote:
+> 
+>> Hi,
+>> 
+>> as by subject: I like white text over a black background. Is there any way of achieving such thing?
+> 
+> Am I correct to understand that the answer is no?
+> 
+
+AFAIK, yes. I didn't look at the code (and Markus is traveling), but I presume that it will require adding that option.
+
+Cheers,
+Simon
+
+
+
+> bw
+> 
+> F
+> 
+> 
+> 
+> --
+> Federico Calboli
+> f.calboli at gmail.com
+> 
+> 
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From D.Strbenac at garvan.org.au  Mon Dec 19 00:00:07 2011
+From: D.Strbenac at garvan.org.au (Dario Strbenac)
+Date: Mon, 19 Dec 2011 11:00:07 +1100
+Subject: Delayed Evaluation
+Message-ID: <20111219110007.BPH68284@gimr.garvan.unsw.edu.au>
+
+In R, it's possible to give it incomplete expressions, and it will wait for more input before running. Can this be done with JRI ?
+
+Can something like this work as expected ?
+
+            rExec.eval("x <- numeric()");
+            rExec.eval("for(i in 1:5)");
+            rExec.eval("x <- c(x, i)");
+            System.out.println(rExec.eval("print(x)"));
+
+Thanks,
+       Dario.
+
+--------------------------------------
+Dario Strbenac
+Research Assistant
+Cancer Epigenetics
+Garvan Institute of Medical Research
+Darlinghurst NSW 2010
+Australia
+
+From simon.urbanek at r-project.org  Mon Dec 19 03:45:44 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sun, 18 Dec 2011 22:45:44 -0500
+Subject: Re: Delayed Evaluation
+In-Reply-To: <20111219110007.BPH68284@gimr.garvan.unsw.edu.au>
+References: <20111219110007.BPH68284@gimr.garvan.unsw.edu.au>
+Message-ID: <9B884D5E-44FA-48A7-968F-B5C375B035CD@r-project.org>
+
+
+On Dec 18, 2011, at 7:00 PM, Dario Strbenac wrote:
+
+> In R, it's possible to give it incomplete expressions, and it will wait for more input before running. Can this be done with JRI ?
+> 
+> Can something like this work as expected ?
+> 
+>            rExec.eval("x <- numeric()");
+>            rExec.eval("for(i in 1:5)");
+>            rExec.eval("x <- c(x, i)");
+>            System.out.println(rExec.eval("print(x)"));
+> 
+
+By definition, no. R can only evaluate complete expressions. Even in the R console the expression is not evaluated until it is complete (i.e. when you type "for(i in 1:10)" in R it is *not* evaluated since it doesn't parse into an expression).
+
+Cheers,
+Simon
+
+From D.Strbenac at garvan.org.au  Tue Dec 20 01:00:31 2011
+From: D.Strbenac at garvan.org.au (Dario Strbenac)
+Date: Tue, 20 Dec 2011 12:00:31 +1100
+Subject: Re: Delayed Evaluation
+Message-ID: <20111220120031.BPI01914@gimr.garvan.unsw.edu.au>
+
+>On Dec 18, 2011, at 7:00 PM, Dario Strbenac wrote:
+>
+>> In R, it's possible to give it incomplete expressions, and it will wait for more input before running. Can this be done with JRI ?
+
+>By definition, no.
+
+I thought that having an accessory R file in the Java JAR distribution would be a good way to get around this. Once I got my R instance running, I'd read in the whole .R file of accessory functions into a String, then I would rExec.eval this string.
+
+This is my test case :
+
+            InputStream rStream = getClass().getResourceAsStream("/R/accessory.R");
+            Scanner rScanner = new Scanner(rStream);
+            rScanner.useDelimiter("\\z");
+            String rCommands = rScanner.next();
+            System.out.println(rCommands);
+            rExec.eval(rCommands);
+            System.out.println("SUM2 " + rExec.eval("sum2(4, 5)"));
+
+# accessory.R
+sum2 <- function(x, y)
+{
+    x + y
+}
+
+It reads into the String fine, but it doesn't seem to be evaluated. Error: could not find function "sum2". Is there another approach ?
+
+Thanks,
+       Dario.
+
+From simon.urbanek at r-project.org  Tue Dec 20 01:25:03 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Mon, 19 Dec 2011 20:25:03 -0500
+Subject: Re: Delayed Evaluation
+In-Reply-To: <20111220120031.BPI01914@gimr.garvan.unsw.edu.au>
+References: <20111220120031.BPI01914@gimr.garvan.unsw.edu.au>
+Message-ID: <E87E406E-1E55-42BB-9C33-F8C258699F78@r-project.org>
+
+
+On Dec 19, 2011, at 8:00 PM, Dario Strbenac wrote:
+
+>> On Dec 18, 2011, at 7:00 PM, Dario Strbenac wrote:
+>> 
+>>> In R, it's possible to give it incomplete expressions, and it will wait for more input before running. Can this be done with JRI ?
+> 
+>> By definition, no.
+> 
+> I thought that having an accessory R file in the Java JAR distribution would be a good way to get around this. Once I got my R instance running, I'd read in the whole .R file of accessory functions into a String, then I would rExec.eval this string.
+> 
+> This is my test case :
+> 
+>            InputStream rStream = getClass().getResourceAsStream("/R/accessory.R");
+>            Scanner rScanner = new Scanner(rStream);
+>            rScanner.useDelimiter("\\z");
+>            String rCommands = rScanner.next();
+>            System.out.println(rCommands);
+>            rExec.eval(rCommands);
+>            System.out.println("SUM2 " + rExec.eval("sum2(4, 5)"));
+> 
+> # accessory.R
+> sum2 <- function(x, y)
+> {
+>    x + y
+> }
+> 
+> It reads into the String fine, but it doesn't seem to be evaluated. Error: could not find function "sum2". Is there another approach ?
+> 
+
+Easier way is to use
+
+c.parseAndEval("source('foo.r')");
+
+but the above works just fine for me (I have just modified it to use FileInputStream instead):
+
+                            InputStream rStream = new FileInputStream("foo.R");
+                            Scanner rScanner = new Scanner(rStream);
+                            rScanner.useDelimiter("\\z");
+                            String rCommands = rScanner.next();
+                            System.out.println(rCommands);
+                            eng.parseAndEval(rCommands);
+                            System.out.println("SUM2 " + eng.parseAndEval("sum2(4, 5)"));
+
+
+Fino:test$ make
+javac  -classpath ../../REngine.jar:../JRIEngine.jar:/Library/Frameworks/R.framework/Versions/2.14/Resources/library/rJava/java/boot:/Library/Frameworks/R.framework/Versions/2.14/Resources/library/rJava/jri/JRI.jar RTest.java
+R CMD java -cp ../../REngine.jar:../JRIEngine.jar:/Library/Frameworks/R.framework/Versions/2.14/Resources/library/rJava/java/boot:/Library/Frameworks/R.framework/Versions/2.14/Resources/library/rJava/jri/JRI.jar:. -Djava.library.path=/Library/Frameworks/R.framework/Versions/2.14/Resources/library/rJava/jri:. RTest
+
+# accessory.R
+sum2 <- function(x, y)
+{
+  x + y
+}
+
+SUM2 org.rosuda.REngine.REXPDouble@75d9fd51[1]
+
+Something with your file? What output do you get?
+
+Cheers,
+Simon
+
+
+> Thanks,
+>       Dario.
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From D.Strbenac at garvan.org.au  Tue Dec 20 05:00:10 2011
+From: D.Strbenac at garvan.org.au (Dario Strbenac)
+Date: Tue, 20 Dec 2011 16:00:10 +1100
+Subject: Re: Delayed Evaluation
+Message-ID: <20111220160010.BPI09876@gimr.garvan.unsw.edu.au>
+
+> eng.parseAndEval(rCommands);
+
+>Something with your file? What output do you get?
+
+First output to Java console :
+sum2 <- function(x, y)
+{
+    x + y
+}
+
+Error: could not find function "sum2"
+2nd output to Java console :
+SUM2 null
+
+So I get all the text from my file inside the JAR, as I see by println()ing the string. It just doesn't seem to be getting evaluated.
+
+I have the current version of rJava and I don't see any function called parseAndEval(). Also, looking at http://www.rosuda.org/r/nightly/javadoc/org/rosuda/JRI/Rengine.html there is no method parseAndEval on there or listed at http://www.rosuda.org/r/nightly/javadoc/index-all.html#_P_
+
+I used eval and you used parseAndEval, so I think that would be the difference ?
+
+I've seen other mailing list posts refer to org.rosuda.REngine.parseAndEval but can't find the API documentation of it.
+
+- Dario.
+
+From simon.urbanek at r-project.org  Tue Dec 20 21:34:42 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 20 Dec 2011 16:34:42 -0500
+Subject: Re: Delayed Evaluation
+In-Reply-To: <20111220160010.BPI09876@gimr.garvan.unsw.edu.au>
+References: <20111220160010.BPI09876@gimr.garvan.unsw.edu.au>
+Message-ID: <BA55DD33-5A70-4632-9333-F503BBE5D056@r-project.org>
+
+
+On Dec 20, 2011, at 12:00 AM, Dario Strbenac wrote:
+
+>> eng.parseAndEval(rCommands);
+> 
+>> Something with your file? What output do you get?
+> 
+> First output to Java console :
+> sum2 <- function(x, y)
+> {
+>    x + y
+> }
+> 
+> Error: could not find function "sum2"
+> 2nd output to Java console :
+> SUM2 null
+> 
+> So I get all the text from my file inside the JAR, as I see by println()ing the string. It just doesn't seem to be getting evaluated.
+> 
+> I have the current version of rJava and I don't see any function called parseAndEval(). Also, looking at http://www.rosuda.org/r/nightly/javadoc/org/rosuda/JRI/Rengine.html there is no method parseAndEval on there or listed at http://www.rosuda.org/r/nightly/javadoc/index-all.html#_P_
+> 
+> I used eval and you used parseAndEval, so I think that would be the difference ?
+> 
+
+It shouldn't. I didn't try the low-level API, but both should be doing the same thing.
+
+
+> I've seen other mailing list posts refer to org.rosuda.REngine.parseAndEval but can't find the API documentation of it.
+> 
+
+http://rforge.net/org/doc/org/rosuda/REngine/package-summary.html
+
+org.rosuda.REngine is the recommended high-level API that works for both JRI and Rserve. It's easier and safer to use. The org.rosuda.JRI API is the low-level API and you need to be a little more careful with it. But it should make no difference here. I still think the issue is in the file -- what platform are you on?
+
+Cheers,
+Simon
+
+From D.Strbenac at garvan.org.au  Tue Dec 20 23:00:12 2011
+From: D.Strbenac at garvan.org.au (Dario Strbenac)
+Date: Wed, 21 Dec 2011 10:00:12 +1100
+Subject: Re: Delayed Evaluation
+In-Reply-To: <BA55DD33-5A70-4632-9333-F503BBE5D056@r-project.org>
+References: <20111220160010.BPI09876@gimr.garvan.unsw.edu.au> <BA55DD33-5A70-4632-9333-F503BBE5D056@r-project.org>
+Message-ID: <20111221100012.BPI25779@gimr.garvan.unsw.edu.au>
+
+> I still think the issue is in the file -- what platform are you on?
+
+Thanks for bearing with this. I am on Windows 7. I have converted my code to use the other API and I narrowed down the exception to one line.
+
+My code is : 
+
+            String rCommands = rScanner.next();
+            System.out.println("STARTOFSTRING"+rCommands+"ENDOFSTRING");
+            rExec.parseAndEval(rCommands);
+
+I get output :
+
+STARTOFSTRINGsum2 <- function(x, y)
+{
+    x + y
+}
+ENDOFSTRING
+
+If I comment out the line rExec.parseAndEval(rCommands); then no exception is thrown. Any suggestions ?
+
+Thanks, 
+       Dario.
+
+From muenchen at utk.edu  Mon Dec 26 15:06:29 2011
+From: muenchen at utk.edu (Muenchen, Robert A (Bob))
+Date: Mon, 26 Dec 2011 15:06:29 +0000
+Subject: Suggested features
+Message-ID: <81D92650D162664791CB7C482A87841213642335@kmbx2.utk.tennessee.edu>
+
+Greetings,
+
+I've been using RStudio for a while and now I'm back to using JGR. The combination of JGR and Deducer looks like the best way to enable our non-programming students to take advantage of R.  However, there are a few features that I miss. I hope the developers will consider adding these to a future version of JGR.
+
+1. I often work on several programs at once, and RStudio's ability to automatically re-open all the files I previously had open is a big time saver. 
+
+2. When teaching, I often use the mouse to select code and click RStudio's "run the current line or selection" toolbar icon. That lets me walk around the room with a remote control and not have to return to the keyboard as often.
+
+3. In most applications, I copy or cut text using the right-click menus which don't appear in JGR. This might be a Windows-specific thing, but it sure comes in handy. Once the text is selected, CTRL-C and -X work fine, but right-clicking just cancels the selection. 
+
+Thanks for making such great software!
+
+Bob
+
+
+=========================================================
+  Bob Muenchen (pronounced Min'-chen), Manager  
+  Research Computing Support
+  Voice: (865) 974-5230  
+  Email: muenchen at utk.edu
+  Web:   http://oit.utk.edu/research, 
+  News:  http://oit.utk.edu/research/news.php
+========================================================
+

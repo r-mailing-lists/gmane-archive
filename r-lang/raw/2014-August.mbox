@@ -1,0 +1,334 @@
+From jan.vanhove-3DjnVrp8uWc at public.gmane.org  Wed Aug 13 15:17:09 2014
+From: jan.vanhove-3DjnVrp8uWc at public.gmane.org (Jan Vanhove)
+Date: Wed, 13 Aug 2014 17:17:09 +0200
+Subject: How to analyse clustered randomised experiments? (increased Type-I error in lme4?)
+Message-ID: <53EB8175.3080109@unifr.ch>
+
+Hello everyone,
+
+I'm trying to figure out the effect of randomising the assignment of 
+treatments to groups of subjects (e.g. classes) rather than on the level 
+of subjects. In rather a lot of studies in applied linguistics, 
+treatments (e.g. pedagogical interventions) are administered at the 
+school or class levels but the grouping variable isn't always taken into 
+account in the analyses. I therefore ran a couple of simulations to see 
+how this would affect the results.
+
+To investigate the effect of ignoring clustering in the analyses, I 
+analysed data of a simulated clustered randomised experiment using 
+ordinary ANOVAs and using lme4 with a by-group random intercept (details 
+below). The Type-I error rate of the ANOVAs was much larger than the 
+nominal rate. But the lme4-based results were also skewed towards 
+anti-conservative p values. Am I missing something?
+
+I should add that I haven't fully immersed myself in the literature on 
+clustered randomised experiments, so you're welcome to chasten me if so 
+inclined.
+
+Cheers,
+Jan
+
+###
+
+SIMULATIONS
+
+The basic set-up of one run of simulations was as follows. 10 classes 
+with 20 pupils each participated in a pedagogical intervention (to 
+improve their L2 lexical skills or whatever). The 10 classes were 
+randomly assigned to either the control or the experimental condition in 
+a post-test-only design. The classes were left intact, i.e. all pupils 
+in a given class were assigned to the same condition.
+
+The post-test scores were constructed as follows:
+
+score = overall_mean + intervention_effect + effect_cluster + error
+
+For these simulations, effect_cluster was normally distributed with M = 
+0 and SD = 1 ('sdClasses'), whereas the SD of the error term was 3 
+('sdParts'). In other words, the intra-class correlation coefficient was 
+1^2/(1^2 + 3^2) = 0.10. As a first step, I took a look at Type-I errors 
+and therefore set the Treatment effect to 0.
+
+The following functions (were supposed to :)) create datasets 
+(createData.fnc()), analyse the simulated data using normal ANOVAs and a 
+hierarchical model with 'Class' as the grouping factor and return the 
+respective p values (analyseLMER.fnc()). simulate.fnc() combines both 
+functions, which are then passed on to replicate().
+
+#################
+
+createData.fnc <- function(nrClasses = 10, # even number below 26
+                            nrPartsPerClass = 20, # even number
+                            sdClasses = 1,
+                            sdParts = 3,
+                            Treatment = 0) {
+
+   Classes <- data.frame(Class = letters[1:nrClasses],
+                         EffectClass = rnorm(nrClasses, 0, sdClasses), # 
+by-class adjustment
+                         GroupClass = c(rep("control", nrClasses/2), # 
+assign control classes
+                                        rep("intervention", 
+nrClasses/2)) # and intervention classes
+   )
+
+   Data <- data.frame(Class = rep(letters[1:nrClasses], nrPartsPerClass),
+                      EffectParts = rnorm(nrClasses * nrPartsPerClass, 
+0, sdParts) # by-participant error
+   )
+
+   Data <- merge(Data, Classes, by="Class")
+
+   Data$Score = Data$EffectParts + Data$EffectClass + 
+(as.numeric(Data$GroupClass)-1)*Treatment
+
+   return(Data)
+}
+
+analyseLMER.fnc <- function(Data = Data) {
+   pNoCluster = anova(lm(Score ~ GroupClass, Data))$'Pr(>F)'[1]
+   pCluster = anova(lmer(Score ~ (1|Class), Data, REML=FALSE),
+                                lmer(Score ~ GroupClass + (1|Class), 
+Data, REML = FALSE))$'Pr(>Chisq)'[2]
+   return(list(pNoCluster, pCluster))
+}
+
+simulate.fnc <- function(nrClasses = 10, nrPartsPerClass = 20, sdClasses 
+= 1, sdParts = 3, Treatment = 0) {
+   Data <- createData.fnc(nrClasses = nrClasses, nrPartsPerClass = 
+nrPartsPerClass, sdClasses = sdClasses, sdParts = sdParts, Treatment = 
+Treatment)
+   pVals <- analyseLMER.fnc(Data = Data)
+   return(pVals)
+}
+
+library(lme4)
+
+pVals <- replicate(5000, simulate.fnc())
+
+#################
+
+hist(unlist(pVals[1,]), main="No grouping variable", xlab="pval")
+table(unlist(pVals[1,]) < 0.05)
+
+##FALSE  TRUE
+## 3788  1212 # i.e. 5-fold increase in Type I error
+
+
+hist(unlist(pVals[2,]), main="Grouping variable", xlab="pval")
+table(unlist(pVals[2,]) < 0.05)
+
+##FALSE  TRUE
+  ##4599   401 # better, but still appreciably more than 5%
+
+##############
+
+ > sessionInfo()
+R version 3.0.2 (2013-09-25)
+Platform: i686-pc-linux-gnu (32-bit)
+
+locale:
+  [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C
+  [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8
+  [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8
+  [7] LC_PAPER=en_US.UTF-8       LC_NAME=C
+  [9] LC_ADDRESS=C               LC_TELEPHONE=C
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods base
+
+other attached packages:
+[1] lme4_1.1-7   Rcpp_0.11.2  Matrix_1.1-4
+
+loaded via a namespace (and not attached):
+[1] grid_3.0.2      lattice_0.20-29 MASS_7.3-33     minqa_1.2.3
+[5] nlme_3.1-117    nloptr_1.0.4    splines_3.0.2
+
+-- 
+Jan Vanhove
+Mehrsprachigkeitsforschung und Fremdsprachendidaktik
+Universität Freiburg, Schweiz
+http://homeweb.unifr.ch/VanhoveJ/Pub/
+
+From jan.vanhove-3DjnVrp8uWc at public.gmane.org  Tue Aug 26 10:45:57 2014
+From: jan.vanhove-3DjnVrp8uWc at public.gmane.org (Jan Vanhove)
+Date: Tue, 26 Aug 2014 12:45:57 +0200
+Subject: Re: How to analyse clustered randomised experiments? (increased Type-I error in lme4?)
+In-Reply-To: <53EB8175.3080109-3DjnVrp8uWc@public.gmane.org>
+References: <53EB8175.3080109@unifr.ch>
+Message-ID: <53FC6565.3040605@unifr.ch>
+
+I've been doing some research on this issue (i.e., I've been running 
+some more simulations). One approach seems to be to take the t-value of 
+the intervention effect and relate this to a t-distribution with 
+nrClasses - 2 degrees of freedom. As you'd expect, this yields much 
+p-values that are much too low: in 1,000 simulation runs under the null, 
+I got merely 16 significant results.
+
+A more accurate alternative is to use parametric bootstrapping, e.g.:
+
+###
+
+fit <- lmer(Score ~ GroupClass + (1|Class), Data)
+nullfit <- lmer(Score ~ (1|Class), Data)
+
+tvals <- replicate(1000, {
+   Data$Sim <- unlist(simulate(nullfit))
+   bsFit <- lmer(Sim ~ GroupClass + (1|Class), Data)
+   t <- coef(summary(bsFit))["GroupClassintervention", "t value"]
+   return(t)
+}
+
+t.fit <- coef(summary(fit))["GroupClassintervention", "t value"]
+pParBS <- 1 - table(abs(tvals) >= abs(t.fit))[1] / 1000
+
+###
+
+It's a bit cumbersome to run a lot of simulations with a parametric 
+bootstrap in them, but one run was right on the mark with 50 significant 
+results out of 1000.
+
+On 08/13/2014 05:17 PM, Jan Vanhove wrote:
+> Hello everyone,
+>
+> I'm trying to figure out the effect of randomising the assignment of 
+> treatments to groups of subjects (e.g. classes) rather than on the 
+> level of subjects. In rather a lot of studies in applied linguistics, 
+> treatments (e.g. pedagogical interventions) are administered at the 
+> school or class levels but the grouping variable isn't always taken 
+> into account in the analyses. I therefore ran a couple of simulations 
+> to see how this would affect the results.
+>
+> To investigate the effect of ignoring clustering in the analyses, I 
+> analysed data of a simulated clustered randomised experiment using 
+> ordinary ANOVAs and using lme4 with a by-group random intercept 
+> (details below). The Type-I error rate of the ANOVAs was much larger 
+> than the nominal rate. But the lme4-based results were also skewed 
+> towards anti-conservative p values. Am I missing something?
+>
+> I should add that I haven't fully immersed myself in the literature on 
+> clustered randomised experiments, so you're welcome to chasten me if 
+> so inclined.
+>
+> Cheers,
+> Jan
+>
+> ###
+>
+> SIMULATIONS
+>
+> The basic set-up of one run of simulations was as follows. 10 classes 
+> with 20 pupils each participated in a pedagogical intervention (to 
+> improve their L2 lexical skills or whatever). The 10 classes were 
+> randomly assigned to either the control or the experimental condition 
+> in a post-test-only design. The classes were left intact, i.e. all 
+> pupils in a given class were assigned to the same condition.
+>
+> The post-test scores were constructed as follows:
+>
+> score = overall_mean + intervention_effect + effect_cluster + error
+>
+> For these simulations, effect_cluster was normally distributed with M 
+> = 0 and SD = 1 ('sdClasses'), whereas the SD of the error term was 3 
+> ('sdParts'). In other words, the intra-class correlation coefficient 
+> was 1^2/(1^2 + 3^2) = 0.10. As a first step, I took a look at Type-I 
+> errors and therefore set the Treatment effect to 0.
+>
+> The following functions (were supposed to :)) create datasets 
+> (createData.fnc()), analyse the simulated data using normal ANOVAs and 
+> a hierarchical model with 'Class' as the grouping factor and return 
+> the respective p values (analyseLMER.fnc()). simulate.fnc() combines 
+> both functions, which are then passed on to replicate().
+>
+> #################
+>
+> createData.fnc <- function(nrClasses = 10, # even number below 26
+>                            nrPartsPerClass = 20, # even number
+>                            sdClasses = 1,
+>                            sdParts = 3,
+>                            Treatment = 0) {
+>
+>   Classes <- data.frame(Class = letters[1:nrClasses],
+>                         EffectClass = rnorm(nrClasses, 0, sdClasses), 
+> # by-class adjustment
+>                         GroupClass = c(rep("control", nrClasses/2), # 
+> assign control classes
+>                                        rep("intervention", 
+> nrClasses/2)) # and intervention classes
+>   )
+>
+>   Data <- data.frame(Class = rep(letters[1:nrClasses], nrPartsPerClass),
+>                      EffectParts = rnorm(nrClasses * nrPartsPerClass, 
+> 0, sdParts) # by-participant error
+>   )
+>
+>   Data <- merge(Data, Classes, by="Class")
+>
+>   Data$Score = Data$EffectParts + Data$EffectClass + 
+> (as.numeric(Data$GroupClass)-1)*Treatment
+>
+>   return(Data)
+> }
+>
+> analyseLMER.fnc <- function(Data = Data) {
+>   pNoCluster = anova(lm(Score ~ GroupClass, Data))$'Pr(>F)'[1]
+>   pCluster = anova(lmer(Score ~ (1|Class), Data, REML=FALSE),
+>                                lmer(Score ~ GroupClass + (1|Class), 
+> Data, REML = FALSE))$'Pr(>Chisq)'[2]
+>   return(list(pNoCluster, pCluster))
+> }
+>
+> simulate.fnc <- function(nrClasses = 10, nrPartsPerClass = 20, 
+> sdClasses = 1, sdParts = 3, Treatment = 0) {
+>   Data <- createData.fnc(nrClasses = nrClasses, nrPartsPerClass = 
+> nrPartsPerClass, sdClasses = sdClasses, sdParts = sdParts, Treatment = 
+> Treatment)
+>   pVals <- analyseLMER.fnc(Data = Data)
+>   return(pVals)
+> }
+>
+> library(lme4)
+>
+> pVals <- replicate(5000, simulate.fnc())
+>
+> #################
+>
+> hist(unlist(pVals[1,]), main="No grouping variable", xlab="pval")
+> table(unlist(pVals[1,]) < 0.05)
+>
+> ##FALSE  TRUE
+> ## 3788  1212 # i.e. 5-fold increase in Type I error
+>
+>
+> hist(unlist(pVals[2,]), main="Grouping variable", xlab="pval")
+> table(unlist(pVals[2,]) < 0.05)
+>
+> ##FALSE  TRUE
+>  ##4599   401 # better, but still appreciably more than 5%
+>
+> ##############
+>
+> > sessionInfo()
+> R version 3.0.2 (2013-09-25)
+> Platform: i686-pc-linux-gnu (32-bit)
+>
+> locale:
+>  [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C
+>  [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8
+>  [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8
+>  [7] LC_PAPER=en_US.UTF-8       LC_NAME=C
+>  [9] LC_ADDRESS=C               LC_TELEPHONE=C
+> [11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C
+>
+> attached base packages:
+> [1] stats     graphics  grDevices utils     datasets  methods base
+>
+> other attached packages:
+> [1] lme4_1.1-7   Rcpp_0.11.2  Matrix_1.1-4
+>
+> loaded via a namespace (and not attached):
+> [1] grid_3.0.2      lattice_0.20-29 MASS_7.3-33     minqa_1.2.3
+> [5] nlme_3.1-117    nloptr_1.0.4    splines_3.0.2
+>
+

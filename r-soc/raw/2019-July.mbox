@@ -1,0 +1,1451 @@
+From aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org  Fri Jul  5 13:39:23 2019
+From: aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org (Anton Perdoncin)
+Date: Fri, 05 Jul 2019 15:39:23 +0200
+Subject: =?utf-8?q?Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+Message-ID: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+
+Bonjour,
+
+Je dispose de données comportant des noms de famille, mais (pour
+diverses raisons : erreur de saisie, transcription irrégulière des noms
+dans la source...) certains noms sont orthographiés de façon différente
+alors qu'il s'agit bien soit du même individu, soit d'individus
+appartenant à la même famille.
+
+A l'inverse, certains noms très proches n'appartiennent pas pour autant
+au même individu : c'est le cas de noms identique dont seule la
+terminaison change (on est en Pologne... les noms se déclinent selon le
+genre de la personne...).
+
+Je souhaiterais pouvoir identifier, de façon la plus automatisée
+possible, les cas où les noms sont "suffisamment" proches. Sachant
+évidemment qu'il ne s'agit pas d'opérer un recodage aveugle, mais plutôt
+d'automatiser une procédure permettant d'orienter une recherche "à la
+main" dans les données et un recodage fin (le jeu de données est entrain
+d'être saisi et devrait comporter entre 5000 et 7000 observations).
+
+La proportion de noms "mal orthographiés" ne devrait pas être
+gigantesque, mais suffisamment importante pour avoir besoin d'une
+routine automatique afin de détecter les cas intéressants.
+
+Ci-dessous (et en pj) un exemple reproductible, pour donner une idée du
+type de problèmes :
+
+############ DEBUT DE L'EXEMPLE ############
+# 1. Premier exemple "facile", quand on peut identifier à l'oeil des
+récurrences ----
+
+noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+"Mitelkauz", "Mitelman", "Mitejman")
+
+noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska", "Rafalska",
+"Rafalska", "Rafalski")
+
+# Les "Mit...auz" mais pas les "Mit...man"
+str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+
+# Distinguer Rafalska et Rafalski
+str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) # Rafalska
+str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) # Rafalski
+
+# 2. Mais comment faire pour automatiser la recherche ?
+# ... car en réalité j'ai des milliers de noms, dont certains sont les
+mêmes... à une ou deux lettres près
+
+noms3 <- c(noms1, noms2)
+
+# Je veux obtenir un vecteur permettant d'identifier des groupes de noms
+"proches" et de les distinguer d'autres. Les noms à grouper :
+  # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz", "Mitelkauz"
+  # "Mitelman", "Mitejman"
+  # Rafalska
+  # Rafalski
+
+# On obtiendrait par exemple :
+match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+
+cbind(noms3, match)
+
+############ FIN DE L'EXEMPLE ############
+
+J'imagine bien qu'il y une histoire de "fuzzy matching" derrière tout
+cela, et j'ai vu qu'il existe notamment la fonction agrep qui permet de
+repérer des chaînes de caractère proches. Mais elle ne répond pas
+vraiment à mon problème car il faut savoir à l'avance ce que l'on cherche...
+
+Avant que j'aille chercher plus loin des choses compliquées, peut-être
+certain.e.s d'entre-vous ont-ils.elles des suggestions...
+
+Amicalement,
+
+Anton
+
+
+
+
+-- 
+Anton Perdoncin
+Agrégé Préparateur
+Ecole Normale Supérieure
+Département de Sciences Sociales
+48 bd Jourdan
+75014 Paris
+
+http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org  Fri Jul  5 13:57:36 2019
+From: r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org (Joel GOMBIN)
+Date: Fri, 05 Jul 2019 15:57:36 +0200
+Subject: =?utf-8?q?Re=3A_Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+In-Reply-To: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+References: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+Message-ID: <CA+o9Gp8sC30taDpdS59yETqWu7a_xQz8ds09Ey6_yw8rOB-GTw@mail.gmail.com>
+
+La fonction stringist_inner_join du package fuzzyjoin peut aider pour ce
+cas, je pense. Voir cette vignette par exemple :
+https://cran.r-project.org/web/packages/fuzzyjoin/vignettes/stringdist_join.html
+
+Bon courage,
+
+Joel
+
+On Fri, Jul 5, 2019 at 3:48 PM Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org>
+wrote:
+
+> Bonjour,
+>
+> Je dispose de données comportant des noms de famille, mais (pour
+> diverses raisons : erreur de saisie, transcription irrégulière des noms
+> dans la source...) certains noms sont orthographiés de façon différente
+> alors qu'il s'agit bien soit du même individu, soit d'individus
+> appartenant à la même famille.
+>
+> A l'inverse, certains noms très proches n'appartiennent pas pour autant
+> au même individu : c'est le cas de noms identique dont seule la
+> terminaison change (on est en Pologne... les noms se déclinent selon le
+> genre de la personne...).
+>
+> Je souhaiterais pouvoir identifier, de façon la plus automatisée
+> possible, les cas où les noms sont "suffisamment" proches. Sachant
+> évidemment qu'il ne s'agit pas d'opérer un recodage aveugle, mais plutôt
+> d'automatiser une procédure permettant d'orienter une recherche "à la
+> main" dans les données et un recodage fin (le jeu de données est entrain
+> d'être saisi et devrait comporter entre 5000 et 7000 observations).
+>
+> La proportion de noms "mal orthographiés" ne devrait pas être
+> gigantesque, mais suffisamment importante pour avoir besoin d'une
+> routine automatique afin de détecter les cas intéressants.
+>
+> Ci-dessous (et en pj) un exemple reproductible, pour donner une idée du
+> type de problèmes :
+>
+> ############ DEBUT DE L'EXEMPLE ############
+> # 1. Premier exemple "facile", quand on peut identifier à l'oeil des
+> récurrences ----
+>
+> noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+> "Mitelkauz", "Mitelman", "Mitejman")
+>
+> noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska", "Rafalska",
+> "Rafalska", "Rafalski")
+>
+> # Les "Mit...auz" mais pas les "Mit...man"
+> str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+>
+> # Distinguer Rafalska et Rafalski
+> str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) # Rafalska
+> str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) # Rafalski
+>
+> # 2. Mais comment faire pour automatiser la recherche ?
+> # ... car en réalité j'ai des milliers de noms, dont certains sont les
+> mêmes... à une ou deux lettres près
+>
+> noms3 <- c(noms1, noms2)
+>
+> # Je veux obtenir un vecteur permettant d'identifier des groupes de noms
+> "proches" et de les distinguer d'autres. Les noms à grouper :
+>   # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz", "Mitelkauz"
+>   # "Mitelman", "Mitejman"
+>   # Rafalska
+>   # Rafalski
+>
+> # On obtiendrait par exemple :
+> match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+>
+> cbind(noms3, match)
+>
+> ############ FIN DE L'EXEMPLE ############
+>
+> J'imagine bien qu'il y une histoire de "fuzzy matching" derrière tout
+> cela, et j'ai vu qu'il existe notamment la fonction agrep qui permet de
+> repérer des chaînes de caractère proches. Mais elle ne répond pas
+> vraiment à mon problème car il faut savoir à l'avance ce que l'on
+> cherche...
+>
+> Avant que j'aille chercher plus loin des choses compliquées, peut-être
+> certain.e.s d'entre-vous ont-ils.elles des suggestions...
+>
+> Amicalement,
+>
+> Anton
+>
+>
+>
+>
+> --
+> Anton Perdoncin
+> Agrégé Préparateur
+> Ecole Normale Supérieure
+> Département de Sciences Sociales
+> 48 bd Jourdan
+> 75014 Paris
+>
+> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-- 
+Joël Gombin
+
+Doctorant en science politique / PhD candidate in political science
+CURAPP - Université de Picardie Jules Verne
+
+Parc Bella Vista, bâtiment D
+11, allée Sacoman
+13016 Marseille
+
+Tel : +33 (0)6 61 55 22 41
+www.joelgombin.fr
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org  Fri Jul  5 13:58:01 2019
+From: r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org (Baptiste Coulmont)
+Date: Fri, 05 Jul 2019 15:58:01 +0200
+Subject: =?utf-8?q?Re=3A_Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+In-Reply-To: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+References: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+Message-ID: <CAA=nVLrcbjMHvEZ5WUHm-EsSOnmw0f-cBhAoN9RjdZj18Om8BQ@mail.gmail.com>
+
+Salut,
+
+Le soundex https://en.wikipedia.org/wiki/Soundex
+et le "jewish soundex" https://en.wikipedia.org/wiki/Daitch–Mokotoff_Soundex
+pourraient être utiles
+probablement en combinaison d'autres algorithmes (comme RecordLinkage
+?), car quand les prénoms sont aussi très proches (ou identique), la
+probabilité que 2 individus soient en fait un seul et même individu
+est plus grande.
+
+B.
+
+--
+Baptiste    Coulmont
+http://coulmont.com/
+baptiste.coulmont-6ZSsIk173LA at public.gmane.org
+
+On Fri, Jul 5, 2019 at 3:48 PM Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org> wrote:
+>
+> Bonjour,
+>
+> Je dispose de données comportant des noms de famille, mais (pour
+> diverses raisons : erreur de saisie, transcription irrégulière des noms
+> dans la source...) certains noms sont orthographiés de façon différente
+> alors qu'il s'agit bien soit du même individu, soit d'individus
+> appartenant à la même famille.
+>
+> A l'inverse, certains noms très proches n'appartiennent pas pour autant
+> au même individu : c'est le cas de noms identique dont seule la
+> terminaison change (on est en Pologne... les noms se déclinent selon le
+> genre de la personne...).
+>
+> Je souhaiterais pouvoir identifier, de façon la plus automatisée
+> possible, les cas où les noms sont "suffisamment" proches. Sachant
+> évidemment qu'il ne s'agit pas d'opérer un recodage aveugle, mais plutôt
+> d'automatiser une procédure permettant d'orienter une recherche "à la
+> main" dans les données et un recodage fin (le jeu de données est entrain
+> d'être saisi et devrait comporter entre 5000 et 7000 observations).
+>
+> La proportion de noms "mal orthographiés" ne devrait pas être
+> gigantesque, mais suffisamment importante pour avoir besoin d'une
+> routine automatique afin de détecter les cas intéressants.
+>
+> Ci-dessous (et en pj) un exemple reproductible, pour donner une idée du
+> type de problèmes :
+>
+> ############ DEBUT DE L'EXEMPLE ############
+> # 1. Premier exemple "facile", quand on peut identifier à l'oeil des
+> récurrences ----
+>
+> noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+> "Mitelkauz", "Mitelman", "Mitejman")
+>
+> noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska", "Rafalska",
+> "Rafalska", "Rafalski")
+>
+> # Les "Mit...auz" mais pas les "Mit...man"
+> str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+>
+> # Distinguer Rafalska et Rafalski
+> str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) # Rafalska
+> str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) # Rafalski
+>
+> # 2. Mais comment faire pour automatiser la recherche ?
+> # ... car en réalité j'ai des milliers de noms, dont certains sont les
+> mêmes... à une ou deux lettres près
+>
+> noms3 <- c(noms1, noms2)
+>
+> # Je veux obtenir un vecteur permettant d'identifier des groupes de noms
+> "proches" et de les distinguer d'autres. Les noms à grouper :
+>   # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz", "Mitelkauz"
+>   # "Mitelman", "Mitejman"
+>   # Rafalska
+>   # Rafalski
+>
+> # On obtiendrait par exemple :
+> match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+>
+> cbind(noms3, match)
+>
+> ############ FIN DE L'EXEMPLE ############
+>
+> J'imagine bien qu'il y une histoire de "fuzzy matching" derrière tout
+> cela, et j'ai vu qu'il existe notamment la fonction agrep qui permet de
+> repérer des chaînes de caractère proches. Mais elle ne répond pas
+> vraiment à mon problème car il faut savoir à l'avance ce que l'on cherche...
+>
+> Avant que j'aille chercher plus loin des choses compliquées, peut-être
+> certain.e.s d'entre-vous ont-ils.elles des suggestions...
+>
+> Amicalement,
+>
+> Anton
+>
+>
+>
+>
+> --
+> Anton Perdoncin
+> Agrégé Préparateur
+> Ecole Normale Supérieure
+> Département de Sciences Sociales
+> 48 bd Jourdan
+> 75014 Paris
+>
+> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org  Fri Jul  5 14:02:04 2019
+From: r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org (Etienne Ollion)
+Date: Fri, 05 Jul 2019 16:02:04 +0200
+Subject: =?utf-8?q?Re=3A_Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+In-Reply-To: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+References: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+Message-ID: <CAKc4pTJEyKDvNyRCP_58bjGeCn0wh=E6tfLdx6ChHodqQ4cm2g@mail.gmail.com>
+
+Salut Anton,
+
+Est-ce que recourir à Open Refine, qui te propose une interface graphique
+pour regrouper des chaines de caractères en fonction d'une distance entre
+elles, ne serait pas suffisant. Vue la taille de la population, ca me
+parait offrir un bon compromis entre automatisation et validation manuelle
+ex post.
+
+Sinon, tu pourrais créer une matrice de distance entre chacune des chaines
+de caractères et fixer un seuil pour rapprocher (ou regarder de plus pres)
+les chaines qui semblent proches? Un des enjeux sera la standardisation par
+la longueur de la chaine.
+
+++
+
+Etienne
+
+
+On Fri, Jul 5, 2019 at 3:48 PM Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org>
+wrote:
+
+> Bonjour,
+>
+> Je dispose de données comportant des noms de famille, mais (pour
+> diverses raisons : erreur de saisie, transcription irrégulière des noms
+> dans la source...) certains noms sont orthographiés de façon différente
+> alors qu'il s'agit bien soit du même individu, soit d'individus
+> appartenant à la même famille.
+>
+> A l'inverse, certains noms très proches n'appartiennent pas pour autant
+> au même individu : c'est le cas de noms identique dont seule la
+> terminaison change (on est en Pologne... les noms se déclinent selon le
+> genre de la personne...).
+>
+> Je souhaiterais pouvoir identifier, de façon la plus automatisée
+> possible, les cas où les noms sont "suffisamment" proches. Sachant
+> évidemment qu'il ne s'agit pas d'opérer un recodage aveugle, mais plutôt
+> d'automatiser une procédure permettant d'orienter une recherche "à la
+> main" dans les données et un recodage fin (le jeu de données est entrain
+> d'être saisi et devrait comporter entre 5000 et 7000 observations).
+>
+> La proportion de noms "mal orthographiés" ne devrait pas être
+> gigantesque, mais suffisamment importante pour avoir besoin d'une
+> routine automatique afin de détecter les cas intéressants.
+>
+> Ci-dessous (et en pj) un exemple reproductible, pour donner une idée du
+> type de problèmes :
+>
+> ############ DEBUT DE L'EXEMPLE ############
+> # 1. Premier exemple "facile", quand on peut identifier à l'oeil des
+> récurrences ----
+>
+> noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+> "Mitelkauz", "Mitelman", "Mitejman")
+>
+> noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska", "Rafalska",
+> "Rafalska", "Rafalski")
+>
+> # Les "Mit...auz" mais pas les "Mit...man"
+> str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+>
+> # Distinguer Rafalska et Rafalski
+> str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) # Rafalska
+> str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) # Rafalski
+>
+> # 2. Mais comment faire pour automatiser la recherche ?
+> # ... car en réalité j'ai des milliers de noms, dont certains sont les
+> mêmes... à une ou deux lettres près
+>
+> noms3 <- c(noms1, noms2)
+>
+> # Je veux obtenir un vecteur permettant d'identifier des groupes de noms
+> "proches" et de les distinguer d'autres. Les noms à grouper :
+>   # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz", "Mitelkauz"
+>   # "Mitelman", "Mitejman"
+>   # Rafalska
+>   # Rafalski
+>
+> # On obtiendrait par exemple :
+> match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+>
+> cbind(noms3, match)
+>
+> ############ FIN DE L'EXEMPLE ############
+>
+> J'imagine bien qu'il y une histoire de "fuzzy matching" derrière tout
+> cela, et j'ai vu qu'il existe notamment la fonction agrep qui permet de
+> repérer des chaînes de caractère proches. Mais elle ne répond pas
+> vraiment à mon problème car il faut savoir à l'avance ce que l'on
+> cherche...
+>
+> Avant que j'aille chercher plus loin des choses compliquées, peut-être
+> certain.e.s d'entre-vous ont-ils.elles des suggestions...
+>
+> Amicalement,
+>
+> Anton
+>
+>
+>
+>
+> --
+> Anton Perdoncin
+> Agrégé Préparateur
+> Ecole Normale Supérieure
+> Département de Sciences Sociales
+> 48 bd Jourdan
+> 75014 Paris
+>
+> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org  Fri Jul  5 13:59:48 2019
+From: r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org (Corentin Roquebert)
+Date: Fri, 05 Jul 2019 15:59:48 +0200
+Subject: =?utf-8?q?Re=3A_Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+In-Reply-To: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+References: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr>
+Message-ID: <CACZ5kBwRWHENNfYzp86Gat6nZv-0smGoFCiwC5kvsDkd_LZy3Q@mail.gmail.com>
+
+Bonjour Anton,
+
+Je le ferai comme ça, c'est ce que j'ai fait pour éliminer les articles
+obtenus en doublon via Europresse (ce qui posait d'autres problèmes car les
+chaines de caractère étaient très longues), avec stringdist :
+
+library(stringdist)
+
+dist <- stringdistmatrix(noms1) # C'est ici qu'a lieu le calcul de distance
+entre tous les textes.
+# On peut changer la méthode de calcul
+
+## Conversion en matrice
+m <- as.matrix(dist)
+m[lower.tri(m)] <- 1000 # Dans la matrice, on met 1000 comme valeur pour
+toutes les valeurs en dessous de la diagonale, pour éviter d'avoir deux
+fois la même mesure
+diag(m) <- 1000 # Dans la matrice, on met 1000 comme valeur pour la
+diagonale pour ne pas enlever un texte parce qu'il ressemble à lui-même...
+
+## Sélection des paires proches
+indices <- which(m < 2, arr.ind = TRUE) # On regarde les positions pour
+lesquelles l'indice de dissimilarité est inférieure à 2. On fixe le seuil
+on peut le changer : ici, il faut changer un seul caractère pour que ce
+soit considéré comme trop proche.
+
+
+## Vérifications
+test2 <- cbind(noms1[indices[,1]], noms1[indices[,2]])
+View(test2) # On peut regarder ce qui a été considéré comme trop proche
+pour faire varier le seuil.
+
+noms1 <- noms1 %>% slice(-noms1[,2])
+
+Mais il y a sûrement des meilleures solutions (dont je serais également
+preneur!)
+
+Bonne journée,
+
+Corentin
+
+
+Le ven. 5 juil. 2019 à 15:48, Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org> a
+écrit :
+
+> Bonjour,
+>
+> Je dispose de données comportant des noms de famille, mais (pour
+> diverses raisons : erreur de saisie, transcription irrégulière des noms
+> dans la source...) certains noms sont orthographiés de façon différente
+> alors qu'il s'agit bien soit du même individu, soit d'individus
+> appartenant à la même famille.
+>
+> A l'inverse, certains noms très proches n'appartiennent pas pour autant
+> au même individu : c'est le cas de noms identique dont seule la
+> terminaison change (on est en Pologne... les noms se déclinent selon le
+> genre de la personne...).
+>
+> Je souhaiterais pouvoir identifier, de façon la plus automatisée
+> possible, les cas où les noms sont "suffisamment" proches. Sachant
+> évidemment qu'il ne s'agit pas d'opérer un recodage aveugle, mais plutôt
+> d'automatiser une procédure permettant d'orienter une recherche "à la
+> main" dans les données et un recodage fin (le jeu de données est entrain
+> d'être saisi et devrait comporter entre 5000 et 7000 observations).
+>
+> La proportion de noms "mal orthographiés" ne devrait pas être
+> gigantesque, mais suffisamment importante pour avoir besoin d'une
+> routine automatique afin de détecter les cas intéressants.
+>
+> Ci-dessous (et en pj) un exemple reproductible, pour donner une idée du
+> type de problèmes :
+>
+> ############ DEBUT DE L'EXEMPLE ############
+> # 1. Premier exemple "facile", quand on peut identifier à l'oeil des
+> récurrences ----
+>
+> noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+> "Mitelkauz", "Mitelman", "Mitejman")
+>
+> noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska", "Rafalska",
+> "Rafalska", "Rafalski")
+>
+> # Les "Mit...auz" mais pas les "Mit...man"
+> str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+>
+> # Distinguer Rafalska et Rafalski
+> str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) # Rafalska
+> str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) # Rafalski
+>
+> # 2. Mais comment faire pour automatiser la recherche ?
+> # ... car en réalité j'ai des milliers de noms, dont certains sont les
+> mêmes... à une ou deux lettres près
+>
+> noms3 <- c(noms1, noms2)
+>
+> # Je veux obtenir un vecteur permettant d'identifier des groupes de noms
+> "proches" et de les distinguer d'autres. Les noms à grouper :
+>   # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz", "Mitelkauz"
+>   # "Mitelman", "Mitejman"
+>   # Rafalska
+>   # Rafalski
+>
+> # On obtiendrait par exemple :
+> match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+>
+> cbind(noms3, match)
+>
+> ############ FIN DE L'EXEMPLE ############
+>
+> J'imagine bien qu'il y une histoire de "fuzzy matching" derrière tout
+> cela, et j'ai vu qu'il existe notamment la fonction agrep qui permet de
+> repérer des chaînes de caractère proches. Mais elle ne répond pas
+> vraiment à mon problème car il faut savoir à l'avance ce que l'on
+> cherche...
+>
+> Avant que j'aille chercher plus loin des choses compliquées, peut-être
+> certain.e.s d'entre-vous ont-ils.elles des suggestions...
+>
+> Amicalement,
+>
+> Anton
+>
+>
+>
+>
+> --
+> Anton Perdoncin
+> Agrégé Préparateur
+> Ecole Normale Supérieure
+> Département de Sciences Sociales
+> 48 bd Jourdan
+> 75014 Paris
+>
+> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org  Fri Jul  5 14:13:17 2019
+From: r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org (Eglantine Schmitt)
+Date: Fri, 05 Jul 2019 16:13:17 +0200
+Subject: =?utf-8?q?Re=3A_Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+In-Reply-To: <CACZ5kBwRWHENNfYzp86Gat6nZv-0smGoFCiwC5kvsDkd_LZy3Q@mail.gmail.com>
+References: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr> <CACZ5kBwRWHENNfYzp86Gat6nZv-0smGoFCiwC5kvsDkd_LZy3Q@mail.gmail.com>
+Message-ID: <CAAyAog_oj63mKTBpOtLVc7_95QALezn7SCaQpQWkGbXJrD5g2Q@mail.gmail.com>
+
+Bonjour à tous,
+
+En fouille de texte on utilise généralement une distance de Levenshtein
+<https://stat.ethz.ch/R-manual/R-devel/library/utils/html/adist.html> pour
+calculer la proximité entre chaînes de caractères. C'est d'ailleurs l'une
+des méthodes utilisées par Open Refine, suggéré ci-dessus et que je valide
+totalement, pour clusteriser du texte.
+
+Bonne journée,
+
+Eglantine
+
+Le ven. 5 juil. 2019 à 16:00, Corentin Roquebert <r-soc-mZqXLFNjc/zGvNgEqxw9xA at public.gmane.orgr.fr>
+a écrit :
+
+> Bonjour Anton,
+>
+> Je le ferai comme ça, c'est ce que j'ai fait pour éliminer les articles
+> obtenus en doublon via Europresse (ce qui posait d'autres problèmes car les
+> chaines de caractère étaient très longues), avec stringdist :
+>
+> library(stringdist)
+>
+> dist <- stringdistmatrix(noms1) # C'est ici qu'a lieu le calcul de
+> distance entre tous les textes.
+> # On peut changer la méthode de calcul
+>
+> ## Conversion en matrice
+> m <- as.matrix(dist)
+> m[lower.tri(m)] <- 1000 # Dans la matrice, on met 1000 comme valeur pour
+> toutes les valeurs en dessous de la diagonale, pour éviter d'avoir deux
+> fois la même mesure
+> diag(m) <- 1000 # Dans la matrice, on met 1000 comme valeur pour la
+> diagonale pour ne pas enlever un texte parce qu'il ressemble à lui-même...
+>
+> ## Sélection des paires proches
+> indices <- which(m < 2, arr.ind = TRUE) # On regarde les positions pour
+> lesquelles l'indice de dissimilarité est inférieure à 2. On fixe le seuil
+> on peut le changer : ici, il faut changer un seul caractère pour que ce
+> soit considéré comme trop proche.
+>
+>
+> ## Vérifications
+> test2 <- cbind(noms1[indices[,1]], noms1[indices[,2]])
+> View(test2) # On peut regarder ce qui a été considéré comme trop proche
+> pour faire varier le seuil.
+>
+> noms1 <- noms1 %>% slice(-noms1[,2])
+>
+> Mais il y a sûrement des meilleures solutions (dont je serais également
+> preneur!)
+>
+> Bonne journée,
+>
+> Corentin
+>
+>
+> Le ven. 5 juil. 2019 à 15:48, Anton Perdoncin <aperdonc at ens-cachan.fr> a
+> écrit :
+>
+>> Bonjour,
+>>
+>> Je dispose de données comportant des noms de famille, mais (pour
+>> diverses raisons : erreur de saisie, transcription irrégulière des noms
+>> dans la source...) certains noms sont orthographiés de façon différente
+>> alors qu'il s'agit bien soit du même individu, soit d'individus
+>> appartenant à la même famille.
+>>
+>> A l'inverse, certains noms très proches n'appartiennent pas pour autant
+>> au même individu : c'est le cas de noms identique dont seule la
+>> terminaison change (on est en Pologne... les noms se déclinent selon le
+>> genre de la personne...).
+>>
+>> Je souhaiterais pouvoir identifier, de façon la plus automatisée
+>> possible, les cas où les noms sont "suffisamment" proches. Sachant
+>> évidemment qu'il ne s'agit pas d'opérer un recodage aveugle, mais plutôt
+>> d'automatiser une procédure permettant d'orienter une recherche "à la
+>> main" dans les données et un recodage fin (le jeu de données est entrain
+>> d'être saisi et devrait comporter entre 5000 et 7000 observations).
+>>
+>> La proportion de noms "mal orthographiés" ne devrait pas être
+>> gigantesque, mais suffisamment importante pour avoir besoin d'une
+>> routine automatique afin de détecter les cas intéressants.
+>>
+>> Ci-dessous (et en pj) un exemple reproductible, pour donner une idée du
+>> type de problèmes :
+>>
+>> ############ DEBUT DE L'EXEMPLE ############
+>> # 1. Premier exemple "facile", quand on peut identifier à l'oeil des
+>> récurrences ----
+>>
+>> noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+>> "Mitelkauz", "Mitelman", "Mitejman")
+>>
+>> noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska", "Rafalska",
+>> "Rafalska", "Rafalski")
+>>
+>> # Les "Mit...auz" mais pas les "Mit...man"
+>> str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+>>
+>> # Distinguer Rafalska et Rafalski
+>> str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) # Rafalska
+>> str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) # Rafalski
+>>
+>> # 2. Mais comment faire pour automatiser la recherche ?
+>> # ... car en réalité j'ai des milliers de noms, dont certains sont les
+>> mêmes... à une ou deux lettres près
+>>
+>> noms3 <- c(noms1, noms2)
+>>
+>> # Je veux obtenir un vecteur permettant d'identifier des groupes de noms
+>> "proches" et de les distinguer d'autres. Les noms à grouper :
+>>   # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz", "Mitelkauz"
+>>   # "Mitelman", "Mitejman"
+>>   # Rafalska
+>>   # Rafalski
+>>
+>> # On obtiendrait par exemple :
+>> match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+>>
+>> cbind(noms3, match)
+>>
+>> ############ FIN DE L'EXEMPLE ############
+>>
+>> J'imagine bien qu'il y une histoire de "fuzzy matching" derrière tout
+>> cela, et j'ai vu qu'il existe notamment la fonction agrep qui permet de
+>> repérer des chaînes de caractère proches. Mais elle ne répond pas
+>> vraiment à mon problème car il faut savoir à l'avance ce que l'on
+>> cherche...
+>>
+>> Avant que j'aille chercher plus loin des choses compliquées, peut-être
+>> certain.e.s d'entre-vous ont-ils.elles des suggestions...
+>>
+>> Amicalement,
+>>
+>> Anton
+>>
+>>
+>>
+>>
+>> --
+>> Anton Perdoncin
+>> Agrégé Préparateur
+>> Ecole Normale Supérieure
+>> Département de Sciences Sociales
+>> 48 bd Jourdan
+>> 75014 Paris
+>>
+>> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-- 
+Eglantine Schmitt
+06 79 03 93 75
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From benoit.tudoux-rBwvhuN+MAC5lWyeqwCmNg at public.gmane.org  Fri Jul  5 14:51:28 2019
+From: benoit.tudoux-rBwvhuN+MAC5lWyeqwCmNg at public.gmane.org (=?utf-8?q?Beno=C3=AEt_TUDOUX?=)
+Date: Fri, 05 Jul 2019 16:51:28 +0200
+Subject: =?utf-8?q?Re=3A_Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+In-Reply-To: <CAAyAog_oj63mKTBpOtLVc7_95QALezn7SCaQpQWkGbXJrD5g2Q@mail.gmail.com>
+References: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr> <CACZ5kBwRWHENNfYzp86Gat6nZv-0smGoFCiwC5kvsDkd_LZy3Q@mail.gmail.com> <CAAyAog_oj63mKTBpOtLVc7_95QALezn7SCaQpQWkGbXJrD5g2Q@mail.gmail.com>
+Message-ID: <2b0a2615-99c6-f3f8-4ac9-7fca46f79d11@univ-tlse2.fr>
+
+Bonjour,
+L'INSEE vient de publier un document de travail sur l'appariement des 
+enquêtes Emploi et des données du fichier historique de Pôle Emploi. En 
+l'absence de clé commune entre ces deux sources, l'appariement se fait 
+sur le prénom de l'individu et son adresse.
+Évidemment, ça pose plein de problèmes. Si les solutions apportées sont 
+sous SAS, la partie méthodo et les annexes restent très intéressantes. 
+Pour le prénom, 3 distances sont prises en compte 
+(scripturale/Levenshtein, anagramme et phonétique) :
+https://www.insee.fr/fr/statistiques/4182193
+
+Bonne fin de semaine et à bientôt,
+Benoit
+
+Le 05/07/2019 à 16:13, Eglantine Schmitt (via r-soc Mailing List) a écrit :
+> Bonjour à tous,
+>
+> En fouille de texte on utilise généralement une distance de 
+> Levenshtein 
+> <https://stat.ethz.ch/R-manual/R-devel/library/utils/html/adist.html> 
+> pour calculer la proximité entre chaînes de caractères. C'est 
+> d'ailleurs l'une des méthodes utilisées par Open Refine, suggéré 
+> ci-dessus et que je valide totalement, pour clusteriser du texte.
+>
+> Bonne journée,
+>
+> Eglantine
+>
+> Le ven. 5 juil. 2019 à 16:00, Corentin Roquebert 
+> <r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org <mailto:r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org>> a écrit :
+>
+>     Bonjour Anton,
+>
+>     Je le ferai comme ça, c'est ce que j'ai fait pour éliminer les
+>     articles obtenus en doublon via Europresse (ce qui posait d'autres
+>     problèmes car les chaines de caractère étaient très longues), avec
+>     stringdist :
+>
+>     library(stringdist)
+>
+>     dist <- stringdistmatrix(noms1) # C'est ici qu'a lieu le calcul de
+>     distance entre tous les textes.
+>     # On peut changer la méthode de calcul
+>
+>     ## Conversion en matrice
+>     m <- as.matrix(dist)
+>     m[lower.tri(m)] <- 1000 # Dans la matrice, on met 1000 comme
+>     valeur pour toutes les valeurs en dessous de la diagonale, pour
+>     éviter d'avoir deux fois la même mesure
+>     diag(m) <- 1000 # Dans la matrice, on met 1000 comme valeur pour
+>     la diagonale pour ne pas enlever un texte parce qu'il ressemble à
+>     lui-même...
+>
+>     ## Sélection des paires proches
+>     indices <- which(m < 2, arr.ind = TRUE) # On regarde les positions
+>     pour lesquelles l'indice de dissimilarité est inférieure à 2. On
+>     fixe le seuil on peut le changer : ici, il faut changer un seul
+>     caractère pour que ce soit considéré comme trop proche.
+>
+>
+>     ## Vérifications
+>     test2 <- cbind(noms1[indices[,1]], noms1[indices[,2]])
+>     View(test2) # On peut regarder ce qui a été considéré comme trop
+>     proche pour faire varier le seuil.
+>
+>     noms1 <- noms1 %>% slice(-noms1[,2])
+>
+>     Mais il y a sûrement des meilleures solutions (dont je serais
+>     également preneur!)
+>
+>     Bonne journée,
+>
+>     Corentin
+>
+>
+>     Le ven. 5 juil. 2019 à 15:48, Anton Perdoncin
+>     <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org <mailto:aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org>> a écrit :
+>
+>         Bonjour,
+>
+>         Je dispose de données comportant des noms de famille, mais (pour
+>         diverses raisons : erreur de saisie, transcription irrégulière
+>         des noms
+>         dans la source...) certains noms sont orthographiés de façon
+>         différente
+>         alors qu'il s'agit bien soit du même individu, soit d'individus
+>         appartenant à la même famille.
+>
+>         A l'inverse, certains noms très proches n'appartiennent pas
+>         pour autant
+>         au même individu : c'est le cas de noms identique dont seule la
+>         terminaison change (on est en Pologne... les noms se déclinent
+>         selon le
+>         genre de la personne...).
+>
+>         Je souhaiterais pouvoir identifier, de façon la plus automatisée
+>         possible, les cas où les noms sont "suffisamment" proches. Sachant
+>         évidemment qu'il ne s'agit pas d'opérer un recodage aveugle,
+>         mais plutôt
+>         d'automatiser une procédure permettant d'orienter une
+>         recherche "à la
+>         main" dans les données et un recodage fin (le jeu de données
+>         est entrain
+>         d'être saisi et devrait comporter entre 5000 et 7000
+>         observations).
+>
+>         La proportion de noms "mal orthographiés" ne devrait pas être
+>         gigantesque, mais suffisamment importante pour avoir besoin d'une
+>         routine automatique afin de détecter les cas intéressants.
+>
+>         Ci-dessous (et en pj) un exemple reproductible, pour donner
+>         une idée du
+>         type de problèmes :
+>
+>         ############ DEBUT DE L'EXEMPLE ############
+>         # 1. Premier exemple "facile", quand on peut identifier à
+>         l'oeil des
+>         récurrences ----
+>
+>         noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+>         "Mitelkauz", "Mitelman", "Mitejman")
+>
+>         noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska",
+>         "Rafalska",
+>         "Rafalska", "Rafalski")
+>
+>         # Les "Mit...auz" mais pas les "Mit...man"
+>         str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+>
+>         # Distinguer Rafalska et Rafalski
+>         str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) #
+>         Rafalska
+>         str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) #
+>         Rafalski
+>
+>         # 2. Mais comment faire pour automatiser la recherche ?
+>         # ... car en réalité j'ai des milliers de noms, dont certains
+>         sont les
+>         mêmes... à une ou deux lettres près
+>
+>         noms3 <- c(noms1, noms2)
+>
+>         # Je veux obtenir un vecteur permettant d'identifier des
+>         groupes de noms
+>         "proches" et de les distinguer d'autres. Les noms à grouper :
+>           # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+>         "Mitelkauz"
+>           # "Mitelman", "Mitejman"
+>           # Rafalska
+>           # Rafalski
+>
+>         # On obtiendrait par exemple :
+>         match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+>
+>         cbind(noms3, match)
+>
+>         ############ FIN DE L'EXEMPLE ############
+>
+>         J'imagine bien qu'il y une histoire de "fuzzy matching"
+>         derrière tout
+>         cela, et j'ai vu qu'il existe notamment la fonction agrep qui
+>         permet de
+>         repérer des chaînes de caractère proches. Mais elle ne répond pas
+>         vraiment à mon problème car il faut savoir à l'avance ce que
+>         l'on cherche...
+>
+>         Avant que j'aille chercher plus loin des choses compliquées,
+>         peut-être
+>         certain.e.s d'entre-vous ont-ils.elles des suggestions...
+>
+>         Amicalement,
+>
+>         Anton
+>
+>
+>
+>
+>         -- 
+>         Anton Perdoncin
+>         Agrégé Préparateur
+>         Ecole Normale Supérieure
+>         Département de Sciences Sociales
+>         48 bd Jourdan
+>         75014 Paris
+>
+>         http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>
+>         -- 
+>         Liste des utilisateurs de R en sciences sociales
+>         Informations / options / désabonnement :
+>         https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>     -- 
+>     Liste des utilisateurs de R en sciences sociales
+>     Informations / options / désabonnement :
+>     https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+>
+> -- 
+> Eglantine Schmitt
+> 06 79 03 93 75
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org  Fri Jul  5 16:34:38 2019
+From: r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org (Mehdi Khan)
+Date: Fri, 05 Jul 2019 18:34:38 +0200
+Subject: =?utf-8?q?Re=3A_Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+In-Reply-To: <CAAyAog_oj63mKTBpOtLVc7_95QALezn7SCaQpQWkGbXJrD5g2Q@mail.gmail.com>
+References: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr> <CACZ5kBwRWHENNfYzp86Gat6nZv-0smGoFCiwC5kvsDkd_LZy3Q@mail.gmail.com> <CAAyAog_oj63mKTBpOtLVc7_95QALezn7SCaQpQWkGbXJrD5g2Q@mail.gmail.com>
+Message-ID: <CA+Mq9UNF-kQ5jPuJYb+t_-Za+6Z9mCOeFEHpENE-w0S_vBnowg@mail.gmail.com>
+
+Bonjour,
+
+on trouve la distance de Levenshtein dans le package "MiscPsycho" c'est la
+fonction
+"stringMatch"
+
+Bien cordialement
+
+Le ven. 5 juil. 2019 à 16:14, Eglantine Schmitt <r-soc-mZqXLFNjc/xcagtgOVd1Lg at public.gmane.org.fr>
+a écrit :
+
+> Bonjour à tous,
+>
+> En fouille de texte on utilise généralement une distance de Levenshtein
+> <https://stat.ethz.ch/R-manual/R-devel/library/utils/html/adist.html>
+> pour calculer la proximité entre chaînes de caractères. C'est d'ailleurs
+> l'une des méthodes utilisées par Open Refine, suggéré ci-dessus et que je
+> valide totalement, pour clusteriser du texte.
+>
+> Bonne journée,
+>
+> Eglantine
+>
+> Le ven. 5 juil. 2019 à 16:00, Corentin Roquebert <r-soc-mZqXLFNjc/yeDnKaAoCHWQ at public.gmane.orgter.fr>
+> a écrit :
+>
+>> Bonjour Anton,
+>>
+>> Je le ferai comme ça, c'est ce que j'ai fait pour éliminer les articles
+>> obtenus en doublon via Europresse (ce qui posait d'autres problèmes car les
+>> chaines de caractère étaient très longues), avec stringdist :
+>>
+>> library(stringdist)
+>>
+>> dist <- stringdistmatrix(noms1) # C'est ici qu'a lieu le calcul de
+>> distance entre tous les textes.
+>> # On peut changer la méthode de calcul
+>>
+>> ## Conversion en matrice
+>> m <- as.matrix(dist)
+>> m[lower.tri(m)] <- 1000 # Dans la matrice, on met 1000 comme valeur pour
+>> toutes les valeurs en dessous de la diagonale, pour éviter d'avoir deux
+>> fois la même mesure
+>> diag(m) <- 1000 # Dans la matrice, on met 1000 comme valeur pour la
+>> diagonale pour ne pas enlever un texte parce qu'il ressemble à lui-même...
+>>
+>> ## Sélection des paires proches
+>> indices <- which(m < 2, arr.ind = TRUE) # On regarde les positions pour
+>> lesquelles l'indice de dissimilarité est inférieure à 2. On fixe le seuil
+>> on peut le changer : ici, il faut changer un seul caractère pour que ce
+>> soit considéré comme trop proche.
+>>
+>>
+>> ## Vérifications
+>> test2 <- cbind(noms1[indices[,1]], noms1[indices[,2]])
+>> View(test2) # On peut regarder ce qui a été considéré comme trop proche
+>> pour faire varier le seuil.
+>>
+>> noms1 <- noms1 %>% slice(-noms1[,2])
+>>
+>> Mais il y a sûrement des meilleures solutions (dont je serais également
+>> preneur!)
+>>
+>> Bonne journée,
+>>
+>> Corentin
+>>
+>>
+>> Le ven. 5 juil. 2019 à 15:48, Anton Perdoncin <aperdonc at ens-cachan.fr> a
+>> écrit :
+>>
+>>> Bonjour,
+>>>
+>>> Je dispose de données comportant des noms de famille, mais (pour
+>>> diverses raisons : erreur de saisie, transcription irrégulière des noms
+>>> dans la source...) certains noms sont orthographiés de façon différente
+>>> alors qu'il s'agit bien soit du même individu, soit d'individus
+>>> appartenant à la même famille.
+>>>
+>>> A l'inverse, certains noms très proches n'appartiennent pas pour autant
+>>> au même individu : c'est le cas de noms identique dont seule la
+>>> terminaison change (on est en Pologne... les noms se déclinent selon le
+>>> genre de la personne...).
+>>>
+>>> Je souhaiterais pouvoir identifier, de façon la plus automatisée
+>>> possible, les cas où les noms sont "suffisamment" proches. Sachant
+>>> évidemment qu'il ne s'agit pas d'opérer un recodage aveugle, mais plutôt
+>>> d'automatiser une procédure permettant d'orienter une recherche "à la
+>>> main" dans les données et un recodage fin (le jeu de données est entrain
+>>> d'être saisi et devrait comporter entre 5000 et 7000 observations).
+>>>
+>>> La proportion de noms "mal orthographiés" ne devrait pas être
+>>> gigantesque, mais suffisamment importante pour avoir besoin d'une
+>>> routine automatique afin de détecter les cas intéressants.
+>>>
+>>> Ci-dessous (et en pj) un exemple reproductible, pour donner une idée du
+>>> type de problèmes :
+>>>
+>>> ############ DEBUT DE L'EXEMPLE ############
+>>> # 1. Premier exemple "facile", quand on peut identifier à l'oeil des
+>>> récurrences ----
+>>>
+>>> noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+>>> "Mitelkauz", "Mitelman", "Mitejman")
+>>>
+>>> noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska", "Rafalska",
+>>> "Rafalska", "Rafalski")
+>>>
+>>> # Les "Mit...auz" mais pas les "Mit...man"
+>>> str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+>>>
+>>> # Distinguer Rafalska et Rafalski
+>>> str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) # Rafalska
+>>> str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) # Rafalski
+>>>
+>>> # 2. Mais comment faire pour automatiser la recherche ?
+>>> # ... car en réalité j'ai des milliers de noms, dont certains sont les
+>>> mêmes... à une ou deux lettres près
+>>>
+>>> noms3 <- c(noms1, noms2)
+>>>
+>>> # Je veux obtenir un vecteur permettant d'identifier des groupes de noms
+>>> "proches" et de les distinguer d'autres. Les noms à grouper :
+>>>   # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz", "Mitelkauz"
+>>>   # "Mitelman", "Mitejman"
+>>>   # Rafalska
+>>>   # Rafalski
+>>>
+>>> # On obtiendrait par exemple :
+>>> match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+>>>
+>>> cbind(noms3, match)
+>>>
+>>> ############ FIN DE L'EXEMPLE ############
+>>>
+>>> J'imagine bien qu'il y une histoire de "fuzzy matching" derrière tout
+>>> cela, et j'ai vu qu'il existe notamment la fonction agrep qui permet de
+>>> repérer des chaînes de caractère proches. Mais elle ne répond pas
+>>> vraiment à mon problème car il faut savoir à l'avance ce que l'on
+>>> cherche...
+>>>
+>>> Avant que j'aille chercher plus loin des choses compliquées, peut-être
+>>> certain.e.s d'entre-vous ont-ils.elles des suggestions...
+>>>
+>>> Amicalement,
+>>>
+>>> Anton
+>>>
+>>>
+>>>
+>>>
+>>> --
+>>> Anton Perdoncin
+>>> Agrégé Préparateur
+>>> Ecole Normale Supérieure
+>>> Département de Sciences Sociales
+>>> 48 bd Jourdan
+>>> 75014 Paris
+>>>
+>>> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>>>
+>>> --
+>>> Liste des utilisateurs de R en sciences sociales
+>>> Informations / options / désabonnement :
+>>> https://groupes.renater.fr/sympa/info/r-soc
+>>>
+>>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>>
+>
+> --
+> Eglantine Schmitt
+> 06 79 03 93 75
+>
+> --
+> Liste des utilisateurs de R en sciences sociales
+> Informations / options / désabonnement :
+> https://groupes.renater.fr/sympa/info/r-soc
+>
+>
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org  Fri Jul  5 19:57:41 2019
+From: aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org (Anton Perdoncin)
+Date: Fri, 05 Jul 2019 21:57:41 +0200
+Subject: =?utf-8?q?Re=3A_Identifier_des_cha=C3=AEnes_de_caract=C3=A8re_=22proches=22?=
+In-Reply-To: <CAKc4pTJEyKDvNyRCP_58bjGeCn0wh=E6tfLdx6ChHodqQ4cm2g@mail.gmail.com>
+References: <16772d8f-9a17-ac82-324e-83399e8626d1@ens-cachan.fr> <CAKc4pTJEyKDvNyRCP_58bjGeCn0wh=E6tfLdx6ChHodqQ4cm2g@mail.gmail.com>
+Message-ID: <9fb29328-d46e-f71b-096d-eae80721f9ec@ens-cachan.fr>
+
+Grand merci à celles et ceux qui m'ont répondu, aussi rapidement de
+surcroît ! Mon jeu de données devrait permettre d'évaluer les mérites
+respectifs des différentes méthodes suggérées... à suivre...
+Amicalement,
+Anton
+
+Le 05/07/2019 à 16:02, Etienne Ollion (via r-soc Mailing List) a écrit :
+> Salut Anton,
+> 
+> Est-ce que recourir à Open Refine, qui te propose une interface graphique
+> pour regrouper des chaines de caractères en fonction d'une distance entre
+> elles, ne serait pas suffisant. Vue la taille de la population, ca me
+> parait offrir un bon compromis entre automatisation et validation manuelle
+> ex post.
+> 
+> Sinon, tu pourrais créer une matrice de distance entre chacune des chaines
+> de caractères et fixer un seuil pour rapprocher (ou regarder de plus pres)
+> les chaines qui semblent proches? Un des enjeux sera la standardisation par
+> la longueur de la chaine.
+> 
+> ++
+> 
+> Etienne
+> 
+> 
+> On Fri, Jul 5, 2019 at 3:48 PM Anton Perdoncin <aperdonc-El45yYp9K2Pzs4IBBRidIQ at public.gmane.org>
+> wrote:
+> 
+>> Bonjour,
+>>
+>> Je dispose de données comportant des noms de famille, mais (pour
+>> diverses raisons : erreur de saisie, transcription irrégulière des noms
+>> dans la source...) certains noms sont orthographiés de façon différente
+>> alors qu'il s'agit bien soit du même individu, soit d'individus
+>> appartenant à la même famille.
+>>
+>> A l'inverse, certains noms très proches n'appartiennent pas pour autant
+>> au même individu : c'est le cas de noms identique dont seule la
+>> terminaison change (on est en Pologne... les noms se déclinent selon le
+>> genre de la personne...).
+>>
+>> Je souhaiterais pouvoir identifier, de façon la plus automatisée
+>> possible, les cas où les noms sont "suffisamment" proches. Sachant
+>> évidemment qu'il ne s'agit pas d'opérer un recodage aveugle, mais plutôt
+>> d'automatiser une procédure permettant d'orienter une recherche "à la
+>> main" dans les données et un recodage fin (le jeu de données est entrain
+>> d'être saisi et devrait comporter entre 5000 et 7000 observations).
+>>
+>> La proportion de noms "mal orthographiés" ne devrait pas être
+>> gigantesque, mais suffisamment importante pour avoir besoin d'une
+>> routine automatique afin de détecter les cas intéressants.
+>>
+>> Ci-dessous (et en pj) un exemple reproductible, pour donner une idée du
+>> type de problèmes :
+>>
+>> ############ DEBUT DE L'EXEMPLE ############
+>> # 1. Premier exemple "facile", quand on peut identifier à l'oeil des
+>> récurrences ----
+>>
+>> noms1 <- c("Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz",
+>> "Mitelkauz", "Mitelman", "Mitejman")
+>>
+>> noms2 <- c("Rafalska", "Rafalski", "Rafalski", "Rafalska", "Rafalska",
+>> "Rafalska", "Rafalski")
+>>
+>> # Les "Mit...auz" mais pas les "Mit...man"
+>> str_detect(noms1, regex("^mit.*auz$", ignore_case = TRUE))
+>>
+>> # Distinguer Rafalska et Rafalski
+>> str_detect(noms2, regex("^raf.*a$", ignore_case = TRUE)) # Rafalska
+>> str_detect(noms2, regex("^raf.*i$", ignore_case = TRUE)) # Rafalski
+>>
+>> # 2. Mais comment faire pour automatiser la recherche ?
+>> # ... car en réalité j'ai des milliers de noms, dont certains sont les
+>> mêmes... à une ou deux lettres près
+>>
+>> noms3 <- c(noms1, noms2)
+>>
+>> # Je veux obtenir un vecteur permettant d'identifier des groupes de noms
+>> "proches" et de les distinguer d'autres. Les noms à grouper :
+>>   # Mitelchauz", "Mitelhauz", "Mitelhauz", "Mitelhauz", "Mitelkauz"
+>>   # "Mitelman", "Mitejman"
+>>   # Rafalska
+>>   # Rafalski
+>>
+>> # On obtiendrait par exemple :
+>> match <- c(rep(1, 5), rep(2, 2), 3, 4, 4, 3, 3, 3, 4)
+>>
+>> cbind(noms3, match)
+>>
+>> ############ FIN DE L'EXEMPLE ############
+>>
+>> J'imagine bien qu'il y une histoire de "fuzzy matching" derrière tout
+>> cela, et j'ai vu qu'il existe notamment la fonction agrep qui permet de
+>> repérer des chaînes de caractère proches. Mais elle ne répond pas
+>> vraiment à mon problème car il faut savoir à l'avance ce que l'on
+>> cherche...
+>>
+>> Avant que j'aille chercher plus loin des choses compliquées, peut-être
+>> certain.e.s d'entre-vous ont-ils.elles des suggestions...
+>>
+>> Amicalement,
+>>
+>> Anton
+>>
+>>
+>>
+>>
+>> --
+>> Anton Perdoncin
+>> Agrégé Préparateur
+>> Ecole Normale Supérieure
+>> Département de Sciences Sociales
+>> 48 bd Jourdan
+>> 75014 Paris
+>>
+>> http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+>>
+>> --
+>> Liste des utilisateurs de R en sciences sociales
+>> Informations / options / désabonnement :
+>> https://groupes.renater.fr/sympa/info/r-soc
+>>
+>>
+> 
+> 
+> 
+
+-- 
+Anton Perdoncin
+Agrégé Préparateur
+Ecole Normale Supérieure
+Département de Sciences Sociales
+48 bd Jourdan
+75014 Paris
+
+http://www.sciences.sociales.ens.fr/-PERDONCIN-Anton-.html
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+
+From r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org  Mon Jul  8 14:28:08 2019
+From: r-soc-mZqXLFNjc/wBFtycHlIdikZa+K1vlBrA at public.gmane.org (aurelien.phelipeau)
+Date: Mon, 08 Jul 2019 16:28:08 +0200
+Subject: =?utf-8?q?Offre_d=27emploi_Charg=C3=A9=28e=29_d=E2=80=99=C3=A9tudes_Statistiques_Nantes_COP-VALPENA?=
+In-Reply-To: <94c98e5d-cc3d-080d-08f8-bbfe911a893d@univ-nantes.fr>
+References: <94c98e5d-cc3d-080d-08f8-bbfe911a893d@univ-nantes.fr>
+Message-ID: <2080596035.1209231.1562596088669.JavaMail.zimbra@laposte.net>
+
+Chères et chers collègues, 
+
+
+Ci-joint l'annonce d'une offre de poste de chargé(e) d'études Statistiques à Nantes. A diffuser largement ! 
+
+Bien amicalement, 
+
+-- 
+Aurélien Phelipeau 
+Ingénieur d'études en traitement et analyse de données - Statisticien 
+Plateforme PROGEDO-Loire - Pôle numérique 
+02 53 00 93 15 (n° interne : 27 93 15) - Bureau 212 
+
+Maison des Sciences de l'Homme Ange Guépin 
+5 allée Jacques Berque 
+BP 12105 
+44021 NANTES CEDEX 1
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: Fiche de poste Stat_COP_VALPENA_2019_2020_avec_logo.pdf
+Type: application/pdf
+Size: 192107 bytes
+
+-------------- next part --------------
+
+-- 
+Liste des utilisateurs de R en sciences sociales
+Informations / options / désabonnement :
+https://groupes.renater.fr/sympa/info/r-soc
+

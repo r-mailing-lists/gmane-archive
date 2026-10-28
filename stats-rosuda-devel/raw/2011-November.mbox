@@ -1,0 +1,1919 @@
+From as_45 at yahoo.com  Tue Nov  1 15:13:29 2011
+From: as_45 at yahoo.com
+Date: Tue, 01 Nov 2011 08:13:29 -0700
+Subject: Rserve on OS X Lion Server
+Message-ID: <1320160409.47033.YahooMailNeo@web111108.mail.gq1.yahoo.com>
+
+Hi all,
+
+I am trying to start Rserve using the launchd. It starts as expected but when the application call the Rserve the launchd produces 
+a crash reports:
+ Rserve_2011-10-31-172605_localhost.crash
+
+Process:         Rserve [823]
+Path:            /Library/Frameworks/R.framework/Versions/2.13/Resources/bin/Rserve
+Identifier:      Rserve
+Version:         ??? (???)
+Code Type:       X86-64 (Native)
+Parent Process:  Rserve [811]
+
+Date/Time:       2011-10-31 17:26:04.332 +0100
+OS Version:      Mac OS X Server 10.7.2 (11C74)
+Report Version:  9
+
+Crashed Thread:  0  Dispatch queue: com.apple.main-thread
+
+Exception Type:  EXC_BAD_ACCESS (SIGSEGV)
+Exception Codes: KERN_INVALID_ADDRESS at 0x0000000000000108
+
+VM Regions Near 0x108:
+--> 
+    __TEXT                 000000010173e000-0000000101747000 [   36K] r-x/rwx SM=COW  /Library/Frameworks/R.framework/Versions/2.13/Resources/bin/Rserve
+
+Application Specific Information:
+*** single-threaded process forked ***
+objc[809]: garbage collection is OFF
+
+Thread 0 Crashed:: Dispatch queue: com.apple.main-thread
+0   libdispatch.dylib                   0x00007fff87472324 dispatch_group_async_f + 164
+1   libBLAS.dylib                       0x00007fff8a211660 dgemmGCD + 1347
+2   libBLAS.dylib                       0x00007fff89d9ea48 cblas_dgemm + 1028
+3   libBLAS.dylib                       0x00007fff89d65915 DGEMM + 289
+4   libRlapack.dylib                    0x0000000102721bfb dlaed3_ + 1451
+5   libRlapack.dylib                    0x00000001027230c3 dlaed1_ + 883
+6   libRlapack.dylib                    0x0000000102723a02 dlaed0_ + 2290
+7   libRlapack.dylib                    0x00000001026e4c02 dstedc_ + 1954
+8   mgcv.so                             0x0000000102055195 mgcv_trisymeig + 341 (mat.c:549)
+9   mgcv.so                             0x0000000102060fba Rlanczos + 1210 (matrix.c:3047)
+10  mgcv.so                             0x00000001020798bd tprs_setup + 733 (tprs.c:401)
+11  mgcv.so                             0x00000001020670ad construct_tprs + 253 (mgcv.c:619)
+12  libR.dylib                          0x00000001017c8660 do_dotCode + 16256
+13  libR.dylib                          0x00000001017f4028 Rf_eval + 1672
+14  libR.dylib                          0x00000001017f6ec5 do_set + 709
+
+
+But everything works fine if the Rserve is started from the command line ( R CMD Rserve --vanilla)
+
+Thanks
+
+Alexander
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Nov  1 17:54:25 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 01 Nov 2011 13:54:25 -0400
+Subject: Re: Rserve on OS X Lion Server
+In-Reply-To: <1320160409.47033.YahooMailNeo@web111108.mail.gq1.yahoo.com>
+References: <1320160409.47033.YahooMailNeo@web111108.mail.gq1.yahoo.com>
+Message-ID: <A9489CD4-38A5-4848-B24C-64FE3365FF25@r-project.org>
+
+The crash is in BLAS - I would suggest installing R 2.14.0 from CRAN or alternatively switching to R BLAS instead of vecLib, because vecLib attempts to start threads (and there are known ABI issues when using vecLib instead of R BLAS) [i.e., this is not really related to Rserve but rather R].
+
+Cheers,
+Simon
+
+
+On Nov 1, 2011, at 11:13 AM, as_45 at yahoo.com wrote:
+
+> Hi all,
+> 
+> I am trying to start Rserve using the launchd. It starts as expected but when the application call the Rserve the launchd produces 
+> a crash reports:
+>  Rserve_2011-10-31-172605_localhost.crash
+> 
+> Process:         Rserve [823]
+> Path:            /Library/Frameworks/R.framework/Versions/2.13/Resources/bin/Rserve
+> Identifier:      Rserve
+> Version:         ??? (???)
+> Code Type:       X86-64 (Native)
+> Parent Process:  Rserve [811]
+> 
+> Date/Time:       2011-10-31 17:26:04.332 +0100
+> OS Version:      Mac OS X Server 10.7.2 (11C74)
+> Report Version:  9
+> 
+> Crashed Thread:  0  Dispatch queue: com.apple.main-thread
+> 
+> Exception Type:  EXC_BAD_ACCESS (SIGSEGV)
+> Exception Codes: KERN_INVALID_ADDRESS at 0x0000000000000108
+> 
+> VM Regions Near 0x108:
+> --> 
+>     __TEXT                 000000010173e000-0000000101747000 [   36K] r-x/rwx SM=COW  /Library/Frameworks/R.framework/Versions/2.13/Resources/bin/Rserve
+> 
+> Application Specific Information:
+> *** single-threaded process forked ***
+> objc[809]: garbage collection is OFF
+> 
+> Thread 0 Crashed:: Dispatch queue: com.apple.main-thread
+> 0   libdispatch.dylib                   0x00007fff87472324 dispatch_group_async_f + 164
+> 1   libBLAS.dylib                       0x00007fff8a211660 dgemmGCD + 1347
+> 2   libBLAS.dylib                       0x00007fff89d9ea48 cblas_dgemm + 1028
+> 3   libBLAS.dylib                       0x00007fff89d65915 DGEMM + 289
+> 4   libRlapack.dylib                    0x0000000102721bfb dlaed3_ + 1451
+> 5   libRlapack.dylib                    0x00000001027230c3 dlaed1_ + 883
+> 6   libRlapack.dylib                    0x0000000102723a02 dlaed0_ + 2290
+> 7   libRlapack.dylib                    0x00000001026e4c02 dstedc_ + 1954
+> 8   mgcv.so                             0x0000000102055195 mgcv_trisymeig + 341 (mat.c:549)
+> 9   mgcv.so                             0x0000000102060fba Rlanczos + 1210 (matrix.c:3047)
+> 10  mgcv.so                             0x00000001020798bd tprs_setup + 733 (tprs.c:401)
+> 11  mgcv.so                             0x00000001020670ad construct_tprs + 253 (mgcv.c:619)
+> 12  libR.dylib                          0x00000001017c8660 do_dotCode + 16256
+> 13  libR.dylib                          0x00000001017f4028 Rf_eval + 1672
+> 14  libR.dylib                          0x00000001017f6ec5 do_set + 709
+> 
+> 
+> But everything works fine if the Rserve is started from the command line ( R CMD Rserve --vanilla)
+> 
+> Thanks
+> 
+> Alexander
+> 
+> 
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From altermattw at hanover.edu  Wed Nov  2 12:45:28 2011
+From: altermattw at hanover.edu (Altermatt, Bill)
+Date: Wed, 02 Nov 2011 12:45:28 +0000
+Subject: running JGR from server?
+Message-ID: <6894BA12D2ED334FB4DDE163EA05AF632DF4026E@mail2.hanover.edu>
+
+Hello,
+
+I'm trying to speed up installation (and maintenance) of JGR in a lab of 24 machines.  My thought was to install R on a server and put a shortcut to that copy of R on each of the machines.  This works fine when I'm just running R, and it's nice because I can update packages on this single server copy.  But when I try JGR(), I get this:
+
+> JGR()
+
+Copy the following into WordPad and save as "jgrLaunch.bat"
+
+set R_HOME=X:\Math\R\Rcurrent
+set R_LIBS=X:\Math\R\Rcurrent\library
+set R_LIBS_USER=X:\Math\R\Rcurrent\library
+jgr-1_62.exe --rhome=X:\Math\R\Rcurrent --libpath=X:\Math\R\Rcurrent\library
+
+Error in file(file, ifelse(append, "a", "w")) :
+  cannot open the connection
+In addition: Warning message:
+In file(file, ifelse(append, "a", "w")) :
+  cannot open file 'jgrLaunch.bat': Permission denied
+
+If I do the same thing after I've first established write privileges to the remote directory, JGR() seems to execute fine but nothing appears on the local machine.  Perhaps JGR has launched on the remote server (X:\Math\R) but not on my local machine?
+
+Do you have any suggestions?  Or perhaps any resources that you know about that might help us get JGR running from a remote copy?
+
+Many thanks!
+--Bill
+
+____________________________
+Bill Altermatt, Ph.D.
+Department of Psychology
+Hanover College
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Nov  2 13:06:48 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 02 Nov 2011 09:06:48 -0400
+Subject: Re: running JGR from server?
+In-Reply-To: <6894BA12D2ED334FB4DDE163EA05AF632DF4026E@mail2.hanover.edu>
+References: <6894BA12D2ED334FB4DDE163EA05AF632DF4026E@mail2.hanover.edu>
+Message-ID: <4569C05D-E95E-445D-BC70-8BD0A04CE3BF@r-project.org>
+
+Bill,
+
+normally, you just have to run jgr.exe (just double-click on the icon) - that is the normal way to start JGR and it should work from a server equally well as long as R is properly registered on the machine. Using JGR() from R is a fall-back hack for convenience, but it's not intended for normal use.
+
+Cheers,
+Simon
+
+
+On Nov 2, 2011, at 8:45 AM, Altermatt, Bill wrote:
+
+> Hello,
+> 
+> I'm trying to speed up installation (and maintenance) of JGR in a lab of 24 machines.  My thought was to install R on a server and put a shortcut to that copy of R on each of the machines.  This works fine when I'm just running R, and it's nice because I can update packages on this single server copy.  But when I try JGR(), I get this:
+> 
+> > JGR()
+> 
+> Copy the following into WordPad and save as "jgrLaunch.bat"
+> 
+> set R_HOME=X:\Math\R\Rcurrent
+> set R_LIBS=X:\Math\R\Rcurrent\library
+> set R_LIBS_USER=X:\Math\R\Rcurrent\library
+> jgr-1_62.exe --rhome=X:\Math\R\Rcurrent --libpath=X:\Math\R\Rcurrent\library
+> 
+> Error in file(file, ifelse(append, "a", "w")) : 
+>   cannot open the connection
+> In addition: Warning message:
+> In file(file, ifelse(append, "a", "w")) :
+>   cannot open file 'jgrLaunch.bat': Permission denied
+> 
+> If I do the same thing after I've first established write privileges to the remote directory, JGR() seems to execute fine but nothing appears on the local machine.  Perhaps JGR has launched on the remote server (X:\Math\R) but not on my local machine?
+> 
+> Do you have any suggestions?  Or perhaps any resources that you know about that might help us get JGR running from a remote copy?
+> 
+> Many thanks!
+> --Bill
+> 
+> ____________________________
+> Bill Altermatt, Ph.D.
+> Department of Psychology
+> Hanover College
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From altermattw at hanover.edu  Wed Nov  2 16:42:07 2011
+From: altermattw at hanover.edu (Altermatt, Bill)
+Date: Wed, 02 Nov 2011 16:42:07 +0000
+Subject: Re: running JGR from server?
+In-Reply-To: <4569C05D-E95E-445D-BC70-8BD0A04CE3BF@r-project.org>
+References: <6894BA12D2ED334FB4DDE163EA05AF632DF4026E@mail2.hanover.edu> <4569C05D-E95E-445D-BC70-8BD0A04CE3BF@r-project.org>
+Message-ID: <6894BA12D2ED334FB4DDE163EA05AF632DF4059E@mail2.hanover.edu>
+
+Thanks, Simon.  I should clarify that my server is UNIX and I'm using it as a remote drive.  R is not installed on that server.  I installed R on a local Windows machine and then copied all of the files from the installation onto the server.  If I create a shortcut to the Rgui.exe file on the server from a local machine, R pops up on the local machine and runs fine.  I also copied the jgr.exe file to the server.  When I make a shortcut to that file from a local machine and double-click it, it either runs the local copy of R (if one is installed) or produces an error message about missing a .dll file (which sounds to me like a registry / installation problem).  Is there a way, perhaps by adding some switches to jgr.exe, to get it to identify the remote copy of R as the one to use?  Or is my
+  whole remote-drive approach doomed to failure and a different approach would be recommended?
+
+Thanks,
+--Bill
+____________________________
+Bill Altermatt, Ph.D.
+Department of Psychology
+Hanover College
+________________________________________
+From: Simon Urbanek [simon.urbanek at r-project.org]
+Sent: Wednesday, November 02, 2011 9:06 AM
+To: Altermatt, Bill
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Subject: Re: [stats-rosuda-devel] running JGR from server?
+
+Bill,
+
+normally, you just have to run jgr.exe (just double-click on the icon) - that is the normal way to start JGR and it should work from a server equally well as long as R is properly registered on the machine. Using JGR() from R is a fall-back hack for convenience, but it's not intended for normal use.
+
+Cheers,
+Simon
+
+
+On Nov 2, 2011, at 8:45 AM, Altermatt, Bill wrote:
+
+> Hello,
+>
+> I'm trying to speed up installation (and maintenance) of JGR in a lab of 24 machines.  My thought was to install R on a server and put a shortcut to that copy of R on each of the machines.  This works fine when I'm just running R, and it's nice because I can update packages on this single server copy.  But when I try JGR(), I get this:
+>
+> > JGR()
+>
+> Copy the following into WordPad and save as "jgrLaunch.bat"
+>
+> set R_HOME=X:\Math\R\Rcurrent
+> set R_LIBS=X:\Math\R\Rcurrent\library
+> set R_LIBS_USER=X:\Math\R\Rcurrent\library
+> jgr-1_62.exe --rhome=X:\Math\R\Rcurrent --libpath=X:\Math\R\Rcurrent\library
+>
+> Error in file(file, ifelse(append, "a", "w")) :
+>   cannot open the connection
+> In addition: Warning message:
+> In file(file, ifelse(append, "a", "w")) :
+>   cannot open file 'jgrLaunch.bat': Permission denied
+>
+> If I do the same thing after I've first established write privileges to the remote directory, JGR() seems to execute fine but nothing appears on the local machine.  Perhaps JGR has launched on the remote server (X:\Math\R) but not on my local machine?
+>
+> Do you have any suggestions?  Or perhaps any resources that you know about that might help us get JGR running from a remote copy?
+>
+> Many thanks!
+> --Bill
+>
+> ____________________________
+> Bill Altermatt, Ph.D.
+> Department of Psychology
+> Hanover College
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Thu Nov  3 14:41:36 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 03 Nov 2011 10:41:36 -0400
+Subject: Re: running JGR from server?
+In-Reply-To: <6894BA12D2ED334FB4DDE163EA05AF632DF4059E@mail2.hanover.edu>
+References: <6894BA12D2ED334FB4DDE163EA05AF632DF4026E@mail2.hanover.edu> <4569C05D-E95E-445D-BC70-8BD0A04CE3BF@r-project.org> <6894BA12D2ED334FB4DDE163EA05AF632DF4059E@mail2.hanover.edu>
+Message-ID: <945CD818-0D6D-4412-8D36-4976BE18568D@r-project.org>
+
+
+On Nov 2, 2011, at 12:42 PM, Altermatt, Bill wrote:
+
+> Thanks, Simon.  I should clarify that my server is UNIX and I'm using it as a remote drive.  R is not installed on that server.  I installed R on a local Windows machine and then copied all of the files from the installation onto the server.  If I create a shortcut to the Rgui.exe file on the server from a local machine, R pops up on the local machine and runs fine.  I also copied the jgr.exe file to the server.  When I make a shortcut to that file from a local machine and double-click it, it either runs the local copy of R (if one is installed) or produces an error message about missing a .dll file (which sounds to me like a registry / installation problem).  Is there a way, perhaps by adding some switches to jgr.exe, to get it to identify the remote copy of R as the one to use?  Or is 
+ my whole remote-drive approach doomed to failure and a different approach would be recommended?
+> 
+
+JGR gets the information about Java and R from the registry - that is the only way to locate things on Windows as there are no "standard" paths. So all you need to do is to make sure your remote R is registered on the local machine: in SOFTWARE/R-core/R there must be InstallPath entry with the path to R - check the machine that you used to install it for details.
+
+Cheers,
+Simon
+
+
+
+
+> Thanks,
+> --Bill
+> ____________________________
+> Bill Altermatt, Ph.D.
+> Department of Psychology
+> Hanover College
+> ________________________________________
+> From: Simon Urbanek [simon.urbanek at r-project.org]
+> Sent: Wednesday, November 02, 2011 9:06 AM
+> To: Altermatt, Bill
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Subject: Re: [stats-rosuda-devel] running JGR from server?
+> 
+> Bill,
+> 
+> normally, you just have to run jgr.exe (just double-click on the icon) - that is the normal way to start JGR and it should work from a server equally well as long as R is properly registered on the machine. Using JGR() from R is a fall-back hack for convenience, but it's not intended for normal use.
+> 
+> Cheers,
+> Simon
+> 
+> 
+> On Nov 2, 2011, at 8:45 AM, Altermatt, Bill wrote:
+> 
+>> Hello,
+>> 
+>> I'm trying to speed up installation (and maintenance) of JGR in a lab of 24 machines.  My thought was to install R on a server and put a shortcut to that copy of R on each of the machines.  This works fine when I'm just running R, and it's nice because I can update packages on this single server copy.  But when I try JGR(), I get this:
+>> 
+>>> JGR()
+>> 
+>> Copy the following into WordPad and save as "jgrLaunch.bat"
+>> 
+>> set R_HOME=X:\Math\R\Rcurrent
+>> set R_LIBS=X:\Math\R\Rcurrent\library
+>> set R_LIBS_USER=X:\Math\R\Rcurrent\library
+>> jgr-1_62.exe --rhome=X:\Math\R\Rcurrent --libpath=X:\Math\R\Rcurrent\library
+>> 
+>> Error in file(file, ifelse(append, "a", "w")) :
+>>  cannot open the connection
+>> In addition: Warning message:
+>> In file(file, ifelse(append, "a", "w")) :
+>>  cannot open file 'jgrLaunch.bat': Permission denied
+>> 
+>> If I do the same thing after I've first established write privileges to the remote directory, JGR() seems to execute fine but nothing appears on the local machine.  Perhaps JGR has launched on the remote server (X:\Math\R) but not on my local machine?
+>> 
+>> Do you have any suggestions?  Or perhaps any resources that you know about that might help us get JGR running from a remote copy?
+>> 
+>> Many thanks!
+>> --Bill
+>> 
+>> ____________________________
+>> Bill Altermatt, Ph.D.
+>> Department of Psychology
+>> Hanover College
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+> 
+>
+
+From chanj at rice.edu  Fri Nov  4 04:55:29 2011
+From: chanj at rice.edu (Chandra Jack)
+Date: Thu, 03 Nov 2011 23:55:29 -0500
+Subject: error when attempting to load JGR on mac
+Message-ID: <613DA39C-4991-476D-B691-D18B85D3873C@rice.edu>
+
+I have just found about iPlots and am attempting to use it, but I can't get it loaded.  When I try to load JGR I get the following errors/ messages:
+
+
+library(JGR)
+Loading required package: rJava
+Loading required package: JavaGD
+Loading required package: iplots
+Note: On Mac OS X we strongly recommend using iplots from within JGR.
+Proceed at your own risk as iplots cannot resolve potential ev.loop deadlocks.
+'Yes' is assumed for all dialogs as they cannot be shown without a deadlock,
+also ievent.wait() is disabled.
+Error : .onLoad failed in loadNamespace() for 'iplots', details:
+  call: .jnew("org/rosuda/iplots/Framework")
+  error: java.lang.InternalError: Can't start the AWT because Java was started on the first thread.  Make sure StartOnFirstThread is not specified in your application's Info.plist or on the command line
+Error: package 'iplots' could not be loaded
+
+sessionInfo()
+R version 2.13.2 (2011-09-30)
+Platform: x86_64-apple-darwin9.8.0/x86_64 (64-bit)
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/C/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] JavaGD_0.5-4 rJava_0.9-1 
+
+Thanks,
+Chandra
+
+
+Chandra Jack
+Postdoctoral Research Assoc.
+Dept. of Bioengineering
+Rice University
+chanj at rice.edu
+
+From mhelbig81 at googlemail.com  Fri Nov  4 06:03:18 2011
+From: mhelbig81 at googlemail.com (Markus Helbig)
+Date: Fri, 04 Nov 2011 07:03:18 +0100
+Subject: Re: error when attempting to load JGR on mac
+In-Reply-To: <EFCBB577-19D0-4BB4-97E5-FC1810BE34A7@googlemail.com>
+References: <613DA39C-4991-476D-B691-D18B85D3873C@rice.edu> <EFCBB577-19D0-4BB4-97E5-FC1810BE34A7@googlemail.com>
+Message-ID: <48F015F0-E859-4E2F-A76C-0E8924670346@googlemail.com>
+
+> hi chandra,
+> 
+> for starting JGR use the appropriate launcher located here http://rforge.net/JGR/files/.
+> 
+> cheers markus
+> 
+> On 04.11.2011, at 05:55, Chandra Jack <chanj at rice.edu> wrote:
+> 
+>> I have just found about iPlots and am attempting to use it, but I can't get it loaded.  When I try to load JGR I get the following errors/ messages:
+>> 
+>> 
+>> library(JGR)
+>> Loading required package: rJava
+>> Loading required package: JavaGD
+>> Loading required package: iplots
+>> Note: On Mac OS X we strongly recommend using iplots from within JGR.
+>> Proceed at your own risk as iplots cannot resolve potential ev.loop deadlocks.
+>> 'Yes' is assumed for all dialogs as they cannot be shown without a deadlock,
+>> also ievent.wait() is disabled.
+>> Error : .onLoad failed in loadNamespace() for 'iplots', details:
+>> call: .jnew("org/rosuda/iplots/Framework")
+>> error: java.lang.InternalError: Can't start the AWT because Java was started on the first thread.  Make sure StartOnFirstThread is not specified in your application's Info.plist or on the command line
+>> Error: package 'iplots' could not be loaded
+>> 
+>> sessionInfo()
+>> R version 2.13.2 (2011-09-30)
+>> Platform: x86_64-apple-darwin9.8.0/x86_64 (64-bit)
+>> 
+>> locale:
+>> [1] en_US.UTF-8/en_US.UTF-8/C/C/en_US.UTF-8/en_US.UTF-8
+>> 
+>> attached base packages:
+>> [1] stats     graphics  grDevices utils     datasets  methods   base     
+>> 
+>> other attached packages:
+>> [1] JavaGD_0.5-4 rJava_0.9-1 
+>> 
+>> Thanks,
+>> Chandra
+>> 
+>> 
+>> Chandra Jack
+>> Postdoctoral Research Assoc.
+>> Dept. of Bioengineering
+>> Rice University
+>> chanj at rice.edu
+>> 
+>> 
+>> 
+>> 
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ahwangyuwei at cnic.cn  Mon Nov 14 06:14:50 2011
+From: ahwangyuwei at cnic.cn (ahwangyuwei)
+Date: Mon, 14 Nov 2011 14:14:50 +0800
+Subject: .jinit() : Cannot create Java virtual machine
+Message-ID: <201111141414451657455@cnic.cn>
+
+Dear all,
+    when using .jinit() I get the message .jinit() : Cannot create Java 
+virtual machine (-1).
+sessionInfo() R version 2.14.0 (2011-10-31)Platform: i386-pc-mingw32/i386 (32-bit)locale:[1] LC_COLLATE=Chinese_People's Republic of China.936 [2] LC_CTYPE=Chinese_People's Republic of China.936   [3] LC_MONETARY=Chinese_People's Republic of China.936[4] LC_NUMERIC=C                                      [5] LC_TIME=Chinese_People's Republic of China.936    attached base packages:[1] stats     graphics  grDevices utils     datasets  methods   base     other attached packages:[1] maptools_0.8-10 lattice_0.20-0  foreign_0.8-46  rJava_0.9-1    [5] dismo_0.7-11    raster_1.9-41   sp_0.9-91      loaded via a namespace (and not attached):[1] grid_2.14.0>  The details:
+I am using the Dismo package.Dismo has a function 'maxent' that communi-cates with this program(MaxEnt).MaxEnt is available as a stand-alone Java program. 
+It is normal when I execute the command :    "jar <- paste(system.file(package="dismo"), "/java/maxent.jar", sep='')" when I execute the function:        xm <- maxent(predictors, pres_train, factors='biome').The R show the error(Cannot create Java virtual machine) .  Java is correct installed ,version is 1.60._18.
+My R version is 2.14.0.
+ I don't know how to solve the problem. Will you help me out?
+Thank you,all. 
+                          Yuwei Wang
+Cnic,CAS
+
+-------------- next part --------------
+
+
+From ahwangyuwei at cnic.cn  Mon Nov 14 05:58:53 2011
+From: ahwangyuwei at cnic.cn (ahwangyuwei)
+Date: Mon, 14 Nov 2011 13:58:53 +0800
+Subject: .jinit() : Cannot create Java virtual machine
+Message-ID: <201111141358479770895@cnic.cn>
+
+Dear all,
+    when using .jinit() I get the message .jinit() : Cannot create Java 
+virtual machine (-1).
+sessionInfo() R version 2.14.0 (2011-10-31)Platform: i386-pc-mingw32/i386 (32-bit)locale:[1] LC_COLLATE=Chinese_People's Republic of China.936 [2] LC_CTYPE=Chinese_People's Republic of China.936   [3] LC_MONETARY=Chinese_People's Republic of China.936[4] LC_NUMERIC=C                                      [5] LC_TIME=Chinese_People's Republic of China.936    attached base packages:[1] stats     graphics  grDevices utils     datasets  methods   base     other attached packages:[1] maptools_0.8-10 lattice_0.20-0  foreign_0.8-46  rJava_0.9-1    [5] dismo_0.7-11    raster_1.9-41   sp_0.9-91      loaded via a namespace (and not attached):[1] grid_2.14.0> The details:
+I am using the Dismo package.Dismo has a function 'maxent' that communi-cates with this program(MaxEnt).MaxEnt is available as a stand-alone Java program. 
+It is normal when I execute the command :    "jar <- paste(system.file(package="dismo"), "/java/maxent.jar", sep='')" when I execute the function:        xm <- maxent(predictors, pres_train, factors='biome').The R show the error(Cannot create Java virtual machine) .  Java is correct installed .
+My R version is 2.14.0.
+ I don't know how to solve the problem. Will you help me out?
+Thank you,all. 
+                          Yuwei Wang
+Cnic,CAS
+
+-------------- next part --------------
+
+
+From ahwangyuwei at cnic.cn  Mon Nov 14 06:46:00 2011
+From: ahwangyuwei at cnic.cn (ahwangyuwei)
+Date: Mon, 14 Nov 2011 14:46:00 +0800
+Subject: Error .jcall(mxe, "S", "fit", c("autorun", "-e", afn, "-o", dirout, : java.lang.NoSuchMethodError: density.Params.readFromArgs([Ljava/lang/String; )Ljava/lang/String;
+Message-ID: <201111141445553210036@cnic.cn>
+
+Dear all,
+    I get the error when I use maxent.jar:
+Error .jcall(mxe, "S", "fit", c("autorun", "-e", afn, "-o", dirout,  : 
+  java.lang.NoSuchMethodError: density.Params.readFromArgs([Ljava/lang/String;)Ljava/lang/String;
+
+sessionInfo() result: 
+R version 2.14.0 (2011-10-31)Platform: i386-pc-mingw32/i386 (32-bit)locale:[1] LC_COLLATE=Chinese_People's Republic of China.936 [2] LC_CTYPE=Chinese_People's Republic of China.936   [3] LC_MONETARY=Chinese_People's Republic of China.936[4] LC_NUMERIC=C                                      [5] LC_TIME=Chinese_People's Republic of China.936    attached base packages:[1] stats     graphics  grDevices utils     datasets  methods   base     other attached packages:[1] maptools_0.8-10 lattice_0.20-0  foreign_0.8-46  rJava_0.9-2    [5] dismo_0.7-11    raster_1.9-41   sp_0.9-91      loaded via a namespace (and not attached):[1] grid_2.14.0>  The details:
+I am using the Dismo package.Dismo has a function 'maxent' that communi-cates with this program(MaxEnt).MaxEnt is available as a stand-alone Java program. 
+It is normal when I execute the command :    "jar <- paste(system.file(package="dismo"), "/java/maxent.jar", sep='')" when I execute the function:        xm <- maxent(predictors, pres_train, factors='biome').The R show the error.  Java is correct installed ,version is 1.60._18.
+My R version is 2.14.0.
+ I don't know how to solve the problem. Will you help me out?
+Thank you,all. 
+                          Yuwei Wang
+Cnic,CAS
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Nov 15 14:51:37 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 15 Nov 2011 09:51:37 -0500
+Subject: Re: Error .jcall(mxe, "S", "fit", c("autorun", "-e", afn, "-o", dirout, : java.lang.NoSuchMethodError: density.Params.readFromArgs([Ljava/lang/String; )Ljava/lang/String;
+In-Reply-To: <201111141445553210036@cnic.cn>
+References: <201111141445553210036@cnic.cn>
+Message-ID: <EF506485-925B-4859-947F-24CC47F83278@r-project.org>
+
+Please ask the authors and/or discussion list of dism, it may be a bug in dism or incompatibility between the maxent you are using and the package, I can't check sine maxent has a restrictive license. Also please do not cross-post to multiple mailing lists.
+Thanks,
+Simon
+
+
+On Nov 14, 2011, at 1:46 AM, ahwangyuwei wrote:
+
+> Dear all,
+>     I get the error when I use maxent.jar:
+> Error .jcall(mxe, "S", "fit", c("autorun", "-e", afn, "-o", dirout,  : 
+>   java.lang.NoSuchMethodError: density.Params.readFromArgs([Ljava/lang/String;)Ljava/lang/String;
+>  
+> sessionInfo() result: 
+> R version 2.14.0 (2011-10-31)
+> Platform: i386-pc-mingw32/i386 (32-bit)
+> locale:
+> [1] LC_COLLATE=Chinese_People's Republic of China.936 
+> [2] LC_CTYPE=Chinese_People's Republic of China.936   
+> [3] LC_MONETARY=Chinese_People's Republic of China.936
+> [4] LC_NUMERIC=C             &n!
+>  bsp;                        
+> 
+> [5] LC_TIME=Chinese_People's Republic of China.936    
+> attached base packages:
+> [1] stats     graphics  grDevices utils     datasets  methods   base     
+> other attached packages:
+> [1] maptools_0.8-10 lattice_0.20-0  foreign_0.8-46  rJava_0.9-2    
+> [5] dismo_0.7-11    raster_1.9-41   sp_0.9-91      
+> loaded via a namespace (and not attached):
+> [1] grid_2.14.0
+> > 
+> &nb!
+>  sp;
+> 
+> The details:
+> I am using the Dism!
+>  o packag
+> 
+> e.Dismo has a function 'maxent' that communi-
+> 
+> cates with this program(MaxEnt).MaxEnt is available as a stand-alone Java program. 
+> It is normal when I execute the command :
+>     "jar <- paste(system.file(package="dismo"), "/java/maxent.jar", sep='')" 
+> when I execute the function:
+>         xm <- maxent(predictors, pres_train, factors='biome').
+> The R show the error.
+>  
+>  
+> Java is correct installed ,version is 1.60._18.
+> My R version is 2.14.0.
+>  I don't know how to solve the problem. Will you help me out?
+> Thank you,all.
+>                           Yuwei Wang
+> Cnic,CAS
+>          
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From yanghatespam at gmail.com  Thu Nov 17 23:51:34 2011
+From: yanghatespam at gmail.com (Yang Zhang)
+Date: Thu, 17 Nov 2011 15:51:34 -0800
+Subject: Can't install rJava
+Message-ID: <CAKxBDU8cQArUQ-ebJqnkQ5geCJL7LU6=MfARzm_fFRJecHhZmw@mail.gmail.com>
+
+I've installed rJava via CRAN in the past but it has never been
+without following bumps.  I'm doing it again, but for some reason this
+time I can't hack it after spending an hour on this.  This time it's
+on Ubuntu 11.10 with the R version in the official Ubuntu apt repo and
+against Java 7.  For legacy reasons we need the R version to be
+installed via CRAN instead of via apt.  I tried all the suggestions on
+this page [1], including the following in various
+combinations/orderings:
+
+- `sudo update-java-alternatives` switches everything to 7
+- `sudo R CMD javareconf` to reconfigure Java
+- `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/` and
+running the above, and then running R
+- `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/`
+- exporting the variables for just the javareconf and not the install step
+- `unset JAVA_HOME`
+
+[1]: http://stackoverflow.com/questions/3311940/r-rjava-package-install-failing
+
+But I always get errors along the lines of:
+
+== start snippet ==
+
+> install.packages('rJava')
+...
+checking whether setjmp.h is POSIX.1 compatible... yes
+checking whether sigsetjmp is declared... yes
+checking whether siglongjmp is declared... yes
+checking Java support in R... present:
+interpreter : '/usr/bin/java'
+archiver    : '/usr/bin/jar'
+compiler    : '/usr/bin/javac'
+header prep.: '/usr/bin/javah'
+cpp flags   : '-I/usr/lib/jvm/java-7-openjdk-amd64/jre/../include'
+java libs   : '-L -L/usr/java/packages/lib/amd64
+-L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+-L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm'
+checking whether JNI programs can be compiled... configure: error:
+Cannot compile a simple JNI program. See config.log for details.
+
+Make sure you have Java Development Kit installed and correctly registered in R.
+If in doubt, re-run "R CMD javareconf" as root.
+
+ERROR: configuration failed for package ‘rJava’
+* removing ‘/home/yang/R/x86_64-pc-linux-gnu-library/2.13/rJava’
+
+The downloaded packages are in
+        ‘/tmp/RtmpVd2TTA/downloaded_packages’
+Warning message:
+In install.packages("rJava") :
+  installation of package 'rJava' had non-zero exit status
+
+== end snippet ==
+
+I can't find any config.log, either in the current dir or in ~/R/...
+or in /tmp/Rtmp....
+
+The -L flags look suspicious, since....
+
+$ for i in -L/usr/java/packages/lib/amd64
+-L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+-L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib ; do
+i=${i#-L}; l $i/libjvm*; done
+ls: cannot access /usr/java/packages/lib/amd64/libjvm*: No such file
+or directory
+ls: cannot access /usr/lib/x86_64-linux-gnu/jni/libjvm*: No such file
+or directory
+ls: cannot access /lib/x86_64-linux-gnu/libjvm*: No such file or directory
+ls: cannot access /usr/lib/x86_64-linux-gnu/libjvm*: No such file or directory
+ls: cannot access /usr/lib/jni/libjvm*: No such file or directory
+ls: cannot access /lib/libjvm*: No such file or directory
+ls: cannot access /usr/lib/libjvm*: No such file or directory
+
+Notice it's actually here (see last line):
+
+$ locate libjvm.so
+/mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+/mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/jamvm/libjvm.so
+/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/jamvm/libjvm.so
+/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/server/libjvm.so
+
+But when I run `sudo R CMD javareconf`, I have no idea how it's coming
+up with its library path:
+
+$ sudo R CMD javareconf
+Java interpreter : /usr/bin/java
+Java version     : 1.7.0_147-icedtea
+Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+Java compiler    : /usr/bin/javac
+Java headers gen.: /usr/bin/javah
+Java archive tool: /usr/bin/jar
+Java library path:
+:/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+JNI linker flags : -L -L/usr/java/packages/lib/amd64
+-L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+-L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+JNI cpp flags    : -I$(JAVA_HOME)/../include
+
+Updating Java configuration in /etc/R
+Done.
+
+I notice from `R CMD javareconf -h` that I can explicitly set
+JAVA_LD_LIBRARY, but I'm warned against doing this unless I have a
+"very special setup" (which I don't) and I generally think something
+much more basic is amiss.
+
+Some more information:
+
+$ readlink -f $(which java)
+/usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+
+$ readlink -f $(which javac)
+/usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+
+$ java -version
+java version "1.7.0_147-icedtea"
+OpenJDK Runtime Environment (IcedTea7 2.0pre) (7~b147-2.0~pre6-1ubuntu1)
+OpenJDK 64-Bit Server VM (build 21.0-b17, mixed mode)
+
+$ javac -version
+javac 1.7.0_147
+
+$ lsb_release -a
+No LSB modules are available.
+Distributor ID: Ubuntu
+Description:    Ubuntu 11.10
+Release:        11.10
+Codename:       oneiric
+
+$ uname -a
+Linux prod0 3.0.0-12-virtual #20-Ubuntu SMP Fri Oct 7 18:19:02 UTC
+2011 x86_64 x86_64 x86_64 GNU/Linux
+
+$ R --version
+R version 2.13.1 (2011-07-08)
+Copyright (C) 2011 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+Platform: x86_64-pc-linux-gnu (64-bit)
+...
+
+Any hints?  Thanks in advance....
+
+-- 
+Yang Zhang
+http://yz.mit.edu/
+
+From simon.urbanek at r-project.org  Fri Nov 18 00:30:45 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 17 Nov 2011 19:30:45 -0500
+Subject: Re: Can't install rJava
+In-Reply-To: <CAKxBDU8cQArUQ-ebJqnkQ5geCJL7LU6=MfARzm_fFRJecHhZmw@mail.gmail.com>
+References: <CAKxBDU8cQArUQ-ebJqnkQ5geCJL7LU6=MfARzm_fFRJecHhZmw@mail.gmail.com>
+Message-ID: <0CE1C723-2F82-41C1-970D-F82B7B64B621@r-project.org>
+
+Yang,
+
+a) *never* set JAVA_HOME - it is likely to break things. Simply make sure "java" on the command line works before you run R CMD javareconf
+b) to get config.log, unpack the tar ball and install using R CMD INSTALL rJava -- the config.log will be in the rJava directory
+
+If you have issues, please post the full result of javareconf and possibly the config.log.
+
+Cheers,
+Simon
+
+
+
+On Nov 17, 2011, at 6:51 PM, Yang Zhang wrote:
+
+> I've installed rJava via CRAN in the past but it has never been
+> without following bumps.  I'm doing it again, but for some reason this
+> time I can't hack it after spending an hour on this.  This time it's
+> on Ubuntu 11.10 with the R version in the official Ubuntu apt repo and
+> against Java 7.  For legacy reasons we need the R version to be
+> installed via CRAN instead of via apt.  I tried all the suggestions on
+> this page [1], including the following in various
+> combinations/orderings:
+> 
+> - `sudo update-java-alternatives` switches everything to 7
+> - `sudo R CMD javareconf` to reconfigure Java
+> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/` and
+> running the above, and then running R
+> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/`
+> - exporting the variables for just the javareconf and not the install step
+> - `unset JAVA_HOME`
+> 
+> [1]: http://stackoverflow.com/questions/3311940/r-rjava-package-install-failing
+> 
+> But I always get errors along the lines of:
+> 
+> == start snippet ==
+> 
+>> install.packages('rJava')
+> ...
+> checking whether setjmp.h is POSIX.1 compatible... yes
+> checking whether sigsetjmp is declared... yes
+> checking whether siglongjmp is declared... yes
+> checking Java support in R... present:
+> interpreter : '/usr/bin/java'
+> archiver    : '/usr/bin/jar'
+> compiler    : '/usr/bin/javac'
+> header prep.: '/usr/bin/javah'
+> cpp flags   : '-I/usr/lib/jvm/java-7-openjdk-amd64/jre/../include'
+> java libs   : '-L -L/usr/java/packages/lib/amd64
+> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm'
+> checking whether JNI programs can be compiled... configure: error:
+> Cannot compile a simple JNI program. See config.log for details.
+> 
+> Make sure you have Java Development Kit installed and correctly registered in R.
+> If in doubt, re-run "R CMD javareconf" as root.
+> 
+> ERROR: configuration failed for package ‘rJava’
+> * removing ‘/home/yang/R/x86_64-pc-linux-gnu-library/2.13/rJava’
+> 
+> The downloaded packages are in
+>        ‘/tmp/RtmpVd2TTA/downloaded_packages’
+> Warning message:
+> In install.packages("rJava") :
+>  installation of package 'rJava' had non-zero exit status
+> 
+> == end snippet ==
+> 
+> I can't find any config.log, either in the current dir or in ~/R/...
+> or in /tmp/Rtmp....
+> 
+> The -L flags look suspicious, since....
+> 
+> $ for i in -L/usr/java/packages/lib/amd64
+> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib ; do
+> i=${i#-L}; l $i/libjvm*; done
+> ls: cannot access /usr/java/packages/lib/amd64/libjvm*: No such file
+> or directory
+> ls: cannot access /usr/lib/x86_64-linux-gnu/jni/libjvm*: No such file
+> or directory
+> ls: cannot access /lib/x86_64-linux-gnu/libjvm*: No such file or directory
+> ls: cannot access /usr/lib/x86_64-linux-gnu/libjvm*: No such file or directory
+> ls: cannot access /usr/lib/jni/libjvm*: No such file or directory
+> ls: cannot access /lib/libjvm*: No such file or directory
+> ls: cannot access /usr/lib/libjvm*: No such file or directory
+> 
+> Notice it's actually here (see last line):
+> 
+> $ locate libjvm.so
+> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/jamvm/libjvm.so
+> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/jamvm/libjvm.so
+> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/server/libjvm.so
+> 
+> But when I run `sudo R CMD javareconf`, I have no idea how it's coming
+> up with its library path:
+> 
+> $ sudo R CMD javareconf
+> Java interpreter : /usr/bin/java
+> Java version     : 1.7.0_147-icedtea
+> Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+> Java compiler    : /usr/bin/javac
+> Java headers gen.: /usr/bin/javah
+> Java archive tool: /usr/bin/jar
+> Java library path:
+> :/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+> JNI linker flags : -L -L/usr/java/packages/lib/amd64
+> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+> JNI cpp flags    : -I$(JAVA_HOME)/../include
+> 
+> Updating Java configuration in /etc/R
+> Done.
+> 
+> I notice from `R CMD javareconf -h` that I can explicitly set
+> JAVA_LD_LIBRARY, but I'm warned against doing this unless I have a
+> "very special setup" (which I don't) and I generally think something
+> much more basic is amiss.
+> 
+> Some more information:
+> 
+> $ readlink -f $(which java)
+> /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+> 
+> $ readlink -f $(which javac)
+> /usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+> 
+> $ java -version
+> java version "1.7.0_147-icedtea"
+> OpenJDK Runtime Environment (IcedTea7 2.0pre) (7~b147-2.0~pre6-1ubuntu1)
+> OpenJDK 64-Bit Server VM (build 21.0-b17, mixed mode)
+> 
+> $ javac -version
+> javac 1.7.0_147
+> 
+> $ lsb_release -a
+> No LSB modules are available.
+> Distributor ID: Ubuntu
+> Description:    Ubuntu 11.10
+> Release:        11.10
+> Codename:       oneiric
+> 
+> $ uname -a
+> Linux prod0 3.0.0-12-virtual #20-Ubuntu SMP Fri Oct 7 18:19:02 UTC
+> 2011 x86_64 x86_64 x86_64 GNU/Linux
+> 
+> $ R --version
+> R version 2.13.1 (2011-07-08)
+> Copyright (C) 2011 The R Foundation for Statistical Computing
+> ISBN 3-900051-07-0
+> Platform: x86_64-pc-linux-gnu (64-bit)
+> ...
+> 
+> Any hints?  Thanks in advance....
+> 
+> -- 
+> Yang Zhang
+> http://yz.mit.edu/
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From yanghatespam at gmail.com  Fri Nov 18 01:55:59 2011
+From: yanghatespam at gmail.com (Yang Zhang)
+Date: Thu, 17 Nov 2011 17:55:59 -0800
+Subject: Re: Can't install rJava
+In-Reply-To: <0CE1C723-2F82-41C1-970D-F82B7B64B621@r-project.org>
+References: <CAKxBDU8cQArUQ-ebJqnkQ5geCJL7LU6=MfARzm_fFRJecHhZmw@mail.gmail.com> <0CE1C723-2F82-41C1-970D-F82B7B64B621@r-project.org>
+Message-ID: <CAKxBDU9gJWV44eJBQvywE=HxQijFPZaQCfLb9JLYfPHzBAvPZg@mail.gmail.com>
+
+Hi Simon,
+
+Making sure JAVA_HOME is unset was one of the things I listed as
+already having tried, but I tried it again just in case I screwed up.
+
+I've attached config.log.  I already pasted the javareconf output -
+here it is again.  If there's other information you'd like to see
+please let me know.  Thanks.
+
+$ sudo R CMD javareconf
+Java interpreter : /usr/bin/java
+Java version     : 1.7.0_147-icedtea
+Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+Java compiler    : /usr/bin/javac
+Java headers gen.: /usr/bin/javah
+Java archive tool: /usr/bin/jar
+Java library path:
+:/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+JNI linker flags : -L -L/usr/java/packages/lib/amd64
+-L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+-L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+JNI cpp flags    : -I$(JAVA_HOME)/../include
+
+Updating Java configuration in /etc/R
+Done.
+
+On Thu, Nov 17, 2011 at 4:30 PM, Simon Urbanek
+<simon.urbanek at r-project.org> wrote:
+> Yang,
+>
+> a) *never* set JAVA_HOME - it is likely to break things. Simply make sure "java" on the command line works before you run R CMD javareconf
+> b) to get config.log, unpack the tar ball and install using R CMD INSTALL rJava -- the config.log will be in the rJava directory
+>
+> If you have issues, please post the full result of javareconf and possibly the config.log.
+>
+> Cheers,
+> Simon
+>
+>
+>
+> On Nov 17, 2011, at 6:51 PM, Yang Zhang wrote:
+>
+>> I've installed rJava via CRAN in the past but it has never been
+>> without following bumps.  I'm doing it again, but for some reason this
+>> time I can't hack it after spending an hour on this.  This time it's
+>> on Ubuntu 11.10 with the R version in the official Ubuntu apt repo and
+>> against Java 7.  For legacy reasons we need the R version to be
+>> installed via CRAN instead of via apt.  I tried all the suggestions on
+>> this page [1], including the following in various
+>> combinations/orderings:
+>>
+>> - `sudo update-java-alternatives` switches everything to 7
+>> - `sudo R CMD javareconf` to reconfigure Java
+>> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/` and
+>> running the above, and then running R
+>> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/`
+>> - exporting the variables for just the javareconf and not the install step
+>> - `unset JAVA_HOME`
+>>
+>> [1]: http://stackoverflow.com/questions/3311940/r-rjava-package-install-failing
+>>
+>> But I always get errors along the lines of:
+>>
+>> == start snippet ==
+>>
+>>> install.packages('rJava')
+>> ...
+>> checking whether setjmp.h is POSIX.1 compatible... yes
+>> checking whether sigsetjmp is declared... yes
+>> checking whether siglongjmp is declared... yes
+>> checking Java support in R... present:
+>> interpreter : '/usr/bin/java'
+>> archiver    : '/usr/bin/jar'
+>> compiler    : '/usr/bin/javac'
+>> header prep.: '/usr/bin/javah'
+>> cpp flags   : '-I/usr/lib/jvm/java-7-openjdk-amd64/jre/../include'
+>> java libs   : '-L -L/usr/java/packages/lib/amd64
+>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm'
+>> checking whether JNI programs can be compiled... configure: error:
+>> Cannot compile a simple JNI program. See config.log for details.
+>>
+>> Make sure you have Java Development Kit installed and correctly registered in R.
+>> If in doubt, re-run "R CMD javareconf" as root.
+>>
+>> ERROR: configuration failed for package ‘rJava’
+>> * removing ‘/home/yang/R/x86_64-pc-linux-gnu-library/2.13/rJava’
+>>
+>> The downloaded packages are in
+>>        ‘/tmp/RtmpVd2TTA/downloaded_packages’
+>> Warning message:
+>> In install.packages("rJava") :
+>>  installation of package 'rJava' had non-zero exit status
+>>
+>> == end snippet ==
+>>
+>> I can't find any config.log, either in the current dir or in ~/R/...
+>> or in /tmp/Rtmp....
+>>
+>> The -L flags look suspicious, since....
+>>
+>> $ for i in -L/usr/java/packages/lib/amd64
+>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib ; do
+>> i=${i#-L}; l $i/libjvm*; done
+>> ls: cannot access /usr/java/packages/lib/amd64/libjvm*: No such file
+>> or directory
+>> ls: cannot access /usr/lib/x86_64-linux-gnu/jni/libjvm*: No such file
+>> or directory
+>> ls: cannot access /lib/x86_64-linux-gnu/libjvm*: No such file or directory
+>> ls: cannot access /usr/lib/x86_64-linux-gnu/libjvm*: No such file or directory
+>> ls: cannot access /usr/lib/jni/libjvm*: No such file or directory
+>> ls: cannot access /lib/libjvm*: No such file or directory
+>> ls: cannot access /usr/lib/libjvm*: No such file or directory
+>>
+>> Notice it's actually here (see last line):
+>>
+>> $ locate libjvm.so
+>> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+>> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/jamvm/libjvm.so
+>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+>> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/jamvm/libjvm.so
+>> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/server/libjvm.so
+>>
+>> But when I run `sudo R CMD javareconf`, I have no idea how it's coming
+>> up with its library path:
+>>
+>> $ sudo R CMD javareconf
+>> Java interpreter : /usr/bin/java
+>> Java version     : 1.7.0_147-icedtea
+>> Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+>> Java compiler    : /usr/bin/javac
+>> Java headers gen.: /usr/bin/javah
+>> Java archive tool: /usr/bin/jar
+>> Java library path:
+>> :/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+>> JNI linker flags : -L -L/usr/java/packages/lib/amd64
+>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+>> JNI cpp flags    : -I$(JAVA_HOME)/../include
+>>
+>> Updating Java configuration in /etc/R
+>> Done.
+>>
+>> I notice from `R CMD javareconf -h` that I can explicitly set
+>> JAVA_LD_LIBRARY, but I'm warned against doing this unless I have a
+>> "very special setup" (which I don't) and I generally think something
+>> much more basic is amiss.
+>>
+>> Some more information:
+>>
+>> $ readlink -f $(which java)
+>> /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+>>
+>> $ readlink -f $(which javac)
+>> /usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+>>
+>> $ java -version
+>> java version "1.7.0_147-icedtea"
+>> OpenJDK Runtime Environment (IcedTea7 2.0pre) (7~b147-2.0~pre6-1ubuntu1)
+>> OpenJDK 64-Bit Server VM (build 21.0-b17, mixed mode)
+>>
+>> $ javac -version
+>> javac 1.7.0_147
+>>
+>> $ lsb_release -a
+>> No LSB modules are available.
+>> Distributor ID: Ubuntu
+>> Description:    Ubuntu 11.10
+>> Release:        11.10
+>> Codename:       oneiric
+>>
+>> $ uname -a
+>> Linux prod0 3.0.0-12-virtual #20-Ubuntu SMP Fri Oct 7 18:19:02 UTC
+>> 2011 x86_64 x86_64 x86_64 GNU/Linux
+>>
+>> $ R --version
+>> R version 2.13.1 (2011-07-08)
+>> Copyright (C) 2011 The R Foundation for Statistical Computing
+>> ISBN 3-900051-07-0
+>> Platform: x86_64-pc-linux-gnu (64-bit)
+>> ...
+>>
+>> Any hints?  Thanks in advance....
+>>
+>> --
+>> Yang Zhang
+>> http://yz.mit.edu/
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>
+>>
+>
+>
+
+
+
+-- 
+Yang Zhang
+http://yz.mit.edu/
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: config.log
+Type: application/octet-stream
+Size: 14181 bytes
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Fri Nov 18 02:06:40 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 17 Nov 2011 21:06:40 -0500
+Subject: Re: Can't install rJava
+In-Reply-To: <CAKxBDU9gJWV44eJBQvywE=HxQijFPZaQCfLb9JLYfPHzBAvPZg@mail.gmail.com>
+References: <CAKxBDU8cQArUQ-ebJqnkQ5geCJL7LU6=MfARzm_fFRJecHhZmw@mail.gmail.com> <0CE1C723-2F82-41C1-970D-F82B7B64B621@r-project.org> <CAKxBDU9gJWV44eJBQvywE=HxQijFPZaQCfLb9JLYfPHzBAvPZg@mail.gmail.com>
+Message-ID: <65E39721-017D-4320-9E13-4666C6341D0F@r-project.org>
+
+Yang,
+
+your'e using old R. Your Java has broken java.library.path (see the paths under "Java library path", they are bogus) and R 2.14.0 provides a work-around for it. If you don't want to upgrade R you can set JAVA_LD_LIBRARY_PATH and JAVA_LIBS manually to reflect your actual setup, but it's easier to use R 2.14.0 or later.
+
+Cheers,
+Simon
+
+
+On Nov 17, 2011, at 8:55 PM, Yang Zhang wrote:
+
+> Hi Simon,
+> 
+> Making sure JAVA_HOME is unset was one of the things I listed as
+> already having tried, but I tried it again just in case I screwed up.
+> 
+> I've attached config.log.  I already pasted the javareconf output -
+> here it is again.  If there's other information you'd like to see
+> please let me know.  Thanks.
+> 
+> $ sudo R CMD javareconf
+> Java interpreter : /usr/bin/java
+> Java version     : 1.7.0_147-icedtea
+> Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+> Java compiler    : /usr/bin/javac
+> Java headers gen.: /usr/bin/javah
+> Java archive tool: /usr/bin/jar
+> Java library path:
+> :/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+> JNI linker flags : -L -L/usr/java/packages/lib/amd64
+> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+> JNI cpp flags    : -I$(JAVA_HOME)/../include
+> 
+> Updating Java configuration in /etc/R
+> Done.
+> 
+> On Thu, Nov 17, 2011 at 4:30 PM, Simon Urbanek
+> <simon.urbanek at r-project.org> wrote:
+>> Yang,
+>> 
+>> a) *never* set JAVA_HOME - it is likely to break things. Simply make sure "java" on the command line works before you run R CMD javareconf
+>> b) to get config.log, unpack the tar ball and install using R CMD INSTALL rJava -- the config.log will be in the rJava directory
+>> 
+>> If you have issues, please post the full result of javareconf and possibly the config.log.
+>> 
+>> Cheers,
+>> Simon
+>> 
+>> 
+>> 
+>> On Nov 17, 2011, at 6:51 PM, Yang Zhang wrote:
+>> 
+>>> I've installed rJava via CRAN in the past but it has never been
+>>> without following bumps.  I'm doing it again, but for some reason this
+>>> time I can't hack it after spending an hour on this.  This time it's
+>>> on Ubuntu 11.10 with the R version in the official Ubuntu apt repo and
+>>> against Java 7.  For legacy reasons we need the R version to be
+>>> installed via CRAN instead of via apt.  I tried all the suggestions on
+>>> this page [1], including the following in various
+>>> combinations/orderings:
+>>> 
+>>> - `sudo update-java-alternatives` switches everything to 7
+>>> - `sudo R CMD javareconf` to reconfigure Java
+>>> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/` and
+>>> running the above, and then running R
+>>> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/`
+>>> - exporting the variables for just the javareconf and not the install step
+>>> - `unset JAVA_HOME`
+>>> 
+>>> [1]: http://stackoverflow.com/questions/3311940/r-rjava-package-install-failing
+>>> 
+>>> But I always get errors along the lines of:
+>>> 
+>>> == start snippet ==
+>>> 
+>>>> install.packages('rJava')
+>>> ...
+>>> checking whether setjmp.h is POSIX.1 compatible... yes
+>>> checking whether sigsetjmp is declared... yes
+>>> checking whether siglongjmp is declared... yes
+>>> checking Java support in R... present:
+>>> interpreter : '/usr/bin/java'
+>>> archiver    : '/usr/bin/jar'
+>>> compiler    : '/usr/bin/javac'
+>>> header prep.: '/usr/bin/javah'
+>>> cpp flags   : '-I/usr/lib/jvm/java-7-openjdk-amd64/jre/../include'
+>>> java libs   : '-L -L/usr/java/packages/lib/amd64
+>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm'
+>>> checking whether JNI programs can be compiled... configure: error:
+>>> Cannot compile a simple JNI program. See config.log for details.
+>>> 
+>>> Make sure you have Java Development Kit installed and correctly registered in R.
+>>> If in doubt, re-run "R CMD javareconf" as root.
+>>> 
+>>> ERROR: configuration failed for package ‘rJava’
+>>> * removing ‘/home/yang/R/x86_64-pc-linux-gnu-library/2.13/rJava’
+>>> 
+>>> The downloaded packages are in
+>>>        ‘/tmp/RtmpVd2TTA/downloaded_packages’
+>>> Warning message:
+>>> In install.packages("rJava") :
+>>>  installation of package 'rJava' had non-zero exit status
+>>> 
+>>> == end snippet ==
+>>> 
+>>> I can't find any config.log, either in the current dir or in ~/R/...
+>>> or in /tmp/Rtmp....
+>>> 
+>>> The -L flags look suspicious, since....
+>>> 
+>>> $ for i in -L/usr/java/packages/lib/amd64
+>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib ; do
+>>> i=${i#-L}; l $i/libjvm*; done
+>>> ls: cannot access /usr/java/packages/lib/amd64/libjvm*: No such file
+>>> or directory
+>>> ls: cannot access /usr/lib/x86_64-linux-gnu/jni/libjvm*: No such file
+>>> or directory
+>>> ls: cannot access /lib/x86_64-linux-gnu/libjvm*: No such file or directory
+>>> ls: cannot access /usr/lib/x86_64-linux-gnu/libjvm*: No such file or directory
+>>> ls: cannot access /usr/lib/jni/libjvm*: No such file or directory
+>>> ls: cannot access /lib/libjvm*: No such file or directory
+>>> ls: cannot access /usr/lib/libjvm*: No such file or directory
+>>> 
+>>> Notice it's actually here (see last line):
+>>> 
+>>> $ locate libjvm.so
+>>> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+>>> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/jamvm/libjvm.so
+>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/jamvm/libjvm.so
+>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/server/libjvm.so
+>>> 
+>>> But when I run `sudo R CMD javareconf`, I have no idea how it's coming
+>>> up with its library path:
+>>> 
+>>> $ sudo R CMD javareconf
+>>> Java interpreter : /usr/bin/java
+>>> Java version     : 1.7.0_147-icedtea
+>>> Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+>>> Java compiler    : /usr/bin/javac
+>>> Java headers gen.: /usr/bin/javah
+>>> Java archive tool: /usr/bin/jar
+>>> Java library path:
+>>> :/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+>>> JNI linker flags : -L -L/usr/java/packages/lib/amd64
+>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+>>> JNI cpp flags    : -I$(JAVA_HOME)/../include
+>>> 
+>>> Updating Java configuration in /etc/R
+>>> Done.
+>>> 
+>>> I notice from `R CMD javareconf -h` that I can explicitly set
+>>> JAVA_LD_LIBRARY, but I'm warned against doing this unless I have a
+>>> "very special setup" (which I don't) and I generally think something
+>>> much more basic is amiss.
+>>> 
+>>> Some more information:
+>>> 
+>>> $ readlink -f $(which java)
+>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+>>> 
+>>> $ readlink -f $(which javac)
+>>> /usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+>>> 
+>>> $ java -version
+>>> java version "1.7.0_147-icedtea"
+>>> OpenJDK Runtime Environment (IcedTea7 2.0pre) (7~b147-2.0~pre6-1ubuntu1)
+>>> OpenJDK 64-Bit Server VM (build 21.0-b17, mixed mode)
+>>> 
+>>> $ javac -version
+>>> javac 1.7.0_147
+>>> 
+>>> $ lsb_release -a
+>>> No LSB modules are available.
+>>> Distributor ID: Ubuntu
+>>> Description:    Ubuntu 11.10
+>>> Release:        11.10
+>>> Codename:       oneiric
+>>> 
+>>> $ uname -a
+>>> Linux prod0 3.0.0-12-virtual #20-Ubuntu SMP Fri Oct 7 18:19:02 UTC
+>>> 2011 x86_64 x86_64 x86_64 GNU/Linux
+>>> 
+>>> $ R --version
+>>> R version 2.13.1 (2011-07-08)
+>>> Copyright (C) 2011 The R Foundation for Statistical Computing
+>>> ISBN 3-900051-07-0
+>>> Platform: x86_64-pc-linux-gnu (64-bit)
+>>> ...
+>>> 
+>>> Any hints?  Thanks in advance....
+>>> 
+>>> --
+>>> Yang Zhang
+>>> http://yz.mit.edu/
+>>> 
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>> 
+>>> 
+>> 
+>> 
+> 
+> 
+> 
+> -- 
+> Yang Zhang
+> http://yz.mit.edu/
+> <config.log>
+
+From yanghatespam at gmail.com  Fri Nov 18 02:08:32 2011
+From: yanghatespam at gmail.com (Yang Zhang)
+Date: Thu, 17 Nov 2011 18:08:32 -0800
+Subject: Re: Can't install rJava
+In-Reply-To: <65E39721-017D-4320-9E13-4666C6341D0F@r-project.org>
+References: <CAKxBDU8cQArUQ-ebJqnkQ5geCJL7LU6=MfARzm_fFRJecHhZmw@mail.gmail.com> <0CE1C723-2F82-41C1-970D-F82B7B64B621@r-project.org> <CAKxBDU9gJWV44eJBQvywE=HxQijFPZaQCfLb9JLYfPHzBAvPZg@mail.gmail.com> <65E39721-017D-4320-9E13-4666C6341D0F@r-project.org>
+Message-ID: <CAKxBDU-X+VPxSg7bQAgtnyW+dpNMJcWfF5hUsbNs+fTLxU=V2Q@mail.gmail.com>
+
+Thanks, will try out a newer R.
+
+On Thu, Nov 17, 2011 at 6:06 PM, Simon Urbanek
+<simon.urbanek at r-project.org> wrote:
+> Yang,
+>
+> your'e using old R. Your Java has broken java.library.path (see the paths under "Java library path", they are bogus) and R 2.14.0 provides a work-around for it. If you don't want to upgrade R you can set JAVA_LD_LIBRARY_PATH and JAVA_LIBS manually to reflect your actual setup, but it's easier to use R 2.14.0 or later.
+>
+> Cheers,
+> Simon
+>
+>
+> On Nov 17, 2011, at 8:55 PM, Yang Zhang wrote:
+>
+>> Hi Simon,
+>>
+>> Making sure JAVA_HOME is unset was one of the things I listed as
+>> already having tried, but I tried it again just in case I screwed up.
+>>
+>> I've attached config.log.  I already pasted the javareconf output -
+>> here it is again.  If there's other information you'd like to see
+>> please let me know.  Thanks.
+>>
+>> $ sudo R CMD javareconf
+>> Java interpreter : /usr/bin/java
+>> Java version     : 1.7.0_147-icedtea
+>> Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+>> Java compiler    : /usr/bin/javac
+>> Java headers gen.: /usr/bin/javah
+>> Java archive tool: /usr/bin/jar
+>> Java library path:
+>> :/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+>> JNI linker flags : -L -L/usr/java/packages/lib/amd64
+>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+>> JNI cpp flags    : -I$(JAVA_HOME)/../include
+>>
+>> Updating Java configuration in /etc/R
+>> Done.
+>>
+>> On Thu, Nov 17, 2011 at 4:30 PM, Simon Urbanek
+>> <simon.urbanek at r-project.org> wrote:
+>>> Yang,
+>>>
+>>> a) *never* set JAVA_HOME - it is likely to break things. Simply make sure "java" on the command line works before you run R CMD javareconf
+>>> b) to get config.log, unpack the tar ball and install using R CMD INSTALL rJava -- the config.log will be in the rJava directory
+>>>
+>>> If you have issues, please post the full result of javareconf and possibly the config.log.
+>>>
+>>> Cheers,
+>>> Simon
+>>>
+>>>
+>>>
+>>> On Nov 17, 2011, at 6:51 PM, Yang Zhang wrote:
+>>>
+>>>> I've installed rJava via CRAN in the past but it has never been
+>>>> without following bumps.  I'm doing it again, but for some reason this
+>>>> time I can't hack it after spending an hour on this.  This time it's
+>>>> on Ubuntu 11.10 with the R version in the official Ubuntu apt repo and
+>>>> against Java 7.  For legacy reasons we need the R version to be
+>>>> installed via CRAN instead of via apt.  I tried all the suggestions on
+>>>> this page [1], including the following in various
+>>>> combinations/orderings:
+>>>>
+>>>> - `sudo update-java-alternatives` switches everything to 7
+>>>> - `sudo R CMD javareconf` to reconfigure Java
+>>>> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/` and
+>>>> running the above, and then running R
+>>>> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/`
+>>>> - exporting the variables for just the javareconf and not the install step
+>>>> - `unset JAVA_HOME`
+>>>>
+>>>> [1]: http://stackoverflow.com/questions/3311940/r-rjava-package-install-failing
+>>>>
+>>>> But I always get errors along the lines of:
+>>>>
+>>>> == start snippet ==
+>>>>
+>>>>> install.packages('rJava')
+>>>> ...
+>>>> checking whether setjmp.h is POSIX.1 compatible... yes
+>>>> checking whether sigsetjmp is declared... yes
+>>>> checking whether siglongjmp is declared... yes
+>>>> checking Java support in R... present:
+>>>> interpreter : '/usr/bin/java'
+>>>> archiver    : '/usr/bin/jar'
+>>>> compiler    : '/usr/bin/javac'
+>>>> header prep.: '/usr/bin/javah'
+>>>> cpp flags   : '-I/usr/lib/jvm/java-7-openjdk-amd64/jre/../include'
+>>>> java libs   : '-L -L/usr/java/packages/lib/amd64
+>>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm'
+>>>> checking whether JNI programs can be compiled... configure: error:
+>>>> Cannot compile a simple JNI program. See config.log for details.
+>>>>
+>>>> Make sure you have Java Development Kit installed and correctly registered in R.
+>>>> If in doubt, re-run "R CMD javareconf" as root.
+>>>>
+>>>> ERROR: configuration failed for package ‘rJava’
+>>>> * removing ‘/home/yang/R/x86_64-pc-linux-gnu-library/2.13/rJava’
+>>>>
+>>>> The downloaded packages are in
+>>>>        ‘/tmp/RtmpVd2TTA/downloaded_packages’
+>>>> Warning message:
+>>>> In install.packages("rJava") :
+>>>>  installation of package 'rJava' had non-zero exit status
+>>>>
+>>>> == end snippet ==
+>>>>
+>>>> I can't find any config.log, either in the current dir or in ~/R/...
+>>>> or in /tmp/Rtmp....
+>>>>
+>>>> The -L flags look suspicious, since....
+>>>>
+>>>> $ for i in -L/usr/java/packages/lib/amd64
+>>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib ; do
+>>>> i=${i#-L}; l $i/libjvm*; done
+>>>> ls: cannot access /usr/java/packages/lib/amd64/libjvm*: No such file
+>>>> or directory
+>>>> ls: cannot access /usr/lib/x86_64-linux-gnu/jni/libjvm*: No such file
+>>>> or directory
+>>>> ls: cannot access /lib/x86_64-linux-gnu/libjvm*: No such file or directory
+>>>> ls: cannot access /usr/lib/x86_64-linux-gnu/libjvm*: No such file or directory
+>>>> ls: cannot access /usr/lib/jni/libjvm*: No such file or directory
+>>>> ls: cannot access /lib/libjvm*: No such file or directory
+>>>> ls: cannot access /usr/lib/libjvm*: No such file or directory
+>>>>
+>>>> Notice it's actually here (see last line):
+>>>>
+>>>> $ locate libjvm.so
+>>>> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+>>>> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+>>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+>>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/jamvm/libjvm.so
+>>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+>>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/jamvm/libjvm.so
+>>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/server/libjvm.so
+>>>>
+>>>> But when I run `sudo R CMD javareconf`, I have no idea how it's coming
+>>>> up with its library path:
+>>>>
+>>>> $ sudo R CMD javareconf
+>>>> Java interpreter : /usr/bin/java
+>>>> Java version     : 1.7.0_147-icedtea
+>>>> Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+>>>> Java compiler    : /usr/bin/javac
+>>>> Java headers gen.: /usr/bin/javah
+>>>> Java archive tool: /usr/bin/jar
+>>>> Java library path:
+>>>> :/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+>>>> JNI linker flags : -L -L/usr/java/packages/lib/amd64
+>>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+>>>> JNI cpp flags    : -I$(JAVA_HOME)/../include
+>>>>
+>>>> Updating Java configuration in /etc/R
+>>>> Done.
+>>>>
+>>>> I notice from `R CMD javareconf -h` that I can explicitly set
+>>>> JAVA_LD_LIBRARY, but I'm warned against doing this unless I have a
+>>>> "very special setup" (which I don't) and I generally think something
+>>>> much more basic is amiss.
+>>>>
+>>>> Some more information:
+>>>>
+>>>> $ readlink -f $(which java)
+>>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+>>>>
+>>>> $ readlink -f $(which javac)
+>>>> /usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+>>>>
+>>>> $ java -version
+>>>> java version "1.7.0_147-icedtea"
+>>>> OpenJDK Runtime Environment (IcedTea7 2.0pre) (7~b147-2.0~pre6-1ubuntu1)
+>>>> OpenJDK 64-Bit Server VM (build 21.0-b17, mixed mode)
+>>>>
+>>>> $ javac -version
+>>>> javac 1.7.0_147
+>>>>
+>>>> $ lsb_release -a
+>>>> No LSB modules are available.
+>>>> Distributor ID: Ubuntu
+>>>> Description:    Ubuntu 11.10
+>>>> Release:        11.10
+>>>> Codename:       oneiric
+>>>>
+>>>> $ uname -a
+>>>> Linux prod0 3.0.0-12-virtual #20-Ubuntu SMP Fri Oct 7 18:19:02 UTC
+>>>> 2011 x86_64 x86_64 x86_64 GNU/Linux
+>>>>
+>>>> $ R --version
+>>>> R version 2.13.1 (2011-07-08)
+>>>> Copyright (C) 2011 The R Foundation for Statistical Computing
+>>>> ISBN 3-900051-07-0
+>>>> Platform: x86_64-pc-linux-gnu (64-bit)
+>>>> ...
+>>>>
+>>>> Any hints?  Thanks in advance....
+>>>>
+>>>> --
+>>>> Yang Zhang
+>>>> http://yz.mit.edu/
+>>>>
+>>>> _______________________________________________
+>>>> stats-rosuda-devel mailing list
+>>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>>>
+>>>>
+>>>
+>>>
+>>
+>>
+>>
+>> --
+>> Yang Zhang
+>> http://yz.mit.edu/
+>> <config.log>
+>
+>
+
+
+
+-- 
+Yang Zhang
+http://yz.mit.edu/
+
+From simon.urbanek at r-project.org  Fri Nov 18 02:21:39 2011
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 17 Nov 2011 21:21:39 -0500
+Subject: Re: Can't install rJava
+In-Reply-To: <CAKxBDU-X+VPxSg7bQAgtnyW+dpNMJcWfF5hUsbNs+fTLxU=V2Q@mail.gmail.com>
+References: <CAKxBDU8cQArUQ-ebJqnkQ5geCJL7LU6=MfARzm_fFRJecHhZmw@mail.gmail.com> <0CE1C723-2F82-41C1-970D-F82B7B64B621@r-project.org> <CAKxBDU9gJWV44eJBQvywE=HxQijFPZaQCfLb9JLYfPHzBAvPZg@mail.gmail.com> <65E39721-017D-4320-9E13-4666C6341D0F@r-project.org> <CAKxBDU-X+VPxSg7bQAgtnyW+dpNMJcWfF5hUsbNs+fTLxU=V2Q@mail.gmail.com>
+Message-ID: <FD45AE20-D954-4FED-A492-BC471D5A5B08@r-project.org>
+
+On Nov 17, 2011, at 9:08 PM, Yang Zhang wrote:
+
+> Thanks, will try out a newer R.
+> 
+
+Ok, great. Just for clarification - this is a known issue in Java 1.7. So far I have only seen it in the Oracle binary, so I'm somewhat surprised that the icedtea binary has the same problem. For the Oracle binary is it somewhat excusable, because they hard-code the Java location which is a-priori not known (1.6 did not make that mistake, though). But icedtea should know better ... Let me know if R 2.14.0 works, because the work-around assumes that the reported boot path is correct which it is for Oracle's binary, but I didn't see icedtea binary so I didn't check that one.
+
+BTW: if you don't want to upgrade the whole R you can simply just copy over the most recent javareconf which you can find at
+https://svn.r-project.org/R/trunk/src/scripts/javareconf
+
+Thanks,
+Simon
+
+
+> On Thu, Nov 17, 2011 at 6:06 PM, Simon Urbanek
+> <simon.urbanek at r-project.org> wrote:
+>> Yang,
+>> 
+>> your'e using old R. Your Java has broken java.library.path (see the paths under "Java library path", they are bogus) and R 2.14.0 provides a work-around for it. If you don't want to upgrade R you can set JAVA_LD_LIBRARY_PATH and JAVA_LIBS manually to reflect your actual setup, but it's easier to use R 2.14.0 or later.
+>> 
+>> Cheers,
+>> Simon
+>> 
+>> 
+>> On Nov 17, 2011, at 8:55 PM, Yang Zhang wrote:
+>> 
+>>> Hi Simon,
+>>> 
+>>> Making sure JAVA_HOME is unset was one of the things I listed as
+>>> already having tried, but I tried it again just in case I screwed up.
+>>> 
+>>> I've attached config.log.  I already pasted the javareconf output -
+>>> here it is again.  If there's other information you'd like to see
+>>> please let me know.  Thanks.
+>>> 
+>>> $ sudo R CMD javareconf
+>>> Java interpreter : /usr/bin/java
+>>> Java version     : 1.7.0_147-icedtea
+>>> Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+>>> Java compiler    : /usr/bin/javac
+>>> Java headers gen.: /usr/bin/javah
+>>> Java archive tool: /usr/bin/jar
+>>> Java library path:
+>>> :/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+>>> JNI linker flags : -L -L/usr/java/packages/lib/amd64
+>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+>>> JNI cpp flags    : -I$(JAVA_HOME)/../include
+>>> 
+>>> Updating Java configuration in /etc/R
+>>> Done.
+>>> 
+>>> On Thu, Nov 17, 2011 at 4:30 PM, Simon Urbanek
+>>> <simon.urbanek at r-project.org> wrote:
+>>>> Yang,
+>>>> 
+>>>> a) *never* set JAVA_HOME - it is likely to break things. Simply make sure "java" on the command line works before you run R CMD javareconf
+>>>> b) to get config.log, unpack the tar ball and install using R CMD INSTALL rJava -- the config.log will be in the rJava directory
+>>>> 
+>>>> If you have issues, please post the full result of javareconf and possibly the config.log.
+>>>> 
+>>>> Cheers,
+>>>> Simon
+>>>> 
+>>>> 
+>>>> 
+>>>> On Nov 17, 2011, at 6:51 PM, Yang Zhang wrote:
+>>>> 
+>>>>> I've installed rJava via CRAN in the past but it has never been
+>>>>> without following bumps.  I'm doing it again, but for some reason this
+>>>>> time I can't hack it after spending an hour on this.  This time it's
+>>>>> on Ubuntu 11.10 with the R version in the official Ubuntu apt repo and
+>>>>> against Java 7.  For legacy reasons we need the R version to be
+>>>>> installed via CRAN instead of via apt.  I tried all the suggestions on
+>>>>> this page [1], including the following in various
+>>>>> combinations/orderings:
+>>>>> 
+>>>>> - `sudo update-java-alternatives` switches everything to 7
+>>>>> - `sudo R CMD javareconf` to reconfigure Java
+>>>>> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/jre/` and
+>>>>> running the above, and then running R
+>>>>> - `export JAVA_HOME=/usr/lib/jvm/java-7-openjdk-amd64/`
+>>>>> - exporting the variables for just the javareconf and not the install step
+>>>>> - `unset JAVA_HOME`
+>>>>> 
+>>>>> [1]: http://stackoverflow.com/questions/3311940/r-rjava-package-install-failing
+>>>>> 
+>>>>> But I always get errors along the lines of:
+>>>>> 
+>>>>> == start snippet ==
+>>>>> 
+>>>>>> install.packages('rJava')
+>>>>> ...
+>>>>> checking whether setjmp.h is POSIX.1 compatible... yes
+>>>>> checking whether sigsetjmp is declared... yes
+>>>>> checking whether siglongjmp is declared... yes
+>>>>> checking Java support in R... present:
+>>>>> interpreter : '/usr/bin/java'
+>>>>> archiver    : '/usr/bin/jar'
+>>>>> compiler    : '/usr/bin/javac'
+>>>>> header prep.: '/usr/bin/javah'
+>>>>> cpp flags   : '-I/usr/lib/jvm/java-7-openjdk-amd64/jre/../include'
+>>>>> java libs   : '-L -L/usr/java/packages/lib/amd64
+>>>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm'
+>>>>> checking whether JNI programs can be compiled... configure: error:
+>>>>> Cannot compile a simple JNI program. See config.log for details.
+>>>>> 
+>>>>> Make sure you have Java Development Kit installed and correctly registered in R.
+>>>>> If in doubt, re-run "R CMD javareconf" as root.
+>>>>> 
+>>>>> ERROR: configuration failed for package ‘rJava’
+>>>>> * removing ‘/home/yang/R/x86_64-pc-linux-gnu-library/2.13/rJava’
+>>>>> 
+>>>>> The downloaded packages are in
+>>>>>        ‘/tmp/RtmpVd2TTA/downloaded_packages’
+>>>>> Warning message:
+>>>>> In install.packages("rJava") :
+>>>>>  installation of package 'rJava' had non-zero exit status
+>>>>> 
+>>>>> == end snippet ==
+>>>>> 
+>>>>> I can't find any config.log, either in the current dir or in ~/R/...
+>>>>> or in /tmp/Rtmp....
+>>>>> 
+>>>>> The -L flags look suspicious, since....
+>>>>> 
+>>>>> $ for i in -L/usr/java/packages/lib/amd64
+>>>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib ; do
+>>>>> i=${i#-L}; l $i/libjvm*; done
+>>>>> ls: cannot access /usr/java/packages/lib/amd64/libjvm*: No such file
+>>>>> or directory
+>>>>> ls: cannot access /usr/lib/x86_64-linux-gnu/jni/libjvm*: No such file
+>>>>> or directory
+>>>>> ls: cannot access /lib/x86_64-linux-gnu/libjvm*: No such file or directory
+>>>>> ls: cannot access /usr/lib/x86_64-linux-gnu/libjvm*: No such file or directory
+>>>>> ls: cannot access /usr/lib/jni/libjvm*: No such file or directory
+>>>>> ls: cannot access /lib/libjvm*: No such file or directory
+>>>>> ls: cannot access /usr/lib/libjvm*: No such file or directory
+>>>>> 
+>>>>> Notice it's actually here (see last line):
+>>>>> 
+>>>>> $ locate libjvm.so
+>>>>> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+>>>>> /mnt/oldprod/usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+>>>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/cacao/libjvm.so
+>>>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/jamvm/libjvm.so
+>>>>> /usr/lib/jvm/java-6-openjdk/jre/lib/amd64/server/libjvm.so
+>>>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/jamvm/libjvm.so
+>>>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/lib/amd64/server/libjvm.so
+>>>>> 
+>>>>> But when I run `sudo R CMD javareconf`, I have no idea how it's coming
+>>>>> up with its library path:
+>>>>> 
+>>>>> $ sudo R CMD javareconf
+>>>>> Java interpreter : /usr/bin/java
+>>>>> Java version     : 1.7.0_147-icedtea
+>>>>> Java home path   : /usr/lib/jvm/java-7-openjdk-amd64/jre
+>>>>> Java compiler    : /usr/bin/javac
+>>>>> Java headers gen.: /usr/bin/javah
+>>>>> Java archive tool: /usr/bin/jar
+>>>>> Java library path:
+>>>>> :/usr/java/packages/lib/amd64:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib
+>>>>> JNI linker flags : -L -L/usr/java/packages/lib/amd64
+>>>>> -L/usr/lib/x86_64-linux-gnu/jni -L/lib/x86_64-linux-gnu
+>>>>> -L/usr/lib/x86_64-linux-gnu -L/usr/lib/jni -L/lib -L/usr/lib -ljvm
+>>>>> JNI cpp flags    : -I$(JAVA_HOME)/../include
+>>>>> 
+>>>>> Updating Java configuration in /etc/R
+>>>>> Done.
+>>>>> 
+>>>>> I notice from `R CMD javareconf -h` that I can explicitly set
+>>>>> JAVA_LD_LIBRARY, but I'm warned against doing this unless I have a
+>>>>> "very special setup" (which I don't) and I generally think something
+>>>>> much more basic is amiss.
+>>>>> 
+>>>>> Some more information:
+>>>>> 
+>>>>> $ readlink -f $(which java)
+>>>>> /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java
+>>>>> 
+>>>>> $ readlink -f $(which javac)
+>>>>> /usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+>>>>> 
+>>>>> $ java -version
+>>>>> java version "1.7.0_147-icedtea"
+>>>>> OpenJDK Runtime Environment (IcedTea7 2.0pre) (7~b147-2.0~pre6-1ubuntu1)
+>>>>> OpenJDK 64-Bit Server VM (build 21.0-b17, mixed mode)
+>>>>> 
+>>>>> $ javac -version
+>>>>> javac 1.7.0_147
+>>>>> 
+>>>>> $ lsb_release -a
+>>>>> No LSB modules are available.
+>>>>> Distributor ID: Ubuntu
+>>>>> Description:    Ubuntu 11.10
+>>>>> Release:        11.10
+>>>>> Codename:       oneiric
+>>>>> 
+>>>>> $ uname -a
+>>>>> Linux prod0 3.0.0-12-virtual #20-Ubuntu SMP Fri Oct 7 18:19:02 UTC
+>>>>> 2011 x86_64 x86_64 x86_64 GNU/Linux
+>>>>> 
+>>>>> $ R --version
+>>>>> R version 2.13.1 (2011-07-08)
+>>>>> Copyright (C) 2011 The R Foundation for Statistical Computing
+>>>>> ISBN 3-900051-07-0
+>>>>> Platform: x86_64-pc-linux-gnu (64-bit)
+>>>>> ...
+>>>>> 
+>>>>> Any hints?  Thanks in advance....
+>>>>> 
+>>>>> --
+>>>>> Yang Zhang
+>>>>> http://yz.mit.edu/
+>>>>> 
+>>>>> _______________________________________________
+>>>>> stats-rosuda-devel mailing list
+>>>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>>>> 
+>>>>> 
+>>>> 
+>>>> 
+>>> 
+>>> 
+>>> 
+>>> --
+>>> Yang Zhang
+>>> http://yz.mit.edu/
+>>> <config.log>
+>> 
+>> 
+> 
+> 
+> 
+> -- 
+> Yang Zhang
+> http://yz.mit.edu/
+> 
+>
+
+From matthewmaltercohen at gmail.com  Wed Nov 30 15:33:58 2011
+From: matthewmaltercohen at gmail.com (Matthew Malter Cohen)
+Date: Wed, 30 Nov 2011 10:33:58 -0500
+Subject: Trouble with switching datasets in Data Viewer
+Message-ID: <CAA=9ftXeBO7TqSc81nbwsSyZBB1jMCkY4e8R61FBzFAV-c6x3g@mail.gmail.com>
+
+Hi all,
+
+Has anyone else had trouble with switching datasets in the Data Viewer?
+When I click on the dataset in order to scroll through and view a different
+dataset, the dropdown list of datasets appears temporarily and then
+disappears. I have no time to switch datasets. I can't do it using arrow
+keys on the keyboard either. I just upgraded to R 2.14.0 before
+encountering this problem.
+
+Thanks for the help.
+Matt
+
+-------------- next part --------------
+
+

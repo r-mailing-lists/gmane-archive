@@ -1,0 +1,391 @@
+From purvakulkarni7 at gmail.com  Mon Aug  1 14:11:52 2016
+From: purvakulkarni7 at gmail.com (Purva Kulkarni)
+Date: Mon, 01 Aug 2016 15:11:52 +0100
+Subject: R connection issues with relative path and executable jar
+Message-ID: <39E80CA9-7672-4208-AE7A-27E2D2C22F8D@gmail.com>
+
+Hello,
+
+I am writing a `Java` application in IntelliJ IDE. The application uses `Rserve()` to connect to `R` and access scripts. First question is: At the moment, my `R` scripts are directly under my main java project folder. To access a `R` script, I use the following code: 
+
+   RConnection rc1 = new RConnection();
+   rc1.assign("parseFile", currentPath.concat("/parseFile.R"));
+   rc1.eval("source(parseFile)");
+
+The `currentPath` variable in the code is the absolute path, which I obtain using this:
+
+    final String currentPath = currentRelativePath.toAbsolutePath().toString();
+
+However, I want to make changes in my code and would like to access my `R` scripts using relative path. For this, I created a folder named `rscripts` in the `src` folder and placed my `R` scripts in this folder. I then marked this directory as `Sources root` using the `Mark directory as` option in intelliJ. To access the scripts I made the following changes to the code: 
+
+   rc1.assign("parseFile", "/rscripts/parseFile.R");
+   rc1.eval("source(parseFile)");
+
+However, now I get the error:
+
+   org.rosuda.REngine.Rserve.RserveException: eval failed, request status: error code: 127
+
+Looking at the error, it seems that `R` script cannot be accessed. 
+How should I use relative paths to access the `R` scripts? 
+
+Secondly, I want to deliver my application as a jar file. Should I also bundle `R` with the `jar` file, in case the user does not have R installed on the system? 
+
+Thank you
+
+Best regards,
+Purva
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From skradel at coriell.com  Mon Aug  1 15:18:29 2016
+From: skradel at coriell.com (Steve Kradel)
+Date: Mon, 01 Aug 2016 11:18:29 -0400
+Subject: Re: R connection issues with relative path and executable jar
+In-Reply-To: <39E80CA9-7672-4208-AE7A-27E2D2C22F8D@gmail.com>
+References: <39E80CA9-7672-4208-AE7A-27E2D2C22F8D@gmail.com>
+Message-ID: <CAOtTpPdeM1KT7xPBqFmAsqMx3y4QVY-FMQKjxXVJ5c=5Lm4THg@mail.gmail.com>
+
+The conventional method when bundling external scripts into a jar is to
+extract them to temp files, the location and exact name of which will be up
+to the JRE.  For example:
+
+final String path;
+try (InputStream resource =
+Foo.class.getResourceAsStream("/scripts/parseFile.R")) {
+    File myFile = File.createTempFile("parseFile", ".R");
+    try (FileOutputStream out = new FileOutputStream(myFile)) {
+        IOUtils.copy(resource, out);
+    }
+    path = myFile.getAbsolutePath();
+}
+
+Please forgive any syntax or usage errors as I've just written this without
+compilation checks or tests.
+
+Relative paths in the absence of some sort of explicit base path are
+probably best avoided.
+
+--Steve
+
+
+--
+Steve Kradel
+Director, Product Development
+Coriell Life Sciences
+Camden, New Jersey
+856-668-2072
+
+On Mon, Aug 1, 2016 at 10:11 AM, Purva Kulkarni <purvakulkarni7 at gmail.com>
+wrote:
+
+> Hello,
+>
+> I am writing a `Java` application in IntelliJ IDE. The application uses
+> `Rserve()` to connect to `R` and access scripts. First question is: At the
+> moment, my `R` scripts are directly under my main java project folder. To
+> access a `R` script, I use the following code:
+>
+>    RConnection rc1 = new RConnection();
+>    rc1.assign("parseFile", currentPath.concat("/parseFile.R"));
+>    rc1.eval("source(parseFile)");
+>
+> The `currentPath` variable in the code is the absolute path, which I
+> obtain using this:
+>
+>     final String currentPath =
+> currentRelativePath.toAbsolutePath().toString();
+>
+> However, I want to make changes in my code and would like to access my `R`
+> scripts using relative path. For this, I created a folder named `rscripts`
+> in the `src` folder and placed my `R` scripts in this folder. I then marked
+> this directory as `Sources root` using the `Mark directory as` option in
+> intelliJ. To access the scripts I made the following changes to the code:
+>
+>    rc1.assign("parseFile", "/rscripts/parseFile.R");
+>    rc1.eval("source(parseFile)");
+>
+> However, now I get the error:
+>
+>    org.rosuda.REngine.Rserve.RserveException: eval failed, request status:
+> error code: 127
+>
+> Looking at the error, it seems that `R` script cannot be accessed.
+> How should I use relative paths to access the `R` scripts?
+>
+> Secondly, I want to deliver my application as a jar file. Should I also
+> bundle `R` with the `jar` file, in case the user does not have R installed
+> on the system?
+>
+> Thank you
+>
+> Best regards,
+> Purva
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From purvakulkarni7 at gmail.com  Mon Aug  1 12:32:38 2016
+From: purvakulkarni7 at gmail.com (Purva Kulkarni)
+Date: Mon, 01 Aug 2016 13:32:38 +0100
+Subject: R connection issues with relative path and executable jar
+Message-ID: <F3641944-9D49-4D6E-928C-2B03A3976A52@gmail.com>
+
+Hello,
+
+I am writing a `Java` application in IntelliJ IDE. The application uses `Rserve()` to connect to `R` and access scripts. First question is: At the moment, my `R` scripts are directly under my main java project folder. To access a `R` script, I use the following code: 
+
+    RConnection rc1 = new RConnection();
+    rc1.assign("parseFile", currentPath.concat("/parseFile.R"));
+    rc1.eval("source(parseFile)");
+
+The `currentPath` variable in the code is the absolute path, which I obtain using this:
+
+     final String currentPath = currentRelativePath.toAbsolutePath().toString();
+
+However, I want to make changes in my code and would like to access my `R` scripts using relative path. For this, I created a folder named `rscripts` in the `src` folder and placed my `R` scripts in this folder. I then marked this directory as `Sources root` using the `Mark directory as` option in intelliJ. To access the scripts I made the following changes to the code: 
+
+    rc1.assign("parseFile", "/rscripts/parseFile.R");
+    rc1.eval("source(parseFile)");
+
+However, now I get the error:
+
+    org.rosuda.REngine.Rserve.RserveException: eval failed, request status: error code: 127
+
+Looking at the error, it seems that `R` script cannot be accessed. 
+How should I use relative paths to access the `R` scripts? 
+
+Secondly, I want to deliver my application as a jar file. Should I also bundle `R` with the `jar` file, in case the user does not have R installed on the system? 
+
+Thank you
+
+Best regards,
+Purva
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From venkat.architect at gmail.com  Thu Aug 25 19:32:48 2016
+From: venkat.architect at gmail.com (Venkat Ramakrishnan)
+Date: Fri, 26 Aug 2016 01:02:48 +0530
+Subject: Fwd: RServe support
+In-Reply-To: <CAErxogE_i0yLhT3_kioKxVDnY8jhdqToNmkh-yQXBMir7_+-FQ@mail.gmail.com>
+References: <CAErxogG50wmdxFDaByiKO25Yvmyt+gWh1=_iJu5GW22_npBpxQ@mail.gmail.com> <1AA5101D-5255-4666-B0EA-7BBBDB52F403@r-project.org> <CAErxogE_i0yLhT3_kioKxVDnY8jhdqToNmkh-yQXBMir7_+-FQ@mail.gmail.com>
+Message-ID: <CAErxogEEuHBSrjq3HsPKpHNt6Z=W9zVhG-0yLHpm5412f77p+w@mail.gmail.com>
+
+Forwarding to the dev. list also.
+
+Thanks,
+Venkat.
+
+---------- Forwarded message ----------
+From: Venkat Ramakrishnan <venkat.architect at gmail.com>
+Date: Fri, Aug 26, 2016 at 12:37 AM
+Subject: Re: RServe support
+To: Simon Urbanek <simon.urbanek at r-project.org>
+
+
+Hi Simon,
+
+I really appreciate your answer to answer the question directly! :)
+
+Here you go:
+
+I'm using RSClient to connect to RServe. Both of them are installed in the
+same machine which is running Windows 8.1 x64.
+
+After the connection is opened, when I send RS.eval command with a basic
+eval statement ( eval(1+5) ), initially authentication error happens, and
+when attempted again, the connection is closed:
+
+> c<-RS.connect()> c
+     Rserve QAP1 connection 0x0000000009bb1300 (socket 712, queue
+length 0)> RS.eval(c,eval(1+5))
+     Error in RS.eval(c, eval(1 + 5)) :
+     command failed with status code 0x41: authentication failed>
+RS.eval(c,eval(1+5))
+rsc_abort: read error
+Error in RS.eval(c, eval(1 + 5)) :
+read error - could not obtain response header> RS.eval(c,eval(1+5))
+Error in RS.eval(c, eval(1 + 5)) : connection lost
+
+My Rserv.cfg looks like this :
+
+D:\R64\R-3.3.0\bin\x64>type Rserv.cfg
+workdir D:\R64\R-3.3.0\bin\x64
+pwdfile none
+remote disable
+auth disable
+plaintext enable
+fileio enable
+interactive yes#socket none
+port 6311
+maxinbuf 262144
+maxsendbuf 0
+uid none
+gid none
+su none
+chroot none
+sockmod 0
+umask 0
+encoding native
+
+RServe was started from command line:
+
+D:\R64\R-3.3.0\bin\x64>R CMD RServe
+Rserve: Ok, ready to answer queries.
+
+Not sure if this is something specific to 64-bit OS. RServe documentation
+says it has been tested only with 32-bit, and also discourages using
+Windows OS to major extent, but still, for testing purposes I would like to
+use Windows and then move on to Linux.
+
+Someone suggested to start the command in R itself instead of command
+line.  Not sure if it has any impact on the results.  Any help would be
+appreciated.
+
+Thanks & Best Regards,
+
+Venkat.
+
+
+
+On Thu, Aug 25, 2016 at 9:32 PM, Simon Urbanek <simon.urbanek at r-project.org>
+wrote:
+
+>
+> > On Aug 24, 2016, at 8:07 AM, Venkat Ramakrishnan <
+> venkat.architect at gmail.com> wrote:
+> >
+> > Hi Simon,
+> >
+> > I'm thinking of using RServe for one of my projects, and
+> > I'm running into some strange issues with the latest
+> > version that I downloaded from RForge.
+> >
+> > Is there a support forum where I can ask my queries?
+> >
+>
+> You can use stats-rosuda-devel mailing list
+> https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> or the issues on GitHub
+> https://github.com/s-u/Rserve/issues
+> or just ask me :)
+>
+> Cheers,
+> Simon
+>
+>
+>
+> > Thanks & Best Regards,
+> > Venkat.
+> >
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From caesar.ralf at gmail.com  Wed Aug 31 09:58:55 2016
+From: caesar.ralf at gmail.com (Caesar Ralf Franz Hoppen)
+Date: Wed, 31 Aug 2016 11:58:55 +0200
+Subject: Bad performance with parallel requests
+Message-ID: <CAPz94bFdgs+hSSEyydmdn22sQm_WOnmTbKkeFX8ZFRaGKS-M5A@mail.gmail.com>
+
+Hello everyone,
+
+I think I sent the email to the wrong place, so I am going to resend my
+problem, if I am repeating myself, I am sorry.
+
+My case is that I am trying to run a predictive model using R and I
+expected getting around ~70reqs/second as normal use case. I will run more
+than one machine with this code, but I would like to have a good
+performance per machine running the model.
+
+My setup is fairly simple. I have a java front end that will listen to HTTP
+calls and forward them to Rserve. The incoming requests are in JSON format
+and we send them as they are to the R code. We expect the model to
+transform the JSON to proper R structures, crunch the data and then
+transformed back to JSON when returning to the java code.
+
+Bellow I show an example on how it looks like.
+
+Code
+
+My code that starts Rserve looks like this:
+
+library(jsonlite)
+library(Rserve)
+
+apply_model <- function(input) {
+
+    transformed <- fromJSON(input)
+
+    return(toJSON(transformed));
+}
+Rserve::run.Rserve(port = 6311, remote=TRUE, auth=FALSE)
+
+
+The java code that listen to HTTP requests and forwards to RServe. It's a
+simple spring boot app.
+
+@RequestMapping(value = "/score",
+    method = RequestMethod.POST,
+    consumes = MediaType.APPLICATION_JSON_VALUE,
+    produces = MediaType.APPLICATION_JSON_VALUE)
+public String predict(@RequestBody String input) throws Exception {
+    RConnection connection = null;
+    try {
+        connection = connectionPool.borrowObject();
+        connection.assign("input", input);
+        return connection.eval("apply_model(input)").toString();
+    } finally {
+        if (connection != null) {
+            connectionPool.returnObject(connection);
+        }
+    }
+}
+
+
+The connectionPool it's a simple implementation that basically only opens
+connections and maintain them open. We are using apache commons pool
+library (https://commons.apache.org/proper/commons-pool/). We are setting a
+maximum of 20 connections to be opened.
+
+Testing
+
+I am running this in a mac with core i7 with 16gb of memory. It should be
+able to handle a lot of requests in parallel fairly easy.
+
+Doing with 5 requests/second I get an average of 13ms to run it.
+
+Increasing to 10req/second increases the average to 21ms.
+
+Increasing to 20req/sec it averages to 33ms.
+
+When I check the CPU usage is under 20% and each R process is taking ~40mb
+of memory, not even getting close of my machine being stressed.
+
+   - Can anyone help me understand what's making R increase the timings
+   when I increase the number of requests/second?
+   - How do you guys handle a lot of requests?
+   - Do you always open new connections to RSeve or do you maintain them?
+
+-------------- next part --------------
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+https://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

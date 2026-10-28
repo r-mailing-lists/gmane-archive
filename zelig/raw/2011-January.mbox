@@ -1,0 +1,386 @@
+From sotiris.adamakis-gM/Ye1E23mwN+BqQ9rBEUg at public.gmane.org  Fri Jan  7 16:47:50 2011
+From: sotiris.adamakis-gM/Ye1E23mwN+BqQ9rBEUg at public.gmane.org (Sotiris Adamakis)
+Date: Fri, 07 Jan 2011 16:47:50 +0000
+Subject: "variable lengths differ (found for '(weights)')" error in Zelig library
+Message-ID: <AANLkTimWGmSAEz+8EZQU=vDo+6SUm-kUMBhhrr5QgHRt@mail.gmail.com>
+
+Hi,
+
+I posted the following on the R discussion group, but this might be
+relevant
+here as well.
+
+I am trying to estimate the average treatmen effect on the
+treated (ATT) using first the MatchIt software to weight the data set and,
+after this, the Zelig software as shown in Ho et al. (2007). This is my
+source:
+
+http://imai.princeton.edu/research/files/matchit.pdf
+
+I encounter a slight problem when I apply the weights that are produced in
+the stage of preprocessing the data. The idea of this is to use the MatchIt
+software to preprocess the data and then use the Zelig software to generate
+the distribution of ATT. I believe that the main reason for preprocessing
+the data is to create weights (depending on the matching technique you use)
+so that balance would be achieved for the matching variables between the
+treatment and the control group. Then you use these weights in the
+regressions that follow in the Zelig library. Copied from the matchit
+article, whose link I provide above, the authors say:
+
+"If one chooses options that allow matching with
+replacement, or any solution that has different numbers of controls (or
+treateds) within each
+subclass or strata (such as full matching), then the parametric analysis
+following matching
+must accomodate these procedures, such as by using fixed effects or weights,
+as appropriate.
+(Similar procedures can also be used to estimate various other quantities of
+interest such
+as the average treatment effect by computing it for all observations, but
+then one must
+be aware that the quantity of interest may change during the matching
+procedure as some
+control units may be dropped.)"
+
+The following code is for the "lalonde" data set, where I get an error
+message in the end. I use the more recent R version (2.12.1) and have
+updated
+the Zelig and MatchIt libraries.
+
+> update.packages("MatchIt")
+> update.packages("Zelig")
+> library(Zelig)
+> library(MatchIt)
+> data(lalonde)
+> m.out1 = matchit(treat ~ age + educ + black + hispan + nodegree + married
++
+re74 + re75, method = "subclass", subclass=6, data = lalonde)
+> z.out1 = zelig(re78 ~ age + educ + black + hispan + nodegree + married +
+re74
++ re75, data = match.data(m.out1, "control"), model = "ls",
+weights="weights")
+> x.out1 = setx(z.out1, data = match.data(m.out1, "treat"), cond = TRUE)
+> s.out1 = sim(z.out1, x = x.out1)
+Error in model.frame.default(formula = re78 ~ age + educ + black + hispan +
+ :
+  variable lengths differ (found for '(weights)')
+
+I was wondering if somebody could tell me how to get around with this
+problem?
+
+Also, I have seen people adding the propensity scores in the regression
+analysis applied in the Zelig package, i.e.
+
+> z.out1 = zelig(re78 ~ age + educ + black + hispan + nodegree + married +
+re74 + re75 + distance, data = match.data(m.out1, "control"), model =
+"ls", weights="weights")
+
+Does anyone have a clue of why this can happen?
+
+Kind regards,
+Sotiris
+
+From alynch-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Fri Jan 14 20:30:49 2011
+From: alynch-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Alicia Doyle Lynch)
+Date: Fri, 14 Jan 2011 15:30:49 -0500
+Subject: gamma.mixed & weights
+Message-ID: <4D30B279.2010002@iq.harvard.edu>
+
+I am running a gamma.mixed model on data that requires the use of survey 
+weights.  Is there a way to account for weighting in the gamma.mixed 
+command?
+Thank you,
+Alicia
+
+-- 
+Alicia Doyle Lynch
+Statistical Trainer
+Harvard MIT Data Center
+1737 Cambridge Street, K318
+Cambridge MA 02138
+
+From jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Sat Jan 15 16:16:53 2011
+From: jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Jason McMann)
+Date: Sat, 15 Jan 2011 11:16:53 -0500
+Subject: mixed.probit, gamma specification
+Message-ID: <AANLkTimZPbr4msZ=QL6BO4dyD-pyS0pxzF_kjkNJv+81@mail.gmail.com>
+
+Hello,
+
+I am trying to run a multilevel probit model using Zelig, but keep receiving
+the following error message: " in .deparseTag(TT.vars[[vind]]) : wrong use
+of tag function!!"
+
+A simplified version of the model I am trying to run is:
+
+z.out <- zelig(formula= list(mu=investment.binary ~ edlevel +
+               tag(1 + edlevel, gamma | country),
+               gamma = ~ tag(GDPpc06.full| country)), data=data2006.mod1,
+model="probit.mixed")
+
+What I would like to do is allow the intercept and the edlevel variable
+listed within the first tag() to vary by country as a function of the
+GDPpc06.full variable, all of which are included in the same dataframe.  I
+followed the syntax here - http://cran.r-project.org/web/packages/Zelig
+/vignettes/probit.mixed.pdf - but I think that I am incorrectly specifying
+the gamma part of the syntax, which may be causing the error.
+
+I *am* able to get the model to run when I allow the intercept and edlevel
+variable to vary using the following syntax:
+
+z.out <- zelig(investment.binary ~ edlevel +
+               + tag(1 + edlevel | country),
+               data=data2006.mod1, model="probit.mixed")
+
+However, this syntax does not allow me to specify that the intercept and
+edlevel variable should vary as a function of GDPpc06.full, as in the first
+model specified above.  I have tried including multiple tags at the
+non-group level of the model specification - i.e. one for the intercept and
+one for the edlevel variable - but this does not seem to work either.
+
+Do you have any suggestions for how to fix the syntax?
+
+Sincerely,
+Jason
+
+-- 
+Jason I. McMann
+PhD Student | Department of Politics
+Princeton University | jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Sat Jan 15 17:09:15 2011
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Sat, 15 Jan 2011 12:09:15 -0500
+Subject: Re: mixed.probit, gamma specification
+In-Reply-To: <AANLkTimZPbr4msZ=QL6BO4dyD-pyS0pxzF_kjkNJv+81@mail.gmail.com>
+References: <AANLkTimZPbr4msZ=QL6BO4dyD-pyS0pxzF_kjkNJv+81@mail.gmail.com>
+Message-ID: <D1F17991-461D-4CDC-9562-188E9366B581@Princeton.Edu>
+
+The problem I think is tag(1 + edlevel, gamma | country).  I might be wrong but I don't think you can have both "1" and "edlevel".  Try tag(edlevel, gamma | country) instead for example.
+
+Kosuke
+
+On Jan 15, 2011, at 11:16 AM, Jason McMann wrote:
+
+> Hello,
+> 
+> I am trying to run a multilevel probit model using Zelig, but keep receiving the following error message: " in .deparseTag(TT.vars[[vind]]) : wrong use of tag function!!"  
+> 
+> A simplified version of the model I am trying to run is:
+> 
+> z.out <- zelig(formula= list(mu=investment.binary ~ edlevel + 
+>                tag(1 + edlevel, gamma | country),
+>                gamma = ~ tag(GDPpc06.full| country)), data=data2006.mod1, model="probit.mixed")
+> 
+> What I would like to do is allow the intercept and the edlevel variable listed within the first tag() to vary by country as a function of the GDPpc06.full variable, all of which are included in the same dataframe.  I followed the syntax here - http://cran.r-project.org/web/packages/Zelig/vignettes/probit.mixed.pdf - but I think that I am incorrectly specifying the gamma part of the syntax, which may be causing the error.
+> 
+> I am able to get the model to run when I allow the intercept and edlevel variable to vary using the following syntax:
+> 
+> z.out <- zelig(investment.binary ~ edlevel +  
+>                + tag(1 + edlevel | country),
+>                data=data2006.mod1, model="probit.mixed")
+> 
+> However, this syntax does not allow me to specify that the intercept and edlevel variable should vary as a function of GDPpc06.full, as in the first model specified above.  I have tried including multiple tags at the non-group level of the model specification - i.e. one for the intercept and one for the edlevel variable - but this does not seem to work either.  
+> 
+> Do you have any suggestions for how to fix the syntax?
+> 
+> Sincerely,
+> Jason
+> 
+> -- 
+> Jason I. McMann
+> PhD Student | Department of Politics
+> Princeton University | jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Sat Jan 15 21:27:41 2011
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Sat, 15 Jan 2011 16:27:41 -0500
+Subject: Re: mixed.probit, gamma specification
+In-Reply-To: <AANLkTim0EheBRUMa0a=2mkU7AA3yUb6bppZCrNrkS6uE@mail.gmail.com>
+References: <AANLkTimZPbr4msZ=QL6BO4dyD-pyS0pxzF_kjkNJv+81@mail.gmail.com> <D1F17991-461D-4CDC-9562-188E9366B581@Princeton.Edu> <AANLkTim0EheBRUMa0a=2mkU7AA3yUb6bppZCrNrkS6uE@mail.gmail.com>
+Message-ID: <alpine.OSX.2.00.1101151627290.41499@pol-g88381xtxyl.princeton.edu>
+
+Did you make sure that your data structure follows the example we have 
+there?
+
+Kosuke
+
+-- 
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Sat, 15 Jan 2011, Jason McMann wrote:
+
+> Hello,
+>
+> Thank you for the suggestion.  I have tried tag(edlevel, gamma | country),
+> but that does not seem to solve the problem.
+>
+> Sincerely,
+> Jason
+>
+> 2011/1/15 Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>
+>
+>> The problem I think is tag(1 + edlevel, gamma | country).  I might be wrong
+>> but I don't think you can have both "1" and "edlevel".  Try tag(edlevel,
+>> gamma | country) instead for example.
+>>
+>> Kosuke
+>>
+>> On Jan 15, 2011, at 11:16 AM, Jason McMann wrote:
+>>
+>>> Hello,
+>>>
+>>> I am trying to run a multilevel probit model using Zelig, but keep
+>> receiving the following error message: " in .deparseTag(TT.vars[[vind]]) :
+>> wrong use of tag function!!"
+>>>
+>>> A simplified version of the model I am trying to run is:
+>>>
+>>> z.out <- zelig(formula= list(mu=investment.binary ~ edlevel +
+>>>                tag(1 + edlevel, gamma | country),
+>>>                gamma = ~ tag(GDPpc06.full| country)), data=data2006.mod1,
+>> model="probit.mixed")
+>>>
+>>> What I would like to do is allow the intercept and the edlevel variable
+>> listed within the first tag() to vary by country as a function of the
+>> GDPpc06.full variable, all of which are included in the same dataframe.  I
+>> followed the syntax here -
+>> http://cran.r-project.org/web/packages/Zelig/vignettes/probit.mixed.pdf -
+>> but I think that I am incorrectly specifying the gamma part of the syntax,
+>> which may be causing the error.
+>>>
+>>> I am able to get the model to run when I allow the intercept and edlevel
+>> variable to vary using the following syntax:
+>>>
+>>> z.out <- zelig(investment.binary ~ edlevel +
+>>>                + tag(1 + edlevel | country),
+>>>                data=data2006.mod1, model="probit.mixed")
+>>>
+>>> However, this syntax does not allow me to specify that the intercept and
+>> edlevel variable should vary as a function of GDPpc06.full, as in the first
+>> model specified above.  I have tried including multiple tags at the
+>> non-group level of the model specification - i.e. one for the intercept and
+>> one for the edlevel variable - but this does not seem to work either.
+>>>
+>>> Do you have any suggestions for how to fix the syntax?
+>>>
+>>> Sincerely,
+>>> Jason
+>>>
+>>> --
+>>> Jason I. McMann
+>>> PhD Student | Department of Politics
+>>> Princeton University | jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org
+>>
+>>
+>
+>
+>
+
+From jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Sat Jan 15 20:24:25 2011
+From: jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Jason McMann)
+Date: Sat, 15 Jan 2011 15:24:25 -0500
+Subject: Re: mixed.probit, gamma specification
+In-Reply-To: <D1F17991-461D-4CDC-9562-188E9366B581@Princeton.Edu>
+References: <AANLkTimZPbr4msZ=QL6BO4dyD-pyS0pxzF_kjkNJv+81@mail.gmail.com> <D1F17991-461D-4CDC-9562-188E9366B581@Princeton.Edu>
+Message-ID: <AANLkTim0EheBRUMa0a=2mkU7AA3yUb6bppZCrNrkS6uE@mail.gmail.com>
+
+Hello,
+
+Thank you for the suggestion.  I have tried tag(edlevel, gamma | country),
+but that does not seem to solve the problem.
+
+Sincerely,
+Jason
+
+2011/1/15 Kosuke Imai <kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org>
+
+> The problem I think is tag(1 + edlevel, gamma | country).  I might be wrong
+> but I don't think you can have both "1" and "edlevel".  Try tag(edlevel,
+> gamma | country) instead for example.
+>
+> Kosuke
+>
+> On Jan 15, 2011, at 11:16 AM, Jason McMann wrote:
+>
+> > Hello,
+> >
+> > I am trying to run a multilevel probit model using Zelig, but keep
+> receiving the following error message: " in .deparseTag(TT.vars[[vind]]) :
+> wrong use of tag function!!"
+> >
+> > A simplified version of the model I am trying to run is:
+> >
+> > z.out <- zelig(formula= list(mu=investment.binary ~ edlevel +
+> >                tag(1 + edlevel, gamma | country),
+> >                gamma = ~ tag(GDPpc06.full| country)), data=data2006.mod1,
+> model="probit.mixed")
+> >
+> > What I would like to do is allow the intercept and the edlevel variable
+> listed within the first tag() to vary by country as a function of the
+> GDPpc06.full variable, all of which are included in the same dataframe.  I
+> followed the syntax here -
+> http://cran.r-project.org/web/packages/Zelig/vignettes/probit.mixed.pdf -
+> but I think that I am incorrectly specifying the gamma part of the syntax,
+> which may be causing the error.
+> >
+> > I am able to get the model to run when I allow the intercept and edlevel
+> variable to vary using the following syntax:
+> >
+> > z.out <- zelig(investment.binary ~ edlevel +
+> >                + tag(1 + edlevel | country),
+> >                data=data2006.mod1, model="probit.mixed")
+> >
+> > However, this syntax does not allow me to specify that the intercept and
+> edlevel variable should vary as a function of GDPpc06.full, as in the first
+> model specified above.  I have tried including multiple tags at the
+> non-group level of the model specification - i.e. one for the intercept and
+> one for the edlevel variable - but this does not seem to work either.
+> >
+> > Do you have any suggestions for how to fix the syntax?
+> >
+> > Sincerely,
+> > Jason
+> >
+> > --
+> > Jason I. McMann
+> > PhD Student | Department of Politics
+> > Princeton University | jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org
+>
+>
+
+
+-- 
+Jason I. McMann
+PhD Candidate | Department of Politics
+Princeton University | jmcmann-uX/v2g6dJhCyum0STUha2w at public.gmane.org
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Sat Jan 15 22:01:00 2011
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Sat, 15 Jan 2011 17:01:00 -0500
+Subject: Re: gamma.mixed & weights
+In-Reply-To: <4D30B279.2010002@iq.harvard.edu>
+References: <4D30B279.2010002@iq.harvard.edu>
+Message-ID: <alpine.OSX.2.00.1101151700440.41499@pol-g88381xtxyl.princeton.edu>
+
+please have a look at lme4 docs for this since Zelig relies on that 
+package.
+
+Kosuke
+
+-- 
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Fri, 14 Jan 2011, Alicia Doyle Lynch wrote:
+
+> I am running a gamma.mixed model on data that requires the use of survey 
+> weights.  Is there a way to account for weighting in the gamma.mixed command?
+> Thank you,
+> Alicia
+>
+>
+

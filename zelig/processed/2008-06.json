@@ -1,0 +1,591 @@
+{
+  "list": "zelig",
+  "description": "",
+  "month": "2008-06",
+  "messages": [
+    {
+      "id": "msg-406b87dfb051",
+      "message_id": "<4c8e73360805312157m6166b0e8vad1201fb82d35ad7@mail.gmail.com>",
+      "from_name": "Patrick Lam",
+      "from_email_hash": "3e1349f327932e80898520b85e042ed3a93a32ef3805ff8c2dc99ea1c2aaa2eb",
+      "date": "2008-06-01T04:57:02Z",
+      "subject": "Re: Question regarding multiple records per subject in cox proportional hazards model",
+      "subject_clean": "Question regarding multiple records per subject in cox proportional hazards model",
+      "in_reply_to": "<OF561C5394.A1C9C25E-ON85257459.0071BBD1-85257459.007290EC@fordham.edu>",
+      "references": [
+        "<4c8e73360805301141p51bba6fakb3fec89fc405a24@mail.gmail.com>",
+        "<OF561C5394.A1C9C25E-ON85257459.0071BBD1-85257459.007290EC@fordham.edu>"
+      ],
+      "body_plain": "Hi Jose,\n\nI think I've figured out why you are getting different answers from R and\nStata.  It has to do with how your data is being set up.  In your dataset,\nyour start and stop variables (entrydate and elapsed) are not set up in\nintervals, but rather elapsed is set up as cumulative durations.  So in your\npanel dataset, your unit of observation is country-years and for each\nperiod, your entrydate is the same (0 for example), and your elapsed is a\ncumulative number of days.  So your variables look something like this:\n\nyear, entrydate, elapsed\n1950, 0, 364\n1951, 0, 729\n1952, 0, 1095\n1953, 0, 1460\n\nSo the elapsed variable is simply a cumulative count of the number of days\nthat have passed since the observation became at risk.  However, what R\nneeds is for the data to be in interval form.  So it has to look something\nlike this:\n\nyear, start, stop\n1950, 0, 364\n1951, 364, 729\n1952, 729, 1095\n1953, 1095, 1460\n\nIn Stata, the stset command converts the former structure into the latter\nstructure.  R does not do that by itself, so you have to feed in variables\nthat conform to the latter structure.  Luckily, since your data seems to\nhave been processed in Stata already, the variables that Stata created are\nin the dataset.  The start and stop variables you need are \".t0\" and \".t\" if\nyou are reading the data in R, \"_t0\" and \"_t\" if you are reading the data in\nStata.  If you hadn't processed the data in Stata beforehand using the stset\ncommand, you would have to code it in R, probably with a for loop or\ntapply().\n\nSo if you run the following in R, it should give you the same answers as\nStata:\n\nz.out <- zelig(Surv(.t0, .t, adverse.backslide) ~ hinst + lparcomp + pexec +\ninequality + primary.sector + development + lgrowth + ethnicity + mil.pop +\ndemop + strikep + riotp + guerrillap + urban.100k + pmilexec, model =\n\"coxph\", data = statadata, robust = TRUE, cluster = \"new.period\")\n\nAlso, note that your R formula includes a pmilexec variable that is not in\nyour Stata code.\n\nHope that helps.  I'm also forwarding this response to the Zelig list in\ncase anybody else runs into the same problem.\n\nPatrick\n\n\nOn Fri, May 30, 2008 at 4:51 PM, <aleman-tzaSEmCkE7qVc3sceRu5cw at public.gmane.org> wrote:\n\n> Hi Patrick,\n>\n> Thanks a lot for the clarification. I was actually thinking of doing what\n> you advised....I actually went ahead and tried both models in R and Stata\n> but I am still getting different results. I'm using the same start, stop\n> and event variables, the only difference is that in R I have designated\n> failure type -2 as \"adverse backslide\". Otherwise the start is 'entrydate'\n> and stop 'elapsed'. I'm also clustering by id() in R, in this case by\n> specifying the cluster option () to adjust the standard errors by\n> 'new.period' as in stata. This automatically implies robust standard\n> errors. This is the R output I get:\n>\n> Call:\n> zelig(formula = Surv(entrydate, elapsed, adverse.backslide) ~\n>    hinst + lparcomp + pexec + inequality + primary.sector +\n>        development + lgrowth + ethnicity + mil.pop + demop +\n>        strikep + riotp + guerrillap + urban.100k + pmilexec,\n>    model = \"coxph\", data = statadata, robust = TRUE, cluster =\n> \"new.period\")\n>\n>  n=2136 (21 observations deleted due to missingness)\n>                  coef robust se se(coef) exp(coef)      z       p\n> hinst           1.0374    0.4000   0.3208     2.822  2.593 9.5e-03\n> lparcomp        1.7180    0.3429   0.3409     5.574  5.010 5.4e-07\n> pexec           1.9956    0.8302   0.7161     7.356  2.404 1.6e-02\n> inequality      0.0501    0.1233   0.0846     1.051  0.406 6.8e-01\n> primary.sector  0.0297    0.0312   0.0293     1.030  0.950 3.4e-01\n> development    -0.6638    0.1957   0.2330     0.515 -3.392 6.9e-04\n> lgrowth         0.0161    0.0473   0.0456     1.016  0.340 7.3e-01\n> ethnicity      -2.2800    1.1489   1.0665     0.102 -1.984 4.7e-02\n> mil.pop         0.0554    0.0488   0.0441     1.057  1.135 2.6e-01\n> demop          -0.9414    0.7162   0.6967     0.390 -1.314 1.9e-01\n> strikep         0.4360    0.6677   0.7750     1.546  0.653 5.1e-01\n> riotp           1.3968    0.6268   0.5989     4.042  2.229 2.6e-02\n> guerrillap      1.5876    0.4864   0.5607     4.892  3.264 1.1e-03\n> urban.100k      0.0111    0.0391   0.0323     1.011  0.284 7.8e-01\n> pmilexec       -0.3709    1.4837   1.3112     0.690 -0.250 8.0e-01\n>\n>               exp(coef) exp(-coef) lower .95 upper .95\n> hinst              2.822      0.354    1.2884     6.181\n> lparcomp           5.574      0.179    2.8462    10.915\n> pexec              7.356      0.136    1.4455    37.438\n> inequality         1.051      0.951    0.8257     1.339\n> primary.sector     1.030      0.971    0.9689     1.095\n> development        0.515      1.942    0.3508     0.756\n> lgrowth            1.016      0.984    0.9262     1.115\n> ethnicity          0.102      9.777    0.0108     0.972\n> mil.pop            1.057      0.946    0.9606     1.163\n> demop              0.390      2.564    0.0958     1.588\n> strikep            1.546      0.647    0.4178     5.724\n> riotp              4.042      0.247    1.1833    13.808\n> guerrillap         4.892      0.204    1.8857    12.691\n> urban.100k         1.011      0.989    0.9365     1.092\n> pmilexec           0.690      1.449    0.0377    12.644\n>\n> Rsquare= 0.04   (max possible= 0.105 )\n> Likelihood ratio test= 87.9  on 15 df,   p=2.48e-12\n> Wald test            = 121  on 15 df,   p=0\n> Score (logrank) test = 119  on 15 df,   p=0,   Robust = 15.4  p=0.421\n>\n>  (Note: the likelihood ratio and score tests assume independence of\n>     observations within a cluster, the Wald and robust score tests do\n> not).\n>\n> If you take a look at the first column in the attached word document,\n> however, you will see that the coefficients and their signs are not similar\n> when I compute the model in stata. The stata code I used to run this model\n> is:\n>\n> stset elapsed, id(new_period) failure(transition==-2) origin(time\n> entrydate) scale(365.25)\n> stcox hinst lparcomp pexec inequality primary_sector development lgrowth\n> ethnicity mil_pop demop strikep riotp guerrillap urban_100k, nohr robust\n>\n> I would appreciate any thoughts/ideas you may have as to why I'm not\n> getting similar results.\n>\n>\n> Yours truly,\n>\n>\n> Jose(See attached file: backsliders.out)\n>\n>\n>\n>             \"Patrick Lam\"\n>             <plam-fWAZDB8bsKf0C06eVE7vbA at public.gmane.org\n>             .edu>                                                      To\n>             Sent by:                  aleman-tzaSEmCkE7qVc3sceRu5cw at public.gmane.org\n>             pkphlam-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org                                          cc\n>                                        zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>                                                                    Subject\n>             05/30/2008 02:41          Re: [zelig] Question regarding\n>             PM                        multiple records per subject in cox\n>                                       proportional hazards model\n>\n>\n>\n>\n>\n>\n>\n>\n>\n>\n> Dear Jose,\n>\n> If I understand your question correctly, you are trying to estimate a\n> competing risks model with multiple events per subject (time-varying\n> covariates).\n>\n> As you say, the first part involves estimating J different models, where\n> you create J different event (censor) variables.  For the jth model, the\n> variable will take on a value of 1 if the jth event occurs and 0 if not\n> (either the subject is truly censored or one of the other J-1 events\n> occurred).\n>\n> As for the multiple events per subject part, R handles this in a similar\n> way to Stata.  Each record per subject consists of an interval with a start\n> time and an end time.  Therefore, you need start time, stop time, and event\n> variables on the left hand side of the formula in the Surv() function.\n> Start time is either numerical or a date that indicates the beginning of an\n> interval, stop time indicates the end of an interval, and event is the\n> event variable indicating whether an event occurs at the end of the\n> interval.  There is no need for an id() variable in R.  Strictly speaking,\n> the estimation of the model does not require knowledge of which subject\n> each record belongs to.  What is important are the start and stop times and\n> the event variable.  See help(\"Surv\") for more details, including how to\n> deal with other types of censoring.\n>\n> So sample syntax for Zelig would be:\n>\n> z.out <- zelig( Surv(start, stop, event) ~ x1 + x2, data = data, model =\n> \"coxph\")\n> x.out <- setx(z.out)\n> s.out <- sim(z.out, x = x.out)\n>\n> I believe the equivalent Stata syntax would be something like this:\n>\n> stset stop, id(id), failure(event) origin(start)\n>\n> Details about estimation with time-varying covariates are included in the\n> next version of the documentation for coxph in Zelig.\n>\n> Patrick\n>\n> On Fri, May 30, 2008 at 11:07 AM, <aleman-tzaSEmCkE7qVc3sceRu5cw at public.gmane.org> wrote:\n>\n>  Dear Zelig users,\n>\n>  A colleague and I are trying to use the survival package to run Cox\n>  models\n>  in Zelig. We are using a partitioned likelihood approach to model several\n>  kinds of events using Cox models. Since we have panel data, we have\n>  multiple records per subject and the possibility that a country may\n>  experience more than one type of event. Practically speaking, this will\n>  require us to estimate 4 models, 1 each for each risk. The basic idea\n>  here\n>  is that we treat the J-1 remaining risks as if they are right-censored\n>  cases.  This isolates the risk of interest. In stata this is easy, you\n>  just\n>  use the id() option. In R this doesn't seem to be so straightforward\n>  because the cluster function is the equivalent of the cluster() option in\n>  Stata, but the equivalent of the id() option in Stata does not to have\n>  been\n>  implemented. Another alternative is to use the strata () option to\n>  stratify\n>  by event type, but the usual and mostly valid complaint against this\n>  model\n>  is that covariate effects are constrained to be equal across risks. Is\n>  there a way to model multiple records per subject in R while allowing for\n>  varying covariate effects across risks?\n>\n>  Thanks,\n>\n>  Jose Aleman, Ph.D.\n>  Assistant Professor\n>  Political Science Department\n>  Fordham University\n>\n>  -\n>  Zelig Mailing List, served by Harvard-MIT Data Center\n>  Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>  [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n>  Zelig program information: http://gking.harvard.edu/zelig/\n>\n>",
+      "body_snippet": "Hi Jose,\n\nI think I've figured out why you are getting different answers from R and\nStata.  It has to do with how your data is being set up.  In your dataset,\nyour start and stop variables (entrydate ",
+      "thread_id": "thread-406b87dfb051",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-8803841694f4",
+      "message_id": "<Pine.OSX.4.64.0806042220110.2943@pol-w87351t4x8a.Princeton.EDU>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-06-05T14:55:04Z",
+      "subject": "Zelig 3.3-0",
+      "subject_clean": "Zelig 3.3-0",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi everyone,\n\n    We just released a new version of Zelig, 3.3-0.  This is a stable \nrelease for the latest version of R, i.e., R.2.7-0.  As always, you can \ninstall the latest version via:\n\n   install.packages(\"Zelig\", repos = \"http://gking.harvard.edu\")\n\n    This version includes two key updates. Patrick Lam has contributed a \nnew version of the coxph model so that time-varying covariates can be \nused. John Graves contributed a new graphical function, plot.surv, which \nplots confidence intervals for survival curves. See the Zelig manual for \ndetails and examples.\n\n   We welcome contributions from others to the Zelig project. If you are \ninterested, please let us know.\n\nBest,\nKosuke\n\n---------------------------------------------------------\nKosuke Imai               Office: Corwin Hall 041\nAssistant Professor       Phone: 609-258-6601\nDepartment of Politics    eFax:  973-556-1929\nPrinceton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org\nPrinceton, NJ 08544-1012  http://imai.princeton.edu/\n---------------------------------------------------------",
+      "body_snippet": "Hi everyone,\n\n    We just released a new version of Zelig, 3.3-0.  This is a stable \nrelease for the latest version of R, i.e., R.2.7-0.  As always, you can \ninstall the latest version via:\n\n   instal",
+      "thread_id": "thread-8803841694f4",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-46134795c1b8",
+      "message_id": "<OF4DA43278.64F04B4F-ON8525745F.0075352F-8525745F.0075C728@fordham.edu>",
+      "from_name": "JOSE A ALEMAN",
+      "from_email_hash": "945f904aca0b48792ce8e67756ca12c1cfe5d6f27f5be2695bd3c2f5f1ae1e04",
+      "date": "2008-06-05T21:26:29Z",
+      "subject": "question about plot.surv() command",
+      "subject_clean": "question about plot.surv() command",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear Zelig team,\n\n\nThank you for releasing Zelig 3.3-0. I was actually wondering when plots\nwith confidence intervals would be available for the Cox model. I was very\nhappy then when you introduced the plot.surv() command. However, I tried\nthat on my data and got the following error message, with traceback()\npasted below. I would appreciate any help you could provide.\n\n> low <- setx(z.out,pexec_t=0)\n> high <- setx(z.out,pexec_t=1)\n>\n> s.out1 <- sim(z.out,x=low)\n> s.out2 <- sim(z.out,x=high)\n> out <- list(s.out1,s.out2)\n> plot.surv(x = out, duration = data$.t, censor=data$adverse.backslide,\n+ type=\"line\", plottimes=FALSE, plotcensor=FALSE,\n+ main=\"Survival\", xlab=\"Time\", ylab=\"Survival\")\n\nError in plot.window(...) : need finite 'xlim' values\n\n> traceback()\n5: plot.window(...)\n4: localWindow(xlim, ylim, log, asp, ...)\n3: plot.default(times, survest[-1], type = \"n\", xlim = c(0, max(duration)),\n       ...)\n2: plot(times, survest[-1], type = \"n\", xlim = c(0, max(duration)),\n       ...)\n1: plot.surv(x = out, duration = data$.t, censor = data$adverse.backslide,\n       type = \"line\", plottimes = FALSE, plotcensor = FALSE, main =\n\"Survival\",\n       xlab = \"Time\", ylab = \"Survival\")\n\n\nThank you,\n\nJose Aleman, Ph. D.\nAssistant Professor\nPolitical Science Department\nFordham University",
+      "body_snippet": "Dear Zelig team,\n\n\nThank you for releasing Zelig 3.3-0. I was actually wondering when plots\nwith confidence intervals would be available for the Cox model. I was very\nhappy then when you introduced th",
+      "thread_id": "thread-46134795c1b8",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-47c330500505",
+      "message_id": "<00640C46-25E8-43AC-B67A-91B07D70DE5A@Princeton.Edu>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-06-05T23:34:07Z",
+      "subject": "Re: question about plot.surv() command",
+      "subject_clean": "question about plot.surv() command",
+      "in_reply_to": "<OF4DA43278.64F04B4F-ON8525745F.0075352F-8525745F.0075C728@fordham.edu>",
+      "references": [
+        "<OF4DA43278.64F04B4F-ON8525745F.0075352F-8525745F.0075C728@fordham.edu>"
+      ],
+      "body_plain": "Maybe, this is because you have \"data$.t\" rather than \"data$t\"?\n\nKosuke\n\nOn Jun 5, 2008, at 5:26 PM, JOSE A ALEMAN wrote:\n\n>\n> Dear Zelig team,\n>\n>\n> Thank you for releasing Zelig 3.3-0. I was actually wondering when  \n> plots\n> with confidence intervals would be available for the Cox model. I  \n> was very\n> happy then when you introduced the plot.surv() command. However, I  \n> tried\n> that on my data and got the following error message, with traceback()\n> pasted below. I would appreciate any help you could provide.\n>\n>> low <- setx(z.out,pexec_t=0)\n>> high <- setx(z.out,pexec_t=1)\n>>\n>> s.out1 <- sim(z.out,x=low)\n>> s.out2 <- sim(z.out,x=high)\n>> out <- list(s.out1,s.out2)\n>> plot.surv(x = out, duration = data$.t, censor=data$adverse.backslide,\n> + type=\"line\", plottimes=FALSE, plotcensor=FALSE,\n> + main=\"Survival\", xlab=\"Time\", ylab=\"Survival\")\n>\n> Error in plot.window(...) : need finite 'xlim' values\n>\n>> traceback()\n> 5: plot.window(...)\n> 4: localWindow(xlim, ylim, log, asp, ...)\n> 3: plot.default(times, survest[-1], type = \"n\", xlim = c(0,  \n> max(duration)),\n>       ...)\n> 2: plot(times, survest[-1], type = \"n\", xlim = c(0, max(duration)),\n>       ...)\n> 1: plot.surv(x = out, duration = data$.t, censor = data \n> $adverse.backslide,\n>       type = \"line\", plottimes = FALSE, plotcensor = FALSE, main =\n> \"Survival\",\n>       xlab = \"Time\", ylab = \"Survival\")\n>\n>\n> Thank you,\n>\n> Jose Aleman, Ph. D.\n> Assistant Professor\n> Political Science Department\n> Fordham University\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/",
+      "body_snippet": "Maybe, this is because you have \"data$.t\" rather than \"data$t\"?\n\nKosuke\n\nOn Jun 5, 2008, at 5:26 PM, JOSE A ALEMAN wrote:\n\n>\n> Dear Zelig team,\n>\n>\n> Thank you for releasing Zelig 3.3-0. I was actuall",
+      "thread_id": "thread-46134795c1b8",
+      "thread_depth": 1,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-02ce66dab692",
+      "message_id": "<OF29FABAA3.26055D78-ON85257461.00657E3A-85257461.00657E3D@fordham.edu>",
+      "from_name": "JOSE A ALEMAN",
+      "from_email_hash": "945f904aca0b48792ce8e67756ca12c1cfe5d6f27f5be2695bd3c2f5f1ae1e04",
+      "date": "2008-06-07T18:28:34Z",
+      "subject": "Re: question about plot.surv() command",
+      "subject_clean": "question about plot.surv() command",
+      "in_reply_to": "<00640C46-25E8-43AC-B67A-91B07D70DE5A@Princeton.Edu>",
+      "references": [
+        "<OF4DA43278.64F04B4F-ON8525745F.0075352F-8525745F.0075C728@fordham.edu>",
+        "<00640C46-25E8-43AC-B67A-91B07D70DE5A@Princeton.Edu>"
+      ],
+      "body_plain": "It\nshould be \"data$.t\" because this is a dataset I import from stata where\nthe original variable is \"_t\". When I use this syntax to run the the\ncoxph model, it works...\n\n\nJose \n\n-----Kosuke Imai <kimai at Princeton.EDU> wrote: -----\n\nTo: JOSE A ALEMAN <aleman-tzaSEmCkE7qVc3sceRu5cw at public.gmane.org>\nFrom: Kosuke Imai <kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org>\nDate: 06/05/2008 07:34PM\ncc: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\nSubject: Re: [zelig] question about plot.surv() command\n\nMaybe, this is because you have \"data$.t\" rather than \"data$t\"?\n\nKosuke\n\nOn Jun 5, 2008, at 5:26 PM, JOSE A ALEMAN wrote:\n\n>\n> Dear Zelig team,\n>\n>\n> Thank you for releasing Zelig 3.3-0. I was actually wondering when  \n> plots\n> with confidence intervals would be available for the Cox model. I  \n> was very\n> happy then when you introduced the plot.surv() command. However, I  \n> tried\n> that on my data and got the following error message, with traceback()\n> pasted below. I would appreciate any help you could provide.\n>\n>> low <- setx(z.out,pexec_t=0)\n>> high <- setx(z.out,pexec_t=1)\n>>\n>> s.out1 <- sim(z.out,x=low)\n>> s.out2 <- sim(z.out,x=high)\n>> out <- list(s.out1,s.out2)\n>> plot.surv(x = out, duration = data$.t, censor=data$adverse.backslide,\n> + type=\"line\", plottimes=FALSE, plotcensor=FALSE,\n> + main=\"Survival\", xlab=\"Time\", ylab=\"Survival\")\n>\n> Error in plot.window(...) : need finite 'xlim' values\n>\n>> traceback()\n> 5: plot.window(...)\n> 4: localWindow(xlim, ylim, log, asp, ...)\n> 3: plot.default(times, survest[-1], type = \"n\", xlim = c(0,  \n> max(duration)),\n>       ...)\n> 2: plot(times, survest[-1], type = \"n\", xlim = c(0, max(duration)),\n>       ...)\n> 1: plot.surv(x = out, duration = data$.t, censor = data \n> $adverse.backslide,\n>       type = \"line\", plottimes = FALSE, plotcensor = FALSE, main =\n> \"Survival\",\n>       xlab = \"Time\", ylab = \"Survival\")\n>\n>\n> Thank you,\n>\n> Jose Aleman, Ph. D.\n> Assistant Professor\n> Political Science Department\n> Fordham University\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/",
+      "body_snippet": "It\nshould be \"data$.t\" because this is a dataset I import from stata where\nthe original variable is \"_t\". When I use this syntax to run the the\ncoxph model, it works...\n\n\nJose \n\n-----Kosuke Imai <kima",
+      "thread_id": "thread-46134795c1b8",
+      "thread_depth": 2,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-baa6c24d9166",
+      "message_id": "<232b642d0806091229q711e8f42xa475abe4baaf2c0d@mail.gmail.com>",
+      "from_name": "Casey Klofstad",
+      "from_email_hash": "d712c9ee86a0362c3b8f840ddbee01e7f6a05d0f3f3b53bf34698452e9672300",
+      "date": "2008-06-09T19:29:39Z",
+      "subject": "error message using logit with weights",
+      "subject_clean": "error message using logit with weights",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "I am trying to run a logit using weighted data. I get results, but\nalso the following error message:\n\n\"In eval(expr, envir, enclos) : non-integer #successes in a binomial glm!\"\n\nBased on my read of the R help archives, it seems that the problem is\nthat the binomial model does not like the weight, since it leads to\nnon-integer outcomes.\n\nMy question is, are my results \"wrong,\" or can I use them despite the\nerror messages? If I can't use the results, what model can I use with\nthe weight?\n\nThanks much,\n\n-c\n\n-- \nCasey A. Klofstad\nUniversity of Miami\nDepartment of Political Science\nCoral Gables, FL\n\nklofstad-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org\nhttp://moya.bus.miami.edu/~cklofstad",
+      "body_snippet": "I am trying to run a logit using weighted data. I get results, but\nalso the following error message:\n\n\"In eval(expr, envir, enclos) : non-integer #successes in a binomial glm!\"\n\nBased on my read of th",
+      "thread_id": "thread-baa6c24d9166",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-82ec2bd7a413",
+      "message_id": "<Pine.OSX.4.64.0806092044090.33576@pol-w87351t4x8a.Princeton.EDU>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-06-10T00:45:09Z",
+      "subject": "Re: error message using logit with weights",
+      "subject_clean": "error message using logit with weights",
+      "in_reply_to": "<232b642d0806091229q711e8f42xa475abe4baaf2c0d@mail.gmail.com>",
+      "references": [
+        "<232b642d0806091229q711e8f42xa475abe4baaf2c0d@mail.gmail.com>"
+      ],
+      "body_plain": "You might want to try\n\nzelig(cbind(y, 1-y) ~ x1 + x2 + ...\n\nKosuke\n\nOn Mon, 9 Jun 2008, Casey Klofstad wrote:\n\n> I am trying to run a logit using weighted data. I get results, but\n> also the following error message:\n>\n> \"In eval(expr, envir, enclos) : non-integer #successes in a binomial glm!\"\n>\n> Based on my read of the R help archives, it seems that the problem is\n> that the binomial model does not like the weight, since it leads to\n> non-integer outcomes.\n>\n> My question is, are my results \"wrong,\" or can I use them despite the\n> error messages? If I can't use the results, what model can I use with\n> the weight?\n>\n> Thanks much,\n>\n> -c\n>\n>",
+      "body_snippet": "You might want to try\n\nzelig(cbind(y, 1-y) ~ x1 + x2 + ...\n\nKosuke\n\nOn Mon, 9 Jun 2008, Casey Klofstad wrote:\n\n> I am trying to run a logit using weighted data. I get results, but\n> also the following",
+      "thread_id": "thread-baa6c24d9166",
+      "thread_depth": 1,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-f73bc6260660",
+      "message_id": "<0C65AB0E-7324-46DE-A544-F8DD9630978A@gmail.com>",
+      "from_name": "Keith Schnakenberg",
+      "from_email_hash": "f9abdf402461f4fafdad54697d12dc3f7cdeb469d4ff7d90bc04b3fa31614fd2",
+      "date": "2008-06-12T01:04:02Z",
+      "subject": "CI Plots for Mixed Effects",
+      "subject_clean": "CI Plots for Mixed Effects",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hello all,\n\nI noticed that Olivia posted in January that she added mixed effects  \nmodels to plot.ci and that it would be in the next release. Has it  \nbeen added? I am having trouble using it on the latest version. A  \nreproducible example is given below:\n\n > data(voteincome)\n > x.high <- setx(z.out1, education = quantile(voteincome$education,  \n0.8))\n > x.low <- setx(z.out1, education = quantile(voteincome$education,  \n0.2))\n > s.out1 <- sim(z.out1, x = x.high, x1 = x.low)\n > plot.ci(s.out1, CI=95, qi=\"ev\")\nError in plot.ci(s.out1, CI = 95, qi = \"ev\") :\n    plot.ci() is valid only for non-categorical, univariate response  \nmodels.\n\nThanks,\nKeith Schnakenberg",
+      "body_snippet": "Hello all,\n\nI noticed that Olivia posted in January that she added mixed effects  \nmodels to plot.ci and that it would be in the next release. Has it  \nbeen added? I am having trouble using it on the ",
+      "thread_id": "thread-f73bc6260660",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-71cd3f2b025b",
+      "message_id": "<8167262d0806112045m55255baq3a07b2a2bd3514c1@mail.gmail.com>",
+      "from_name": "Olivia Lau",
+      "from_email_hash": "8412bddebe94f58284d56e0ab398cbce622fd84aab4cd888e3f5971ce7c8f3c9",
+      "date": "2008-06-12T03:45:51Z",
+      "subject": "CI Plots for Mixed Effects",
+      "subject_clean": "CI Plots for Mixed Effects",
+      "in_reply_to": "<8167262d0806112044v73fdb6a8w21d4b5363698a076@mail.gmail.com>",
+      "references": [
+        "<0C65AB0E-7324-46DE-A544-F8DD9630978A@gmail.com>",
+        "<8167262d0806112044v73fdb6a8w21d4b5363698a076@mail.gmail.com>"
+      ],
+      "body_plain": "Dear Keith,\n\nI fixed the problem that you identify in plot.ci (a simple if\nstatement problem), but there's another associated problem in setx\nthat prevents plot.ci from working with mixed effect models (for now).\n\nAs a sidebar, your syntax below doesn't work for plot.ci in general.\nHere's why:\n\nWhat you have below compares expected values for just one change in an\nindependent variable.  These would look like just two bars on the plot\nshowing the range of the 95% confidence intervals.  A more informative\nway to present this information would be to do two overlapping density\nplots.\n\nTo produce this plot, run demo(logit.mixed), then:\n  s.high <- sim(z.out, x = x.high)\n  s.low <- sim(z.out, x = x.low)\n  xlim <- range(c(s.high$qi$ev, s.low$qi$ev))\n  plot(density(s.high$qi$ev), col = \"red\", xlim = xlim)\n  lines(density(s.low$qi$ev), col = \"blue\")\n\nIn contrast, the plot.ci function is intended to show the change in\nthe dependent variable for more than one change in an independent\nvariable.  For example, if you let age or education vary from 10:20,\nyou could use plot.ci rather than the procedure above.  See\ndemo(plot.ci) for this example.\n\nYours,\nOlviia\n\nOn Wed, Jun 11, 2008 at 9:04 PM, Keith Schnakenberg\n<keith.schnakenberg-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n> Hello all,\n>\n> I noticed that Olivia posted in January that she added mixed effects models\n> to plot.ci and that it would be in the next release. Has it been added? I am\n> having trouble using it on the latest version. A reproducible example is\n> given below:\n>\n>> data(voteincome)\n>> x.high <- setx(z.out1, education = quantile(voteincome$education, 0.8))\n>> x.low <- setx(z.out1, education = quantile(voteincome$education, 0.2))\n>> s.out1 <- sim(z.out1, x = x.high, x1 = x.low)\n>> plot.ci(s.out1, CI=95, qi=\"ev\")\n> Error in plot.ci(s.out1, CI = 95, qi = \"ev\") :\n>   plot.ci() is valid only for non-categorical, univariate response models.\n>\n> Thanks,\n> Keith Schnakenberg\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "Dear Keith,\n\nI fixed the problem that you identify in plot.ci (a simple if\nstatement problem), but there's another associated problem in setx\nthat prevents plot.ci from working with mixed effect model",
+      "thread_id": "thread-71cd3f2b025b",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-546a7de6da72",
+      "message_id": "<66be7f850faab477ef242d7c83fd08ad@localhost.localdomain>",
+      "from_name": "andrew dudeface",
+      "from_email_hash": "d0774cc84da794ed3e8e19b68c926144b61a74efdcf92c48df030e6eb824bf29",
+      "date": "2008-06-12T07:03:12Z",
+      "subject": "andrew dudeface sent you a Friend Request on Yaari",
+      "subject_clean": "andrew dudeface sent you a Friend Request on Yaari",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "andrew dudeface wants you to join Yaari!\n\nIs andrew your friend?\n\n<a href=\"http://yaari.com/?controller=user&action=mailregister&friend=1&sign=YaariYVV307IGZ608BGJ583GGN692\">Yes, andrew is my friend!</a> <a href=\"http://yaari.com/?controller=user&action=mailregister&friend=0&sign=YaariYVV307IGZ608BGJ583GGN692\">No, andrew isn't my friend.</a>\n\nPlease respond or andrew may think you said no :(\n\nThanks,\nThe Yaari Team\n____\nIf you prefer not to receive this email tell us <a href=\"http://yaari.com/?controller=absn&action=addoptout&email=zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\">here</a>. If you have any concerns \nregarding the content of this message, please email abuse-XvGPIsZVfwtfmgfxC/sS/w at public.gmane.org  \nYaari LLC, 358 Angier Ave, Atlanta, GA 30312\n\nYaariYVV307IGZ608BGJ583GGN692",
+      "body_snippet": "andrew dudeface wants you to join Yaari!\n\nIs andrew your friend?\n\n<a href=\"http://yaari.com/?controller=user&action=mailregister&friend=1&sign=YaariYVV307IGZ608BGJ583GGN692\">Yes, andrew is my friend!<",
+      "thread_id": "thread-546a7de6da72",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-ec3ce88e7d8a",
+      "message_id": "<5d5f736efabca9fd3f24fc3fe77f343b@localhost.localdomain>",
+      "from_name": "andrew dudeface",
+      "from_email_hash": "d0774cc84da794ed3e8e19b68c926144b61a74efdcf92c48df030e6eb824bf29",
+      "date": "2008-06-12T07:12:14Z",
+      "subject": "andrew dudeface sent you a Friend Request on Yaari",
+      "subject_clean": "andrew dudeface sent you a Friend Request on Yaari",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "andrew dudeface wants you to join Yaari!\n\nIs andrew your friend?\n\n<a href=\"http://yaari.com/?controller=user&action=mailregister&friend=1&sign=YaariRSB590XUM572LMC426QEK734\">Yes, andrew is my friend!</a> <a href=\"http://yaari.com/?controller=user&action=mailregister&friend=0&sign=YaariRSB590XUM572LMC426QEK734\">No, andrew isn't my friend.</a>\n\nPlease respond or andrew may think you said no :(\n\nThanks,\nThe Yaari Team\n____\nIf you prefer not to receive this email tell us <a href=\"http://yaari.com/?controller=absn&action=addoptout&email=zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\">here</a>. If you have any concerns \nregarding the content of this message, please email abuse-XvGPIsZVfwtfmgfxC/sS/w at public.gmane.org  \nYaari LLC, 358 Angier Ave, Atlanta, GA 30312\n\nYaariRSB590XUM572LMC426QEK734",
+      "body_snippet": "andrew dudeface wants you to join Yaari!\n\nIs andrew your friend?\n\n<a href=\"http://yaari.com/?controller=user&action=mailregister&friend=1&sign=YaariRSB590XUM572LMC426QEK734\">Yes, andrew is my friend!<",
+      "thread_id": "thread-ec3ce88e7d8a",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-e850aef09e62",
+      "message_id": "<Pine.OSX.4.64.0806122204050.3424@pol-w87351t4x8a.Princeton.EDU>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-06-13T02:04:33Z",
+      "subject": "Re: CI Plots for Mixed Effects",
+      "subject_clean": "CI Plots for Mixed Effects",
+      "in_reply_to": "<8167262d0806112045m55255baq3a07b2a2bd3514c1@mail.gmail.com>",
+      "references": [
+        "<0C65AB0E-7324-46DE-A544-F8DD9630978A@gmail.com>",
+        "<8167262d0806112044v73fdb6a8w21d4b5363698a076@mail.gmail.com>",
+        "<8167262d0806112045m55255baq3a07b2a2bd3514c1@mail.gmail.com>"
+      ],
+      "body_plain": "We will be releasing this bug-fix very soon.\n\nCheers,\nKosuke\n\nOn Wed, 11 Jun 2008, Olivia Lau wrote:\n\n> Dear Keith,\n>\n> I fixed the problem that you identify in plot.ci (a simple if\n> statement problem), but there's another associated problem in setx\n> that prevents plot.ci from working with mixed effect models (for now).\n>\n> As a sidebar, your syntax below doesn't work for plot.ci in general.\n> Here's why:\n>\n> What you have below compares expected values for just one change in an\n> independent variable.  These would look like just two bars on the plot\n> showing the range of the 95% confidence intervals.  A more informative\n> way to present this information would be to do two overlapping density\n> plots.\n>\n> To produce this plot, run demo(logit.mixed), then:\n>  s.high <- sim(z.out, x = x.high)\n>  s.low <- sim(z.out, x = x.low)\n>  xlim <- range(c(s.high$qi$ev, s.low$qi$ev))\n>  plot(density(s.high$qi$ev), col = \"red\", xlim = xlim)\n>  lines(density(s.low$qi$ev), col = \"blue\")\n>\n> In contrast, the plot.ci function is intended to show the change in\n> the dependent variable for more than one change in an independent\n> variable.  For example, if you let age or education vary from 10:20,\n> you could use plot.ci rather than the procedure above.  See\n> demo(plot.ci) for this example.\n>\n> Yours,\n> Olviia\n>\n> On Wed, Jun 11, 2008 at 9:04 PM, Keith Schnakenberg\n> <keith.schnakenberg-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n>> Hello all,\n>>\n>> I noticed that Olivia posted in January that she added mixed effects models\n>> to plot.ci and that it would be in the next release. Has it been added? I am\n>> having trouble using it on the latest version. A reproducible example is\n>> given below:\n>>\n>>> data(voteincome)\n>>> x.high <- setx(z.out1, education = quantile(voteincome$education, 0.8))\n>>> x.low <- setx(z.out1, education = quantile(voteincome$education, 0.2))\n>>> s.out1 <- sim(z.out1, x = x.high, x1 = x.low)\n>>> plot.ci(s.out1, CI=95, qi=\"ev\")\n>> Error in plot.ci(s.out1, CI = 95, qi = \"ev\") :\n>>   plot.ci() is valid only for non-categorical, univariate response models.\n>>\n>> Thanks,\n>> Keith Schnakenberg\n>>\n>> -\n>> Zelig Mailing List, served by Harvard-MIT Data Center\n>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n>> Zelig program information: http://gking.harvard.edu/zelig/\n>>\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "We will be releasing this bug-fix very soon.\n\nCheers,\nKosuke\n\nOn Wed, 11 Jun 2008, Olivia Lau wrote:\n\n> Dear Keith,\n>\n> I fixed the problem that you identify in plot.ci (a simple if\n> statement proble",
+      "thread_id": "thread-71cd3f2b025b",
+      "thread_depth": 1,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-25b17d17c4d3",
+      "message_id": "<AEACC3C6-4C98-4478-8668-37A89DC723B0@Princeton.Edu>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-06-14T00:25:49Z",
+      "subject": "Re: CI Plots for Mixed Effects",
+      "subject_clean": "CI Plots for Mixed Effects",
+      "in_reply_to": "<8167262d0806112045m55255baq3a07b2a2bd3514c1@mail.gmail.com>",
+      "references": [
+        "<0C65AB0E-7324-46DE-A544-F8DD9630978A@gmail.com>",
+        "<8167262d0806112044v73fdb6a8w21d4b5363698a076@mail.gmail.com>",
+        "<8167262d0806112045m55255baq3a07b2a2bd3514c1@mail.gmail.com>"
+      ],
+      "body_plain": "Hi,\n  A new version - 3.3-1 - for this bug-fix is available now. You can  \ninstall it via:\n\ninstall.packages(\"Zelig\", repos = \"http://gking.harvard.edu/\")\n\nBest,\nKosuke\n\nOn Jun 11, 2008, at 11:45 PM, Olivia Lau wrote:\n\n> Dear Keith,\n>\n> I fixed the problem that you identify in plot.ci (a simple if\n> statement problem), but there's another associated problem in setx\n> that prevents plot.ci from working with mixed effect models (for now).\n>\n> As a sidebar, your syntax below doesn't work for plot.ci in general.\n> Here's why:\n>\n> What you have below compares expected values for just one change in an\n> independent variable.  These would look like just two bars on the plot\n> showing the range of the 95% confidence intervals.  A more informative\n> way to present this information would be to do two overlapping density\n> plots.\n>\n> To produce this plot, run demo(logit.mixed), then:\n>  s.high <- sim(z.out, x = x.high)\n>  s.low <- sim(z.out, x = x.low)\n>  xlim <- range(c(s.high$qi$ev, s.low$qi$ev))\n>  plot(density(s.high$qi$ev), col = \"red\", xlim = xlim)\n>  lines(density(s.low$qi$ev), col = \"blue\")\n>\n> In contrast, the plot.ci function is intended to show the change in\n> the dependent variable for more than one change in an independent\n> variable.  For example, if you let age or education vary from 10:20,\n> you could use plot.ci rather than the procedure above.  See\n> demo(plot.ci) for this example.\n>\n> Yours,\n> Olviia\n>\n> On Wed, Jun 11, 2008 at 9:04 PM, Keith Schnakenberg\n> <keith.schnakenberg-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n>> Hello all,\n>>\n>> I noticed that Olivia posted in January that she added mixed  \n>> effects models\n>> to plot.ci and that it would be in the next release. Has it been  \n>> added? I am\n>> having trouble using it on the latest version. A reproducible  \n>> example is\n>> given below:\n>>\n>>> data(voteincome)\n>>> x.high <- setx(z.out1, education = quantile(voteincome$education,  \n>>> 0.8))\n>>> x.low <- setx(z.out1, education = quantile(voteincome$education,  \n>>> 0.2))\n>>> s.out1 <- sim(z.out1, x = x.high, x1 = x.low)\n>>> plot.ci(s.out1, CI=95, qi=\"ev\")\n>> Error in plot.ci(s.out1, CI = 95, qi = \"ev\") :\n>>  plot.ci() is valid only for non-categorical, univariate response  \n>> models.\n>>\n>> Thanks,\n>> Keith Schnakenberg\n>>\n>> -\n>> Zelig Mailing List, served by Harvard-MIT Data Center\n>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n>> Zelig program information: http://gking.harvard.edu/zelig/\n>>\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/",
+      "body_snippet": "Hi,\n  A new version - 3.3-1 - for this bug-fix is available now. You can  \ninstall it via:\n\ninstall.packages(\"Zelig\", repos = \"http://gking.harvard.edu/\")\n\nBest,\nKosuke\n\nOn Jun 11, 2008, at 11:45 PM, ",
+      "thread_id": "thread-71cd3f2b025b",
+      "thread_depth": 1,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-1db02e49234a",
+      "message_id": "<4857BBDE.1020906@fas.harvard.edu>",
+      "from_name": "Phil Jones",
+      "from_email_hash": "25245be6b812f52670903bb1381ec01a6992204c012c4f91b02bb828b33417c7",
+      "date": "2008-06-17T13:27:58Z",
+      "subject": "sur models in zelig",
+      "subject_clean": "sur models in zelig",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi all:\n\nI'm having some trouble estimating a seemingly unrelated regression \n(sur) model in Zelig. I get the same error message when I run my model \nwith my data *and* when I run the model in the Zelig help files (p523 of \nthe manual), which suggests it might be a more general problem than just \nmy implementation.\n\nHere's the code I ran (from the help files):\n\ndata(grunfeld)\nformula <- list(mu1 = Ige ~ Fge + Cge, mu2 = Iw ~ Fw + Cw)\nz.out <- zelig(formula = formula, model = \"sur\", data = grunfeld)\n\nAnd here's the error message I get:\n\nError in systemfit(data = data, eqns = formula, method = method, inst = \ninst,  :\n  argument \"formula\" is missing, with no default\n\nI don't think it's a naming problem -- the error persists even if I \nspecify that \"eqns=formula\", for example. I have the latest version of \nZelig, too. Does anyone have any idea what might be going wrong?\n\nThanks, Phil\n\n-- \nPh.D. Candidate\nHarvard University Department of Government\n1737 Cambridge Street, Cambridge, MA 02138",
+      "body_snippet": "Hi all:\n\nI'm having some trouble estimating a seemingly unrelated regression \n(sur) model in Zelig. I get the same error message when I run my model \nwith my data *and* when I run the model in the Zel",
+      "thread_id": "thread-1db02e49234a",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-8ba3993f6d14",
+      "message_id": "<4857C482.1040002@iq.harvard.edu>",
+      "from_name": "Ferdinand Alimadhi",
+      "from_email_hash": "351b630e6a86a7379553ef1f5cd84c2ef1e0c7819b5229fee3b12e6e2416b329",
+      "date": "2008-06-17T14:04:50Z",
+      "subject": "Re: sur models in zelig",
+      "subject_clean": "sur models in zelig",
+      "in_reply_to": "<4857BBDE.1020906@fas.harvard.edu>",
+      "references": [
+        "<4857BBDE.1020906@fas.harvard.edu>"
+      ],
+      "body_plain": "Hi Phil,\nCan you please check the version of systemfit running in your machine \n?   We have version 1.0-2 installed in our system.\n\nThanks,\nFerdi\n\n\nPhil Jones wrote:\n> Hi all:\n>\n> I'm having some trouble estimating a seemingly unrelated regression \n> (sur) model in Zelig. I get the same error message when I run my model \n> with my data *and* when I run the model in the Zelig help files (p523 \n> of the manual), which suggests it might be a more general problem than \n> just my implementation.\n>\n> Here's the code I ran (from the help files):\n>\n> data(grunfeld)\n> formula <- list(mu1 = Ige ~ Fge + Cge, mu2 = Iw ~ Fw + Cw)\n> z.out <- zelig(formula = formula, model = \"sur\", data = grunfeld)\n>\n> And here's the error message I get:\n>\n> Error in systemfit(data = data, eqns = formula, method = method, inst \n> = inst,  :\n>  argument \"formula\" is missing, with no default\n>\n> I don't think it's a naming problem -- the error persists even if I \n> specify that \"eqns=formula\", for example. I have the latest version of \n> Zelig, too. Does anyone have any idea what might be going wrong?\n>\n> Thanks, Phil\n>",
+      "body_snippet": "Hi Phil,\nCan you please check the version of systemfit running in your machine \n?   We have version 1.0-2 installed in our system.\n\nThanks,\nFerdi\n\n\nPhil Jones wrote:\n> Hi all:\n>\n> I'm having some trou",
+      "thread_id": "thread-1db02e49234a",
+      "thread_depth": 1,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-ee474b6910df",
+      "message_id": "<908b53c80806171128i666c7c8bn190ddb9f1b576ec3@mail.gmail.com>",
+      "from_name": "Amber Wichowsky",
+      "from_email_hash": "26bb10b6b94ebddffae487e79d2eaddce9ab9d8fbc1365a2a6ec2bef0fb1e824",
+      "date": "2008-06-17T18:28:10Z",
+      "subject": "difference between versions of Zelig",
+      "subject_clean": "difference between versions of Zelig",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "I am running a logistic regression combining five imputed datasets using\nZelig. I just noticed small but nontrivial differences between the model\noutput using Zelig (Version 2.8-3, built: 2007-05-29) and Zelig (Version\n3.0-1, built: 2007-07-24).\nI ran logistic regressions on each of the individual imputed datasets in\nspss and compared it to the individual outputs for each imputed dataset that\nZelig provides. Version 3.0-1 closely matches the spss regressions, while\nversion 2.8-3 is a bit off.\n\nIn what ways do these two versions differ?\n\nThanks very much,\nAmber Wichowsky\n\nPh.D Student\nDepartment of Political Science\nUniversity of Wisconsin-Madison",
+      "body_snippet": "I am running a logistic regression combining five imputed datasets using\nZelig. I just noticed small but nontrivial differences between the model\noutput using Zelig (Version 2.8-3, built: 2007-05-29) ",
+      "thread_id": "thread-ee474b6910df",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-777e7cd34fd3",
+      "message_id": "<Pine.OSX.4.64.0806171601210.9336@pol-w87351t4x8a.Princeton.EDU>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-06-17T20:01:58Z",
+      "subject": "Re: difference between versions of Zelig",
+      "subject_clean": "difference between versions of Zelig",
+      "in_reply_to": "<908b53c80806171128i666c7c8bn190ddb9f1b576ec3@mail.gmail.com>",
+      "references": [
+        "<908b53c80806171128i666c7c8bn190ddb9f1b576ec3@mail.gmail.com>"
+      ],
+      "body_plain": "Please use the latest version as that is the most bug-free and up-to-date.\n\nThanks,\nKosuke\n\n---------------------------------------------------------\nKosuke Imai               Office: Corwin Hall 041\nAssistant Professor       Phone: 609-258-6601\nDepartment of Politics    eFax:  973-556-1929\nPrinceton University      Email: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org\nPrinceton, NJ 08544-1012  http://imai.princeton.edu/\n---------------------------------------------------------\n\nOn Tue, 17 Jun 2008, Amber Wichowsky wrote:\n\n> I am running a logistic regression combining five imputed datasets using\n> Zelig. I just noticed small but nontrivial differences between the model\n> output using Zelig (Version 2.8-3, built: 2007-05-29) and Zelig (Version\n> 3.0-1, built: 2007-07-24).\n> I ran logistic regressions on each of the individual imputed datasets in\n> spss and compared it to the individual outputs for each imputed dataset that\n> Zelig provides. Version 3.0-1 closely matches the spss regressions, while\n> version 2.8-3 is a bit off.\n>\n> In what ways do these two versions differ?\n>\n> Thanks very much,\n> Amber Wichowsky\n>\n> Ph.D Student\n> Department of Political Science\n> University of Wisconsin-Madison\n>",
+      "body_snippet": "Please use the latest version as that is the most bug-free and up-to-date.\n\nThanks,\nKosuke\n\n---------------------------------------------------------\nKosuke Imai               Office: Corwin Hall 041\n",
+      "thread_id": "thread-ee474b6910df",
+      "thread_depth": 1,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-c1e0e9a28748",
+      "message_id": "<232b642d0806201352v3e20c365gdd09ac24752235c8@mail.gmail.com>",
+      "from_name": "Casey Klofstad",
+      "from_email_hash": "d712c9ee86a0362c3b8f840ddbee01e7f6a05d0f3f3b53bf34698452e9672300",
+      "date": "2008-06-20T20:52:40Z",
+      "subject": "odd error with \"cbind\" in Zelig",
+      "subject_clean": "odd error with \"cbind\" in Zelig",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "I ran a least squares model with Zelig and received results. However,\nthe last variable I listed in the model was dropped, and I received\nthe following waring messages.\n\n1: In cbind(coef1, tmp[, 1]) :\n  number of rows of result is not a multiple of vector length (arg 2)\n2: In cbind(se1, tmp[, 2]) :\n  number of rows of result is not a multiple of vector length (arg 2)\n\nIf I eliminate the offending variable from the model the errors no\nlonger appear.\n\nThoughts? Thanks much.\n\nBest,\n-c\n\n-- \nCasey A. Klofstad\nUniversity of Miami\nDepartment of Political Science\nCoral Gables, FL\n\nklofstad-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org\nhttp://moya.bus.miami.edu/~cklofstad",
+      "body_snippet": "I ran a least squares model with Zelig and received results. However,\nthe last variable I listed in the model was dropped, and I received\nthe following waring messages.\n\n1: In cbind(coef1, tmp[, 1]) :",
+      "thread_id": "thread-c1e0e9a28748",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-839e0dab3e3a",
+      "message_id": "<Pine.OSX.4.64.0806210935110.38492@pol-w87351t4x8a.Princeton.EDU>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-06-21T13:36:14Z",
+      "subject": "Re: odd error with \"cbind\" in Zelig",
+      "subject_clean": "odd error with \"cbind\" in Zelig",
+      "in_reply_to": "<232b642d0806201352v3e20c365gdd09ac24752235c8@mail.gmail.com>",
+      "references": [
+        "<232b642d0806201352v3e20c365gdd09ac24752235c8@mail.gmail.com>"
+      ],
+      "body_plain": "I would find out the reason why the variable was dropped. The variable is \nprobably dropped due to (nearly) perfect collinearity or such.\n\nKosuke\n\nOn Fri, 20 Jun 2008, Casey Klofstad wrote:\n\n> I ran a least squares model with Zelig and received results. However,\n> the last variable I listed in the model was dropped, and I received\n> the following waring messages.\n>\n> 1: In cbind(coef1, tmp[, 1]) :\n>  number of rows of result is not a multiple of vector length (arg 2)\n> 2: In cbind(se1, tmp[, 2]) :\n>  number of rows of result is not a multiple of vector length (arg 2)\n>\n> If I eliminate the offending variable from the model the errors no\n> longer appear.\n>\n> Thoughts? Thanks much.\n>\n> Best,\n> -c\n>\n>",
+      "body_snippet": "I would find out the reason why the variable was dropped. The variable is \nprobably dropped due to (nearly) perfect collinearity or such.\n\nKosuke\n\nOn Fri, 20 Jun 2008, Casey Klofstad wrote:\n\n> I ran a",
+      "thread_id": "thread-c1e0e9a28748",
+      "thread_depth": 1,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-b9e216b4050e",
+      "message_id": "<908b53c80806240959l19880a5dhe9425bde5e4c00bd@mail.gmail.com>",
+      "from_name": "Amber Wichowsky",
+      "from_email_hash": "26bb10b6b94ebddffae487e79d2eaddce9ab9d8fbc1365a2a6ec2bef0fb1e824",
+      "date": "2008-06-24T16:59:52Z",
+      "subject": "survey.logit",
+      "subject_clean": "survey.logit",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hello,\nI have updated Zelig on my home computer (Mac) and work computer (PC). I am\nable to run survey.logit on my Mac, but I get the following message on the\nPC:\n\nError in zelig.default(PVOTE1 ~ ZNSLATEN + ZFP2 + ZWWLATEN + ZRACE2 +  :\n        logit.survey not supported. Type help.zelig(\"models\") to list\nsupported models.\n\nwhen I type help.zelig(\"models\"), the survey.logit and survey.normal models\nare not listed. I am running the following version of Zelig:\n\n  Zelig (Version 3.0-6, built: 2007-10-03)\n\nIt is running on R 2.5.1\n\nThanks very much,\nAmber Wichowsky\n\nGraduate Student\nDepartment of Political Science\nUniversity of Wisconsin-Madison",
+      "body_snippet": "Hello,\nI have updated Zelig on my home computer (Mac) and work computer (PC). I am\nable to run survey.logit on my Mac, but I get the following message on the\nPC:\n\nError in zelig.default(PVOTE1 ~ ZNSLA",
+      "thread_id": "thread-b9e216b4050e",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-8f57afc88da6",
+      "message_id": "<8167262d0806241012k4224f146qbf970d9a5191bb30@mail.gmail.com>",
+      "from_name": "Olivia Lau",
+      "from_email_hash": "8412bddebe94f58284d56e0ab398cbce622fd84aab4cd888e3f5971ce7c8f3c9",
+      "date": "2008-06-24T17:12:35Z",
+      "subject": "survey.logit",
+      "subject_clean": "survey.logit",
+      "in_reply_to": "<8167262d0806241010s2ad5e0f7h28a340185139271b@mail.gmail.com>",
+      "references": [
+        "<908b53c80806240959l19880a5dhe9425bde5e4c00bd@mail.gmail.com>",
+        "<8167262d0806241010s2ad5e0f7h28a340185139271b@mail.gmail.com>"
+      ],
+      "body_plain": "Dear Amber,\n\nPlease install the latest version of Zelig by starting R and typing:\n   install.packages(\"Zelig\", repos = \"http://gking.harvard.edu/\")\n\nThe version of Zelig that you are using is quite old -- and hence,\nsurvey models are not available.\n\nBest,\nOlivia\n\nOn Tue, Jun 24, 2008 at 12:59 PM, Amber Wichowsky <wichowsky-63mtpxcE9Cs at public.gmane.org> wrote:\n> Hello,\n> I have updated Zelig on my home computer (Mac) and work computer (PC). I am\n> able to run survey.logit on my Mac, but I get the following message on the\n> PC:\n>\n> Error in zelig.default(PVOTE1 ~ ZNSLATEN + ZFP2 + ZWWLATEN + ZRACE2 +  :\n>         logit.survey not supported. Type help.zelig(\"models\") to list\n> supported models.\n>\n> when I type help.zelig(\"models\"), the survey.logit and survey.normal models\n> are not listed. I am running the following version of Zelig:\n>\n>   Zelig (Version 3.0-6, built: 2007-10-03)\n>\n> It is running on R 2.5.1\n>\n> Thanks very much,\n> Amber Wichowsky\n>\n> Graduate Student\n> Department of Political Science\n> University of Wisconsin-Madison\n>",
+      "body_snippet": "Dear Amber,\n\nPlease install the latest version of Zelig by starting R and typing:\n   install.packages(\"Zelig\", repos = \"http://gking.harvard.edu/\")\n\nThe version of Zelig that you are using is quite ol",
+      "thread_id": "thread-8f57afc88da6",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-4d51846f7acf",
+      "message_id": "<Pine.OSX.4.64.0806241333310.53277@pol-w87351t4x8a.Princeton.EDU>",
+      "from_name": "Kosuke Imai",
+      "from_email_hash": "274cd4c6d66320f2e099104ad3d5593858cd4593bb54dbfdbc5c5bca8e2f748a",
+      "date": "2008-06-24T17:33:40Z",
+      "subject": "Re: survey.logit",
+      "subject_clean": "survey.logit",
+      "in_reply_to": "<8167262d0806241012k4224f146qbf970d9a5191bb30@mail.gmail.com>",
+      "references": [
+        "<908b53c80806240959l19880a5dhe9425bde5e4c00bd@mail.gmail.com>",
+        "<8167262d0806241010s2ad5e0f7h28a340185139271b@mail.gmail.com>",
+        "<8167262d0806241012k4224f146qbf970d9a5191bb30@mail.gmail.com>"
+      ],
+      "body_plain": "The latest version is on CRAN now too.\n\nKosuke\n\nOn Tue, 24 Jun 2008, Olivia Lau wrote:\n\n> Dear Amber,\n>\n> Please install the latest version of Zelig by starting R and typing:\n>   install.packages(\"Zelig\", repos = \"http://gking.harvard.edu/\")\n>\n> The version of Zelig that you are using is quite old -- and hence,\n> survey models are not available.\n>\n> Best,\n> Olivia\n>\n> On Tue, Jun 24, 2008 at 12:59 PM, Amber Wichowsky <wichowsky-63mtpxcE9Cs at public.gmane.org> wrote:\n>> Hello,\n>> I have updated Zelig on my home computer (Mac) and work computer (PC). I am\n>> able to run survey.logit on my Mac, but I get the following message on the\n>> PC:\n>>\n>> Error in zelig.default(PVOTE1 ~ ZNSLATEN + ZFP2 + ZWWLATEN + ZRACE2 +  :\n>>         logit.survey not supported. Type help.zelig(\"models\") to list\n>> supported models.\n>>\n>> when I type help.zelig(\"models\"), the survey.logit and survey.normal models\n>> are not listed. I am running the following version of Zelig:\n>>\n>>   Zelig (Version 3.0-6, built: 2007-10-03)\n>>\n>> It is running on R 2.5.1\n>>\n>> Thanks very much,\n>> Amber Wichowsky\n>>\n>> Graduate Student\n>> Department of Political Science\n>> University of Wisconsin-Madison\n>>\n>\n> -\n> Zelig Mailing List, served by Harvard-MIT Data Center\n> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org\n> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig\n> Zelig program information: http://gking.harvard.edu/zelig/\n>",
+      "body_snippet": "The latest version is on CRAN now too.\n\nKosuke\n\nOn Tue, 24 Jun 2008, Olivia Lau wrote:\n\n> Dear Amber,\n>\n> Please install the latest version of Zelig by starting R and typing:\n>   install.packages(\"Zel",
+      "thread_id": "thread-8f57afc88da6",
+      "thread_depth": 1,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-9e6b3daa049d",
+      "message_id": "<a6f585d20806301115s472721fbrf8f840e35e68e169@mail.gmail.com>",
+      "from_name": "Donald Braman",
+      "from_email_hash": "dff7f49227599df3e30f4bc3bc6fb1302dc4e5dde99d2f3a0507b3abb21d4881",
+      "date": "2008-06-30T18:15:20Z",
+      "subject": "second(?) differences",
+      "subject_clean": "second(?) differences",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "I'm wondering if there is a simple way to use Zelig to compare changes in\nthe differences between two groups across conditions.  I have two groups, I\ncan easily determine that the difference between them in condition1 is\nsignfiicant and also that the difference between them in condition2 is\nsignificant.  But I am wondering wether the change in the difference is\nsignfiicant -- that is, does the change from condition1 to condition2 make\nthem significantly more or less alike?\n\nDonald Braman\nhttp://www.law.gwu.edu/Faculty/profile.aspx?id=10123\nhttp://research.yale.edu/culturalcognition\nhttp://ssrn.com/author=286206",
+      "body_snippet": "I'm wondering if there is a simple way to use Zelig to compare changes in\nthe differences between two groups across conditions.  I have two groups, I\ncan easily determine that the difference between t",
+      "thread_id": "thread-9e6b3daa049d",
+      "thread_depth": 0,
+      "month": "2008-06"
+    },
+    {
+      "id": "msg-f4ace1a1f31f",
+      "message_id": "<48699735.508@harvard.edu>",
+      "from_name": "Gary King",
+      "from_email_hash": "41f318cc9479b7e6547da961a515b619f2320f2e8f522ce4e29760130e2c2195",
+      "date": "2008-07-01T02:32:21Z",
+      "subject": "Re: second(?) differences",
+      "subject_clean": "second(?) differences",
+      "in_reply_to": "<a6f585d20806301115s472721fbrf8f840e35e68e169@mail.gmail.com>",
+      "references": [
+        "<a6f585d20806301115s472721fbrf8f840e35e68e169@mail.gmail.com>"
+      ],
+      "body_plain": "Its not entirely clear what you're doing, but the best way to do this \nkind of thing is to figure out the ONE quantity of interest.  In your \ncase, maybe that's the difference in the differences?  Whatever model \nyou would choose you would then compute 2 first differences and take the \ndifference between those.  you can compute the standard error of this \nquantity of using all the simulations of this difference in differences.\nGary\n---\nhttp://gking.harvard.edu\n\n\nDonald Braman wrote:\n> I'm wondering if there is a simple way to use Zelig to compare changes \n> in the differences between two groups across conditions.  I have two \n> groups, I can easily determine that the difference between them in \n> condition1 is signfiicant and also that the difference between them in \n> condition2 is significant.  But I am wondering wether the change in \n> the difference is signfiicant -- that is, does the change from \n> condition1 to condition2 make them significantly more or less alike? \n>\n> Donald Braman\n> http://www.law.gwu.edu/Faculty/profile.aspx?id=10123\n> http://research.yale.edu/culturalcognition\n> http://ssrn.com/author=286206",
+      "body_snippet": "Its not entirely clear what you're doing, but the best way to do this \nkind of thing is to figure out the ONE quantity of interest.  In your \ncase, maybe that's the difference in the differences?  Wha",
+      "thread_id": "thread-9e6b3daa049d",
+      "thread_depth": 1,
+      "month": "2008-06"
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-406b87dfb051",
+      "subject": "Question regarding multiple records per subject in cox proportional hazards model",
+      "message_count": 1,
+      "participants": [
+        "Patrick Lam"
+      ],
+      "started": "2008-06-01T04:57:02Z",
+      "last_reply": "2008-06-01T04:57:02Z",
+      "root_message_id": "msg-406b87dfb051"
+    },
+    {
+      "id": "thread-8803841694f4",
+      "subject": "Zelig 3.3-0",
+      "message_count": 1,
+      "participants": [
+        "Kosuke Imai"
+      ],
+      "started": "2008-06-05T14:55:04Z",
+      "last_reply": "2008-06-05T14:55:04Z",
+      "root_message_id": "msg-8803841694f4"
+    },
+    {
+      "id": "thread-46134795c1b8",
+      "subject": "question about plot.surv() command",
+      "message_count": 3,
+      "participants": [
+        "JOSE A ALEMAN",
+        "Kosuke Imai"
+      ],
+      "started": "2008-06-05T21:26:29Z",
+      "last_reply": "2008-06-07T18:28:34Z",
+      "root_message_id": "msg-46134795c1b8"
+    },
+    {
+      "id": "thread-baa6c24d9166",
+      "subject": "error message using logit with weights",
+      "message_count": 2,
+      "participants": [
+        "Casey Klofstad",
+        "Kosuke Imai"
+      ],
+      "started": "2008-06-09T19:29:39Z",
+      "last_reply": "2008-06-10T00:45:09Z",
+      "root_message_id": "msg-baa6c24d9166"
+    },
+    {
+      "id": "thread-f73bc6260660",
+      "subject": "CI Plots for Mixed Effects",
+      "message_count": 1,
+      "participants": [
+        "Keith Schnakenberg"
+      ],
+      "started": "2008-06-12T01:04:02Z",
+      "last_reply": "2008-06-12T01:04:02Z",
+      "root_message_id": "msg-f73bc6260660"
+    },
+    {
+      "id": "thread-71cd3f2b025b",
+      "subject": "CI Plots for Mixed Effects",
+      "message_count": 3,
+      "participants": [
+        "Kosuke Imai",
+        "Olivia Lau"
+      ],
+      "started": "2008-06-12T03:45:51Z",
+      "last_reply": "2008-06-14T00:25:49Z",
+      "root_message_id": "msg-71cd3f2b025b"
+    },
+    {
+      "id": "thread-546a7de6da72",
+      "subject": "andrew dudeface sent you a Friend Request on Yaari",
+      "message_count": 1,
+      "participants": [
+        "andrew dudeface"
+      ],
+      "started": "2008-06-12T07:03:12Z",
+      "last_reply": "2008-06-12T07:03:12Z",
+      "root_message_id": "msg-546a7de6da72"
+    },
+    {
+      "id": "thread-ec3ce88e7d8a",
+      "subject": "andrew dudeface sent you a Friend Request on Yaari",
+      "message_count": 1,
+      "participants": [
+        "andrew dudeface"
+      ],
+      "started": "2008-06-12T07:12:14Z",
+      "last_reply": "2008-06-12T07:12:14Z",
+      "root_message_id": "msg-ec3ce88e7d8a"
+    },
+    {
+      "id": "thread-1db02e49234a",
+      "subject": "sur models in zelig",
+      "message_count": 2,
+      "participants": [
+        "Ferdinand Alimadhi",
+        "Phil Jones"
+      ],
+      "started": "2008-06-17T13:27:58Z",
+      "last_reply": "2008-06-17T14:04:50Z",
+      "root_message_id": "msg-1db02e49234a"
+    },
+    {
+      "id": "thread-ee474b6910df",
+      "subject": "difference between versions of Zelig",
+      "message_count": 2,
+      "participants": [
+        "Amber Wichowsky",
+        "Kosuke Imai"
+      ],
+      "started": "2008-06-17T18:28:10Z",
+      "last_reply": "2008-06-17T20:01:58Z",
+      "root_message_id": "msg-ee474b6910df"
+    },
+    {
+      "id": "thread-c1e0e9a28748",
+      "subject": "odd error with \"cbind\" in Zelig",
+      "message_count": 2,
+      "participants": [
+        "Casey Klofstad",
+        "Kosuke Imai"
+      ],
+      "started": "2008-06-20T20:52:40Z",
+      "last_reply": "2008-06-21T13:36:14Z",
+      "root_message_id": "msg-c1e0e9a28748"
+    },
+    {
+      "id": "thread-b9e216b4050e",
+      "subject": "survey.logit",
+      "message_count": 1,
+      "participants": [
+        "Amber Wichowsky"
+      ],
+      "started": "2008-06-24T16:59:52Z",
+      "last_reply": "2008-06-24T16:59:52Z",
+      "root_message_id": "msg-b9e216b4050e"
+    },
+    {
+      "id": "thread-8f57afc88da6",
+      "subject": "survey.logit",
+      "message_count": 2,
+      "participants": [
+        "Kosuke Imai",
+        "Olivia Lau"
+      ],
+      "started": "2008-06-24T17:12:35Z",
+      "last_reply": "2008-06-24T17:33:40Z",
+      "root_message_id": "msg-8f57afc88da6"
+    },
+    {
+      "id": "thread-9e6b3daa049d",
+      "subject": "second(?) differences",
+      "message_count": 2,
+      "participants": [
+        "Donald Braman",
+        "Gary King"
+      ],
+      "started": "2008-06-30T18:15:20Z",
+      "last_reply": "2008-07-01T02:32:21Z",
+      "root_message_id": "msg-9e6b3daa049d"
+    }
+  ]
+}

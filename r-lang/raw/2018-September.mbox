@@ -1,0 +1,221 @@
+From ploret01-DEIF+Y36/fjQzY9nttDBhA at public.gmane.org  Wed Sep 26 09:41:46 2018
+From: ploret01-DEIF+Y36/fjQzY9nttDBhA at public.gmane.org (Pernelle Lorette)
+Date: Wed, 26 Sep 2018 10:41:46 +0100
+Subject: Could you check this model implementing random forests
+Message-ID: <B98476A9-023C-4B8A-9B76-6E41190AFDCC@mail.bbk.ac.uk>
+
+Dear all,
+
+For my research, I need to analyse data consisting of a nominal dependent variable with 38 levels and several independent variables. Most of the IVs are ordinal or nominal with 2 to 5 levels. Some of the IVs are continuous (but I could transform them to categorical variables if needed).
+
+Basically, participants were presented with 12 stimuli (audio or video recordings). For each stimulus, they had to choose a word (in a list of 38 possibilities) that describes the feeling of the person speaking in the stimulus. I am not particularly interested in understanding which participants "got it right" (as in "did perceive the emotion which was intended by the actor"), but which emotion did the participants perceive in each stimulus. For instance, I want to compare the "choice patterns" of the native vs. non-native vs. non-speakers of Chinese, or the "choice patterns" according to the condition in which the stimuli were presented to the participants (and interactions of those variables). Note that I have 1000 participants (so far) and cannot analyse the data via a multinomial regression due to too many empty (or low) cells.
+
+A colleague of mine has written a model implementing random forests, which might be a good solution to analyse my data. However, we would like this model to be checked to be sure that it does what it is supposed to do and is valid. I attach the R-script (also available on https://drive.google.com/file/d/1gVypjM3xIz9nxOWpjuDLVUwQIooeDqvV/view?usp=sharing <https://drive.google.com/file/d/1gVypjM3xIz9nxOWpjuDLVUwQIooeDqvV/view?usp=sharing>). The analysis in question starts at line 158 of this script.
+
+Many thanks in advance for your help.
+
+Kind regards,
+
+Pernelle Lorette, PhD Student
+Department of Applied Linguistics and Communication, Birkbeck University of London
+p.lorette-DEIF+Y36/fjQzY9nttDBhA at public.gmane.org
+__
+Take part in my survey on emotion communication! http://bit.ly/EmotionEnglish <http://bit.ly/EmotionEnglish>
+
+From jan.vanhove-3DjnVrp8uWc at public.gmane.org  Wed Sep 26 10:35:22 2018
+From: jan.vanhove-3DjnVrp8uWc at public.gmane.org (Jan Vanhove)
+Date: Wed, 26 Sep 2018 12:35:22 +0200
+Subject: Re: Could you check this model implementing random forests
+In-Reply-To: <B98476A9-023C-4B8A-9B76-6E41190AFDCC@mail.bbk.ac.uk>
+References: <B98476A9-023C-4B8A-9B76-6E41190AFDCC@mail.bbk.ac.uk>
+Message-ID: <63365f81-d5ed-1608-2a7b-7d1c09cb2d79@unifr.ch>
+
+Hello list,
+
+Being the colleague in question, I'd thought I'd share my reflections first.
+
+On lines 157-226 in the script, Pernelle's data are analysed using 
+random forests. The idea here is to see if the response pattern varies 
+at all between the different conditions and the different types of 
+speakers. If it does, then a classifier ought to reduce the 
+classification error rate from the baseline (= most frequent category). 
+With 38 outcome categories, the error rate is still large (84%, down 
+from 88%), and I'm not too sure a whole lot can be learnt from it.
+
+On lines 228-404, I tried a different tack - by reinterpreting the 
+question somewhat. The idea here is to *assess the degree to which 
+different participants agree with each other and whether this degree of 
+agreement varies between conditions and types of speakers*.
+
+Consider the following simplified example:
+
+| SPEAKER | CONDITION | LABEL |
+| ID1           | C1                 | A         |
+| ID2           | C1                 | A         |
+| ID3           | C2                 | A         |
+| ID4           | C2                 | B         |
+
+ID1 and ID2 agree with each other on the label choice, as do ID1 and 
+ID3, as do ID2 and 3. ID4 disagrees with everyone. Restructuring this 
+information:
+
+| SPEAKER PAIR | CONDITION PAIR | AGREEMENT |
+| ID1-ID2            | C1-C1                    | 1                     |
+| ID1-ID3            | C1-C2                    | 1                     |
+| ID1-ID4            | C1-C2                    | 0                     |
+| ID2-ID3            | C1-C2                    | 1                     |
+| ID2-ID4            | C1-C2                    | 0                     |
+| ID3-ID4            | C2-C2                    | 0                     |
+
+ From this, we can derive the following:
+
+- Agreement within C1: 100%
+- Agreement within C2: 0%
+- Agreement between C1 and C2: 50%
+
+Scale this up to 1,000 speakers, 38 labels, and a couple more conditions 
+and you've got Pernelle's data.
+
+My thinking was as follows. We can restructure the data as above and 
+then analyse the degree of agreement in a statistical model (I used OLS 
+regression for speed) to assess how it varies between combinations of 
+conditions and types of speakers. However, the confidence intervals from 
+the regression model wouldn't be any good as the model ignores the 
+dependencies in the data. Specifically: once we know that (a) ID1 and 
+ID2 agree, that (b) ID1 and ID3 agree as well, we know also know that 
+(c) ID2 and ID3 agree. This is why in the script (lines 345-388) I 
+compute confidence intervals for the degree of agreement using the 
+bootstrap.
+
+Anyway, I'm not 100% if all, or indeed any, of this makes sense, so I, 
+too, would welcome your feedback.
+
+Cheers,
+Jan
+
+On 26.09.2018 11:41, Pernelle Lorette wrote:
+>
+> Dear all,
+>
+> For my research, I need to analyse data consisting of a nominal 
+> dependent variable with 38 levels and several independent variables. 
+> Most of the IVs are ordinal or nominal with 2 to 5 levels. Some of the 
+> IVs are continuous (but I could transform them to categorical 
+> variables if needed).
+>
+> Basically, participants were presented with 12 stimuli (audio or video 
+> recordings). For each stimulus, they had to choose a word (in a list 
+> of 38 possibilities) that describes the feeling of the person speaking 
+> in the stimulus. I am not particularly interested in understanding 
+> which participants "got it right" (as in "did perceive the emotion 
+> which was intended by the actor"), but which emotion did the 
+> participants perceive in each stimulus. For instance, I want to 
+> compare the "choice patterns" of the native vs. non-native vs. 
+> non-speakers of Chinese, or the "choice patterns" according to the 
+> condition in which the stimuli were presented to the participants (and 
+> interactions of those variables). Note that I have 1000 participants 
+> (so far) and cannot analyse the data via a multinomial regression due 
+> to too many empty (or low) cells.
+>
+> A colleague of mine has written a model implementing random forests, 
+> which might be a good solution to analyse my data. However, we would 
+> like this model to be checked to be sure that it does what it is 
+> supposed to do and is valid. I attach the R-script (also available on 
+> https://drive.google.com/file/d/1gVypjM3xIz9nxOWpjuDLVUwQIooeDqvV/view?usp=sharing). 
+> The analysis in question starts at line 158 of this script.
+>
+> Many thanks in advance for your help.
+>
+> Kind regards,
+>
+> Pernelle Lorette, PhD Student
+> Department of Applied Linguistics and Communication, Birkbeck 
+> University of London
+> p.lorette-DEIF+Y36/fjQzY9nttDBhA at public.gmane.org <mailto:p.lorette-DEIF+Y36/fjQzY9nttDBhA at public.gmane.org>
+> __
+> /Take part in my survey on emotion communication! 
+> http://bit.ly/EmotionEnglish/
+>
+>
+>
+>
+>
+
+From singmann-RoHN3oFRSd1LeFCyVrweRnIPMjoJpjVV at public.gmane.org  Wed Sep 26 13:58:39 2018
+From: singmann-RoHN3oFRSd1LeFCyVrweRnIPMjoJpjVV at public.gmane.org (Henrik Singmann)
+Date: Wed, 26 Sep 2018 15:58:39 +0200
+Subject: new afex version: plot results from factorial designs with afex_plot()
+Message-ID: <8bb368fc-e7f7-c263-22d7-c51f356f6581__44667.2552651309$1537970265$gmane$org@psychologie.uzh.ch>
+
+Dear list,
+
+A few days ago I have released a new version of afex (0.22-1) to CRAN:
+https://cran.r-project.org/package=afex
+
+The main news is a new generic for plotting results from factorial 
+designs. afex_plot() combines estimated marginal means and associated 
+error bars with a depiction of the raw data in the background. 
+Currently, afex_plots() supports ANOVAs and mixed models fitted with 
+afex as well as models fitted with lme4 (support for more models will 
+come in the next version). It also allows different types of error bars, 
+including within-subjects confidence intervals.
+
+afex_plots() is built on ggplot2 and designed in a modular manner, 
+making it easy to customize the plot to ones personal preferences. The 
+perhaps most important customizations are:
+(a) Changing the mapping (in ggplot2 parlance) of the trace/x factor(s). 
+That is, they way in which different levels of the factor(s) are 
+visually represented. The default is mapping = c("shape", "linetype") 
+for the trace factor(s) but, any combination of c("shape", "color", 
+"linetype", "fill") can make sense.
+(b) Changing the geom for the data plotted in the background. The 
+default uses geom_point, but many others such as geom_boxplot or 
+geom_violin are possible.
+
+For example:
+
+library("afex")
+library("ggplot2")
+
+Oats <- nlme::Oats
+## afex_plot does currently not support implicit nesting: (1|Block/Variety)
+## Instead, we need to create the factor explicitly
+Oats$VarBlock <- Oats$Variety:Oats$Block
+Oats.lmer <- lmer(yield ~ Variety * factor(nitro) + (1|VarBlock) + 
+(1|Block),
+                         data = Oats)
+## basic plots:
+afex_plot(Oats.lmer, x = "nitro", trace = "Variety")
+afex_plot(Oats.lmer, x = "nitro", panel = "Variety")
+
+# some customization:
+afex_plot(Oats.lmer, x = "nitro", trace = "Variety",
+           mapping = c("fill", "shape"), dodge = 0.8,
+           data_geom = geom_violin,
+           data_arg = list(width = 0.7))
+
+An overview of the functionality is provided in the vignette:
+https://singmann.github.io/afex_plot_introduction.html
+
+Some more information on the types of error bars can be found at the 
+help page:
+https://www.rdocumentation.org/packages/afex/versions/0.22-1/topics/afex_plot
+
+The full list of changes is on CRAN:
+https://cran.rstudio.com/web/packages/afex/NEWS
+
+I apologize for cross-posting,
+Henrik
+
+
+PS: There is an error in the vignette on CRAN and the help page. The 
+correct argument name for new factor levels is "factor_levels" and not 
+"new_levels". The vignette linked to above is already corrected.
+
+
+-- 
+Dr. Henrik Singmann
+PostDoc
+Universität Zürich, Schweiz
+http://singmann.org
+

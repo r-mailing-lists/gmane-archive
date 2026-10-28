@@ -1,0 +1,287 @@
+{
+  "list": "r-lang",
+  "description": "",
+  "month": "2013-12",
+  "messages": [
+    {
+      "id": "msg-2be7b85bb476",
+      "message_id": "<CAABSvoUaWah7W9G8SGnAUFk1Z=Au84TRkprA5185EK9OXM=cFg@mail.gmail.com>",
+      "from_name": "Daniel Ezra Johnson",
+      "from_email_hash": "e0ce0e06311aa33bbb09ab2b566aafb09c10671e175e62af62b907fa1f916b0a",
+      "date": "2013-12-03T09:35:49Z",
+      "subject": "trouble with random effects in factorial design",
+      "subject_clean": "trouble with random effects in factorial design",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear R-Lang,\n\nI have noticed a difference in the random effect results depending on the\norder of terms in the model, something that (to say the least) I don't\nthink should be happening.\n\nThe fixed effects results are identical. This is with lme4_1.0-5.\n\nI have some (simplified) data that you can load as follows:\n\ndat <- read.csv(\"http://www.danielezrajohnson.com/dej_test.csv\")\n\nBriefly, the data has 32 subjects and 32 items. Each subject has four\nobservations of \"response\" in each of four conditions (focus: \"VP\" vs.\n\"object\", order: \"vpo\" vs. \"vop\"), so there are 32 x 16 = 512 observations.\n\nThe design is (not perfectly) counterbalanced by Latin Square so that each\nsubject saw 16 items, but the combination of items and conditions was\ndifferent from subject to subject. Put another way, each of the 32 items is\nsupposed to occur equally in each of the four conditions. This is not\nexactly true in the example, but I don't think it should be affecting the\nresults.\n\nmm.1 <- lmer(response ~ focus * order + (focus * order | subject) + (focus\n* order | item), dat, control = lmerControl(optCtrl = list(maxfun =\n100000)))\n\nmm.2 <- lmer(response ~ order * focus + (order * focus | subject) + (order\n* focus | item), dat, control = lmerControl(optCtrl = list(maxfun =\n100000)))\n\n> fixef(mm.1)\n     (Intercept)          focusVP         ordervpo focusVP:ordervpo\n       8.7265625        0.3359375        0.1171875       -0.7578125\n> fixef(mm.2)\n     (Intercept)         ordervpo          focusVP ordervpo:focusVP\n       8.7265625        0.1171875        0.3359375       -0.7578125\n\nYou can see that the fixed effects estimates are EXACTLY the same.\n\nThe random effects, however, are somewhat different:\n\n> VarCorr(mm.1)\n Groups   Name             Std.Dev. Corr\n subject  (Intercept)      1.36674\n          focusVP          1.02059  -0.808\n          ordervpo         1.75084  -0.898  0.820\n          focusVP:ordervpo 2.99477   0.862 -0.930 -0.886\n item     (Intercept)      0.65516\n          focusVP          0.78447  -0.749\n          ordervpo         1.20179  -0.205  0.256\n          focusVP:ordervpo 1.38629   0.253 -0.063 -0.719\n Residual                  1.61041\n> VarCorr(mm.2)\n Groups   Name             Std.Dev. Corr\n subject  (Intercept)      1.03365\n          ordervpo         0.77706  -0.675\n          focusVP          1.27217   0.542 -0.064\n          ordervpo:focusVP 1.73912   0.603 -0.124  0.609\n item     (Intercept)      0.10477\n          ordervpo         0.92461   1.000\n          focusVP          0.47122   0.682  0.686\n          ordervpo:focusVP 1.68445  -0.137 -0.134  0.469\n Residual                  1.60852\n\nThe deviance estimates are also not quite the same.\n\n> deviance(mm.1)\n   REML\n2151.61\n> deviance(mm.2)\n    REML\n2175.503\n\nMy real question is why the models are not identical. A secondary question\nis, given that they're not, why are the fixed effects identical, but really\nI think the fixed effects should be identical, and it's a mystery to me why\nthe random effects are different.\n\nTo reiterate, the only difference in the two models is the order in which\nthe two random slopes are entered into the formula.\n\nI hope someone can shed some light onto this, if indeed it hasn't been\nasked before.\n\nThanks very much,\nDan",
+      "body_snippet": "Dear R-Lang,\n\nI have noticed a difference in the random effect results depending on the\norder of terms in the model, something that (to say the least) I don't\nthink should be happening.\n\nThe fixed eff",
+      "thread_id": "thread-2be7b85bb476",
+      "thread_depth": 0,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-852715a0cd62",
+      "message_id": "<A6DE71D711B50940B932A5BDDA70C799C84DCB84@mbx0-node0.essex.ac.uk>",
+      "from_name": "Hofmeister, Philip",
+      "from_email_hash": "f5705bb4f81d6ed8951b66eb5dc186306c2c28287579fc42139974114c839af9",
+      "date": "2013-12-03T15:13:35Z",
+      "subject": "Re: trouble with random effects in factorial design",
+      "subject_clean": "trouble with random effects in factorial design",
+      "in_reply_to": "<CAABSvoUaWah7W9G8SGnAUFk1Z=Au84TRkprA5185EK9OXM=cFg@mail.gmail.com>",
+      "references": [
+        "<CAABSvoUaWah7W9G8SGnAUFk1Z=Au84TRkprA5185EK9OXM=cFg@mail.gmail.com>"
+      ],
+      "body_plain": "Hey Daniel,\n\nI don't know exactly what the answer here is, but there are a couple things worth noting that may lead to an answer.\n\nOne, I noticed your factors were dummy coded, so I changed that to sum coding, which allows the model to converge successfully w/o the control option at the end and gets rid of the high correlations between the factors.\n\n> formula(mm.1)\nresponse ~ focus * order + (focus * order | subject) + (focus * order | item)\n> formula(mm.2)\nresponse ~ order * focus + (order * focus | subject) + (order *  focus | item)\n\nTwo, while the fixed effects are the same, the standard errors of the fixed effect coefficients (and intercept) are not.\n\nlibrary(arm)\nse.fixef(mm.1)\n\n  (Intercept)        focus1        order1 focus1:order1\n   0.17162262    0.10961756    0.11473215    0.08898726\n\nse.fixef(mm.2)\n  (Intercept)        order1        focus1 order1:focus1\n   0.17072794    0.11459095    0.10884840    0.08973463\n\nThree, your data are highly highly skewed.\n\nsummary(as.factor(dat$response))\n  0   1   2   3   4   5   6   7   8   9  10\n  6   3   6   9   7   6  13  38  49  99 276\n\nGelman & Hill suggest that even transforming the output variable to a linear variable is not adequate here, and a probit/ordinal regression model would be better. Alas, there is no way of including random slopes via clmm(). An alternative, via G&H, again, is to compare the levels step-by-step with a logistic regression.\n\nNone of this directly answers your basic question, sadly. In fact, I found that while mm.2 converges successfully, mm.3 below does not where only the order of the fixed effects is different! My guess here is that the data violate some assumptions, but if there's an alternative answer, I'd be interested.\n\nmm.3 <- lmer(response ~ focus * order + (order * focus | subject) + (order * focus | item), dat)\n\nPhilip\n\nOn Dec 3, 2013, at 9:35 AM, Daniel Ezra Johnson wrote:\n\nDear R-Lang,\n\nI have noticed a difference in the random effect results depending on the order of terms in the model, something that (to say the least) I don't think should be happening.\n\nThe fixed effects results are identical. This is with lme4_1.0-5.\n\nI have some (simplified) data that you can load as follows:\n\ndat <- read.csv(\"http://www.danielezrajohnson.com/dej_test.csv\")\n\nBriefly, the data has 32 subjects and 32 items. Each subject has four observations of \"response\" in each of four conditions (focus: \"VP\" vs. \"object\", order: \"vpo\" vs. \"vop\"), so there are 32 x 16 = 512 observations.\n\nThe design is (not perfectly) counterbalanced by Latin Square so that each subject saw 16 items, but the combination of items and conditions was different from subject to subject. Put another way, each of the 32 items is supposed to occur equally in each of the four conditions. This is not exactly true in the example, but I don't think it should be affecting the results.\n\nmm.1 <- lmer(response ~ focus * order + (focus * order | subject) + (focus * order | item), dat, control = lmerControl(optCtrl = list(maxfun = 100000)))\n\nmm.2 <- lmer(response ~ order * focus + (order * focus | subject) + (order * focus | item), dat, control = lmerControl(optCtrl = list(maxfun = 100000)))\n\n> fixef(mm.1)\n     (Intercept)          focusVP         ordervpo focusVP:ordervpo\n       8.7265625        0.3359375        0.1171875       -0.7578125\n> fixef(mm.2)\n     (Intercept)         ordervpo          focusVP ordervpo:focusVP\n       8.7265625        0.1171875        0.3359375       -0.7578125\n\nYou can see that the fixed effects estimates are EXACTLY the same.\n\nThe random effects, however, are somewhat different:\n\n> VarCorr(mm.1)\n Groups   Name             Std.Dev. Corr\n subject  (Intercept)      1.36674\n          focusVP          1.02059  -0.808\n          ordervpo         1.75084  -0.898  0.820\n          focusVP:ordervpo 2.99477   0.862 -0.930 -0.886\n item     (Intercept)      0.65516\n          focusVP          0.78447  -0.749\n          ordervpo         1.20179  -0.205  0.256\n          focusVP:ordervpo 1.38629   0.253 -0.063 -0.719\n Residual                  1.61041\n> VarCorr(mm.2)\n Groups   Name             Std.Dev. Corr\n subject  (Intercept)      1.03365\n          ordervpo         0.77706  -0.675\n          focusVP          1.27217   0.542 -0.064\n          ordervpo:focusVP 1.73912   0.603 -0.124  0.609\n item     (Intercept)      0.10477\n          ordervpo         0.92461   1.000\n          focusVP          0.47122   0.682  0.686\n          ordervpo:focusVP 1.68445  -0.137 -0.134  0.469\n Residual                  1.60852\n\nThe deviance estimates are also not quite the same.\n\n> deviance(mm.1)\n   REML\n2151.61\n> deviance(mm.2)\n    REML\n2175.503\n\nMy real question is why the models are not identical. A secondary question is, given that they're not, why are the fixed effects identical, but really I think the fixed effects should be identical, and it's a mystery to me why the random effects are different.\n\nTo reiterate, the only difference in the two models is the order in which the two random slopes are entered into the formula.\n\nI hope someone can shed some light onto this, if indeed it hasn't been asked before.\n\nThanks very much,\nDan",
+      "body_snippet": "Hey Daniel,\n\nI don't know exactly what the answer here is, but there are a couple things worth noting that may lead to an answer.\n\nOne, I noticed your factors were dummy coded, so I changed that to su",
+      "thread_id": "thread-2be7b85bb476",
+      "thread_depth": 1,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-a1644c33c2de",
+      "message_id": "<5CBEAB05-5066-45EB-A68E-B155FC15584A@ucsd.edu>",
+      "from_name": "Levy, Roger",
+      "from_email_hash": "4205c8244bc61714fbca6363348963c89e1be6e80edebb04ab2fd612bbd92858",
+      "date": "2013-12-03T17:11:51Z",
+      "subject": "Re: trouble with random effects in factorial design",
+      "subject_clean": "trouble with random effects in factorial design",
+      "in_reply_to": "<CAABSvoUaWah7W9G8SGnAUFk1Z=Au84TRkprA5185EK9OXM=cFg@mail.gmail.com>",
+      "references": [
+        "<CAABSvoUaWah7W9G8SGnAUFk1Z=Au84TRkprA5185EK9OXM=cFg@mail.gmail.com>"
+      ],
+      "body_plain": "Daniel — do you get the same problem with the pre-1.0 version of lme4?  We have had other issues with lme4_1.0*.\n\nRoger\n\nOn Dec 3, 2013, at 1:35 AM, Daniel Ezra Johnson <danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n\n> Dear R-Lang,\n> \n> I have noticed a difference in the random effect results depending on the order of terms in the model, something that (to say the least) I don't think should be happening.\n> \n> The fixed effects results are identical. This is with lme4_1.0-5.\n> \n> I have some (simplified) data that you can load as follows:\n> \n> dat <- read.csv(\"http://www.danielezrajohnson.com/dej_test.csv\")\n> \n> Briefly, the data has 32 subjects and 32 items. Each subject has four observations of \"response\" in each of four conditions (focus: \"VP\" vs. \"object\", order: \"vpo\" vs. \"vop\"), so there are 32 x 16 = 512 observations.\n> \n> The design is (not perfectly) counterbalanced by Latin Square so that each subject saw 16 items, but the combination of items and conditions was different from subject to subject. Put another way, each of the 32 items is supposed to occur equally in each of the four conditions. This is not exactly true in the example, but I don't think it should be affecting the results.\n> \n> mm.1 <- lmer(response ~ focus * order + (focus * order | subject) + (focus * order | item), dat, control = lmerControl(optCtrl = list(maxfun = 100000)))\n> \n> mm.2 <- lmer(response ~ order * focus + (order * focus | subject) + (order * focus | item), dat, control = lmerControl(optCtrl = list(maxfun = 100000)))\n> \n> > fixef(mm.1)\n>      (Intercept)          focusVP         ordervpo focusVP:ordervpo\n>        8.7265625        0.3359375        0.1171875       -0.7578125\n> > fixef(mm.2)\n>      (Intercept)         ordervpo          focusVP ordervpo:focusVP\n>        8.7265625        0.1171875        0.3359375       -0.7578125\n> \n> You can see that the fixed effects estimates are EXACTLY the same.\n> \n> The random effects, however, are somewhat different:\n> \n> > VarCorr(mm.1)\n>  Groups   Name             Std.Dev. Corr                \n>  subject  (Intercept)      1.36674                      \n>           focusVP          1.02059  -0.808              \n>           ordervpo         1.75084  -0.898  0.820       \n>           focusVP:ordervpo 2.99477   0.862 -0.930 -0.886\n>  item     (Intercept)      0.65516                      \n>           focusVP          0.78447  -0.749              \n>           ordervpo         1.20179  -0.205  0.256       \n>           focusVP:ordervpo 1.38629   0.253 -0.063 -0.719\n>  Residual                  1.61041                      \n> > VarCorr(mm.2)\n>  Groups   Name             Std.Dev. Corr                \n>  subject  (Intercept)      1.03365                      \n>           ordervpo         0.77706  -0.675              \n>           focusVP          1.27217   0.542 -0.064       \n>           ordervpo:focusVP 1.73912   0.603 -0.124  0.609\n>  item     (Intercept)      0.10477                      \n>           ordervpo         0.92461   1.000              \n>           focusVP          0.47122   0.682  0.686       \n>           ordervpo:focusVP 1.68445  -0.137 -0.134  0.469\n>  Residual                  1.60852                     \n> \n> The deviance estimates are also not quite the same. \n> \n> > deviance(mm.1)\n>    REML \n> 2151.61 \n> > deviance(mm.2)\n>     REML \n> 2175.503 \n> \n> My real question is why the models are not identical. A secondary question is, given that they're not, why are the fixed effects identical, but really I think the fixed effects should be identical, and it's a mystery to me why the random effects are different.\n> \n> To reiterate, the only difference in the two models is the order in which the two random slopes are entered into the formula.\n> \n> I hope someone can shed some light onto this, if indeed it hasn't been asked before.\n> \n> Thanks very much,\n> Dan",
+      "body_snippet": "Daniel — do you get the same problem with the pre-1.0 version of lme4?  We have had other issues with lme4_1.0*.\n\nRoger\n\nOn Dec 3, 2013, at 1:35 AM, Daniel Ezra Johnson <danielezrajohnson-Re5JQEeQqe8A",
+      "thread_id": "thread-2be7b85bb476",
+      "thread_depth": 1,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-38a113af58a3",
+      "message_id": "<526A50A0-D05A-4834-A6A4-209BC602AA69@ucsd.edu>",
+      "from_name": "Levy, Roger",
+      "from_email_hash": "4205c8244bc61714fbca6363348963c89e1be6e80edebb04ab2fd612bbd92858",
+      "date": "2013-12-03T17:17:05Z",
+      "subject": "Re: trouble with random effects in factorial design",
+      "subject_clean": "trouble with random effects in factorial design",
+      "in_reply_to": "<5CBEAB05-5066-45EB-A68E-B155FC15584A-XkckGZ689+c@public.gmane.org>",
+      "references": [
+        "<CAABSvoUaWah7W9G8SGnAUFk1Z=Au84TRkprA5185EK9OXM=cFg@mail.gmail.com>",
+        "<5CBEAB05-5066-45EB-A68E-B155FC15584A@ucsd.edu>"
+      ],
+      "body_plain": "Sorry — “other” should have read “related”.\n\nRoger\n\nOn Dec 3, 2013, at 9:11 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n\n> Daniel — do you get the same problem with the pre-1.0 version of lme4?  We have had other issues with lme4_1.0*.\n> \n> Roger\n> \n> On Dec 3, 2013, at 1:35 AM, Daniel Ezra Johnson <danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n> \n>> Dear R-Lang,\n>> \n>> I have noticed a difference in the random effect results depending on the order of terms in the model, something that (to say the least) I don't think should be happening.\n>> \n>> The fixed effects results are identical. This is with lme4_1.0-5.\n>> \n>> I have some (simplified) data that you can load as follows:\n>> \n>> dat <- read.csv(\"http://www.danielezrajohnson.com/dej_test.csv\")\n>> \n>> Briefly, the data has 32 subjects and 32 items. Each subject has four observations of \"response\" in each of four conditions (focus: \"VP\" vs. \"object\", order: \"vpo\" vs. \"vop\"), so there are 32 x 16 = 512 observations.\n>> \n>> The design is (not perfectly) counterbalanced by Latin Square so that each subject saw 16 items, but the combination of items and conditions was different from subject to subject. Put another way, each of the 32 items is supposed to occur equally in each of the four conditions. This is not exactly true in the example, but I don't think it should be affecting the results.\n>> \n>> mm.1 <- lmer(response ~ focus * order + (focus * order | subject) + (focus * order | item), dat, control = lmerControl(optCtrl = list(maxfun = 100000)))\n>> \n>> mm.2 <- lmer(response ~ order * focus + (order * focus | subject) + (order * focus | item), dat, control = lmerControl(optCtrl = list(maxfun = 100000)))\n>> \n>>> fixef(mm.1)\n>>     (Intercept)          focusVP         ordervpo focusVP:ordervpo\n>>       8.7265625        0.3359375        0.1171875       -0.7578125\n>>> fixef(mm.2)\n>>     (Intercept)         ordervpo          focusVP ordervpo:focusVP\n>>       8.7265625        0.1171875        0.3359375       -0.7578125\n>> \n>> You can see that the fixed effects estimates are EXACTLY the same.\n>> \n>> The random effects, however, are somewhat different:\n>> \n>>> VarCorr(mm.1)\n>> Groups   Name             Std.Dev. Corr                \n>> subject  (Intercept)      1.36674                      \n>>          focusVP          1.02059  -0.808              \n>>          ordervpo         1.75084  -0.898  0.820       \n>>          focusVP:ordervpo 2.99477   0.862 -0.930 -0.886\n>> item     (Intercept)      0.65516                      \n>>          focusVP          0.78447  -0.749              \n>>          ordervpo         1.20179  -0.205  0.256       \n>>          focusVP:ordervpo 1.38629   0.253 -0.063 -0.719\n>> Residual                  1.61041                      \n>>> VarCorr(mm.2)\n>> Groups   Name             Std.Dev. Corr                \n>> subject  (Intercept)      1.03365                      \n>>          ordervpo         0.77706  -0.675              \n>>          focusVP          1.27217   0.542 -0.064       \n>>          ordervpo:focusVP 1.73912   0.603 -0.124  0.609\n>> item     (Intercept)      0.10477                      \n>>          ordervpo         0.92461   1.000              \n>>          focusVP          0.47122   0.682  0.686       \n>>          ordervpo:focusVP 1.68445  -0.137 -0.134  0.469\n>> Residual                  1.60852                     \n>> \n>> The deviance estimates are also not quite the same. \n>> \n>>> deviance(mm.1)\n>>   REML \n>> 2151.61 \n>>> deviance(mm.2)\n>>    REML \n>> 2175.503 \n>> \n>> My real question is why the models are not identical. A secondary question is, given that they're not, why are the fixed effects identical, but really I think the fixed effects should be identical, and it's a mystery to me why the random effects are different.\n>> \n>> To reiterate, the only difference in the two models is the order in which the two random slopes are entered into the formula.\n>> \n>> I hope someone can shed some light onto this, if indeed it hasn't been asked before.\n>> \n>> Thanks very much,\n>> Dan\n>",
+      "body_snippet": "Sorry — “other” should have read “related”.\n\nRoger\n\nOn Dec 3, 2013, at 9:11 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n\n> Daniel — do you get the same problem with the pre-1.0 vers",
+      "thread_id": "thread-2be7b85bb476",
+      "thread_depth": 2,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-fb77cffa5c48",
+      "message_id": "<CAABSvoWOkv18Pc1+a9_ZiJtRc18Q7g9XgTDB6CGBetREfufRDw@mail.gmail.com>",
+      "from_name": "Daniel Ezra Johnson",
+      "from_email_hash": "e0ce0e06311aa33bbb09ab2b566aafb09c10671e175e62af62b907fa1f916b0a",
+      "date": "2013-12-03T17:40:33Z",
+      "subject": "Re: trouble with random effects in factorial design",
+      "subject_clean": "trouble with random effects in factorial design",
+      "in_reply_to": "<526A50A0-D05A-4834-A6A4-209BC602AA69-XkckGZ689+c@public.gmane.org>",
+      "references": [
+        "<CAABSvoUaWah7W9G8SGnAUFk1Z=Au84TRkprA5185EK9OXM=cFg@mail.gmail.com>",
+        "<5CBEAB05-5066-45EB-A68E-B155FC15584A@ucsd.edu>",
+        "<526A50A0-D05A-4834-A6A4-209BC602AA69@ucsd.edu>"
+      ],
+      "body_plain": "Hi Roger,\n\nI'm trying to check that out. Even though I had gotten \"lme4.0\" running a\nmonth or so ago, subsequent updates are making it hard to install that\nolder version on a Mac system, at least, but I'm going to try.\n\nThis seems like a possible bug. There is no way that the deviance can be 24\nunits different but the fixed effect estimates are still identical to six\ndecimal places.\n\nDan\n\n\nOn Tue, Dec 3, 2013 at 12:17 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n\n> Sorry — “other” should have read “related”.\n>\n> Roger\n>\n> On Dec 3, 2013, at 9:11 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n>\n> > Daniel — do you get the same problem with the pre-1.0 version of lme4?\n>  We have had other issues with lme4_1.0*.\n> >\n> > Roger\n> >\n> > On Dec 3, 2013, at 1:35 AM, Daniel Ezra Johnson <\n> danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n> >\n> >> Dear R-Lang,\n> >>\n> >> I have noticed a difference in the random effect results depending on\n> the order of terms in the model, something that (to say the least) I don't\n> think should be happening.\n> >>\n> >> The fixed effects results are identical. This is with lme4_1.0-5.\n> >>\n> >> I have some (simplified) data that you can load as follows:\n> >>\n> >> dat <- read.csv(\"http://www.danielezrajohnson.com/dej_test.csv\")\n> >>\n> >> Briefly, the data has 32 subjects and 32 items. Each subject has four\n> observations of \"response\" in each of four conditions (focus: \"VP\" vs.\n> \"object\", order: \"vpo\" vs. \"vop\"), so there are 32 x 16 = 512 observations.\n> >>\n> >> The design is (not perfectly) counterbalanced by Latin Square so that\n> each subject saw 16 items, but the combination of items and conditions was\n> different from subject to subject. Put another way, each of the 32 items is\n> supposed to occur equally in each of the four conditions. This is not\n> exactly true in the example, but I don't think it should be affecting the\n> results.\n> >>\n> >> mm.1 <- lmer(response ~ focus * order + (focus * order | subject) +\n> (focus * order | item), dat, control = lmerControl(optCtrl = list(maxfun =\n> 100000)))\n> >>\n> >> mm.2 <- lmer(response ~ order * focus + (order * focus | subject) +\n> (order * focus | item), dat, control = lmerControl(optCtrl = list(maxfun =\n> 100000)))\n> >>\n> >>> fixef(mm.1)\n> >>     (Intercept)          focusVP         ordervpo focusVP:ordervpo\n> >>       8.7265625        0.3359375        0.1171875       -0.7578125\n> >>> fixef(mm.2)\n> >>     (Intercept)         ordervpo          focusVP ordervpo:focusVP\n> >>       8.7265625        0.1171875        0.3359375       -0.7578125\n> >>\n> >> You can see that the fixed effects estimates are EXACTLY the same.\n> >>\n> >> The random effects, however, are somewhat different:\n> >>\n> >>> VarCorr(mm.1)\n> >> Groups   Name             Std.Dev. Corr\n> >> subject  (Intercept)      1.36674\n> >>          focusVP          1.02059  -0.808\n> >>          ordervpo         1.75084  -0.898  0.820\n> >>          focusVP:ordervpo 2.99477   0.862 -0.930 -0.886\n> >> item     (Intercept)      0.65516\n> >>          focusVP          0.78447  -0.749\n> >>          ordervpo         1.20179  -0.205  0.256\n> >>          focusVP:ordervpo 1.38629   0.253 -0.063 -0.719\n> >> Residual                  1.61041\n> >>> VarCorr(mm.2)\n> >> Groups   Name             Std.Dev. Corr\n> >> subject  (Intercept)      1.03365\n> >>          ordervpo         0.77706  -0.675\n> >>          focusVP          1.27217   0.542 -0.064\n> >>          ordervpo:focusVP 1.73912   0.603 -0.124  0.609\n> >> item     (Intercept)      0.10477\n> >>          ordervpo         0.92461   1.000\n> >>          focusVP          0.47122   0.682  0.686\n> >>          ordervpo:focusVP 1.68445  -0.137 -0.134  0.469\n> >> Residual                  1.60852\n> >>\n> >> The deviance estimates are also not quite the same.\n> >>\n> >>> deviance(mm.1)\n> >>   REML\n> >> 2151.61\n> >>> deviance(mm.2)\n> >>    REML\n> >> 2175.503\n> >>\n> >> My real question is why the models are not identical. A secondary\n> question is, given that they're not, why are the fixed effects identical,\n> but really I think the fixed effects should be identical, and it's a\n> mystery to me why the random effects are different.\n> >>\n> >> To reiterate, the only difference in the two models is the order in\n> which the two random slopes are entered into the formula.\n> >>\n> >> I hope someone can shed some light onto this, if indeed it hasn't been\n> asked before.\n> >>\n> >> Thanks very much,\n> >> Dan\n> >\n>\n>",
+      "body_snippet": "Hi Roger,\n\nI'm trying to check that out. Even though I had gotten \"lme4.0\" running a\nmonth or so ago, subsequent updates are making it hard to install that\nolder version on a Mac system, at least, but",
+      "thread_id": "thread-2be7b85bb476",
+      "thread_depth": 3,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-d9010fbb67ad",
+      "message_id": "<529396C1-1D43-4DB2-BB6B-260E84902761@psu.edu>",
+      "from_name": "David Reitter",
+      "from_email_hash": "55ca8e91e912c9150a2a169b13381202e294a2831e1d1953ed20d6c8e4573484",
+      "date": "2013-12-05T16:58:16Z",
+      "subject": "PhD student position at Penn State: computational models of language",
+      "subject_clean": "PhD student position at Penn State: computational models of language",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "In the coming year, I am going to take one graduate student to work on...\n\n\n                         Computational Models of Language\n\n\nThe student is expected to integrate existing and new psycholinguistic evidence, data from large corpora, and cognitive constraints in a project that could yield applied or theoretical products.  \n\nSome examples of possible research topics are\n- alignment in multi-party dialogue, \n- models of hybrid incremental/non-incremental syntactic processing (comprehension or production),\n- the relationship of language evolution and learning in a general cognitive architecture, and\n- a computational-cognitive model of the interaction of memory and language processing.\n\nThe lab has relevant technology to support research in language processing, such as an eye-tracker, access to datasets, experience with web-based experiments and a modern, fast-paced experimental subject pool such as Mechanical Turk, as well as a brain imaging facility on campus.  Through a new collaboration, we have access to a long-term online discussion forum dataset that might allow retrospective longitudinal studies.\n\nThe college of Information Sciences and Technology (IST) offers a PhD program that trains its graduates to look at research questions from multiple perspectives.  We have faculty working in areas such as cognitive science, network science, information retrieval, cyber law, cyber security and social science.  Penn State offers interaction with other language researchers in the Center for Language Science, and the Social, Life and Engineering Sciences Imaging Center.\n\nAt the Applied Cognitive Science lab (http://acs.ist.psu.edu/), we describe human cognition by modeling its output and process through precise, computational, predictive descriptions. Because humans exist in society, our cognitive simulations show how the human mind interacts with networked teams and communities and how these evolved properties give rise to emergent group cognition. We support this work with software to build models more easily, record behavior, and to build tutors, and through courses related to cognitive science and Information Science & Technology in general.\n\nThe successful applicant will have gained some initial research experience and have published a conference paper; s/he will hold a degree (with appropriate specialization) in linguistics, psychology, cognitive science or computer science.  S/he will have strong programming and computer skills.  For the general requirements of the IST graduate school, see http://www.ist.psu.edu/graduate-students/future-graduate-students .\n\nFeel free to contact me to discuss: reitter-8DAjSxpRXgY at public.gmane.org\n\nPlease apply at:  http://www.ist.psu.edu/graduate-students/future-graduate-students/apply\n\nThe flexible application target date is Dec 15th.\n\n\n-- \nDr. David Reitter\nAssistant Professor of Information Sciences and Technology\nCo-Director, Applied Cognitive Science Lab\nPenn State University\nhttp://www.david-reitter.com",
+      "body_snippet": "In the coming year, I am going to take one graduate student to work on...\n\n\n                         Computational Models of Language\n\n\nThe student is expected to integrate existing and new psycholing",
+      "thread_id": "thread-d9010fbb67ad",
+      "thread_depth": 0,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-35c3de9168a1",
+      "message_id": "<52A0B36F.5040003@gmail.com>",
+      "from_name": "Zhenguang Cai",
+      "from_email_hash": "757d9c8955a600d914d5e3b42bfb524bed502682117ae8a6645d959a1262db78",
+      "date": "2013-12-05T17:10:07Z",
+      "subject": "Using BIC to calculate the Bayes Factor for model selection",
+      "subject_clean": "Using BIC to calculate the Bayes Factor for model selection",
+      "in_reply_to": "<CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com>",
+      "references": [
+        "<mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu>",
+        "<525D6081.7060906@gmail.com>",
+        "<525DC01E.2040902@gmail.com>",
+        "<CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com>"
+      ],
+      "body_plain": "Hi all,\n\nWe have a paper in which we want to conclude that Construction A and \nConstruction B have the same syntactic representation (partly) on the \nbasis that they elicited the same priming behaviours. Now of course the \nproblem with the reviewers is that the conclusion is based on a null \neffect, which, in terms of traditional statistics, is non-informative.\n\nThus, I am trying to resolve this issue using the Bayes Factor. The \nBayesFactor package, however, seems to only work with linear linear \nmodels but not with logit models. However, there seems to be an easy way \nof calculating the Bayes Factor (B12) using BICs from two models:\n\nB12 = e (BIC1 - BIC2)\n\nSo the following is what I did.\n\n1. Run an LME model with intercept only (i.e., no primes) - this is Model 1.\n2. Add the primes into Model 1 - this is Model 2.\n3. Get the BIC for both models (633.9 for Model 1 and 638.7 for Model 2)\n4. Calculate the Bayes Factor: B12 = e (633.9 - 638.7) = e (-4.8) = 0.008\n\nThis seems to strongly support Model 2, which is a bit strange, because \nthe prime does not have any main effect at all (and the BICs suggest \nthat Model 1 is preferred to Model 2). Or did I misunderstand/misdo the \ncalculation?\n\nThank you very much for any help,\n\nZhenguang Cai\n\n\n-- \nZhenguang Cai\n\nPsychology, University of Plymouth\n\nhttps://sites.google.com/site/zhenguangcai/",
+      "body_snippet": "Hi all,\n\nWe have a paper in which we want to conclude that Construction A and \nConstruction B have the same syntactic representation (partly) on the \nbasis that they elicited the same priming behaviou",
+      "thread_id": "thread-35c3de9168a1",
+      "thread_depth": 0,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-8317c7a29853",
+      "message_id": "<52A1A35B.6030207@psychologie.uni-freiburg.de>",
+      "from_name": "Henrik Singmann",
+      "from_email_hash": "895ccce553d0f36699306d6383f9215e973580efb5a12cbc8263966daf9b0258",
+      "date": "2013-12-06T10:13:47Z",
+      "subject": "Re: Using BIC to calculate the Bayes Factor for model selection",
+      "subject_clean": "Using BIC to calculate the Bayes Factor for model selection",
+      "in_reply_to": "<52A0B36F.5040003@gmail.com>",
+      "references": [
+        "<mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu>",
+        "<525D6081.7060906@gmail.com>",
+        "<525DC01E.2040902@gmail.com>",
+        "<CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com>",
+        "<52A0B36F.5040003@gmail.com>"
+      ],
+      "body_plain": "Dear Zhenguang,\n\nI think your BF calculation is incorrect. Unfortunately, you haven't given the reference where you took it from.\n\nIf you look into Wagenmakers (2007) you will see that he defines it differently.\n\nThe BIC approximation to the Bayes Factor he advocates for BF_01 is given by exp( (BIC_1 - BIC_0)/2 ) (see page 796).\n\nHence, it seems you have to turn around the two numbers and divide them by two before applying the exponential function:\n\n> exp((638.7 - 633.9)/2)\n[1] 11.02\n\nI hope this helps,\nHenrik\n\nReference:\n\nWagenmakers, E.-J. (2007). A practical solution to the pervasive problems ofp values. Psychonomic Bulletin & Review, 14(5), 779–804. doi:10.3758/BF03194105\n\n\n\nAm 05.12.2013 18:10, schrieb Zhenguang Cai:\n> Hi all,\n>\n> We have a paper in which we want to conclude that Construction A and Construction B have the same syntactic representation (partly) on the basis that they elicited the same priming behaviours. Now of course the problem with the reviewers is that the conclusion is based on a null effect, which, in terms of traditional statistics, is non-informative.\n>\n> Thus, I am trying to resolve this issue using the Bayes Factor. The BayesFactor package, however, seems to only work with linear linear models but not with logit models. However, there seems to be an easy way of calculating the Bayes Factor (B12) using BICs from two models:\n>\n> B12 = e (BIC1 - BIC2)\n>\n> So the following is what I did.\n>\n> 1. Run an LME model with intercept only (i.e., no primes) - this is Model 1.\n> 2. Add the primes into Model 1 - this is Model 2.\n> 3. Get the BIC for both models (633.9 for Model 1 and 638.7 for Model 2)\n> 4. Calculate the Bayes Factor: B12 = e (633.9 - 638.7) = e (-4.8) = 0.008\n>\n> This seems to strongly support Model 2, which is a bit strange, because the prime does not have any main effect at all (and the BICs suggest that Model 1 is preferred to Model 2). Or did I misunderstand/misdo the calculation?\n>\n> Thank you very much for any help,\n>\n> Zhenguang Cai\n>\n>\n\n-- \nDipl. Psych. Henrik Singmann\nPhD Student\nAlbert-Ludwigs-Universität Freiburg, Germany\nhttp://www.psychologie.uni-freiburg.de/Members/singmann",
+      "body_snippet": "Dear Zhenguang,\n\nI think your BF calculation is incorrect. Unfortunately, you haven't given the reference where you took it from.\n\nIf you look into Wagenmakers (2007) you will see that he defines it d",
+      "thread_id": "thread-35c3de9168a1",
+      "thread_depth": 1,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-38fb88e6f047",
+      "message_id": "<52B2E32F.7050303@unifr.ch>",
+      "from_name": "Jan Vanhove",
+      "from_email_hash": "8557c8a425d599f363ca642c9c7731c71449e76469c4329b916d21d8c804ff3c",
+      "date": "2013-12-19T12:14:39Z",
+      "subject": "Differences between manual computation of confidence bands for logistic ME regression and 'effects' package?",
+      "subject_clean": "Differences between manual computation of confidence bands for logistic ME regression and 'effects' package?",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear all,\n\nI've been trying out John Fox's 'effects' package for plotting (partial) \nfixed effects of logistic mixed-effects models. The effects package also \nallows the plotting of confidence bands, but by my reckoning, these seem \nto be rather narrow compared to the confidence bands that I computed \nmanually following the advice on http://glmm.wikidot.com/faq. Could \nsomeone please explain to me where the difference comes from?\n\nWhat follows is an example using a model with only one random effect \nterm. My own data are modelled with crossed random intercepts and \nproduce a much wider discrepancy between the two approaches. I'd be \nhappy to provide the data and code for that example, too, if that would \nbe helpful.\n\nThanks,\nJan\n\n### Example 1 ###\n\n# Analysing the 'Contraception' dataset in the mlmRev package.\n\n# Load packages and data\n\nlibrary(lme4) # version 1.0-5\n\nlibrary(mlmRev)\n\ndata(Contraception)\n\n# Fit ME model\n\nmod1 <- glmer(use ~ age + (1|district)\n\n               , data = Contraception\n\n               , family = binomial)\n\n# Compute 95% confidence band by hand\n\n# Create new dataset\n\nnewdat1 <- expand.grid(age=seq(min(Contraception$age), max(Contraception$age), length.out=11)\n\n                        , use = 0)\n\n# Calculate effect of age\n\nmm1 <- model.matrix(terms(mod1), newdat1)\n\nnewdat1$use <- mm1 %*% fixef(mod1)\n\n#\n\npvar1 <- diag(mm1 %*% tcrossprod(vcov(mod1), mm1))\n\nnewdat1 <- data.frame(\n\n   newdat1\n\n   , plo = newdat1$use - qnorm(.975)*sqrt(pvar1)\n\n   , phi = newdat1$use + qnorm(.975)*sqrt(pvar1)\n\n)\n\n# Plot effect + 95% CI\n\nplot(newdat1$age\n\n      , plogis(newdat1$use) # transform log-odds into probabilities\n\n      , type=\"l\"\n\n      , lwd=3\n\n      , ylim=c(0.25, 0.5))\n\npoints(newdat1$age\n\n        , plogis(newdat1$plo)\n\n        , type=\"l\"\n\n        , lty=2)\n\npoints(newdat1$age\n\n        , plogis(newdat1$phi)\n\n        , type=\"l\"\n\n        , lty=2)\n\n# Using effects package\n\nlibrary(effects)\n\n# Compute effects + 95% CB\n\neff1 <- effect('age'\n\n                , mod1\n\n                , xlevels=list(age=seq(min(Contraception$age), max(Contraception$age), length.out=11))\n\n                , confidence.level=0.95)\n\n# Plot\n\nplot(eff1\n\n      , ylim=c(0.25,0.50)\n\n      , rescale.axis=FALSE)\n\n# The difference between the two plots is subtle, but digging into the eff1 object, we find that the effect() function produces somewhat smaller CIs.\n\n# Manual computation:\n\nnewdat1[5,]\n\n#     age        use        plo        phi\n\n# 5 -0.36 -0.5430525 -0.7083502 -0.3777548\n\n# effect():\n\neff1$fit[5]\n\n# -0.5430525 # i.e. same predicted value\n\neff1$fit[5] + qnorm(0.975) * eff1$se[5] # -0.4516169\n\neff1$fit[5] - qnorm(0.975) * eff1$se[5] # -0.6344881, i.e. narrower confidence band\n\n-- \nJan Vanhove\nMehrsprachigkeitsforschung und Fremdsprachendidaktik\nUniversität Freiburg, Schweiz\nhttp://homeweb.unifr.ch/VanhoveJ/Pub/\n\nConference \"Negotiating methodological challenges in linguistic research\", February 2014, http://irg2014.org/",
+      "body_snippet": "Dear all,\n\nI've been trying out John Fox's 'effects' package for plotting (partial) \nfixed effects of logistic mixed-effects models. The effects package also \nallows the plotting of confidence bands, ",
+      "thread_id": "thread-38fb88e6f047",
+      "thread_depth": 0,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-4f56a5c4ad45",
+      "message_id": "<CAG2Vd7idhoLwQVxDUmEuKraYhGobo21AXrW0YnV2h=oZNg68cA@mail.gmail.com>",
+      "from_name": "T. Florian Jaeger",
+      "from_email_hash": "e0dbaab50e0a9a97f666ad9c219794f212534b23c4d266fbf64e3c73ce72f722",
+      "date": "2013-12-22T08:20:41Z",
+      "subject": "Re: Differences between manual computation of confidence bands for logistic ME regression and 'effects' package?",
+      "subject_clean": "Differences between manual computation of confidence bands for logistic ME regression and 'effects' package?",
+      "in_reply_to": "<52B2E32F.7050303-3DjnVrp8uWc@public.gmane.org>",
+      "references": [
+        "<52B2E32F.7050303@unifr.ch>"
+      ],
+      "body_plain": "Hi Jan,\n\nI was trying to replicate, but the problem doesn't occur  on my system.\nHere's the output from the last few lines of your script\n\n> newdat1[5,]\n    age        use        plo        phi\n5 -0.36 -0.5430525 -0.7083502 -0.3777548\n\n> eff1$fit[5]\n[1] -0.5430525\n\n> eff1$fit[5] + qnorm(0.975) * eff1$se[5] # -0.4516169\n[1] -0.3777548\n\n> eff1$fit[5] - qnorm(0.975) * eff1$se[5] # -0.6344881, i.e. narrower\nconfidence band\n[1] -0.7083502\n\nAs you can see I get the same CIs under both methods.\n\nHere's what I'm running:\n\nplatform       x86_64-w64-mingw32\narch           x86_64\nos             mingw32\nsystem         x86_64, mingw32\nstatus\nmajor          3\nminor          0.2\nyear           2013\nmonth          09\nday            25\nsvn rev        63987\nlanguage       R\nversion.string R version 3.0.2 (2013-09-25)\nnickname       Frisbee Sailing\n\n\nEffects: 2.3-0\nlme4: 1.0-5\n\n\n\n\n\n\nOn Thu, Dec 19, 2013 at 11:14 PM, Jan Vanhove <jan.vanhove-3DjnVrp8uWc at public.gmane.org> wrote:\n\n> Dear all,\n>\n> I've been trying out John Fox's 'effects' package for plotting (partial)\n> fixed effects of logistic mixed-effects models. The effects package also\n> allows the plotting of confidence bands, but by my reckoning, these seem to\n> be rather narrow compared to the confidence bands that I computed manually\n> following the advice on http://glmm.wikidot.com/faq. Could someone please\n> explain to me where the difference comes from?\n>\n> What follows is an example using a model with only one random effect term.\n> My own data are modelled with crossed random intercepts and produce a much\n> wider discrepancy between the two approaches. I'd be happy to provide the\n> data and code for that example, too, if that would be helpful.\n>\n> Thanks,\n> Jan\n>\n> ### Example 1 ###\n>\n> # Analysing the 'Contraception' dataset in the mlmRev package.\n>\n> # Load packages and data\n>\n> library(lme4) # version 1.0-5\n>\n> library(mlmRev)\n>\n> data(Contraception)\n>\n> # Fit ME model\n>\n> mod1 <- glmer(use ~ age + (1|district)\n>\n>               , data = Contraception\n>\n>               , family = binomial)\n>\n> # Compute 95% confidence band by hand\n>\n> # Create new dataset\n>\n> newdat1 <- expand.grid(age=seq(min(Contraception$age),\n> max(Contraception$age), length.out=11)\n>\n>                        , use = 0)\n>\n> # Calculate effect of age\n>\n> mm1 <- model.matrix(terms(mod1), newdat1)\n>\n> newdat1$use <- mm1 %*% fixef(mod1)\n>\n> #\n>\n> pvar1 <- diag(mm1 %*% tcrossprod(vcov(mod1), mm1))\n>\n> newdat1 <- data.frame(\n>\n>   newdat1\n>\n>   , plo = newdat1$use - qnorm(.975)*sqrt(pvar1)\n>\n>   , phi = newdat1$use + qnorm(.975)*sqrt(pvar1)\n>\n> )\n>\n> # Plot effect + 95% CI\n>\n> plot(newdat1$age\n>\n>      , plogis(newdat1$use) # transform log-odds into probabilities\n>\n>      , type=\"l\"\n>\n>      , lwd=3\n>\n>      , ylim=c(0.25, 0.5))\n>\n> points(newdat1$age\n>\n>        , plogis(newdat1$plo)\n>\n>        , type=\"l\"\n>\n>        , lty=2)\n>\n> points(newdat1$age\n>\n>        , plogis(newdat1$phi)\n>\n>        , type=\"l\"\n>\n>        , lty=2)\n>\n> # Using effects package\n>\n> library(effects)\n>\n> # Compute effects + 95% CB\n>\n> eff1 <- effect('age'\n>\n>                , mod1\n>\n>                , xlevels=list(age=seq(min(Contraception$age),\n> max(Contraception$age), length.out=11))\n>\n>                , confidence.level=0.95)\n>\n> # Plot\n>\n> plot(eff1\n>\n>      , ylim=c(0.25,0.50)\n>\n>      , rescale.axis=FALSE)\n>\n> # The difference between the two plots is subtle, but digging into the\n> eff1 object, we find that the effect() function produces somewhat smaller\n> CIs.\n>\n> # Manual computation:\n>\n> newdat1[5,]\n>\n> #     age        use        plo        phi\n>\n> # 5 -0.36 -0.5430525 -0.7083502 -0.3777548\n>\n> # effect():\n>\n> eff1$fit[5]\n>\n> # -0.5430525 # i.e. same predicted value\n>\n> eff1$fit[5] + qnorm(0.975) * eff1$se[5] # -0.4516169\n>\n> eff1$fit[5] - qnorm(0.975) * eff1$se[5] # -0.6344881, i.e. narrower\n> confidence band\n>\n> --\n> Jan Vanhove\n> Mehrsprachigkeitsforschung und Fremdsprachendidaktik\n> Universität Freiburg, Schweiz\n> http://homeweb.unifr.ch/VanhoveJ/Pub/\n>\n> Conference \"Negotiating methodological challenges in linguistic research\",\n> February 2014, http://irg2014.org/\n>\n>",
+      "body_snippet": "Hi Jan,\n\nI was trying to replicate, but the problem doesn't occur  on my system.\nHere's the output from the last few lines of your script\n\n> newdat1[5,]\n    age        use        plo        phi\n5 -0.3",
+      "thread_id": "thread-38fb88e6f047",
+      "thread_depth": 1,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-20bf28fa1634",
+      "message_id": "<52B71E7E.9040105@unifr.ch>",
+      "from_name": "Jan Vanhove",
+      "from_email_hash": "8557c8a425d599f363ca642c9c7731c71449e76469c4329b916d21d8c804ff3c",
+      "date": "2013-12-22T17:16:46Z",
+      "subject": "Re: Differences between manual computation of confidence bands for logistic ME regression and 'effects' package?",
+      "subject_clean": "Differences between manual computation of confidence bands for logistic ME regression and 'effects' package?",
+      "in_reply_to": "<CAG2Vd7idhoLwQVxDUmEuKraYhGobo21AXrW0YnV2h=oZNg68cA@mail.gmail.com>",
+      "references": [
+        "<52B2E32F.7050303@unifr.ch>",
+        "<CAG2Vd7idhoLwQVxDUmEuKraYhGobo21AXrW0YnV2h=oZNg68cA@mail.gmail.com>"
+      ],
+      "body_plain": "Thanks Florian - I reinstalled the effects package from source to get \nthe 2.3-0 version and now both methods yield the same result. I feel a \nbit silly that the solution was so trivial, but time well wasted on \nlearning about CIs :)\n\n\nOn 12/22/2013 09:20 AM, T. Florian Jaeger wrote:\n\nI was trying to replicate, but the problem doesn't occur  on my system. \nHere's the output from the last few lines of your script",
+      "body_snippet": "Thanks Florian - I reinstalled the effects package from source to get \nthe 2.3-0 version and now both methods yield the same result. I feel a \nbit silly that the solution was so trivial, but time well",
+      "thread_id": "thread-38fb88e6f047",
+      "thread_depth": 2,
+      "month": "2013-12"
+    },
+    {
+      "id": "msg-7344da1aef9c",
+      "message_id": "<52B82847.6000501@sabanciuniv.edu>",
+      "from_name": "Francesco",
+      "from_email_hash": "b03f887df9d0e40f354f8f129f747c01383b9e7b2f07d5a2f3af2ceabb125c55",
+      "date": "2013-12-23T12:10:47Z",
+      "subject": "Training course and/or summer schools on R in Ling",
+      "subject_clean": "Training course and/or summer schools on R in Ling",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear all,\n\nI am interested in attending some short training course\nfrom Jan to end of June on R stats for postdocs and lecturers.\nDoes anyone know of any good venues?\n\nThe only one I know of that may be of interest is EMLAR X\nin Utrecht but this is for PhD and MA students.\n\nAny suggestions are appreciated.\n\n-- \nFrank Romano\n\nSabanci University\nwebsite: http://sabanciuniv.academia.edu/FrancescoRomano",
+      "body_snippet": "Dear all,\n\nI am interested in attending some short training course\nfrom Jan to end of June on R stats for postdocs and lecturers.\nDoes anyone know of any good venues?\n\nThe only one I know of that may ",
+      "thread_id": "thread-7344da1aef9c",
+      "thread_depth": 0,
+      "month": "2013-12"
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-2be7b85bb476",
+      "subject": "trouble with random effects in factorial design",
+      "message_count": 5,
+      "participants": [
+        "Daniel Ezra Johnson",
+        "Hofmeister, Philip",
+        "Levy, Roger"
+      ],
+      "started": "2013-12-03T09:35:49Z",
+      "last_reply": "2013-12-03T17:40:33Z",
+      "root_message_id": "msg-2be7b85bb476"
+    },
+    {
+      "id": "thread-d9010fbb67ad",
+      "subject": "PhD student position at Penn State: computational models of language",
+      "message_count": 1,
+      "participants": [
+        "David Reitter"
+      ],
+      "started": "2013-12-05T16:58:16Z",
+      "last_reply": "2013-12-05T16:58:16Z",
+      "root_message_id": "msg-d9010fbb67ad"
+    },
+    {
+      "id": "thread-35c3de9168a1",
+      "subject": "Using BIC to calculate the Bayes Factor for model selection",
+      "message_count": 2,
+      "participants": [
+        "Henrik Singmann",
+        "Zhenguang Cai"
+      ],
+      "started": "2013-12-05T17:10:07Z",
+      "last_reply": "2013-12-06T10:13:47Z",
+      "root_message_id": "msg-35c3de9168a1"
+    },
+    {
+      "id": "thread-38fb88e6f047",
+      "subject": "Differences between manual computation of confidence bands for logistic ME regression and 'effects' package?",
+      "message_count": 3,
+      "participants": [
+        "Jan Vanhove",
+        "T. Florian Jaeger"
+      ],
+      "started": "2013-12-19T12:14:39Z",
+      "last_reply": "2013-12-22T17:16:46Z",
+      "root_message_id": "msg-38fb88e6f047"
+    },
+    {
+      "id": "thread-7344da1aef9c",
+      "subject": "Training course and/or summer schools on R in Ling",
+      "message_count": 1,
+      "participants": [
+        "Francesco"
+      ],
+      "started": "2013-12-23T12:10:47Z",
+      "last_reply": "2013-12-23T12:10:47Z",
+      "root_message_id": "msg-7344da1aef9c"
+    }
+  ]
+}

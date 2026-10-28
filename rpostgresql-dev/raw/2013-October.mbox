@@ -1,0 +1,1498 @@
+From musx2005-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Oct  4 08:42:32 2013
+From: musx2005-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (MusX)
+Date: Fri, 04 Oct 2013 01:42:32 -0700
+Subject: R RpostgreSQL bigint datatype issue
+Message-ID: <ae014040-4d1d-4c62-895b-12e9d8a296c2@googlegroups.com>
+
+Hello,
+
+Could anybody advise what is the best solution to read/write big int values 
+via RpostgreSQL?
+I have an unique identifier field which contains numbers like: 212982, 
+212983,1380742793415240,1380742793415241
+The latter two are being send to database using scientific notation, and by 
+default when using dbWriteTable they are written to db as double precision 
+- which makes both of them identical, therefore not able to use as primary 
+key.
+
+I prefer to not store them as character because I would need to fill the 
+shorter values with leading zeros to have exact nchar() to be able to query 
+using >, >= operators on character fields.
+The performance is a factor in the process, currently table has 6 million 
+rows but is going to be double every year, I'm not aware of postgresql 
+performance when using text_field >= '000212982' but I assume that numbers 
+could be faster.
+
+What is the most effective way to process that case??
+
+While reading the documentation: 
+http://cran.r-project.org/web/packages/RPostgreSQL/RPostgreSQL.pdf
+I see there seems to be function dbSetDataMappings - as per doc it is not 
+yet implemented.
+Maybe there is some draft in the background of package I would use to map 
+that column to postgresql bigint datatype?
+Any other way?
+
+Thanks
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Fri Oct  4 09:33:08 2013
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (NISHIYAMA Tomoaki)
+Date: Fri, 04 Oct 2013 18:33:08 +0900
+Subject: Re: R RpostgreSQL bigint datatype issue
+In-Reply-To: <ae014040-4d1d-4c62-895b-12e9d8a296c2@googlegroups.com>
+References: <ae014040-4d1d-4c62-895b-12e9d8a296c2@googlegroups.com>
+Message-ID: <2E68D770-5629-495B-BB24-B6145A5E9732@staff.kanazawa-u.ac.jp>
+
+Hi,
+
+Write as characters and convert to bigint inside PostgreSQL seems to work in the example you have shown.
+> library(RPostgreSQL)
+Loading required package: DBI
+> c=dbConnect("PostgreSQL")
+> a <- 1380742793415240
+> b <- 1380742793415241
+> dc <-data.frame(a=as.character(a), b=as.character(b))
+> dbWriteTable(c,"testclosenumberch", dc)
+[1] TRUE
+> dbGetQuery(c, "select * from testclosenumberch")
+  row.names                a                b
+1         1 1380742793415240 1380742793415241
+> dbGetQuery(c, "select a::bigint - b::bigint  from testclosenumberch")
+  ?column?
+1       -1
+
+In this example, only a simple select example is shown, but you can select into a new
+table just after dbWriteTable if you the performance for query is more important than
+the storing the data.
+
+However, note that numeric value in R itself is just a double precision
+floating point number having 53 significant bits, which is shorter than 64 bits.
+
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2013/10/04, at 17:42, MusX wrote:
+
+> Hello,
+> 
+> Could anybody advise what is the best solution to read/write big int values via RpostgreSQL?
+> I have an unique identifier field which contains numbers like: 212982, 212983,1380742793415240,1380742793415241
+> The latter two are being send to database using scientific notation, and by default when using dbWriteTable they are written to db as double precision - which makes both of them identical, therefore not able to use as primary key.
+> 
+> I prefer to not store them as character because I would need to fill the shorter values with leading zeros to have exact nchar() to be able to query using >, >= operators on character fields.
+> The performance is a factor in the process, currently table has 6 million rows but is going to be double every year, I'm not aware of postgresql performance when using text_field >= '000212982' but I assume that numbers could be faster.
+> 
+> What is the most effective way to process that case??
+> 
+> While reading the documentation: http://cran.r-project.org/web/packages/RPostgreSQL/RPostgreSQL.pdf
+> I see there seems to be function dbSetDataMappings - as per doc it is not yet implemented.
+> Maybe there is some draft in the background of package I would use to map that column to postgresql bigint datatype?
+> Any other way?
+> 
+> Thanks
+> 
+> -- 
+> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/groups/opt_out.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From musx2005-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Fri Oct  4 22:34:50 2013
+From: musx2005-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (MusX)
+Date: Fri, 04 Oct 2013 15:34:50 -0700
+Subject: Re: R RpostgreSQL bigint datatype issue
+In-Reply-To: <2E68D770-5629-495B-BB24-B6145A5E9732@staff.kanazawa-u.ac.jp>
+References: <ae014040-4d1d-4c62-895b-12e9d8a296c2@googlegroups.com> <2E68D770-5629-495B-BB24-B6145A5E9732@staff.kanazawa-u.ac.jp>
+Message-ID: <9baa7c30-b059-4795-be5d-307bbc4275a2@googlegroups.com>
+
+Hello,
+
+Thank you for suggestion. It is working even better than I expected.
+I can send character column from R to bigint in postgresql, and I can query 
+bigint as numeric directly.
+The only required processing is that one as.character on writing to db.
+Maybe it would be good to mentioned that somewhere in the docs.
+
+Best Regards
+On Friday, 4 October 2013 11:33:08 UTC+2, Tomoaki wrote:
+>
+> Hi,
+>
+> Write as characters and convert to bigint inside PostgreSQL seems to work 
+> in the example you have shown.
+> > library(RPostgreSQL)
+> Loading required package: DBI
+> > c=dbConnect("PostgreSQL")
+> > a <- 1380742793415240
+> > b <- 1380742793415241
+> > dc <-data.frame(a=as.character(a), b=as.character(b))
+> > dbWriteTable(c,"testclosenumberch", dc)
+> [1] TRUE
+> > dbGetQuery(c, "select * from testclosenumberch")
+>   row.names                a                b
+> 1         1 1380742793415240 1380742793415241
+> > dbGetQuery(c, "select a::bigint - b::bigint  from testclosenumberch")
+>   ?column?
+> 1       -1
+>
+> In this example, only a simple select example is shown, but you can select 
+> into a new
+> table just after dbWriteTable if you the performance for query is more 
+> important than
+> the storing the data.
+>
+> However, note that numeric value in R itself is just a double precision
+> floating point number having 53 significant bits, which is shorter than 64 
+> bits.
+>
+> -- 
+>
+> Tomoaki NISHIYAMA
+>
+>
+> Advanced Science Research Center,
+>
+> Kanazawa University,
+>
+> 13-1 Takara-machi, 
+>
+> Kanazawa, 920-0934, Japan
+>
+>  
+> On 2013/10/04, at 17:42, MusX wrote:
+>
+> Hello,
+>
+> Could anybody advise what is the best solution to read/write big int 
+> values via RpostgreSQL?
+> I have an unique identifier field which contains numbers like: 212982, 
+> 212983,1380742793415240,1380742793415241
+> The latter two are being send to database using scientific notation, and 
+> by default when using dbWriteTable they are written to db as double 
+> precision - which makes both of them identical, therefore not able to use 
+> as primary key.
+>
+> I prefer to not store them as character because I would need to fill the 
+> shorter values with leading zeros to have exact nchar() to be able to query 
+> using >, >= operators on character fields.
+> The performance is a factor in the process, currently table has 6 million 
+> rows but is going to be double every year, I'm not aware of postgresql 
+> performance when using text_field >= '000212982' but I assume that numbers 
+> could be faster.
+>
+> What is the most effective way to process that case??
+>
+> While reading the documentation: 
+> http://cran.r-project.org/web/packages/RPostgreSQL/RPostgreSQL.pdf
+> I see there seems to be function dbSetDataMappings - as per doc it is not 
+> yet implemented.
+> Maybe there is some draft in the background of package I would use to map 
+> that column to postgresql bigint datatype?
+> Any other way?
+>
+> Thanks
+>
+> -- 
+> You received this message because you are subscribed to the Google Groups 
+> "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an 
+> email to rpostgresql-d...-/JYPxA39Uh5TLH3MbocFFw at public.gmane.org <javascript:>.
+> For more options, visit https://groups.google.com/groups/opt_out.
+>
+>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From h.wickham-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Oct  9 19:25:55 2013
+From: h.wickham-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Hadley Wickham)
+Date: Wed, 09 Oct 2013 12:25:55 -0700
+Subject: SSL support
+Message-ID: <265cb600-030c-464c-a131-81227bc42522@googlegroups.com>
+
+Hi all,
+
+Is SSL support on the roadmap for RPostgreSQL? It seems to be a requirement 
+for connecting to most hosted db services.
+
+Thanks!
+
+Hadley
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From h.wickham-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Oct  9 20:15:48 2013
+From: h.wickham-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Hadley Wickham)
+Date: Wed, 09 Oct 2013 13:15:48 -0700
+Subject: Bug in postgresql
+Message-ID: <2e8f95be-2b74-4c61-a05c-559827d3358d@googlegroups.com>
+
+setMethod("print", "dbObjectId",
+          def = function(x, ...){
+              expired <- if(isPostgresqlIdCurrent(x)) "" else "Expired "
+              str <- paste("<", expired, class(x), ":", format(x), ">", 
+sep="")
+              cat(str, "\n")
+              invisible(NULL)
+          }
+)
+
+Here you're tying the method for an object that underlies all of DBI to a 
+postgresql specific implementation.
+
+This ends up causing RMySQL to fail if you have RSQLite, RMySQL and 
+RPostgreSQL loaded simultaneously.
+
+I think you should really only create methods on classes that declare, so 
+this should be:
+
+setMethod("print", "PostgreSQLDriver",
+          def = function(x, ...){
+              expired <- if(isPostgresqlIdCurrent(x)) "" else "Expired "
+              str <- paste("<", expired, class(x), ":", format(x), ">", 
+sep="")
+              cat(str, "\n")
+              invisible(NULL)
+          }
+)
+
+and similar for every other method in dbObject
+
+Hadley
+
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From h.wickham-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Oct  9 21:04:13 2013
+From: h.wickham-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Hadley Wickham)
+Date: Wed, 09 Oct 2013 14:04:13 -0700
+Subject: Re: Bug in postgresql
+In-Reply-To: <2e8f95be-2b74-4c61-a05c-559827d3358d@googlegroups.com>
+References: <2e8f95be-2b74-4c61-a05c-559827d3358d@googlegroups.com>
+Message-ID: <6f828712-c54d-411e-a24a-e56c468146b4@googlegroups.com>
+
+Hmmm, I may have misdiagnosed the problem since both RMySQL and RPostgreSQL 
+do define their own dbObjectId classes.  Perhaps the design could be 
+simplified by avoiding multiple inheritance by changing
+
+setClass("PostgreSQLObject", representation("DBIObject", "dbObjectId", 
+"VIRTUAL"))
+
+to 
+
+setClass("PostgreSQLObject", representation("DBIObject", "VIRTUAL"))
+
+and then converting the old "dbObjectId" methods to be "PostgreSQLObject" 
+methods instead. 
+
+Hadley
+
+On Wednesday, October 9, 2013 3:15:48 PM UTC-5, Hadley Wickham wrote:
+>
+> setMethod("print", "dbObjectId",
+>           def = function(x, ...){
+>               expired <- if(isPostgresqlIdCurrent(x)) "" else "Expired "
+>               str <- paste("<", expired, class(x), ":", format(x), ">", 
+> sep="")
+>               cat(str, "\n")
+>               invisible(NULL)
+>           }
+> )
+>
+> Here you're tying the method for an object that underlies all of DBI to a 
+> postgresql specific implementation.
+>
+> This ends up causing RMySQL to fail if you have RSQLite, RMySQL and 
+> RPostgreSQL loaded simultaneously.
+>
+> I think you should really only create methods on classes that declare, so 
+> this should be:
+>
+> setMethod("print", "PostgreSQLDriver",
+>           def = function(x, ...){
+>               expired <- if(isPostgresqlIdCurrent(x)) "" else "Expired "
+>               str <- paste("<", expired, class(x), ":", format(x), ">", 
+> sep="")
+>               cat(str, "\n")
+>               invisible(NULL)
+>           }
+> )
+>
+> and similar for every other method in dbObject
+>
+> Hadley
+>
+>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From bill.q.hdp-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Oct 19 02:08:43 2013
+From: bill.q.hdp-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Bill Q)
+Date: Fri, 18 Oct 2013 19:08:43 -0700
+Subject: Any way to automatically ask PostgreSQL to generate the primary key when using dbWriteTable?
+Message-ID: <c556caee-0221-4aa5-ab78-fc0f3f223c79@googlegroups.com>
+
+Hi,
+I just got started with R. I am trying to load some data into PostgreSQL 
+using RPostgreSQL. Everything went quite smoothly except for that the table 
+created by using dbWriteTable does not have a primary key.
+
+The ideal solution is to ask PostgreSQL to do a auto-increment with the 
+rows I am going to load into the table so I don't have to manually generate 
+a primary key column in the data frame.
+
+Does anybody know how to do this? 
+
+Many thanks.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From seanpor-HInyCGIudOg at public.gmane.org  Sat Oct 19 08:38:11 2013
+From: seanpor-HInyCGIudOg at public.gmane.org (Sean O'Riordain)
+Date: Sat, 19 Oct 2013 09:38:11 +0100
+Subject: Re: Any way to automatically ask PostgreSQL to generate the primary key when using dbWriteTable?
+In-Reply-To: <c556caee-0221-4aa5-ab78-fc0f3f223c79@googlegroups.com>
+References: <c556caee-0221-4aa5-ab78-fc0f3f223c79@googlegroups.com>
+Message-ID: <CA+MmmT+TvnwAHxbH-f8SX+ixhAdxvWwd2b3iBPe3nQucCHXWnw@mail.gmail.com>
+
+For big tables, it is probably faster to create the exact table structure
+you are looking for and then load it with an insert from table.
+Cheers
+Sean
+On 19 Oct 2013 03:08, "Bill Q" <bill.q.hdp-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> Hi,
+> I just got started with R. I am trying to load some data into PostgreSQL
+> using RPostgreSQL. Everything went quite smoothly except for that the table
+> created by using dbWriteTable does not have a primary key.
+>
+> The ideal solution is to ask PostgreSQL to do a auto-increment with the
+> rows I am going to load into the table so I don't have to manually generate
+> a primary key column in the data frame.
+>
+> Does anybody know how to do this?
+>
+> Many thanks.
+>
+> --
+> You received this message because you are subscribed to the Google Groups
+> "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an
+> email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/groups/opt_out.
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org  Sat Oct 19 14:49:26 2013
+From: neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org (Neil Tiffin)
+Date: Sat, 19 Oct 2013 09:49:26 -0500
+Subject: Re: Any way to automatically ask PostgreSQL to generate the primary key when using dbWriteTable?
+In-Reply-To: <CA+MmmT+TvnwAHxbH-f8SX+ixhAdxvWwd2b3iBPe3nQucCHXWnw@mail.gmail.com>
+References: <c556caee-0221-4aa5-ab78-fc0f3f223c79@googlegroups.com> <CA+MmmT+TvnwAHxbH-f8SX+ixhAdxvWwd2b3iBPe3nQucCHXWnw@mail.gmail.com>
+Message-ID: <CEDD6E2D-4194-4BD2-8466-6EE05109573D@neiltiffin.com>
+
+
+After you load the data just execute the following SQL:
+
+ALTER TABLE test_1 ADD COLUMN my_id SERIAL PRIMARY KEY;
+
+where test_1 is the table name and my_id is the name of the id column you which to add.
+
+BIGSERIAL should be used if you anticipate the use of more than 2^31 identifiers over the lifetime of the table.
+
+Neil
+
+On Oct 19, 2013, at 3:38 AM, Sean O'Riordain <seanpor-HInyCGIudOg at public.gmane.org> wrote:
+
+> For big tables, it is probably faster to create the exact table structure you are looking for and then load it with an insert from table.
+> Cheers
+> Sean
+> 
+> On 19 Oct 2013 03:08, "Bill Q" <bill.q.hdp-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> Hi,
+> I just got started with R. I am trying to load some data into PostgreSQL using RPostgreSQL. Everything went quite smoothly except for that the table created by using dbWriteTable does not have a primary key.
+> 
+> The ideal solution is to ask PostgreSQL to do a auto-increment with the rows I am going to load into the table so I don't have to manually generate a primary key column in the data frame.
+> 
+> Does anybody know how to do this? 
+> 
+> Many thanks.
+> 
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From bill.q.hdp-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Oct 21 02:15:41 2013
+From: bill.q.hdp-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Bill Q)
+Date: Sun, 20 Oct 2013 19:15:41 -0700
+Subject: Re: Any way to automatically ask PostgreSQL to generate the primary key when using dbWriteTable?
+In-Reply-To: <CEDD6E2D-4194-4BD2-8466-6EE05109573D@neiltiffin.com>
+References: <c556caee-0221-4aa5-ab78-fc0f3f223c79@googlegroups.com> <CA+MmmT+TvnwAHxbH-f8SX+ixhAdxvWwd2b3iBPe3nQucCHXWnw@mail.gmail.com> <CEDD6E2D-4194-4BD2-8466-6EE05109573D@neiltiffin.com>
+Message-ID: <a21e74d1-1722-43d6-a215-7283eb473912@googlegroups.com>
+
+Hi Neil,
+Thanks for the reply. The problem is that I need to continue loading more 
+data into the database. If I run the SQL, the newly loaded data won't match 
+the table format. 
+
+
+Bill
+
+On Saturday, October 19, 2013 10:49:26 AM UTC-4, Neil wrote:
+>
+>
+> After you load the data just execute the following SQL:
+>
+> ALTER TABLE test_1 ADD COLUMN my_id SERIAL PRIMARY KEY;
+>
+> where test_1 is the table name and my_id is the name of the id column you 
+> which to add.
+>
+> BIGSERIAL should be used if you anticipate the use of more than 
+> 2^31 identifiers over the lifetime of the table.
+>
+> Neil
+>
+> On Oct 19, 2013, at 3:38 AM, Sean O'Riordain <sea...-HInyCGIudOg at public.gmane.org <javascript:>> 
+> wrote:
+>
+> For big tables, it is probably faster to create the exact table structure 
+> you are looking for and then load it with an insert from table.
+> Cheers
+> Sean
+> On 19 Oct 2013 03:08, "Bill Q" <bill....-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <javascript:>> wrote:
+>
+>> Hi,
+>> I just got started with R. I am trying to load some data into PostgreSQL 
+>> using RPostgreSQL. Everything went quite smoothly except for that the table 
+>> created by using dbWriteTable does not have a primary key.
+>>
+>> The ideal solution is to ask PostgreSQL to do a auto-increment with the 
+>> rows I am going to load into the table so I don't have to manually generate 
+>> a primary key column in the data frame.
+>>
+>> Does anybody know how to do this? 
+>>
+>> Many thanks.
+>>
+>>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Mon Oct 21 04:23:32 2013
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (NISHIYAMA Tomoaki)
+Date: Mon, 21 Oct 2013 13:23:32 +0900
+Subject: Re: Any way to automatically ask PostgreSQL to generate the primary key when using dbWriteTable?
+In-Reply-To: <a21e74d1-1722-43d6-a215-7283eb473912@googlegroups.com>
+References: <c556caee-0221-4aa5-ab78-fc0f3f223c79@googlegroups.com> <CA+MmmT+TvnwAHxbH-f8SX+ixhAdxvWwd2b3iBPe3nQucCHXWnw@mail.gmail.com> <CEDD6E2D-4194-4BD2-8466-6EE05109573D@neiltiffin.com> <a21e74d1-1722-43d6-a215-7283eb473912@googlegroups.com>
+Message-ID: <1EA58C17-75F0-4768-BACC-18373FD8175E@staff.kanazawa-u.ac.jp>
+
+Hi Bill,
+
+Would you explain why you need the primary key at all.
+With row.names = TRUE (default), the database should have a column "row.name"
+that is expected to be unique as was in the R world.
+
+Assigning auto increment column, means you don't know the value for any
+particular row in R. What is the benefit at all?
+
+> the newly loaded data won't match the table format. 
+
+The table format should not matter quite much.
+In the svn version, the data column names are transferred as SQL to specify them.
+With older version, additional column may not interfere or produce error for 
+different number of values, that I am not sure.
+
+Here is some test transaction that shows how it works.
+
+> library(RPostgreSQL)
+> library(datasets)
+> con<-dbConnect("PostgreSQL")
+> dbWriteTable(con, "rockdata", rock[1:8,])
+> dbWriteTable(con, "rockdata", rock[9:12,1:3], append=T)
+> dbGetQuery(con,"select * from rockdata")
+   row.names area    peri     shape perm
+1          1 4990 2791.90 0.0903296  6.3
+2          2 7002 3892.60 0.1486220  6.3
+3          3 7558 3930.66 0.1833120  6.3
+4          4 7352 3869.32 0.1170630  6.3
+5          5 7943 3948.54 0.1224170 17.1
+6          6 7979 4010.15 0.1670450 17.1
+7          7 9333 4345.75 0.1896510 17.1
+8          8 8209 4344.75 0.1641270 17.1
+9          9 8393 3682.04 0.2036540   NA
+10        10 6425 3098.65 0.1623940   NA
+11        11 9364 4480.05 0.1509440   NA
+12        12 8624 3986.24 0.1481410   NA
+> dbGetQuery(con,"ALTER TABLE rockdata ADD COLUMN my_id SERIAL PRIMARY KEY;")
+# this is from Neil's post
+> dbGetQuery(con,"select * from rockdata")
+   row.names area    peri     shape perm my_id
+1          1 4990 2791.90 0.0903296  6.3     1
+2          2 7002 3892.60 0.1486220  6.3     2
+3          3 7558 3930.66 0.1833120  6.3     3
+4          4 7352 3869.32 0.1170630  6.3     4
+5          5 7943 3948.54 0.1224170 17.1     5
+6          6 7979 4010.15 0.1670450 17.1     6
+7          7 9333 4345.75 0.1896510 17.1     7
+8          8 8209 4344.75 0.1641270 17.1     8
+9          9 8393 3682.04 0.2036540   NA     9
+10        10 6425 3098.65 0.1623940   NA    10
+11        11 9364 4480.05 0.1509440   NA    11
+12        12 8624 3986.24 0.1481410   NA    12
+> dbWriteTable(con, "rockdata", rock[12:14,1:2], append=T)
+[1] TRUE
+> dbGetQuery(con,"select * from rockdata")
+   row.names  area    peri     shape perm my_id
+1          1  4990 2791.90 0.0903296  6.3     1
+2          2  7002 3892.60 0.1486220  6.3     2
+3          3  7558 3930.66 0.1833120  6.3     3
+4          4  7352 3869.32 0.1170630  6.3     4
+5          5  7943 3948.54 0.1224170 17.1     5
+6          6  7979 4010.15 0.1670450 17.1     6
+7          7  9333 4345.75 0.1896510 17.1     7
+8          8  8209 4344.75 0.1641270 17.1     8
+9          9  8393 3682.04 0.2036540   NA     9
+10        10  6425 3098.65 0.1623940   NA    10
+11        11  9364 4480.05 0.1509440   NA    11
+12        12  8624 3986.24 0.1481410   NA    12
+13        12  8624 3986.24        NA   NA    13
+14        13 10651 4036.54        NA   NA    14
+15        14  8868 3518.04        NA   NA    15
+> dbWriteTable(con, "rockdata", rock[14:18,3:4], append=T)
+[1] TRUE
+> dbGetQuery(con,"select * from rockdata")
+   row.names  area    peri     shape perm my_id
+1          1  4990 2791.90 0.0903296  6.3     1
+2          2  7002 3892.60 0.1486220  6.3     2
+3          3  7558 3930.66 0.1833120  6.3     3
+4          4  7352 3869.32 0.1170630  6.3     4
+5          5  7943 3948.54 0.1224170 17.1     5
+6          6  7979 4010.15 0.1670450 17.1     6
+7          7  9333 4345.75 0.1896510 17.1     7
+8          8  8209 4344.75 0.1641270 17.1     8
+9          9  8393 3682.04 0.2036540   NA     9
+10        10  6425 3098.65 0.1623940   NA    10
+11        11  9364 4480.05 0.1509440   NA    11
+12        12  8624 3986.24 0.1481410   NA    12
+13        12  8624 3986.24        NA   NA    13
+14        13 10651 4036.54        NA   NA    14
+15        14  8868 3518.04        NA   NA    15
+16        14    NA      NA 0.2316230 82.4    16
+17        15    NA      NA 0.1725670 82.4    17
+18        16    NA      NA 0.1534810 82.4    18
+19        17    NA      NA 0.2043140 58.6    19
+20        18    NA      NA 0.2627270 58.6    20
+# note this example should work only with the svn version.
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2013/10/21, at 11:15, Bill Q wrote:
+
+> Hi Neil,
+> Thanks for the reply. The problem is that I need to continue loading more data into the database. If I run the SQL, the newly loaded data won't match the table format. 
+> 
+> 
+> Bill
+> 
+> On Saturday, October 19, 2013 10:49:26 AM UTC-4, Neil wrote:
+> 
+> After you load the data just execute the following SQL:
+> 
+> ALTER TABLE test_1 ADD COLUMN my_id SERIAL PRIMARY KEY;
+> 
+> where test_1 is the table name and my_id is the name of the id column you which to add.
+> 
+> BIGSERIAL should be used if you anticipate the use of more than 2^31 identifiers over the lifetime of the table.
+> 
+> Neil
+> 
+> On Oct 19, 2013, at 3:38 AM, Sean O'Riordain <sea...-HInyCGIudOg at public.gmane.org> wrote:
+> 
+>> For big tables, it is probably faster to create the exact table structure you are looking for and then load it with an insert from table.
+>> Cheers
+>> Sean
+>> 
+>> On 19 Oct 2013 03:08, "Bill Q" <bill....-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>> Hi,
+>> I just got started with R. I am trying to load some data into PostgreSQL using RPostgreSQL. Everything went quite smoothly except for that the table created by using dbWriteTable does not have a primary key.
+>> 
+>> The ideal solution is to ask PostgreSQL to do a auto-increment with the rows I am going to load into the table so I don't have to manually generate a primary key column in the data frame.
+>> 
+>> Does anybody know how to do this? 
+>> 
+>> Many thanks.
+>> 
+> 
+> 
+> -- 
+> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/groups/opt_out.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Sun Oct 27 11:58:30 2013
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (NISHIYAMA Tomoaki)
+Date: Sun, 27 Oct 2013 20:58:30 +0900
+Subject: Fwd: RPostgreSQL on OS X 10.9
+References: <526B7853.9020009@stats.ox.ac.uk>
+Message-ID: <CB5578F5-F0C0-4E32-8EC6-6A9768C7FB03@staff.kanazawa-u.ac.jp>
+
+Hi Neil,
+
+I got the message that RPostgreSQL doesn't compile on OS X 10.9.
+Thereafter, I updated the only machine running 10.8 to 10.9 and 
+made it work on 10.9 (r353). Thus, I cannot test whether this still 
+works on 10.8.  
+Can you check the r253 on OS X systems?
+
+Kind regards,
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+Begin forwarded message:
+
+> From: Prof Brian Ripley <ripley-+7o2aNKnwVPQzY9nttDBhA at public.gmane.org>
+> To: Tomoaki Nishiyama <tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org>
+> Cc: CRAN <CRAN-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org>
+> Subject: RPostgreSQL on OS X 10.9
+> 
+> On 10.9 (but not 10.8) this fails with
+> 
+> clang -mtune=native -I/Users/ripley/R/R-devel/include -DNDEBUG -I -I/usr/local/include    -fPIC  -g -O2 -Wall -pedantic -Wconversion -Wno-sign-conversion  -c RS-PQescape.c -o RS-PQescape.o
+> In file included from RS-PQescape.c:7:
+> ./RS-PostgreSQL.h:23:14: fatal error: 'libpq-fe.h' file not found
+> #    include "libpq-fe.h"
+>             ^
+> 1 error generated.
+> 
+> The problem is the '-I', which is generated by your configure script: you need to set PG_INCDIR=libpq before you start searching so the local copy can be used.
+> 
+> In 10.8, there is a /usr/include/libpq-fe.h, but system headers are located in SDK-specific directories in 10.9.
+> 
+> Please submit a corrected update.
+> 
+> -- 
+> Brian D. Ripley,                  ripley-+7o2aNKnwVPQzY9nttDBhA at public.gmane.org
+> Professor of Applied Statistics,  http://www.stats.ox.ac.uk/~ripley/
+> University of Oxford,             Tel:  +44 1865 272861 (self)
+> 1 South Parks Road,                     +44 1865 272866 (PA)
+> Oxford OX1 3TG, UK                Fax:  +44 1865 272595
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org  Sun Oct 27 14:44:53 2013
+From: neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org (Neil Tiffin)
+Date: Sun, 27 Oct 2013 09:44:53 -0500
+Subject: Re: RPostgreSQL on OS X 10.9
+In-Reply-To: <CB5578F5-F0C0-4E32-8EC6-6A9768C7FB03@staff.kanazawa-u.ac.jp>
+References: <526B7853.9020009@stats.ox.ac.uk> <CB5578F5-F0C0-4E32-8EC6-6A9768C7FB03@staff.kanazawa-u.ac.jp>
+Message-ID: <3891C22D-3E89-4119-91A0-DEC7FC72E411@neiltiffin.com>
+
+Yes I will, but I am really busy at the moment so I'm not sure when that will be this week.
+
+Neil
+
+On Oct 27, 2013, at 6:58 AM, NISHIYAMA Tomoaki <tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org> wrote:
+
+> Hi Neil,
+> 
+> I got the message that RPostgreSQL doesn't compile on OS X 10.9.
+> Thereafter, I updated the only machine running 10.8 to 10.9 and 
+> made it work on 10.9 (r353). Thus, I cannot test whether this still 
+> works on 10.8.  
+> Can you check the r253 on OS X systems?
+> 
+> Kind regards,
+> -- 
+> Tomoaki NISHIYAMA
+> 
+> Advanced Science Research Center,
+> Kanazawa University,
+> 13-1 Takara-machi, 
+> Kanazawa, 920-0934, Japan
+> 
+> 
+> Begin forwarded message:
+> 
+>> From: Prof Brian Ripley <ripley-+7o2aNKnwVPQzY9nttDBhA at public.gmane.org>
+>> To: Tomoaki Nishiyama <tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org>
+>> Cc: CRAN <CRAN-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org>
+>> Subject: RPostgreSQL on OS X 10.9
+>> 
+>> On 10.9 (but not 10.8) this fails with
+>> 
+>> clang -mtune=native -I/Users/ripley/R/R-devel/include -DNDEBUG -I -I/usr/local/include    -fPIC  -g -O2 -Wall -pedantic -Wconversion -Wno-sign-conversion  -c RS-PQescape.c -o RS-PQescape.o
+>> In file included from RS-PQescape.c:7:
+>> ./RS-PostgreSQL.h:23:14: fatal error: 'libpq-fe.h' file not found
+>> #    include "libpq-fe.h"
+>>             ^
+>> 1 error generated.
+>> 
+>> The problem is the '-I', which is generated by your configure script: you need to set PG_INCDIR=libpq before you start searching so the local copy can be used.
+>> 
+>> In 10.8, there is a /usr/include/libpq-fe.h, but system headers are located in SDK-specific directories in 10.9.
+>> 
+>> Please submit a corrected update.
+>> 
+>> -- 
+>> Brian D. Ripley,                  ripley-+7o2aNKnwVPQzY9nttDBhA at public.gmane.org
+>> Professor of Applied Statistics,  http://www.stats.ox.ac.uk/~ripley/
+>> University of Oxford,             Tel:  +44 1865 272861 (self)
+>> 1 South Parks Road,                     +44 1865 272866 (PA)
+>> Oxford OX1 3TG, UK                Fax:  +44 1865 272595
+> 
+> 
+> -- 
+> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/groups/opt_out.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org  Sun Oct 27 15:27:08 2013
+From: neilt-GFmLFdZw/U84Q++5jOxPmw at public.gmane.org (Neil Tiffin)
+Date: Sun, 27 Oct 2013 10:27:08 -0500
+Subject: Re: RPostgreSQL on OS X 10.9
+In-Reply-To: <CB5578F5-F0C0-4E32-8EC6-6A9768C7FB03@staff.kanazawa-u.ac.jp>
+References: <526B7853.9020009@stats.ox.ac.uk> <CB5578F5-F0C0-4E32-8EC6-6A9768C7FB03@staff.kanazawa-u.ac.jp>
+Message-ID: <FF03656B-623D-4016-9747-141D5AAE9895@neiltiffin.com>
+
+Decided to give it a quick test anyway.
+
+Here is the output:
+
+MBP:rpostgresql nt$ ./check_with_vars_neil.sh
+-------------- Creating and starting postgresql.
+-------------- make 64 bit version ----------------------
+* installing to library '/Library/Frameworks/R.framework/Versions/3.0/Resources/library'
+* installing *source* package 'RPostgreSQL' ...
+checking for gcc... gcc
+checking for C compiler default output file name... a.out
+checking whether the C compiler works... yes
+checking whether we are cross compiling... no
+checking for suffix of executables... 
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc accepts -g... yes
+checking for gcc option to accept ISO C89... none needed
+checking build system type... x86_64-apple-darwin12.5.0
+checking host system type... x86_64-apple-darwin12.5.0
+checking target system type... x86_64-apple-darwin12.5.0
+checking for pg_config... /Library/PostgreSQL/bin/pg_config
+checking for "/Library/PostgreSQL/Versions/9.2.2/include/libpq-fe.h"... yes
+configure: creating ./config.status
+config.status: creating src/Makevars
+** libs
+llvm-gcc-4.2 -arch x86_64 -std=gnu99 -I/Library/Frameworks/R.framework/Resources/include -DNDEBUG -I/Library/PostgreSQL/Versions/9.2.2/include -I/usr/local/include    -fPIC  -mtune=core2 -g -O2  -c RS-DBI.c -o RS-DBI.o
+llvm-gcc-4.2 -arch x86_64 -std=gnu99 -I/Library/Frameworks/R.framework/Resources/include -DNDEBUG -I/Library/PostgreSQL/Versions/9.2.2/include -I/usr/local/include    -fPIC  -mtune=core2 -g -O2  -c RS-PQescape.c -o RS-PQescape.o
+llvm-gcc-4.2 -arch x86_64 -std=gnu99 -I/Library/Frameworks/R.framework/Resources/include -DNDEBUG -I/Library/PostgreSQL/Versions/9.2.2/include -I/usr/local/include    -fPIC  -mtune=core2 -g -O2  -c RS-PostgreSQL.c -o RS-PostgreSQL.o
+llvm-gcc-4.2 -arch x86_64 -std=gnu99 -I/Library/Frameworks/R.framework/Resources/include -DNDEBUG -I/Library/PostgreSQL/Versions/9.2.2/include -I/usr/local/include    -fPIC  -mtune=core2 -g -O2  -c RS-pgsql-copy.c -o RS-pgsql-copy.o
+llvm-gcc-4.2 -arch x86_64 -std=gnu99 -I/Library/Frameworks/R.framework/Resources/include -DNDEBUG -I/Library/PostgreSQL/Versions/9.2.2/include -I/usr/local/include    -fPIC  -mtune=core2 -g -O2  -c RS-pgsql-getResult.c -o RS-pgsql-getResult.o
+llvm-gcc-4.2 -arch x86_64 -std=gnu99 -I/Library/Frameworks/R.framework/Resources/include -DNDEBUG -I/Library/PostgreSQL/Versions/9.2.2/include -I/usr/local/include    -fPIC  -mtune=core2 -g -O2  -c RS-pgsql-pqexec.c -o RS-pgsql-pqexec.o
+llvm-gcc-4.2 -arch x86_64 -std=gnu99 -I/Library/Frameworks/R.framework/Resources/include -DNDEBUG -I/Library/PostgreSQL/Versions/9.2.2/include -I/usr/local/include    -fPIC  -mtune=core2 -g -O2  -c RS-pgsql-pqexecparams.c -o RS-pgsql-pqexecparams.o
+llvm-gcc-4.2 -arch x86_64 -std=gnu99 -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -single_module -multiply_defined suppress -L/usr/local/lib -L/usr/local/lib -o RPostgreSQL.so RS-DBI.o RS-PQescape.o RS-PostgreSQL.o RS-pgsql-copy.o RS-pgsql-getResult.o RS-pgsql-pqexec.o RS-pgsql-pqexecparams.o -L/Library/PostgreSQL/Versions/9.2.2/lib -lpq -F/Library/Frameworks/R.framework/.. -framework R -Wl,-framework -Wl,CoreFoundation
+installing to /Library/Frameworks/R.framework/Versions/3.0/Resources/library/RPostgreSQL/libs
+** R
+** inst
+** preparing package for lazy loading
+Creating a generic function for 'format' from package 'base' in package 'RPostgreSQL'
+Creating a generic function for 'print' from package 'base' in package 'RPostgreSQL'
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded
+* DONE (RPostgreSQL)
+ 
+-------------- version info ----------------------
+ProductName:	Mac OS X
+ProductVersion:	10.8.5
+BuildVersion:	12F45
+Machine Processor Architecture: i386
+
+                                                                   version                                                                    
+----------------------------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 9.2.2 on x86_64-apple-darwin10.8.0, compiled by i686-apple-darwin10-gcc-4.2.1 (GCC) 4.2.1 (Apple Inc. build 5666) (dot 3), 64-bit
+(1 row)
+
+
+R version 3.0.2 (2013-09-25)
+Platform: x86_64-apple-darwin10.8.0 (64-bit)
+
+RPostgreSQL svn version: 253
+Package: RPostgreSQL
+Version: 0.5
+Packaged: NA
+Built: R 3.0.2; x86_64-apple-darwin10.8.0; 2013-10-27 15:20:49 UTC;
+-------------- start checks ----------------------
+
+==== 'R --slave RPostgreSQL/tests/connectWithNull.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+<PostgreSQLConnection:(11398,0)> 
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/createTableMixedCaseTest.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+Test should create foo1 and Foo2 tables
+Pass - Foo1 Table does not exist.
+Pass - foo1 Table exists.
+Pass - Foo2 Table exists.
+Pass - foo2 Table does not exist.
+Pass - "Foo2" Table does not exist.
+Pass - "foo2" Table does not exist.
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dataTypeTests.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+Read Numeric values
+GOOD -- all numeric types are as expected
+GOOD -- all numeric values are as expected
+Read Logical values
+GOOD -- all logical types are as expected
+GOOD -- all logical values are as expected
+Read Character values
+GOOD -- all character types are as expected
+GOOD -- all character values are as expected
+DONE
+
+==== 'R --slave RPostgreSQL/tests/dateTZ.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+testing UTC
+
+**** Trying with  timestamp 
+inserted string 1: 2008-07-01 14:15:16.123+00
+inserted string 2: 2000-01-02 03:04:05.678+00
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+PASS
+PASS
+
+
+**** Trying with  timestamp with time zone 
+inserted string 1: 2008-07-01 14:15:16.123+00
+inserted string 2: 2000-01-02 03:04:05.678+00
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+PASS
+PASS
+testing Asia/Tokyo
+
+**** Trying with  timestamp 
+inserted string 1: 2008-07-01 14:15:16.123+00
+inserted string 2: 2000-01-02 03:04:05.678+00
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+PASS
+PASS
+
+
+**** Trying with  timestamp with time zone 
+inserted string 1: 2008-07-01 14:15:16.123+00
+inserted string 2: 2000-01-02 03:04:05.678+00
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+PASS
+PASS
+testing Australlia/South
+
+**** Trying with  timestamp 
+inserted string 1: 2008-07-01 14:15:16.123+00
+inserted string 2: 2000-01-02 03:04:05.678+00
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+PASS
+PASS
+
+
+**** Trying with  timestamp with time zone 
+inserted string 1: 2008-07-01 14:15:16.123+00
+inserted string 2: 2000-01-02 03:04:05.678+00
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+PASS
+PASS
+testing America/New_York
+
+**** Trying with  timestamp 
+inserted string 1: 2008-07-01 14:15:16.123+00
+inserted string 2: 2000-01-02 03:04:05.678+00
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+PASS
+PASS
+
+
+**** Trying with  timestamp with time zone 
+inserted string 1: 2008-07-01 14:15:16.123+00
+inserted string 2: 2000-01-02 03:04:05.678+00
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+PASS
+PASS
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/datetimeTests.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+
+
+**** Trying with  timestamp 
+                   tt zz
+1 2008-07-01 14:15:16  1
+2 2000-01-02 03:04:05  2
+  name  Sclass      type len precision scale nullOK
+1   tt POSIXct TIMESTAMP   8        -1    -1   TRUE
+[1] "2008-07-01 14:15:16 UTC" "2000-01-02 03:04:05 UTC"
+[1] "POSIXct" "POSIXt" 
+Time difference of -3103.466 days
+
+
+**** Trying with  timestamp with time zone 
+                   tt zz
+1 2008-07-01 19:15:16  1
+2 2000-01-02 09:04:05  2
+  name  Sclass           type len precision scale nullOK
+1   tt POSIXct TIMESTAMPTZOID   8        -1    -1   TRUE
+[1] "2008-07-01 19:15:16 UTC" "2000-01-02 09:04:05 UTC"
+[1] "POSIXct" "POSIXt" 
+Time difference of -3103.424 days
+
+
+**** Trying with  date 
+          tt zz
+1 2008-07-01  1
+2 2000-01-02  2
+  name Sclass type len precision scale nullOK
+1   tt   Date DATE   4        -1    -1   TRUE
+[1] "2008-07-01" "2000-01-02"
+[1] "Date"
+Time difference of -3103 days
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/datetimestampwrite.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+Read Date and TIMESTAMP values
+PASS -- Date type is as expected
+PASS -- TIMESTAMP is received as POSIXct
+Check that read after write gets the same data types
+PASS -- Date type is as expected
+PASS -- TIMESTAMP is received as POSIXct
+DONE
+
+==== 'R --slave RPostgreSQL/tests/dbColumnInfo.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+NOTICE:  CREATE TABLE / PRIMARY KEY will create implicit index "aa_pkey" for table "aa"
+dbColumnInfo
+      name  Sclass    type len precision scale nullOK
+1       pk integer INTEGER   4        -1    -1  FALSE
+2       v1  double  FLOAT8   8        -1    -1  FALSE
+3       v2  double  FLOAT8   8        -1    -1   TRUE
+4 ?column?  double  FLOAT8   8        -1    -1     NA
+      name  Sclass    type len precision scale nullOK
+1       pk integer INTEGER   4        -1    -1  FALSE
+2       v1  double  FLOAT8   8        -1    -1  FALSE
+3       v2  double  FLOAT8   8        -1    -1   TRUE
+4 ?column?  double  FLOAT8   8        -1    -1     NA
+SELECT result
+  pk v1 v2 ?column?
+1  3  2 NA       NA
+Removing "AA"
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbExistsIssue.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+Does rockdata exist? [1] TRUE
+Does public.rockdata exist? [1] FALSE
+[1] "Removing rockdata\n"
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbExistsq.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+Write rock'data
+Does rock'data exist? [1] TRUE
+Does "public.rock'data" exist? [1] FALSE
+Removing rock'data
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbExistsqc.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+Does rock.data exist? 
+PASS: true
+create schema testschema and change the search_path
+Does rock.data exist? 
+PASS: false as the search_path changed
+Does testschema."rock.data" exist? 
+PASS: false as the testschema specified
+Does public."rock.data" exist? 
+PASS: true despite search_path change
+write in current schema
+Does rock.data exist? 
+PASS: true
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbGetQueryParams.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+   row.names  area    peri    shape  perm
+1          6  7979 4010.15 0.167045  17.1
+2          7  9333 4345.75 0.189651  17.1
+3          8  8209 4344.75 0.164127  17.1
+4         11  9364 4480.05 0.150944 119.0
+5         13 10651 4036.54 0.228595  82.4
+6         17 10962 4608.66 0.204314  58.6
+7         18 10743 4787.62 0.262727  58.6
+8         19 11878 4864.22 0.200071  58.6
+9         20  9867 4479.41 0.144810  58.6
+10        22 11876 4353.14 0.291029 142.0
+  row.names area    peri    shape  perm
+1         6 7979 4010.15 0.167045  17.1
+2         7 9333 4345.75 0.189651  17.1
+3         8 8209 4344.75 0.164127  17.1
+4        11 9364 4480.05 0.150944 119.0
+5        20 9867 4479.41 0.144810  58.6
+[1] "Removing rockdata\n"
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbListFields.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+[1] "pk" "v1" "v2"
+PASS: 3 fields returned
+[1] "pid"  "name"
+PASS: 2 fields returned
+Removing "AA"
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbTransactionTests.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+begin transaction in con1
+create table rockdata in con1
+PASS rockdata is visible through con1
+PASS rockdata is invisible through con2
+commit in con1
+PASS rockdata is visible through con2
+remove the table from con1
+PASS rockdata is invisible through con2
+begin transaction in con1
+create table rockdata in con1
+PASS rockdata is visible through con1
+RollBack con1
+PASS rockdata is invisible through con1
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbWriteTableFailTest.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+create incompatible table rockdata
+write table to rockdata with append=TRUE
+Error in postgresqlpqExec(new.con, sql4) : 
+  RS-DBI driver: (could not Retrieve the result : ERROR:  column "row.names" of relation "rockdata" does not exist
+)
+write table to rockdata
+[1] FALSE
+PASS as the return value is false
+data frame with 0 columns and 0 rows
+[1] "Removing rockdata\n"
+[1] TRUE
+Warning message:
+In postgresqlWriteTable(conn, name, value, ...) :
+  table rockdata exists in database: aborting assignTable
+
+==== 'R --slave RPostgreSQL/tests/dbWriteTableSchema.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+   row.names area    peri     shape  perm
+1          1 4990 2791.90 0.0903296   6.3
+2          2 7002 3892.60 0.1486220   6.3
+3          3 7558 3930.66 0.1833120   6.3
+4          4 7352 3869.32 0.1170630   6.3
+5          5 7943 3948.54 0.1224170  17.1
+6          6 7979 4010.15 0.1670450  17.1
+7          7 9333 4345.75 0.1896510  17.1
+8          8 8209 4344.75 0.1641270  17.1
+9          9 8393 3682.04 0.2036540 119.0
+10        10 6425 3098.65 0.1623940 119.0
+[1] "Removing rockdata\n"
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbWriteTableTest.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+  row.names area    peri     shape perm
+1         1 4990 2791.90 0.0903296  6.3
+2         2 7002 3892.60 0.1486220  6.3
+3         3 7558 3930.66 0.1833120  6.3
+4         4 7352 3869.32 0.1170630  6.3
+5         5 7943 3948.54 0.1224170 17.1
+   row.names area    peri     shape  perm
+1          1 4990 2791.90 0.0903296   6.3
+2          2 7002 3892.60 0.1486220   6.3
+3          3 7558 3930.66 0.1833120   6.3
+4          4 7352 3869.32 0.1170630   6.3
+5          5 7943 3948.54 0.1224170  17.1
+6          6 7979 4010.15 0.1670450  17.1
+7          7 9333 4345.75 0.1896510  17.1
+8          8 8209 4344.75 0.1641270  17.1
+9          9 8393 3682.04 0.2036540 119.0
+10        10 6425 3098.65 0.1623940 119.0
+[1] "Removing rockdata\n"
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/dbWriteTabletypes.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+  row.names            strings
+1         1             normal
+2         2              t\tab
+3         3     v\vertical tab
+4         4          n\newline
+5         5 r carriage \retern
+6         6      back \\ slash
+7         7        f\form feed
+[1] "Removing rockdata\n"
+1 	normal
+2 	müß
+[1] "Removing rockdata\n"
+PASS:  could write small umlaut u and ligature sz
+1 	normal
+2 	kanji漢字
+[1] "Removing rockdata\n"
+PASS:  could write kanji
+Read Numeric values
+PASS -- all integer is as expected
+PASS integer value is preservedGOOD -- all numeric values are as expected
+Read Logical values
+GOOD -- all logical types are as expected
+GOOD -- all logical values are as expected
+Read Character values
+GOOD -- all character types are as expected
+GOOD -- all character values are as expected
+Check that read after write gets the same data types
+PASS -- Date type is as expected
+PASS -- TIMESTAMP is received as POSIXct
+DONE
+
+==== 'R --slave RPostgreSQL/tests/dbtemptable.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+  name
+1  bar
+PASS -- ended without segmentation fault
+
+==== 'R --slave RPostgreSQL/tests/escape.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+[1] "aaa"
+[1] "aa''a"
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/loadDriverAndConnect.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+    datname encoding datallowconn
+1 template0        6        FALSE
+2 template1        6         TRUE
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/openSendQuery.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+create temp table tmptest with dbGetQuery
+data frame with 0 columns and 0 rows
+create temp table tmptest with dbSendQuery
+data frame with 0 columns and 0 rows
+PASS tmptest disappeared after disconnection
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/selectWhereZero.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+Error in postgresqlExecStatement(conn, statement, ...) : 
+  RS-DBI driver: (could not Retrieve the result : ERROR:  operator does not exist: text = integer
+LINE 1: select * from tmpirisdata where "Species"=0
+                                                 ^
+HINT:  No operator matches the given name and argument type(s). You might need to add explicit type casts.
+)
+NULL
+[1] "Removing tmpirisdata\n"
+PASS:  reached to the end of the test code without segmentation fault
+Warning message:
+In postgresqlQuickSQL(conn, statement, ...) :
+  Could not create executeselect * from tmpirisdata where "Species"=0
+
+==== 'R --slave RPostgreSQL/tests/selectWithAlias.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+     ar      pe        sh    pr
+1  4990 2791.90 0.0903296   6.3
+2  7002 3892.60 0.1486220   6.3
+3  7558 3930.66 0.1833120   6.3
+4  7352 3869.32 0.1170630   6.3
+5  7943 3948.54 0.1224170  17.1
+6  7979 4010.15 0.1670450  17.1
+7  9333 4345.75 0.1896510  17.1
+8  8209 4344.75 0.1641270  17.1
+9  8393 3682.04 0.2036540 119.0
+10 6425 3098.65 0.1623940 119.0
+[1] "Removing rockdata\n"
+[1] TRUE
+
+==== 'R --slave RPostgreSQL/tests/unknowntype.R'
+Loading required package: RPostgreSQL
+Loading required package: DBI
+<PostgreSQLResult:(11485,0,4)> 
+  name    Sclass    type len precision scale nullOK
+1   ra character UNKNOWN  -1        -1    -1   TRUE
+data frame with 0 columns and 0 rows
+[1] "Removing tmpirisdata\n"
+PASS:  reached to the end of the test code without segmentation fault
+Warning message:
+In postgresqlDescribeFields(res, ...) :
+  RS-DBI driver warning: (unknown (1021))
+ 
+Done
+MBP:rpostgresql nt$
+
+On Oct 27, 2013, at 6:58 AM, NISHIYAMA Tomoaki <tomoakin-QrOEW2jzYOtREKJilJ1G/KYATziBogYQ at public.gmane.orgc.jp> wrote:
+
+> Hi Neil,
+> 
+> I got the message that RPostgreSQL doesn't compile on OS X 10.9.
+> Thereafter, I updated the only machine running 10.8 to 10.9 and 
+> made it work on 10.9 (r353). Thus, I cannot test whether this still 
+> works on 10.8.  
+> Can you check the r253 on OS X systems?
+> 
+> Kind regards,
+> -- 
+> Tomoaki NISHIYAMA
+> 
+> Advanced Science Research Center,
+> Kanazawa University,
+> 13-1 Takara-machi, 
+> Kanazawa, 920-0934, Japan
+> 
+> 
+> Begin forwarded message:
+> 
+>> From: Prof Brian Ripley <ripley-+7o2aNKnwVPQzY9nttDBhA at public.gmane.org>
+>> To: Tomoaki Nishiyama <tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org>
+>> Cc: CRAN <CRAN-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org>
+>> Subject: RPostgreSQL on OS X 10.9
+>> 
+>> On 10.9 (but not 10.8) this fails with
+>> 
+>> clang -mtune=native -I/Users/ripley/R/R-devel/include -DNDEBUG -I -I/usr/local/include    -fPIC  -g -O2 -Wall -pedantic -Wconversion -Wno-sign-conversion  -c RS-PQescape.c -o RS-PQescape.o
+>> In file included from RS-PQescape.c:7:
+>> ./RS-PostgreSQL.h:23:14: fatal error: 'libpq-fe.h' file not found
+>> #    include "libpq-fe.h"
+>>             ^
+>> 1 error generated.
+>> 
+>> The problem is the '-I', which is generated by your configure script: you need to set PG_INCDIR=libpq before you start searching so the local copy can be used.
+>> 
+>> In 10.8, there is a /usr/include/libpq-fe.h, but system headers are located in SDK-specific directories in 10.9.
+>> 
+>> Please submit a corrected update.
+>> 
+>> -- 
+>> Brian D. Ripley,                  ripley-+7o2aNKnwVPQzY9nttDBhA at public.gmane.org
+>> Professor of Applied Statistics,  http://www.stats.ox.ac.uk/~ripley/
+>> University of Oxford,             Tel:  +44 1865 272861 (self)
+>> 1 South Parks Road,                     +44 1865 272866 (PA)
+>> Oxford OX1 3TG, UK                Fax:  +44 1865 272595
+> 
+> 
+> -- 
+> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/groups/opt_out.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From peter-b4UGdxiYZY1BDgjK7y7TUQ at public.gmane.org  Wed Oct 30 21:49:33 2013
+From: peter-b4UGdxiYZY1BDgjK7y7TUQ at public.gmane.org (Peter)
+Date: Wed, 30 Oct 2013 21:49:33 +0000
+Subject: Re: Passing bound arguments into a query
+References: <97c1671d-e007-4e54-8ce5-68df3e9f8333@dh10g2000vbb.googlegroups.com> <C5BE5BED-C85A-4B81-A448-187BF56F2CFF@gmail.com> <74a7c706-349b-431e-9872-0f41486f4b74@k17g2000yqp.googlegroups.com> <503E50EB.80505@joeconway.com> <b70ec491-2b24-4ec5-83cc-72f54031dcc3@s2g2000vbj.googlegroups.com> <5D825078-D131-4A47-80FD-1B1DA21484DB@staff.kanazawa-u.ac.jp>
+Message-ID: <loom.20131030T223835-293@post.gmane.org>
+
+
+Hi,
+
+I similarly am bridging R and psql, wish to remove vulnerability to sql 
+injection.  Looking at documentation, I had hoped that:
+
+postgresqlExecStatement(con, statement, params, ...)
+
+Would allow use of something like:
+
+postgresqlExecStatement(con, "DELETE FROM ? WHERE id = ?", c("foo_bar", 1))
+
+But unfortunately this does not seem to work.  Maybe I'm using the wrong 
+symbol for parameter (something other than ?).
+
+Best compromise I've found is escaping strings via:
+
+postgresqlEscapeStrings(con, string)
+
+connection is necessary so function can know how to properly escape.
+
+Means I have to escape every string I use in a paste when putting together 
+my queries.  Not so elegant.  But seems best option.  Anyone have other 
+ideas?
+
+Thanks,
+PGS 
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+From tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org  Thu Oct 31 01:54:48 2013
+From: tomoakin-QrOEW2jzYOtREKJilJ1G/Oga9YzINl48 at public.gmane.org (NISHIYAMA Tomoaki)
+Date: Thu, 31 Oct 2013 10:54:48 +0900
+Subject: Re: Passing bound arguments into a query
+In-Reply-To: <loom.20131030T223835-293@post.gmane.org>
+References: <97c1671d-e007-4e54-8ce5-68df3e9f8333@dh10g2000vbb.googlegroups.com> <C5BE5BED-C85A-4B81-A448-187BF56F2CFF@gmail.com> <74a7c706-349b-431e-9872-0f41486f4b74@k17g2000yqp.googlegroups.com> <503E50EB.80505@joeconway.com> <b70ec491-2b24-4ec5-83cc-72f54031dcc3@s2g2000vbj.googlegroups.com> <5D825078-D131-4A47-80FD-1B1DA21484DB@staff.kanazawa-u.ac.jp> <loom.20131030T223835-293@post.gmane.org>
+Message-ID: <E755BE94-1798-4AFF-AC8C-68CA11EDB41B@staff.kanazawa-u.ac.jp>
+
+Hi,
+
+PostgreSQL uses $1, $2, $3, ... for the parameter.
+
+> postgresqlExecStatement(con, "DELETE FROM ? WHERE id = ?", c("foo_bar", 1))
+
+
+You might try:
+postgresqlExecStatement(con, "DELETE FROM $1 WHERE id = $2", c("foo_bar", 1))
+
+Best regards,
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2013/10/31, at 6:49, Peter wrote:
+
+> 
+> Hi,
+> 
+> I similarly am bridging R and psql, wish to remove vulnerability to sql 
+> injection.  Looking at documentation, I had hoped that:
+> 
+> postgresqlExecStatement(con, statement, params, ...)
+> 
+> Would allow use of something like:
+> 
+> postgresqlExecStatement(con, "DELETE FROM ? WHERE id = ?", c("foo_bar", 1))
+> 
+> But unfortunately this does not seem to work.  Maybe I'm using the wrong 
+> symbol for parameter (something other than ?).
+> 
+> Best compromise I've found is escaping strings via:
+> 
+> postgresqlEscapeStrings(con, string)
+> 
+> connection is necessary so function can know how to properly escape.
+> 
+> Means I have to escape every string I use in a paste when putting together 
+> my queries.  Not so elegant.  But seems best option.  Anyone have other 
+> ideas?
+> 
+> Thanks,
+> PGS 
+> 
+> -- 
+> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/groups/opt_out.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+

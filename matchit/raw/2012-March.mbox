@@ -1,0 +1,841 @@
+From john.bullock-LrD5EImo2rg at public.gmane.org  Thu Mar 15 16:48:01 2012
+From: john.bullock-LrD5EImo2rg at public.gmane.org (John G. Bullock)
+Date: Thu, 15 Mar 2012 12:48:01 -0400
+Subject: matchit() silently adds a propensity score to X when method=='genetic'
+Message-ID: <4F621D41.7000600@yale.edu>
+
+
+Hello,
+
+     I am writing on behalf of myself and Rocío Titiunik.
+
+     As we see it, matchit() serves as a front end to GenMatch() 
+when method=='genetic'.  So it should be possible to get the same 
+results from both the MatchIt and Matching packages.  But this 
+proves difficult.  Discrepancies seem to occur because matchit() 
+silently adds a column of propensity scores to the X matrix that it 
+passes to GenMatch().  I'm appending some code that we developed to 
+demonstrate this point.
+
+     The benefits (in most cases) of adding a propensity score are 
+clear, but it seems problematic that this addition occurs without 
+any notification.  For example, a user of MatchIt may claim to have 
+matched on a set of predictors, unaware that he has also matched on 
+the propensity score.  Or, if a user thinks that he has matched on 
+one propensity score (because he included it in X when calling 
+matchit()), he will be unaware that he has also matched on a second, 
+matchit()-generated propensity score that is based on the first 
+propensity score.  In either case, he will be also be unable to 
+replicate his MatchIt results with Matching or vice versa, even 
+though MatchIt is supposed to be a wrapper for Matching.  And 
+third-party readers of code that includes a call to matchit() will 
+likely have no idea that a propensity score has been added.
+
+     We can't see any explicit mention of this 
+propensity-score-adding feature in the MatchIt manual.  To promote 
+future replication efforts, can a line be added to the MatchIt 
+manual about the addition of a propensity score to X?  Or can a note 
+be added to matchit() output whenever method=='genetic' is used?
+
+Thank you,
+John Bullock
+###
+
+
+library(Matching)
+library(MatchIt)
+data(lalonde)
+X <- with(lalonde, cbind(age, educ, black, hispan, married, 
+nodegree, re74, re75))
+
+# GET ESTIMATE FROM MATCHIT()
+set.seed(5678)
+m.out1 <- matchit(treat ~ X, data=lalonde, method='genetic', 
+estimand='ATT', ties=TRUE, print.level=1,
+                        pop.size=150, wait.generations=1, 
+max.generations=10, hard.generation.limit=TRUE,
+                        unif.seed=1945, int.seed=1906)
+
+# Create a vector of "parameters at the solution" reported by matchit().
+# Behind the scenes, these weights have been produced by GenMatch().
+weights <- c(8.121767e+02, 7.735192e+02, 5.938936e+02, 4.079661e+02, 
+3.665018e+02, 1.361011e+02,
+                  9.644896e+02, 6.083636e+02,  2.346772e+00)
+
+ATT.MatchIt <- with(match.data(m.out1), 
+weighted.mean(re78[treat==1], weights[treat==1])) -
+                with(match.data(m.out1), 
+weighted.mean(re78[treat==0], weights[treat==0]))
+print(ATT.MatchIt)  # 939.2
+
+
+# GET ESTIMATE FROM MATCH()
+# The Match() estimate is -952.3 -- very different.
+Match(Y=lalonde$re78, Tr=lalonde$treat, X=X, estimand="ATT", 
+Weight.matrix=diag(weights), ties=TRUE)$est
+
+
+# NOTE DISCREPANCY BETWEEN ncol(X) AND length(weights)
+# There are only 8 variables in X, so why is matchit() producing 
+weights for nine variables?
+ncol(X)          # 8
+length(weights)  # 9
+
+
+# ADD PROPENSITY SCORE TO X AND RE-ESTIMATE WITH MATCH()
+glm1 <- glm(treat ~ 
+age+educ+black+hispan+married+nodegree+re74+re75, family=binomial, 
+data=lalonde)
+X2 <- with(lalonde, cbind(age, educ, black, hispan, married, 
+nodegree, re74, re75))
+X2 <- cbind(glm1$fitted, X2)
+
+Match(Y=lalonde$re78, Tr=lalonde$treat, X=X2, estimand="ATT", 
+Weight.matrix=diag(weights), ties=TRUE)$est  # 939.2
+
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit at lists.gking.harvard.edu
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit at lists.gking.harvard.edu
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org  Fri Mar 16 13:43:46 2012
+From: king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org (Gary King)
+Date: Fri, 16 Mar 2012 09:43:46 -0400
+Subject: Re: matchit() silently adds a propensity score to X when method=='genetic'
+In-Reply-To: <4F621D41.7000600-LrD5EImo2rg@public.gmane.org>
+References: <4F621D41.7000600@yale.edu>
+Message-ID: <CANHDHZxeLsFqPp5PFcHxX4JAzfFNz0-kw9tesdtorOH_nExtvA@mail.gmail.com>
+
+Thanks John and Rocío, Good catch, we'll include it in the manual.  FYI, as
+I recall when we wrote matchit, we added the propensity score to genmatch
+because genmatch didn't seem to reduce balance without it.  that's odd
+because genmatch already attempts to optimize an arbitrary function of all
+the variables in the pscore, and so if its doing what its advertising
+adding yet another function of the same variables shouldn't do anything.
+But you never know what happens in such a complicated optimization problem,
+and the pscore often helped it do a bit better and so we included it.
+Gary
+--
+*Gary King* - Albert J. Weatherhead III University Professor - Director,
+IQSS - Harvard University
+GKing.Harvard.edu <http://gking.harvard.edu/> - King-vbSkjhsARtCVc3sceRu5cw at public.gmane.org -
+@kinggary<http://twitter.com/kinggary>-
+617-500-7570 - Asst 495-9271 - Fax 812-8581
+
+
+
+2012/3/15 John G. Bullock <john.bullock-LrD5EImo2rg at public.gmane.org>
+
+>
+> Hello,
+>
+>    I am writing on behalf of myself and Rocío Titiunik.
+>
+>    As we see it, matchit() serves as a front end to GenMatch() when
+> method=='genetic'.  So it should be possible to get the same results from
+> both the MatchIt and Matching packages.  But this proves difficult.
+>  Discrepancies seem to occur because matchit() silently adds a column of
+> propensity scores to the X matrix that it passes to GenMatch().  I'm
+> appending some code that we developed to demonstrate this point.
+>
+>    The benefits (in most cases) of adding a propensity score are clear,
+> but it seems problematic that this addition occurs without any
+> notification.  For example, a user of MatchIt may claim to have matched on
+> a set of predictors, unaware that he has also matched on the propensity
+> score.  Or, if a user thinks that he has matched on one propensity score
+> (because he included it in X when calling matchit()), he will be unaware
+> that he has also matched on a second, matchit()-generated propensity score
+> that is based on the first propensity score.  In either case, he will be
+> also be unable to replicate his MatchIt results with Matching or vice
+> versa, even though MatchIt is supposed to be a wrapper for Matching.  And
+> third-party readers of code that includes a call to matchit() will likely
+> have no idea that a propensity score has been added.
+>
+>    We can't see any explicit mention of this propensity-score-adding
+> feature in the MatchIt manual.  To promote future replication efforts, can
+> a line be added to the MatchIt manual about the addition of a propensity
+> score to X?  Or can a note be added to matchit() output whenever
+> method=='genetic' is used?
+>
+> Thank you,
+> John Bullock
+> ###
+>
+>
+> library(Matching)
+> library(MatchIt)
+> data(lalonde)
+> X <- with(lalonde, cbind(age, educ, black, hispan, married, nodegree,
+> re74, re75))
+>
+> # GET ESTIMATE FROM MATCHIT()
+> set.seed(5678)
+> m.out1 <- matchit(treat ~ X, data=lalonde, method='genetic',
+> estimand='ATT', ties=TRUE, print.level=1,
+>                       pop.size=150, wait.generations=1,
+> max.generations=10, hard.generation.limit=TRUE,
+>                       unif.seed=1945, int.seed=1906)
+>
+> # Create a vector of "parameters at the solution" reported by matchit().
+> # Behind the scenes, these weights have been produced by GenMatch().
+> weights <- c(8.121767e+02, 7.735192e+02, 5.938936e+02, 4.079661e+02,
+> 3.665018e+02, 1.361011e+02,
+>                 9.644896e+02, 6.083636e+02,  2.346772e+00)
+>
+> ATT.MatchIt <- with(match.data(m.out1), weighted.mean(re78[treat==1],
+> weights[treat==1])) -
+>               with(match.data(m.out1), weighted.mean(re78[treat==0],
+> weights[treat==0]))
+> print(ATT.MatchIt)  # 939.2
+>
+>
+> # GET ESTIMATE FROM MATCH()
+> # The Match() estimate is -952.3 -- very different.
+> Match(Y=lalonde$re78, Tr=lalonde$treat, X=X, estimand="ATT",
+> Weight.matrix=diag(weights), ties=TRUE)$est
+>
+>
+> # NOTE DISCREPANCY BETWEEN ncol(X) AND length(weights)
+> # There are only 8 variables in X, so why is matchit() producing weights
+> for nine variables?
+> ncol(X)          # 8
+> length(weights)  # 9
+>
+>
+> # ADD PROPENSITY SCORE TO X AND RE-ESTIMATE WITH MATCH()
+> glm1 <- glm(treat ~ age+educ+black+hispan+married+**nodegree+re74+re75,
+> family=binomial, data=lalonde)
+> X2 <- with(lalonde, cbind(age, educ, black, hispan, married, nodegree,
+> re74, re75))
+> X2 <- cbind(glm1$fitted, X2)
+>
+> Match(Y=lalonde$re78, Tr=lalonde$treat, X=X2, estimand="ATT",
+> Weight.matrix=diag(weights), ties=TRUE)$est  # 939.2
+>
+> -
+> ---
+> MatchIt mailing list served by HUIT
+> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rCuum4BDzsCr at public.gmane.org**edu<matchit-boHuZhbfW+Y6DHxCPSz5rPd9D2ou9A/h at public.gmane.orgrd.edu>
+> Subscribe/Unsubscribe: http://lists.gking.harvard.**
+> edu/mailman/listinfo/ei<http://lists.gking.harvard.edu/mailman/listinfo/ei>
+> MatchIt Software and Documentation: http://gking.harvard.edu/**matchit/<http://gking.harvard.edu/matchit/>
+> Browse/Search List Archive: http://lists.gking.harvard.**
+> edu/mailman/private/matchit/<http://lists.gking.harvard.edu/mailman/private/matchit/>
+> Matchit mailing list
+> Matchit-boHuZhbfW+Y6DHxCPSz5rCuum4BDzsCr at public.gmane.org**edu <Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+> https://lists.gking.harvard.**edu/mailman/listinfo/matchit<https://lists.gking.harvard.edu/mailman/listinfo/matchit>
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From titiunik-63aXycvo3TyHXe+LvDLADg at public.gmane.org  Fri Mar 16 17:24:33 2012
+From: titiunik-63aXycvo3TyHXe+LvDLADg at public.gmane.org (Rocio Titiunik)
+Date: Fri, 16 Mar 2012 13:24:33 -0400
+Subject: Re: matchit() silently adds a propensity score to X when method=='genetic'
+In-Reply-To: <CANHDHZxeLsFqPp5PFcHxX4JAzfFNz0-kw9tesdtorOH_nExtvA@mail.gmail.com>
+References: <4F621D41.7000600@yale.edu> <CANHDHZxeLsFqPp5PFcHxX4JAzfFNz0-kw9tesdtorOH_nExtvA@mail.gmail.com>
+Message-ID: <CAKhG73z=CJeB9=6c85jppcy_WH6tpBGa1j-E-LSZF_cPE5_Z5A@mail.gmail.com>
+
+Thanks for your reply Gary.
+
+Adding a propensity score to GenMatch is usually a good idea in
+applications, and indeed it's recommended in Diamond and Sekhon
+(2012). But we were concerned about replicability, because we thought
+there was an error in our code when we couldn't replicate the matchit
+results using GenMatch directly.
+
+To continue the conversation, whether GenMatch finds or does not find
+balance does not depend on whether one adds a propensity score to the
+matching matrix. If simple matching on the propensity score leads to
+perfect balance, then GenMatch will give the propensity score maximum
+weight and will give zero weight to the rest of the components of the
+matching matrix. In these cases, if one fails to include the
+propensity score, GenMatch will still find the same solution, but it
+will take longer than if the propensity score had been included. But
+the opposite can also happen: if matching on the propensity score does
+not improve balance at all, GenMatch will eventually figure this out
+and assign zero weight to it, but it will take longer to find balance
+than if the propensity score had not been included in the first place.
+In other words, the Rosenbaum and Rubin theorem holds for the true
+propensity score. Matching on a badly misspecified propensity score
+will not improve balance, and in these cases including it in GenMatch
+will slow the balance-finding process.
+
+
+Rocío
+-- 
+Rocío Titiunik
+Assistant Professor
+Department of Political Science
+University of Michigan
+http://www.umich.edu/~titiunik/
+
+
+
+On Fri, Mar 16, 2012 at 9:43 AM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:
+> Thanks John and Rocío, Good catch, we'll include it in the manual.  FYI, as
+> I recall when we wrote matchit, we added the propensity score to genmatch
+> because genmatch didn't seem to reduce balance without it.  that's odd
+> because genmatch already attempts to optimize an arbitrary function of all
+> the variables in the pscore, and so if its doing what its advertising adding
+> yet another function of the same variables shouldn't do anything. But you
+> never know what happens in such a complicated optimization problem, and the
+> pscore often helped it do a bit better and so we included it.
+> Gary
+> --
+> Gary King - Albert J. Weatherhead III University Professor - Director, IQSS
+> - Harvard University
+> GKing.Harvard.edu - King-vbSkjhsARtCVc3sceRu5cw at public.gmane.org - @kinggary - 617-500-7570 - Asst
+> 495-9271 - Fax 812-8581
+>
+>
+>
+> 2012/3/15 John G. Bullock <john.bullock-LrD5EImo2rg at public.gmane.org>
+>>
+>>
+>> Hello,
+>>
+>>    I am writing on behalf of myself and Rocío Titiunik.
+>>
+>>    As we see it, matchit() serves as a front end to GenMatch() when
+>> method=='genetic'.  So it should be possible to get the same results from
+>> both the MatchIt and Matching packages.  But this proves difficult.
+>>  Discrepancies seem to occur because matchit() silently adds a column of
+>> propensity scores to the X matrix that it passes to GenMatch().  I'm
+>> appending some code that we developed to demonstrate this point.
+>>
+>>    The benefits (in most cases) of adding a propensity score are clear,
+>> but it seems problematic that this addition occurs without any notification.
+>>  For example, a user of MatchIt may claim to have matched on a set of
+>> predictors, unaware that he has also matched on the propensity score.  Or,
+>> if a user thinks that he has matched on one propensity score (because he
+>> included it in X when calling matchit()), he will be unaware that he has
+>> also matched on a second, matchit()-generated propensity score that is based
+>> on the first propensity score.  In either case, he will be also be unable to
+>> replicate his MatchIt results with Matching or vice versa, even though
+>> MatchIt is supposed to be a wrapper for Matching.  And third-party readers
+>> of code that includes a call to matchit() will likely have no idea that a
+>> propensity score has been added.
+>>
+>>    We can't see any explicit mention of this propensity-score-adding
+>> feature in the MatchIt manual.  To promote future replication efforts, can a
+>> line be added to the MatchIt manual about the addition of a propensity score
+>> to X?  Or can a note be added to matchit() output whenever method=='genetic'
+>> is used?
+>>
+>> Thank you,
+>> John Bullock
+>> ###
+>>
+>>
+>> library(Matching)
+>> library(MatchIt)
+>> data(lalonde)
+>> X <- with(lalonde, cbind(age, educ, black, hispan, married, nodegree,
+>> re74, re75))
+>>
+>> # GET ESTIMATE FROM MATCHIT()
+>> set.seed(5678)
+>> m.out1 <- matchit(treat ~ X, data=lalonde, method='genetic',
+>> estimand='ATT', ties=TRUE, print.level=1,
+>>                       pop.size=150, wait.generations=1,
+>> max.generations=10, hard.generation.limit=TRUE,
+>>                       unif.seed=1945, int.seed=1906)
+>>
+>> # Create a vector of "parameters at the solution" reported by matchit().
+>> # Behind the scenes, these weights have been produced by GenMatch().
+>> weights <- c(8.121767e+02, 7.735192e+02, 5.938936e+02, 4.079661e+02,
+>> 3.665018e+02, 1.361011e+02,
+>>                 9.644896e+02, 6.083636e+02,  2.346772e+00)
+>>
+>> ATT.MatchIt <- with(match.data(m.out1), weighted.mean(re78[treat==1],
+>> weights[treat==1])) -
+>>               with(match.data(m.out1), weighted.mean(re78[treat==0],
+>> weights[treat==0]))
+>> print(ATT.MatchIt)  # 939.2
+>>
+>>
+>> # GET ESTIMATE FROM MATCH()
+>> # The Match() estimate is -952.3 -- very different.
+>> Match(Y=lalonde$re78, Tr=lalonde$treat, X=X, estimand="ATT",
+>> Weight.matrix=diag(weights), ties=TRUE)$est
+>>
+>>
+>> # NOTE DISCREPANCY BETWEEN ncol(X) AND length(weights)
+>> # There are only 8 variables in X, so why is matchit() producing weights
+>> for nine variables?
+>> ncol(X)          # 8
+>> length(weights)  # 9
+>>
+>>
+>> # ADD PROPENSITY SCORE TO X AND RE-ESTIMATE WITH MATCH()
+>> glm1 <- glm(treat ~ age+educ+black+hispan+married+nodegree+re74+re75,
+>> family=binomial, data=lalonde)
+>> X2 <- with(lalonde, cbind(age, educ, black, hispan, married, nodegree,
+>> re74, re75))
+>> X2 <- cbind(glm1$fitted, X2)
+>>
+>> Match(Y=lalonde$re78, Tr=lalonde$treat, X=X2, estimand="ATT",
+>> Weight.matrix=diag(weights), ties=TRUE)$est  # 939.2
+>>
+>> -
+>> ---
+>> MatchIt mailing list served by HUIT
+>> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+>> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+>> Browse/Search List Archive:
+>> http://lists.gking.harvard.edu/mailman/private/matchit/
+>> Matchit mailing list
+>> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+>
+>
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org  Sat Mar 17 01:54:08 2012
+From: king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org (Gary King)
+Date: Fri, 16 Mar 2012 21:54:08 -0400
+Subject: Re: matchit() silently adds a propensity score to X when method=='genetic'
+In-Reply-To: <CAKhG73z=CJeB9=6c85jppcy_WH6tpBGa1j-E-LSZF_cPE5_Z5A@mail.gmail.com>
+References: <4F621D41.7000600@yale.edu> <CANHDHZxeLsFqPp5PFcHxX4JAzfFNz0-kw9tesdtorOH_nExtvA@mail.gmail.com> <CAKhG73z=CJeB9=6c85jppcy_WH6tpBGa1j-E-LSZF_cPE5_Z5A@mail.gmail.com>
+Message-ID: <CANHDHZzXDCyzgq4csPcu8me+9TgboeEy7qGjJHqrO31FzhuTuA@mail.gmail.com>
+
+sounds like GenMatch has improved since I tried it last.  that's great.
+ it's a good idea.   thanks, we'll fix the manual.
+Gary
+--
+*Gary King* - Albert J. Weatherhead III University Professor - Director,
+IQSS - Harvard University
+GKing.Harvard.edu <http://gking.harvard.edu/> - King-vbSkjhsARtCVc3sceRu5cw at public.gmane.org -
+@kinggary<http://twitter.com/kinggary>- 617-500-7570 - Asst 495-9271 -
+Fax 812-8581
+
+
+
+On Fri, Mar 16, 2012 at 1:24 PM, Rocio Titiunik <titiunik-63aXycvo3TyHXe+LvDLADg at public.gmane.org> wrote:
+
+> Thanks for your reply Gary.
+>
+> Adding a propensity score to GenMatch is usually a good idea in
+> applications, and indeed it's recommended in Diamond and Sekhon
+> (2012). But we were concerned about replicability, because we thought
+> there was an error in our code when we couldn't replicate the matchit
+> results using GenMatch directly.
+>
+> To continue the conversation, whether GenMatch finds or does not find
+> balance does not depend on whether one adds a propensity score to the
+> matching matrix. If simple matching on the propensity score leads to
+> perfect balance, then GenMatch will give the propensity score maximum
+> weight and will give zero weight to the rest of the components of the
+> matching matrix. In these cases, if one fails to include the
+> propensity score, GenMatch will still find the same solution, but it
+> will take longer than if the propensity score had been included. But
+> the opposite can also happen: if matching on the propensity score does
+> not improve balance at all, GenMatch will eventually figure this out
+> and assign zero weight to it, but it will take longer to find balance
+> than if the propensity score had not been included in the first place.
+> In other words, the Rosenbaum and Rubin theorem holds for the true
+> propensity score. Matching on a badly misspecified propensity score
+> will not improve balance, and in these cases including it in GenMatch
+> will slow the balance-finding process.
+>
+>
+> Rocío
+> --
+> Rocío Titiunik
+> Assistant Professor
+> Department of Political Science
+> University of Michigan
+> http://www.umich.edu/~titiunik/
+>
+>
+>
+> On Fri, Mar 16, 2012 at 9:43 AM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:
+> > Thanks John and Rocío, Good catch, we'll include it in the manual.  FYI,
+> as
+> > I recall when we wrote matchit, we added the propensity score to genmatch
+> > because genmatch didn't seem to reduce balance without it.  that's odd
+> > because genmatch already attempts to optimize an arbitrary function of
+> all
+> > the variables in the pscore, and so if its doing what its advertising
+> adding
+> > yet another function of the same variables shouldn't do anything. But you
+> > never know what happens in such a complicated optimization problem, and
+> the
+> > pscore often helped it do a bit better and so we included it.
+> > Gary
+> > --
+> > Gary King - Albert J. Weatherhead III University Professor - Director,
+> IQSS
+> > - Harvard University
+> > GKing.Harvard.edu - King-vbSkjhsARtCVc3sceRu5cw at public.gmane.org - @kinggary - 617-500-7570 - Asst
+> > 495-9271 - Fax 812-8581
+> >
+> >
+> >
+> > 2012/3/15 John G. Bullock <john.bullock-LrD5EImo2rg at public.gmane.org>
+> >>
+> >>
+> >> Hello,
+> >>
+> >>    I am writing on behalf of myself and Rocío Titiunik.
+> >>
+> >>    As we see it, matchit() serves as a front end to GenMatch() when
+> >> method=='genetic'.  So it should be possible to get the same results
+> from
+> >> both the MatchIt and Matching packages.  But this proves difficult.
+> >>  Discrepancies seem to occur because matchit() silently adds a column of
+> >> propensity scores to the X matrix that it passes to GenMatch().  I'm
+> >> appending some code that we developed to demonstrate this point.
+> >>
+> >>    The benefits (in most cases) of adding a propensity score are clear,
+> >> but it seems problematic that this addition occurs without any
+> notification.
+> >>  For example, a user of MatchIt may claim to have matched on a set of
+> >> predictors, unaware that he has also matched on the propensity score.
+>  Or,
+> >> if a user thinks that he has matched on one propensity score (because he
+> >> included it in X when calling matchit()), he will be unaware that he has
+> >> also matched on a second, matchit()-generated propensity score that is
+> based
+> >> on the first propensity score.  In either case, he will be also be
+> unable to
+> >> replicate his MatchIt results with Matching or vice versa, even though
+> >> MatchIt is supposed to be a wrapper for Matching.  And third-party
+> readers
+> >> of code that includes a call to matchit() will likely have no idea that
+> a
+> >> propensity score has been added.
+> >>
+> >>    We can't see any explicit mention of this propensity-score-adding
+> >> feature in the MatchIt manual.  To promote future replication efforts,
+> can a
+> >> line be added to the MatchIt manual about the addition of a propensity
+> score
+> >> to X?  Or can a note be added to matchit() output whenever
+> method=='genetic'
+> >> is used?
+> >>
+> >> Thank you,
+> >> John Bullock
+> >> ###
+> >>
+> >>
+> >> library(Matching)
+> >> library(MatchIt)
+> >> data(lalonde)
+> >> X <- with(lalonde, cbind(age, educ, black, hispan, married, nodegree,
+> >> re74, re75))
+> >>
+> >> # GET ESTIMATE FROM MATCHIT()
+> >> set.seed(5678)
+> >> m.out1 <- matchit(treat ~ X, data=lalonde, method='genetic',
+> >> estimand='ATT', ties=TRUE, print.level=1,
+> >>                       pop.size=150, wait.generations=1,
+> >> max.generations=10, hard.generation.limit=TRUE,
+> >>                       unif.seed=1945, int.seed=1906)
+> >>
+> >> # Create a vector of "parameters at the solution" reported by matchit().
+> >> # Behind the scenes, these weights have been produced by GenMatch().
+> >> weights <- c(8.121767e+02, 7.735192e+02, 5.938936e+02, 4.079661e+02,
+> >> 3.665018e+02, 1.361011e+02,
+> >>                 9.644896e+02, 6.083636e+02,  2.346772e+00)
+> >>
+> >> ATT.MatchIt <- with(match.data(m.out1), weighted.mean(re78[treat==1],
+> >> weights[treat==1])) -
+> >>               with(match.data(m.out1), weighted.mean(re78[treat==0],
+> >> weights[treat==0]))
+> >> print(ATT.MatchIt)  # 939.2
+> >>
+> >>
+> >> # GET ESTIMATE FROM MATCH()
+> >> # The Match() estimate is -952.3 -- very different.
+> >> Match(Y=lalonde$re78, Tr=lalonde$treat, X=X, estimand="ATT",
+> >> Weight.matrix=diag(weights), ties=TRUE)$est
+> >>
+> >>
+> >> # NOTE DISCREPANCY BETWEEN ncol(X) AND length(weights)
+> >> # There are only 8 variables in X, so why is matchit() producing weights
+> >> for nine variables?
+> >> ncol(X)          # 8
+> >> length(weights)  # 9
+> >>
+> >>
+> >> # ADD PROPENSITY SCORE TO X AND RE-ESTIMATE WITH MATCH()
+> >> glm1 <- glm(treat ~ age+educ+black+hispan+married+nodegree+re74+re75,
+> >> family=binomial, data=lalonde)
+> >> X2 <- with(lalonde, cbind(age, educ, black, hispan, married, nodegree,
+> >> re74, re75))
+> >> X2 <- cbind(glm1$fitted, X2)
+> >>
+> >> Match(Y=lalonde$re78, Tr=lalonde$treat, X=X2, estimand="ATT",
+> >> Weight.matrix=diag(weights), ties=TRUE)$est  # 939.2
+> >>
+> >> -
+> >> ---
+> >> MatchIt mailing list served by HUIT
+> >> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> >> Subscribe/Unsubscribe:
+> http://lists.gking.harvard.edu/mailman/listinfo/ei
+> >> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> >> Browse/Search List Archive:
+> >> http://lists.gking.harvard.edu/mailman/private/matchit/
+> >> Matchit mailing list
+> >> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> >> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+> >
+> >
+>
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+
+From king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org  Sat Mar 17 14:13:55 2012
+From: king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org (Gary King)
+Date: Sat, 17 Mar 2012 10:13:55 -0400
+Subject: Re: matchit() silently adds a propensity score to X when method=='genetic'
+In-Reply-To: <CAKhG73z=CJeB9=6c85jppcy_WH6tpBGa1j-E-LSZF_cPE5_Z5A@mail.gmail.com>
+References: <4F621D41.7000600@yale.edu> <CANHDHZxeLsFqPp5PFcHxX4JAzfFNz0-kw9tesdtorOH_nExtvA@mail.gmail.com> <CAKhG73z=CJeB9=6c85jppcy_WH6tpBGa1j-E-LSZF_cPE5_Z5A@mail.gmail.com>
+Message-ID: <CANHDHZzj0h1C4WrirvYt4xwVYCBNm-ySYC7io8nJKOGNcZMqqg@mail.gmail.com>
+
+Hi Rocío & John, after a nudge from Kosuke, I have a question.  Did you run
+some type of simulation to come to the conclusion in your last paragraph,
+or can you describe the data sets where it worked?   Earlier versions of
+this method did not have the property you describe in example data sets we
+tried, it is usually easier and faster to produce better balance with other
+methods, and of course no theoretical result guarantees that the claims in
+your paragraph are general.  So it would be nice to know the types of data
+sets where it worked the way you describe.   If you can eventually figure
+out how to more formally characterize in what types of data it works as you
+describe, that might be very useful.
+Gary
+--
+*Gary King* - Albert J. Weatherhead III University Professor - Director,
+IQSS - Harvard University
+GKing.Harvard.edu <http://gking.harvard.edu/> - King-vbSkjhsARtCVc3sceRu5cw at public.gmane.org -
+@kinggary<http://twitter.com/kinggary>- 617-500-7570 - Asst 495-9271 -
+Fax 812-8581
+
+
+
+On Fri, Mar 16, 2012 at 1:24 PM, Rocio Titiunik <titiunik-63aXycvo3TyHXe+LvDLADg at public.gmane.org> wrote:
+
+> Thanks for your reply Gary.
+>
+> Adding a propensity score to GenMatch is usually a good idea in
+> applications, and indeed it's recommended in Diamond and Sekhon
+> (2012). But we were concerned about replicability, because we thought
+> there was an error in our code when we couldn't replicate the matchit
+> results using GenMatch directly.
+>
+> To continue the conversation, whether GenMatch finds or does not find
+> balance does not depend on whether one adds a propensity score to the
+> matching matrix. If simple matching on the propensity score leads to
+> perfect balance, then GenMatch will give the propensity score maximum
+> weight and will give zero weight to the rest of the components of the
+> matching matrix. In these cases, if one fails to include the
+> propensity score, GenMatch will still find the same solution, but it
+> will take longer than if the propensity score had been included. But
+> the opposite can also happen: if matching on the propensity score does
+> not improve balance at all, GenMatch will eventually figure this out
+> and assign zero weight to it, but it will take longer to find balance
+> than if the propensity score had not been included in the first place.
+> In other words, the Rosenbaum and Rubin theorem holds for the true
+> propensity score. Matching on a badly misspecified propensity score
+> will not improve balance, and in these cases including it in GenMatch
+> will slow the balance-finding process.
+>
+>
+> Rocío
+> --
+> Rocío Titiunik
+> Assistant Professor
+> Department of Political Science
+> University of Michigan
+> http://www.umich.edu/~titiunik/
+>
+>
+>
+> On Fri, Mar 16, 2012 at 9:43 AM, Gary King <king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org> wrote:
+> > Thanks John and Rocío, Good catch, we'll include it in the manual.  FYI,
+> as
+> > I recall when we wrote matchit, we added the propensity score to genmatch
+> > because genmatch didn't seem to reduce balance without it.  that's odd
+> > because genmatch already attempts to optimize an arbitrary function of
+> all
+> > the variables in the pscore, and so if its doing what its advertising
+> adding
+> > yet another function of the same variables shouldn't do anything. But you
+> > never know what happens in such a complicated optimization problem, and
+> the
+> > pscore often helped it do a bit better and so we included it.
+> > Gary
+> > --
+> > Gary King - Albert J. Weatherhead III University Professor - Director,
+> IQSS
+> > - Harvard University
+> > GKing.Harvard.edu - King-vbSkjhsARtCVc3sceRu5cw at public.gmane.org - @kinggary - 617-500-7570 - Asst
+> > 495-9271 - Fax 812-8581
+> >
+> >
+> >
+> > 2012/3/15 John G. Bullock <john.bullock-LrD5EImo2rg at public.gmane.org>
+> >>
+> >>
+> >> Hello,
+> >>
+> >>    I am writing on behalf of myself and Rocío Titiunik.
+> >>
+> >>    As we see it, matchit() serves as a front end to GenMatch() when
+> >> method=='genetic'.  So it should be possible to get the same results
+> from
+> >> both the MatchIt and Matching packages.  But this proves difficult.
+> >>  Discrepancies seem to occur because matchit() silently adds a column of
+> >> propensity scores to the X matrix that it passes to GenMatch().  I'm
+> >> appending some code that we developed to demonstrate this point.
+> >>
+> >>    The benefits (in most cases) of adding a propensity score are clear,
+> >> but it seems problematic that this addition occurs without any
+> notification.
+> >>  For example, a user of MatchIt may claim to have matched on a set of
+> >> predictors, unaware that he has also matched on the propensity score.
+>  Or,
+> >> if a user thinks that he has matched on one propensity score (because he
+> >> included it in X when calling matchit()), he will be unaware that he has
+> >> also matched on a second, matchit()-generated propensity score that is
+> based
+> >> on the first propensity score.  In either case, he will be also be
+> unable to
+> >> replicate his MatchIt results with Matching or vice versa, even though
+> >> MatchIt is supposed to be a wrapper for Matching.  And third-party
+> readers
+> >> of code that includes a call to matchit() will likely have no idea that
+> a
+> >> propensity score has been added.
+> >>
+> >>    We can't see any explicit mention of this propensity-score-adding
+> >> feature in the MatchIt manual.  To promote future replication efforts,
+> can a
+> >> line be added to the MatchIt manual about the addition of a propensity
+> score
+> >> to X?  Or can a note be added to matchit() output whenever
+> method=='genetic'
+> >> is used?
+> >>
+> >> Thank you,
+> >> John Bullock
+> >> ###
+> >>
+> >>
+> >> library(Matching)
+> >> library(MatchIt)
+> >> data(lalonde)
+> >> X <- with(lalonde, cbind(age, educ, black, hispan, married, nodegree,
+> >> re74, re75))
+> >>
+> >> # GET ESTIMATE FROM MATCHIT()
+> >> set.seed(5678)
+> >> m.out1 <- matchit(treat ~ X, data=lalonde, method='genetic',
+> >> estimand='ATT', ties=TRUE, print.level=1,
+> >>                       pop.size=150, wait.generations=1,
+> >> max.generations=10, hard.generation.limit=TRUE,
+> >>                       unif.seed=1945, int.seed=1906)
+> >>
+> >> # Create a vector of "parameters at the solution" reported by matchit().
+> >> # Behind the scenes, these weights have been produced by GenMatch().
+> >> weights <- c(8.121767e+02, 7.735192e+02, 5.938936e+02, 4.079661e+02,
+> >> 3.665018e+02, 1.361011e+02,
+> >>                 9.644896e+02, 6.083636e+02,  2.346772e+00)
+> >>
+> >> ATT.MatchIt <- with(match.data(m.out1), weighted.mean(re78[treat==1],
+> >> weights[treat==1])) -
+> >>               with(match.data(m.out1), weighted.mean(re78[treat==0],
+> >> weights[treat==0]))
+> >> print(ATT.MatchIt)  # 939.2
+> >>
+> >>
+> >> # GET ESTIMATE FROM MATCH()
+> >> # The Match() estimate is -952.3 -- very different.
+> >> Match(Y=lalonde$re78, Tr=lalonde$treat, X=X, estimand="ATT",
+> >> Weight.matrix=diag(weights), ties=TRUE)$est
+> >>
+> >>
+> >> # NOTE DISCREPANCY BETWEEN ncol(X) AND length(weights)
+> >> # There are only 8 variables in X, so why is matchit() producing weights
+> >> for nine variables?
+> >> ncol(X)          # 8
+> >> length(weights)  # 9
+> >>
+> >>
+> >> # ADD PROPENSITY SCORE TO X AND RE-ESTIMATE WITH MATCH()
+> >> glm1 <- glm(treat ~ age+educ+black+hispan+married+nodegree+re74+re75,
+> >> family=binomial, data=lalonde)
+> >> X2 <- with(lalonde, cbind(age, educ, black, hispan, married, nodegree,
+> >> re74, re75))
+> >> X2 <- cbind(glm1$fitted, X2)
+> >>
+> >> Match(Y=lalonde$re78, Tr=lalonde$treat, X=X2, estimand="ATT",
+> >> Weight.matrix=diag(weights), ties=TRUE)$est  # 939.2
+> >>
+> >> -
+> >> ---
+> >> MatchIt mailing list served by HUIT
+> >> List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> >> Subscribe/Unsubscribe:
+> http://lists.gking.harvard.edu/mailman/listinfo/ei
+> >> MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+> >> Browse/Search List Archive:
+> >> http://lists.gking.harvard.edu/mailman/private/matchit/
+> >> Matchit mailing list
+> >> Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> >> https://lists.gking.harvard.edu/mailman/listinfo/matchit
+> >
+> >
+>
+
+-------------- next part --------------
+-
+---
+MatchIt mailing list served by HUIT
+List Address: matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+Subscribe/Unsubscribe: http://lists.gking.harvard.edu/mailman/listinfo/ei
+MatchIt Software and Documentation: http://gking.harvard.edu/matchit/
+Browse/Search List Archive: http://lists.gking.harvard.edu/mailman/private/matchit/
+Matchit mailing list
+Matchit-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+https://lists.gking.harvard.edu/mailman/listinfo/matchit
+

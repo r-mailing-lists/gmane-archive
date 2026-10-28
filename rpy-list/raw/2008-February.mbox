@@ -1,0 +1,4923 @@
+From Thomas.Walter at embl.de  Thu Feb  7 19:27:59 2008
+From: Thomas.Walter at embl.de (Thomas Walter)
+Date: Thu, 07 Feb 2008 20:27:59 +0100
+Subject: [Rpy] Principal Component Analysis using rpy
+Message-ID: <47AB5BBF.80402@embl.de>
+
+Hi everybody!
+
+I am trying to use the R-function princomp (or prcomp, I tried both, but 
+I get the same error anyway) in order to apply principal component 
+analysis to my data.
+
+Now, this works fine:
+
+let yoyoL be a list of lists :
+
+yoyoL = [ [0.0592, 0.0126, 0.08351, 0.01857, 0.02188], [ ... ], ... ] 
+mat = r.matrix(r.unlist(yoyoL), nrow=5, byrow=True)
+pca = r.princomp(r.t(mat), cor=True)
+
+Okay, this works. But if I want to use the predict functionality of 
+princomp, like:
+pred = r.predict(pca)
+
+I obtain the following error:
+
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+rpy.RException: Error in UseMethod("predict") : no applicable method for 
+"predict"
+
+Does anybody know how I could deal with this problem?
+
+Thank you very much!
+
+Thomas.
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at gmail.com  Thu Feb  7 20:59:39 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Thu, 07 Feb 2008 21:59:39 +0100
+Subject: Re: [Rpy] Principal Component Analysis using rpy
+In-Reply-To: <47AB5BBF.80402@embl.de>
+References: <47AB5BBF.80402@embl.de>
+Message-ID: <27d1e6020802071259i6a591d26hfc471c0f0ad05592@mail.gmail.com>
+
+2008/2/7, Thomas Walter <Thomas.Walter at embl.de>:
+> Hi everybody!
+>
+> I am trying to use the R-function princomp (or prcomp, I tried both, but
+> I get the same error anyway) in order to apply principal component
+> analysis to my data.
+>
+> Now, this works fine:
+>
+> let yoyoL be a list of lists :
+>
+> yoyoL = [ [0.0592, 0.0126, 0.08351, 0.01857, 0.02188], [ ... ], ... ]
+> mat = r.matrix(r.unlist(yoyoL), nrow=5, byrow=True)
+> pca = r.princomp(r.t(mat), cor=True)
+>
+> Okay, this works. But if I want to use the predict functionality of
+> princomp, like:
+> pred = r.predict(pca)
+>
+> I obtain the following error:
+>
+> Traceback (most recent call last):
+>   File "<stdin>", line 1, in <module>
+> rpy.RException: Error in UseMethod("predict") : no applicable method for
+> "predict"
+>
+> Does anybody know how I could deal with this problem?
+
+This is obviously a workaround but it will keep you going in the meanwhile:
+
+p = r.get("predict.princomp", envir=r.getNamespace("stats"))(pca)
+
+
+
+L.
+
+
+
+> Thank you very much!
+>
+> Thomas.
+>
+>
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From b.rowlingson at lancaster.ac.uk  Thu Feb  7 21:52:33 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Thu, 07 Feb 2008 21:52:33 +0000
+Subject: Re: [Rpy] Principal Component Analysis using rpy
+In-Reply-To: <47AB5BBF.80402@embl.de>
+References: <47AB5BBF.80402@embl.de>
+Message-ID: <47AB7DA1.9090908@lancaster.ac.uk>
+
+Thomas Walter wrote:
+
+> pca = r.princomp(r.t(mat), cor=True)
+> 
+> Okay, this works. But if I want to use the predict functionality of 
+> princomp, like:
+> pred = r.predict(pca)
+> 
+> I obtain the following error:
+> 
+> Traceback (most recent call last):
+>   File "<stdin>", line 1, in <module>
+> rpy.RException: Error in UseMethod("predict") : no applicable method for 
+> "predict"
+> 
+> Does anybody know how I could deal with this problem?
+
+  This is because your 'pca' object in Python is not an R principal 
+components object. You need to mess with the conversion system:
+
+ >>> pca=r('princomp(USArrests)')
+ >>> pca
+
+  - a big hash/list object appears....
+
+  SO let's change the conversion mode:
+
+ >>> rpy.set_default_mode(rpy.NO_CONVERSION)
+ >>> pca=r('princomp(USArrests,cor=TRUE)')
+ >>> pca
+<Robj object at 0xb7d493f0>
+
+  - now pca is a Robj this is basically the R object. So you can do:
+
+ >>> r.predict(pca)
+
+  but you get:
+
+<Robj object at 0xb7d493e0>
+
+  which isn't very useful as is. You could reset the conversion mode, or 
+use r.print_(r.predict(pca)), which gives you the matrix.
+
+Barry
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From mhhohn at users.sourceforge.net  Tue Feb 12 21:11:01 2008
+From: mhhohn at users.sourceforge.net (Michael Hohn)
+Date: Tue, 12 Feb 2008 13:11:01 -0800
+Subject: [Rpy] Announce: Python/L3 worksheet interface
+Message-ID: <yyomyq5aniy.fsf@hooknose.lbl.gov>
+
+Hi, 
+
+I have made the first alpha release of L3, a Python-like language and
+its worksheet interface, available at http://l3lang.sourceforge.net.
+
+The RPy demo from http://rpy.sourceforge.net/rpy_demo.html was most
+useful in some of the design, and I have made minor simplifications
+for use inside the graphical worksheet; my reduced version is at 
+http://l3lang.sourceforge.net/rpydemo.html.
+
+Some of you may be interested in the worksheet interface or the
+persistence features for your own work, and I am happy to answer
+questions or add generally useful features.
+
+Cheers,
+    Michael
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From Thomas.Walter at embl.de  Wed Feb 13 10:42:05 2008
+From: Thomas.Walter at embl.de (Thomas Walter)
+Date: Wed, 13 Feb 2008 11:42:05 +0100
+Subject: Re: [Rpy] Principal Component Analysis using rpy
+In-Reply-To: <27d1e6020802071259i6a591d26hfc471c0f0ad05592@mail.gmail.com>
+References: <47AB5BBF.80402@embl.de> <27d1e6020802071259i6a591d26hfc471c0f0ad05592@mail.gmail.com>
+Message-ID: <47B2C97D.2080700@embl.de>
+
+Thank you very much; that works. Great!
+
+Thomas.
+
+
+Laurent Gautier wrote:
+
+>2008/2/7, Thomas Walter <Thomas.Walter at embl.de>:
+>  
+>
+>>Hi everybody!
+>>
+>>I am trying to use the R-function princomp (or prcomp, I tried both, but
+>>I get the same error anyway) in order to apply principal component
+>>analysis to my data.
+>>
+>>Now, this works fine:
+>>
+>>let yoyoL be a list of lists :
+>>
+>>yoyoL = [ [0.0592, 0.0126, 0.08351, 0.01857, 0.02188], [ ... ], ... ]
+>>mat = r.matrix(r.unlist(yoyoL), nrow=5, byrow=True)
+>>pca = r.princomp(r.t(mat), cor=True)
+>>
+>>Okay, this works. But if I want to use the predict functionality of
+>>princomp, like:
+>>pred = r.predict(pca)
+>>
+>>I obtain the following error:
+>>
+>>Traceback (most recent call last):
+>>  File "<stdin>", line 1, in <module>
+>>rpy.RException: Error in UseMethod("predict") : no applicable method for
+>>"predict"
+>>
+>>Does anybody know how I could deal with this problem?
+>>    
+>>
+>
+>This is obviously a workaround but it will keep you going in the meanwhile:
+>
+>p = r.get("predict.princomp", envir=r.getNamespace("stats"))(pca)
+>
+>
+>
+>L.
+>
+>
+>
+>  
+>
+>>Thank you very much!
+>>
+>>Thomas.
+>>
+>>
+>>-------------------------------------------------------------------------
+>>This SF.net email is sponsored by: Microsoft
+>>Defy all challenges. Microsoft(R) Visual Studio 2008.
+>>http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+>>_______________________________________________
+>>rpy-list mailing list
+>>rpy-list at lists.sourceforge.net
+>>https://lists.sourceforge.net/lists/listinfo/rpy-list
+>>
+>>    
+>>
+>
+>-------------------------------------------------------------------------
+>This SF.net email is sponsored by: Microsoft
+>Defy all challenges. Microsoft(R) Visual Studio 2008.
+>http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+>_______________________________________________
+>rpy-list mailing list
+>rpy-list at lists.sourceforge.net
+>https://lists.sourceforge.net/lists/listinfo/rpy-list
+>  
+>
+
+
+-- 
+-------------------------
+Thomas Walter
+
+EMBL Heidelberg
+Meyerhofstrasse 1
+69117 Heidelberg
+Germany
+
+Tel: +49 (0)6221 387-8857
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From Thomas.Walter at embl.de  Wed Feb 13 15:29:01 2008
+From: Thomas.Walter at embl.de (Thomas Walter)
+Date: Wed, 13 Feb 2008 16:29:01 +0100
+Subject: Re: [Rpy] Principal Component Analysis using rpy
+In-Reply-To: <47AB7DA1.9090908@lancaster.ac.uk>
+References: <47AB5BBF.80402@embl.de> <47AB7DA1.9090908@lancaster.ac.uk>
+Message-ID: <47B30CBD.6060201@embl.de>
+
+Hi Barry!
+
+Thank you very much for this idea ... this is actually very useful (I am 
+also using some hierarchical clustering, and if you want to perform the 
+single steps for whatever reason, i.e. something like:
+
+dist = r.dist(data, method="euclidean")
+hc = r.hclust(dist, method="ward")
+
+then you have to set the flag as you mentioned; because r.dist gives 
+just the atomic list to python.
+
+So, thanks!
+
+Thomas.
+
+
+Barry Rowlingson wrote:
+
+>Thomas Walter wrote:
+>
+>  
+>
+>>pca = r.princomp(r.t(mat), cor=True)
+>>
+>>Okay, this works. But if I want to use the predict functionality of 
+>>princomp, like:
+>>pred = r.predict(pca)
+>>
+>>I obtain the following error:
+>>
+>>Traceback (most recent call last):
+>>  File "<stdin>", line 1, in <module>
+>>rpy.RException: Error in UseMethod("predict") : no applicable method for 
+>>"predict"
+>>
+>>Does anybody know how I could deal with this problem?
+>>    
+>>
+>
+>  This is because your 'pca' object in Python is not an R principal 
+>components object. You need to mess with the conversion system:
+>
+> >>> pca=r('princomp(USArrests)')
+> >>> pca
+>
+>  - a big hash/list object appears....
+>
+>  SO let's change the conversion mode:
+>
+> >>> rpy.set_default_mode(rpy.NO_CONVERSION)
+> >>> pca=r('princomp(USArrests,cor=TRUE)')
+> >>> pca
+><Robj object at 0xb7d493f0>
+>
+>  - now pca is a Robj this is basically the R object. So you can do:
+>
+> >>> r.predict(pca)
+>
+>  but you get:
+>
+><Robj object at 0xb7d493e0>
+>
+>  which isn't very useful as is. You could reset the conversion mode, or 
+>use r.print_(r.predict(pca)), which gives you the matrix.
+>
+>Barry
+>
+>
+>
+>-------------------------------------------------------------------------
+>This SF.net email is sponsored by: Microsoft
+>Defy all challenges. Microsoft(R) Visual Studio 2008.
+>http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+>_______________________________________________
+>rpy-list mailing list
+>rpy-list at lists.sourceforge.net
+>https://lists.sourceforge.net/lists/listinfo/rpy-list
+>  
+>
+
+
+-- 
+-------------------------
+Thomas Walter
+
+EMBL Heidelberg
+Meyerhofstrasse 1
+69117 Heidelberg
+Germany
+
+Tel: +49 (0)6221 387-8857
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From marco_hofmann at gmx.de  Thu Feb 14 10:33:57 2008
+From: marco_hofmann at gmx.de (marco hofmann)
+Date: Thu, 14 Feb 2008 11:33:57 +0100
+Subject: [Rpy] Arguments to high-level plotting commands
+Message-ID: <47B41915.4070807@gmx.de>
+
+Hi there,
+I'm not familiar with R.. and use RPy to use the graphical features of R 
+with Python.
+
+My problem is that passing arguments to plotting functions does not work 
+in Python as in R.
+
+For example in R:
+
+ > x<-c(1,2,3)
+ > y=x
+ > f<-c(1,2,3,4,5,6,7,8,9)
+ > z<-array(f,dim=c(3,3))
+ > image(x,y,z)
+ > image(x,y,z,axes=FALSE)
+
+produces an image plot without showing the axes,
+
+and in Python:
+
+ >>> import rpy
+ >>> import numpy
+ >>> x=[1,2,3]
+ >>> y=x
+ >>> f=[[1,2,3],[4,5,6],[7,8,9]]
+ >>> z=numpy.matrix(f)
+ >>> rpy.r.image(x,y,z)
+ >>> rpy.r.image(x,y,z,axes=FALSE)
+
+Traceback (most recent call last):
+   File "<pyshell#8>", line 1, in <module>
+     rpy.r.image(x,y,f,axes=FALSE)
+NameError: name 'FALSE' is not defined
+
+rpy.r.image(x,y,z) does only work without additional arguments. Does 
+anyone know how I can code that in Python?
+
+Thanks and regards,
+
+Marco
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From rpy-list at maubp.freeserve.co.uk  Thu Feb 14 11:18:49 2008
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Thu, 14 Feb 2008 11:18:49 +0000
+Subject: Re: [Rpy] Arguments to high-level plotting commands
+In-Reply-To: <47B41915.4070807@gmx.de>
+References: <47B41915.4070807@gmx.de>
+Message-ID: <320fb6e00802140318o3f21eeebtde85a3b121a75053@mail.gmail.com>
+
+marco hofmann wrote:
+> Hi there,
+> I'm not familiar with R.. and use RPy to use the graphical features of R
+> with Python.
+>
+> ...
+>  >>> rpy.r.image(x,y,z,axes=FALSE)
+>
+> Traceback (most recent call last):
+>    File "<pyshell#8>", line 1, in <module>
+>      rpy.r.image(x,y,f,axes=FALSE)
+> NameError: name 'FALSE' is not defined
+>
+> rpy.r.image(x,y,z) does only work without additional arguments. Does
+> anyone know how I can code that in Python?
+
+The problem is much simpler, FALSE is not defined in python (it is in
+R).  You just need to use False instead (or zero). Try this:
+
+rpy.r.image(x,y,z,axes=False)
+
+Peter
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From marco_hofmann at gmx.de  Thu Feb 14 13:28:09 2008
+From: marco_hofmann at gmx.de (marco hofmann)
+Date: Thu, 14 Feb 2008 14:28:09 +0100
+Subject: Re: [Rpy] Arguments to high-level plotting commands
+In-Reply-To: <320fb6e00802140318o3f21eeebtde85a3b121a75053@mail.gmail.com>
+References: <47B41915.4070807@gmx.de> <320fb6e00802140318o3f21eeebtde85a3b121a75053@mail.gmail.com>
+Message-ID: <47B441E9.4090101@gmx.de>
+
+
+Peter schrieb:
+> marco hofmann wrote:
+>> Hi there,
+>> I'm not familiar with R.. and use RPy to use the graphical features of R
+>> with Python.
+>>
+>> ...
+>>  >>> rpy.r.image(x,y,z,axes=FALSE)
+>>
+>> Traceback (most recent call last):
+>>    File "<pyshell#8>", line 1, in <module>
+>>      rpy.r.image(x,y,f,axes=FALSE)
+>> NameError: name 'FALSE' is not defined
+>>
+>> rpy.r.image(x,y,z) does only work without additional arguments. Does
+>> anyone know how I can code that in Python?
+> 
+> The problem is much simpler, FALSE is not defined in python (it is in
+> R).  You just need to use False instead (or zero). Try this:
+> 
+> rpy.r.image(x,y,z,axes=False)
+
+Thanks Peter,
+i see, I thought I was just in R inside the brackets of 
+rpy.r.image(...), but its still Python there.
+So for more advanced features, I have to create an appropriate R object 
+first like
+
+k= rpy.r.rainbow(100)
+rpy.r.image(x,y,z, col = k)
+
+By the way,
+
+k = rpy.r.terrain.colors(100)
+
+fails. Is there trick to get access to the terrain.colors or to other R 
+functions which have a dot (I don't know if there are many)?
+
+Marco
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From Thomas.Walter at embl.de  Thu Feb 14 14:58:45 2008
+From: Thomas.Walter at embl.de (Thomas Walter)
+Date: Thu, 14 Feb 2008 15:58:45 +0100
+Subject: Re: [Rpy] Arguments to high-level plotting commands
+In-Reply-To: <47B441E9.4090101@gmx.de>
+References: <47B41915.4070807@gmx.de> <320fb6e00802140318o3f21eeebtde85a3b121a75053@mail.gmail.com> <47B441E9.4090101@gmx.de>
+Message-ID: <47B45725.3070602@embl.de>
+
+Hi Marco.
+
+Usually, you can replace them by underscore, i.e.
+
+k = rpy.r.terrain_colors(100)
+
+should work.
+
+Cheers,
+
+thomas.
+
+
+marco hofmann wrote:
+
+>Peter schrieb:
+>  
+>
+>>marco hofmann wrote:
+>>    
+>>
+>>>Hi there,
+>>>I'm not familiar with R.. and use RPy to use the graphical features of R
+>>>with Python.
+>>>
+>>>...
+>>> >>> rpy.r.image(x,y,z,axes=FALSE)
+>>>
+>>>Traceback (most recent call last):
+>>>   File "<pyshell#8>", line 1, in <module>
+>>>     rpy.r.image(x,y,f,axes=FALSE)
+>>>NameError: name 'FALSE' is not defined
+>>>
+>>>rpy.r.image(x,y,z) does only work without additional arguments. Does
+>>>anyone know how I can code that in Python?
+>>>      
+>>>
+>>The problem is much simpler, FALSE is not defined in python (it is in
+>>R).  You just need to use False instead (or zero). Try this:
+>>
+>>rpy.r.image(x,y,z,axes=False)
+>>    
+>>
+>
+>Thanks Peter,
+>i see, I thought I was just in R inside the brackets of 
+>rpy.r.image(...), but its still Python there.
+>So for more advanced features, I have to create an appropriate R object 
+>first like
+>
+>k= rpy.r.rainbow(100)
+>rpy.r.image(x,y,z, col = k)
+>
+>By the way,
+>
+>k = rpy.r.terrain.colors(100)
+>
+>fails. Is there trick to get access to the terrain.colors or to other R 
+>functions which have a dot (I don't know if there are many)?
+>
+>Marco
+>
+>
+>
+>-------------------------------------------------------------------------
+>This SF.net email is sponsored by: Microsoft
+>Defy all challenges. Microsoft(R) Visual Studio 2008.
+>http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+>_______________________________________________
+>rpy-list mailing list
+>rpy-list at lists.sourceforge.net
+>https://lists.sourceforge.net/lists/listinfo/rpy-list
+>  
+>
+
+
+-- 
+-------------------------
+Thomas Walter
+
+EMBL Heidelberg
+Meyerhofstrasse 1
+69117 Heidelberg
+Germany
+
+Tel: +49 (0)6221 387-8857
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From rpy-list at maubp.freeserve.co.uk  Thu Feb 14 14:27:46 2008
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Thu, 14 Feb 2008 14:27:46 +0000
+Subject: Re: [Rpy] Arguments to high-level plotting commands
+In-Reply-To: <47B441E9.4090101@gmx.de>
+References: <47B41915.4070807@gmx.de> <320fb6e00802140318o3f21eeebtde85a3b121a75053@mail.gmail.com> <47B441E9.4090101@gmx.de>
+Message-ID: <320fb6e00802140627t76dc8363qac1ebff1996d8ee8@mail.gmail.com>
+
+>  By the way,
+>
+>  k = rpy.r.terrain.colors(100)
+>
+>  fails. Is there trick to get access to the terrain.colors or to other R
+>  functions which have a dot (I don't know if there are many)?
+
+Yes, as the rpy documentation explains, use an underscore instead:
+
+k = rpy.r.terrain_colors(100)
+
+Peter
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From vfulco1 at gmail.com  Fri Feb 15 03:40:00 2008
+From: vfulco1 at gmail.com (Vince Fulco)
+Date: Thu, 14 Feb 2008 22:40:00 -0500
+Subject: [Rpy] Code adds space when 'paste' is used
+Message-ID: <34f2770f0802141940p629b4a7dk78d76f9e88d715de@mail.gmail.com>
+
+Dear RPY experts-
+
+I am still getting up to speed on the different conversion
+features...Is there any obvious reason why this code is adding a space
+when 'paste' is used?
+
+rpy.set_default_mode(rpy.BASIC_CONVERSION)
+
+I am attempting to combine the directory and a file into one variable
+and then assigning it to another (latter not shown)
+
+rpy.r("dir1<- '/home/foouser/foo/'")
+
+rpy.r("dat.file<- paste(dir1, 'prices.txt', sep="")")
+
+'/home/foouser/foo/ prices.txt'
+
+Of course this works in R directly and a search of RPY info sources
+for paste func() with sep doesn't turn up anything useful.
+
+TIA,
+
+Vince Fulco
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From rpy-list at maubp.freeserve.co.uk  Fri Feb 15 17:58:41 2008
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Fri, 15 Feb 2008 17:58:41 +0000
+Subject: Re: [Rpy] Code adds space when 'paste' is used
+In-Reply-To: <34f2770f0802141940p629b4a7dk78d76f9e88d715de@mail.gmail.com>
+References: <34f2770f0802141940p629b4a7dk78d76f9e88d715de@mail.gmail.com>
+Message-ID: <320fb6e00802150958w1beb9b19wdafac0192e873e99@mail.gmail.com>
+
+On Fri, Feb 15, 2008 at 3:40 AM, Vince Fulco <vfulco1 at gmail.com> wrote:
+> Dear RPY experts-
+>
+>  I am still getting up to speed on the different conversion
+>  features...Is there any obvious reason why this code is adding a space
+>  when 'paste' is used?
+>
+>  rpy.set_default_mode(rpy.BASIC_CONVERSION)
+>
+>  I am attempting to combine the directory and a file into one variable
+>  and then assigning it to another (latter not shown)
+>
+>  rpy.r("dir1<- '/home/foouser/foo/'")
+
+Have you looked at rpy.assign(...) command?  e.g.
+
+rpy.assign("dir1", "/home/foouser/foo/")
+
+>  rpy.r("dat.file<- paste(dir1, 'prices.txt', sep="")")
+>
+>  '/home/foouser/foo/ prices.txt'
+
+Very odd.
+
+Out of interest, why are you doing string concatenation in R using
+paste, when you can do it directly in python with plus?  Something
+like this perhaps, using python's os module to mess about with the
+paths...
+
+import os
+rpy.assign("dat.file", os.path.join(rpy.r("dir1"), "prices.txt"))
+
+[The above would be simpler if dir1 was available as a python variable]
+
+>  Of course this works in R directly and a search of RPY info sources
+>  for paste func() with sep doesn't turn up anything useful.
+
+It certainly looks like there is a bug here somewhere...
+
+Peter
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From b.rowlingson at lancaster.ac.uk  Fri Feb 15 19:09:15 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Fri, 15 Feb 2008 19:09:15 +0000
+Subject: Re: [Rpy] Code adds space when 'paste' is used
+In-Reply-To: <320fb6e00802150958w1beb9b19wdafac0192e873e99@mail.gmail.com>
+References: <34f2770f0802141940p629b4a7dk78d76f9e88d715de@mail.gmail.com> <320fb6e00802150958w1beb9b19wdafac0192e873e99@mail.gmail.com>
+Message-ID: <47B5E35B.6000509@lancaster.ac.uk>
+
+Peter wrote:
+
+>>  rpy.r("dat.file<- paste(dir1, 'prices.txt', sep="")")
+>>
+>>  '/home/foouser/foo/ prices.txt'
+> 
+> Very odd.
+
+  I think it's because you've stuck double quotes in your double quotes:
+
+  >>> r("paste('y', 'x', sep="")")
+  'y x'
+  >>> r("paste('y', 'x', sep='')")
+  'yx'
+
+The mystery is why it doesn't fail completely....
+
+Barry
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From b.rowlingson at lancaster.ac.uk  Fri Feb 15 19:13:33 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Fri, 15 Feb 2008 19:13:33 +0000
+Subject: Re: [Rpy] Code adds space when 'paste' is used
+In-Reply-To: <320fb6e00802150958w1beb9b19wdafac0192e873e99@mail.gmail.com>
+References: <34f2770f0802141940p629b4a7dk78d76f9e88d715de@mail.gmail.com> <320fb6e00802150958w1beb9b19wdafac0192e873e99@mail.gmail.com>
+Message-ID: <47B5E45D.4020100@lancaster.ac.uk>
+
+Peter wrote:
+
+> rpy.assign("dir1", "/home/foouser/foo/")
+> 
+>>  rpy.r("dat.file<- paste(dir1, 'prices.txt', sep="")")
+>>
+>>  '/home/foouser/foo/ prices.txt'
+> 
+> Very odd.
+
+  Here's why. Look at the string that python is constructing when you do:
+
+  >>> r("paste('y', 'x', sep="")")
+  'y x'
+
+  The string is:
+
+  >>> "paste('y', 'x', sep="")"
+  "paste('y', 'x', sep=)"
+
+  which is valid R syntax, and gives you the default sep, which is.... 
+space!
+
+  Moral: watch your quotes.
+
+Barry
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From tchibadou at hotmail.com  Thu Feb 21 13:08:09 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Thu, 21 Feb 2008 13:08:09 +0000
+Subject: [Rpy] help with the package survival
+Message-ID: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl>
+
+Hi,
+I have a problem with the package "survival" in rpy. I have to use the function survit() , and it works with R but not by calling R from python with rpy :
+ 
+>>> ss=r.survfit(s,weights=pds)Traceback (most recent call last):  File "<interactive input>", line 1, in ?RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable pour "survfit"
+ 
+It seems that there is nothing implemented in rpy for this function... 
+Do you know how I can manage this problem ? Have I made mistakes ? Or do you know what function I could use to have similar results ?
+ 
+If I can provide more information please let me know.best regards,
+ 
+Lore. 
+ 
+Notes : Perhaps I can code again the survfit() function in pyton... But that seems really complicated. I have tried but first, I don't know if I have to code it as a python function (def...) or a R function (function () {...}). And then, there is a lot of problems such as with the function match.call() which can be used from outside a function...
+ 
+function (formula, data, weights, subset, na.action, ...) {    call <- match.call()    if ((mode(call[[2]]) == "call" && call[[2]][[1]] == as.name("Surv")) ||         inherits(formula, "Surv")) {        formula <- eval(parse(text = paste(deparse(call[[2]]),             1, sep = "~")))        environment(formula) <- parent.frame()    }    if (!inherits(formula, "formula"))         temp <- UseMethod("survfit")    else {        m <- match.call(expand.dots = FALSE)        m$... <- NULL        Terms <- terms(formula, "strata")        ord <- attr(Terms, "order")        if (length(ord) & any(ord != 1))             stop("Interaction terms are not valid for this function")        m$formula <- Terms        m[[1]] <- as.name("model.frame")        m <- eval(m, parent.frame())        n <- nrow(m)        Y <- model.extract(m, "response")        if (!is.Surv(Y))             stop("Response must be a survival object")        casewt <- model.extract(m, "weights")        if (is.null(casewt))             casewt <- rep(1, n)        if (!is.null(attr(Terms, "offset")))             warning("Offset term ignored")        ll <- attr(Terms, "term.labels")        if (length(ll) == 0)             X <- factor(rep(1, n))        else X <- strata(m[ll])        temp <- survfit.km(X, Y, casewt, ...)        class(temp) <- "survfit"        if (!is.null(attr(m, "na.action")))             temp$na.action <- attr(m, "na.action")    }    temp$call <- call    temp}
+ 
+ 
+ 
+ 
+ 
+_________________________________________________________________
+Microsoft vous recommande de mettre à jour Internet Explorer.
+http://specials.fr.msn.com/IE7P25
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From sdavis2 at mail.nih.gov  Thu Feb 21 13:16:10 2008
+From: sdavis2 at mail.nih.gov (Sean Davis)
+Date: Thu, 21 Feb 2008 08:16:10 -0500
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl>
+Message-ID: <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com>
+
+On Thu, Feb 21, 2008 at 8:08 AM, Lore Merdrignac <tchibadou at hotmail.com> wrote:
+>
+> Hi,
+>  I have a problem with the package "survival" in rpy. I have to use the
+> function survit() , and it works with R but not by calling R from python
+> with rpy :
+>
+>  >>> ss=r.survfit(s,weights=pds)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable
+> pour "survfit"
+>
+>  It seems that there is nothing implemented in rpy for this function...
+>  Do you know how I can manage this problem ? Have I made mistakes ? Or do
+> you know what function I could use to have similar results ?
+
+Lore,
+
+You'll probably need to show how you construct "s", as it seems that
+survfit is looking for a particular type of object.  If "s" is not a
+formula or a coxph object, that would explain the error.  Note that
+there is type-conversion going on in rpy, so even though "s" might
+have started out as the correct type of object, it may not be by the
+time you are calling the function here.
+
+Sean
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From tchibadou at hotmail.com  Thu Feb 21 13:36:42 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Thu, 21 Feb 2008 13:36:42 +0000
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl> <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com>
+Message-ID: <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl>
+
+> Date: Thu, 21 Feb 2008 08:16:10 -0500> From: sdavis2 at mail.nih.gov> To: rpy-list at lists.sourceforge.net> Subject: Re: [Rpy] help with the package survival> > On Thu, Feb 21, 2008 at 8:08 AM, Lore Merdrignac <tchibadou at hotmail.com> wrote:> >> > Hi,> > I have a problem with the package "survival" in rpy. I have to use the> > function survit() , and it works with R but not by calling R from python> > with rpy :> >> > >>> ss=r.survfit(s,weights=pds)> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable> > pour "survfit"> >> > It seems that there is nothing implemented in rpy for this function...> > Do you know how I can manage this problem ? Have I made mistakes ? Or do> > you know what function I could use to have similar results ?> > Lore,> > You'll probably need to show how you construct "s", as it seems that> survfit is looking for a particular type of object. If "s" is not a> formula or a coxph object, that would explain the error. Note that> there is type-conversion going on in rpy, so even though "s" might> have started out as the correct type of object, it may not be by the> time you are calling the function here.> > Sean> -------------------------------------------------------------------------> This SF.net email is sponsored by: Microsoft> Defy all challenges. Microsoft(R) Visual Studio 2008.> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> _______________________________________________> rpy-list mailing list> rpy-list at lists.sourceforge.net> https://lists.sourceforge.net/lists/listinfo/rpy-list
+ 
+ 
+ 
+Thank you for your reply Sean.
+ 
+So, this is how I proceed with R :
+> d=rep(1,41)> t=c( rep(6,5), rep(9,3) , rep(12,24), rep(15,9) )> plot(survfit(Surv(t,d)))And I get a graph of life span.
+ 
+With rpy :
+>>> from rpy import r>>> r.library("survival")>>> d=r.rep(1,41)>>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )>>> r.plot(r.survfit(r.Surv(t,d)))Traceback (most recent call last):  File "<interactive input>", line 1, in ?RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable pour "survfit"
+ 
+Or :
+>>> s=r.Surv(t,d)>>> ss=r.survfit(s)Traceback (most recent call last):  File "<interactive input>", line 1, in ?RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable pour "survfit"
+Is there a mistake...? 
+Thank you for your time Sean.
+ 
+Lore.
+ 
+ 
+ 
+_________________________________________________________________
+Nouveau ! Créez votre profil Messenger !
+http://home.services.spaces.live.com/
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Thu Feb 21 13:48:10 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Thu, 21 Feb 2008 14:48:10 +0100
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl> <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com> <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl>
+Message-ID: <27d1e6020802210548mba192ecg2fefec0d3c6c15a1@mail.gmail.com>
+
+2008/2/21, Lore Merdrignac <tchibadou at hotmail.com>:
+>
+> > Date: Thu, 21 Feb 2008 08:16:10 -0500
+> > From: sdavis2 at mail.nih.gov
+> > To: rpy-list at lists.sourceforge.net
+> > Subject: Re: [Rpy] help with the package survival
+>
+> >
+> > On Thu, Feb 21, 2008 at 8:08 AM, Lore Merdrignac <tchibadou at hotmail.com>
+> wrote:
+> > >
+> > > Hi,
+> > > I have a problem with the package "survival" in rpy. I have to use the
+> > > function survit() , and it works with R but not by calling R from python
+> > > with rpy :
+> > >
+> > > >>> ss=r.survfit(s,weights=pds)
+> > > Traceback (most recent call last):
+> > > File "<interactive input>", line 1, in ?
+> > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode
+> applicable
+> > > pour "survfit"
+> > >
+> > > It seems that there is nothing implemented in rpy for this function...
+> > > Do you know how I can manage this problem ? Have I made mistakes ? Or do
+> > > you know what function I could use to have similar results ?
+> >
+> > Lore,
+> >
+> > You'll probably need to show how you construct "s", as it seems that
+> > survfit is looking for a particular type of object. If "s" is not a
+> > formula or a coxph object, that would explain the error. Note that
+> > there is type-conversion going on in rpy, so even though "s" might
+> > have started out as the correct type of object, it may not be by the
+> > time you are calling the function here.
+> >
+> > Sean
+> >
+> -------------------------------------------------------------------------
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+>
+>  Thank you for your reply Sean.
+>
+>  So, this is how I proceed with R :
+>  > d=rep(1,41)
+> > t=c( rep(6,5), rep(9,3) , rep(12,24), rep(15,9) )
+> > plot(survfit(Surv(t,d)))
+> And I get a graph of life span.
+>
+>  With rpy :
+>  >>> from rpy import r
+> >>> r.library("survival")
+> >>> d=r.rep(1,41)
+> >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )
+> >>> r.plot(r.survfit(r.Surv(t,d)))
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable
+> pour "survfit"
+>
+>  Or :
+>  >>> s=r.Surv(t,d)
+> >>> ss=r.survfit(s)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable
+> pour "survfit"
+>
+>  Is there a mistake...?
+
+Not really... it is just that the conversion Sean was referring to
+seems to be happening
+(and is causing confusion - there are improvements coming on that
+front, but that will
+be for an other post).
+
+You can try turning the conversion off with
+rpy.set_default_mode(rpy.NO_CONVERSION)
+prior to running your code.
+
+
+
+
+
+>  Thank you for your time Sean.
+>
+>  Lore.
+>
+>
+>
+>
+>
+> ________________________________
+> Windows Live Messenger 2008 vient de sortir, encore plus de fun !
+> Téléchargez gratuitement Messenger 2008
+> -------------------------------------------------------------------------
+>  This SF.net email is sponsored by: Microsoft
+>  Defy all challenges. Microsoft(R) Visual Studio 2008.
+>  http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+>  rpy-list mailing list
+>  rpy-list at lists.sourceforge.net
+>  https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+
+-- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+=JPph
+-----END PGP SIGNATURE-----
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From tchibadou at hotmail.com  Thu Feb 21 13:59:03 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Thu, 21 Feb 2008 13:59:03 +0000
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <27d1e6020802210548mba192ecg2fefec0d3c6c15a1@mail.gmail.com>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl> <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com> <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl> <27d1e6020802210548mba192ecg2fefec0d3c6c15a1@mail.gmail.com>
+Message-ID: <BAY134-W26484DC5EE2A563BBB43A6A41C0@phx.gbl>
+
+> Date: Thu, 21 Feb 2008 14:48:10 +0100> From: lgautier at gmail.com> To: rpy-list at lists.sourceforge.net> Subject: Re: [Rpy] help with the package survival> > 2008/2/21, Lore Merdrignac <tchibadou at hotmail.com>:> >> > > Date: Thu, 21 Feb 2008 08:16:10 -0500> > > From: sdavis2 at mail.nih.gov> > > To: rpy-list at lists.sourceforge.net> > > Subject: Re: [Rpy] help with the package survival> >> > >> > > On Thu, Feb 21, 2008 at 8:08 AM, Lore Merdrignac <tchibadou at hotmail.com>> > wrote:> > > >> > > > Hi,> > > > I have a problem with the package "survival" in rpy. I have to use the> > > > function survit() , and it works with R but not by calling R from python> > > > with rpy :> > > >> > > > >>> ss=r.survfit(s,weights=pds)> > > > Traceback (most recent call last):> > > > File "<interactive input>", line 1, in ?> > > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode> > applicable> > > > pour "survfit"> > > >> > > > It seems that there is nothing implemented in rpy for this function...> > > > Do you know how I can manage this problem ? Have I made mistakes ? Or do> > > > you know what function I could use to have similar results ?> > >> > > Lore,> > >> > > You'll probably need to show how you construct "s", as it seems that> > > survfit is looking for a particular type of object. If "s" is not a> > > formula or a coxph object, that would explain the error. Note that> > > there is type-conversion going on in rpy, so even though "s" might> > > have started out as the correct type of object, it may not be by the> > > time you are calling the function here.> > >> > > Sean> > >> > -------------------------------------------------------------------------> > > This SF.net email is sponsored by: Microsoft> > > Defy all challenges. Microsoft(R) Visual Studio 2008.> > > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> > > _______________________________________________> > > rpy-list mailing list> > > rpy-list at lists.sourceforge.net> > > https://lists.sourceforge.net/lists/listinfo/rpy-list> >> >> >> > Thank you for your reply Sean.> >> > So, this is how I proceed with R :> > > d=rep(1,41)> > > t=c( rep(6,5), rep(9,3) , rep(12,24), rep(15,9) )> > > plot(survfit(Surv(t,d)))> > And I get a graph of life span.> >> > With rpy :> > >>> from rpy import r> > >>> r.library("survival")> > >>> d=r.rep(1,41)> > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )> > >>> r.plot(r.survfit(r.Surv(t,d)))> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable> > pour "survfit"> >> > Or :> > >>> s=r.Surv(t,d)> > >>> ss=r.survfit(s)> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode applicable> > pour "survfit"> >> > Is there a mistake...?> > Not really... it is just that the conversion Sean was referring to> seems to be happening> (and is causing confusion - there are improvements coming on that> front, but that will> be for an other post).> > You can try turning the conversion off with> rpy.set_default_mode(rpy.NO_CONVERSION)> prior to running your code.> 
+I have just tried but it does not seem to work ... Below there is what I got : 
+ 
+>>> rpy.set_default_mode(rpy.NO_CONVERSION)Traceback (most recent call last):  File "<interactive input>", line 1, in ?NameError: name 'rpy' is not defined
+>>> r.set_default_mode(r.NO_CONVERSION)Traceback (most recent call last):  File "<interactive input>", line 1, in ?  File "C:\Python24\Lib\site-packages\rpy.py", line 302, in __getattr__    return self.__getitem__(name)  File "C:\Python24\Lib\site-packages\rpy.py", line 306, in __getitem__    obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))RPy_RException: Erreur dans function (x, pos = -1, envir = as.environment(pos), mode = "any",  :   variable "set.default.mode" introuvable 
+>>> r.set_default_mode(rpy.NO_CONVERSION)Traceback (most recent call last):  File "<interactive input>", line 1, in ?  File "C:\Python24\Lib\site-packages\rpy.py", line 302, in __getattr__    return self.__getitem__(name)  File "C:\Python24\Lib\site-packages\rpy.py", line 306, in __getitem__    obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))RPy_RException: Erreur dans function (x, pos = -1, envir = as.environment(pos), mode = "any",  :   variable "set.default.mode" introuvable
+ 
+Is there any other solution :$ ? Thanks for answering.
+Lore.
+ > > > Thank you for your time Sean.> >> > Lore.> >> >> >> >> >> > ________________________________> > Windows Live Messenger 2008 vient de sortir, encore plus de fun !> > Téléchargez gratuitement Messenger 2008> > -------------------------------------------------------------------------> > This SF.net email is sponsored by: Microsoft> > Defy all challenges. Microsoft(R) Visual Studio 2008.> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> > _______________________________________________> > rpy-list mailing list> > rpy-list at lists.sourceforge.net> > https://lists.sourceforge.net/lists/listinfo/rpy-list> >> >> > > -- > -----BEGIN PGP SIGNATURE-----> Version: GnuPG v1.4.6 (GNU/Linux)> > iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R> 2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt> =JPph> -----END PGP SIGNATURE-----> > -------------------------------------------------------------------------> This SF.net email is sponsored by: Microsoft> Defy all challenges. Microsoft(R) Visual Studio 2008.> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> _______________________________________________> rpy-list mailing list> rpy-list at lists.sourceforge.net> https://lists.sourceforge.net/lists/listinfo/rpy-list
+_________________________________________________________________
+Comme 9 millions de français, créez un compte Hotmail !
+http://www.windowslive.fr/hotmail/default.asp
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Thu Feb 21 14:03:52 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Thu, 21 Feb 2008 15:03:52 +0100
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <BAY134-W26484DC5EE2A563BBB43A6A41C0@phx.gbl>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl> <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com> <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl> <27d1e6020802210548mba192ecg2fefec0d3c6c15a1@mail.gmail.com> <BAY134-W26484DC5EE2A563BBB43A6A41C0@phx.gbl>
+Message-ID: <27d1e6020802210603l8ff058cn4ba0519b1f7d15af@mail.gmail.com>
+
+May be importing rpy with
+
+import rpy
+
+does help ?
+
+
+
+
+
+2008/2/21, Lore Merdrignac <tchibadou at hotmail.com>:
+>
+> > Date: Thu, 21 Feb 2008 14:48:10 +0100
+> > From: lgautier at gmail.com
+>
+> > To: rpy-list at lists.sourceforge.net
+> > Subject: Re: [Rpy] help with the package survival
+> >
+> > 2008/2/21, Lore Merdrignac <tchibadou at hotmail.com>:
+> > >
+> > > > Date: Thu, 21 Feb 2008 08:16:10 -0500
+> > > > From: sdavis2 at mail.nih.gov
+> > > > To: rpy-list at lists.sourceforge.net
+> > > > Subject: Re: [Rpy] help with the package survival
+> > >
+> > > >
+> > > > On Thu, Feb 21, 2008 at 8:08 AM, Lore Merdrignac
+> <tchibadou at hotmail.com>
+> > > wrote:
+> > > > >
+> > > > > Hi,
+> > > > > I have a problem with the package "survival" in rpy. I have to use
+> the
+> > > > > function survit() , and it works with R but not by calling R from
+> python
+> > > > > with rpy :
+> > > > >
+> > > > > >>> ss=r.survfit(s,weights=pds)
+> > > > > Traceback (most recent call last):
+> > > > > File "<interactive input>", line 1, in ?
+> > > > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode
+> > > applicable
+> > > > > pour "survfit"
+> > > > >
+> > > > > It seems that there is nothing implemented in rpy for this
+> function...
+> > > > > Do you know how I can manage this problem ? Have I made mistakes ?
+> Or do
+> > > > > you know what function I could use to have similar results ?
+> > > >
+> > > > Lore,
+> > > >
+> > > > You'll probably need to show how you construct "s", as it seems that
+> > > > survfit is looking for a particular type of object. If "s" is not a
+> > > > formula or a coxph object, that would explain the error. Note that
+> > > > there is type-conversion going on in rpy, so even though "s" might
+> > > > have started out as the correct type of object, it may not be by the
+> > > > time you are calling the function here.
+> > > >
+> > > > Sean
+> > > >
+> > >
+> -------------------------------------------------------------------------
+> > > > This SF.net email is sponsored by: Microsoft
+> > > > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > > >
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > > > _______________________________________________
+> > > > rpy-list mailing list
+> > > > rpy-list at lists.sourceforge.net
+> > > > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> > >
+> > >
+> > >
+> > > Thank you for your reply Sean.
+> > >
+> > > So, this is how I proceed with R :
+> > > > d=rep(1,41)
+> > > > t=c( rep(6,5), rep(9,3) , rep(12,24), rep(15,9) )
+> > > > plot(survfit(Surv(t,d)))
+> > > And I get a graph of life span.
+> > >
+> > > With rpy :
+> > > >>> from rpy import r
+> > > >>> r.library("survival")
+> > > >>> d=r.rep(1,41)
+> > > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )
+> > > >>> r.plot(r.survfit(r.Surv(t,d)))
+> > > Traceback (most recent call last):
+> > > File "<interactive input>", line 1, in ?
+> > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode
+> applicable
+> > > pour "survfit"
+> > >
+> > > Or :
+> > > >>> s=r.Surv(t,d)
+> > > >>> ss=r.survfit(s)
+> > > Traceback (most recent call last):
+> > > File "<interactive input>", line 1, in ?
+> > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode
+> applicable
+> > > pour "survfit"
+> > >
+> > > Is there a mistake...?
+> >
+> > Not really... it is just that the conversion Sean was referring to
+> > seems to be happening
+> > (and is causing confusion - there are improvements coming on that
+> > front, but that will
+> > be for an other post).
+> >
+> > You can try turning the conversion off with
+> > rpy.set_default_mode(rpy.NO_CONVERSION)
+> > prior to running your code.
+> >
+>
+>  I have just tried but it does not seem to work ... Below there is what I
+> got :
+>
+>  >>> rpy.set_default_mode(rpy.NO_CONVERSION)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> NameError: name 'rpy' is not defined
+>
+>  >>> r.set_default_mode(r.NO_CONVERSION)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+>   File "C:\Python24\Lib\site-packages\rpy.py", line 302, in
+> __getattr__
+>     return self.__getitem__(name)
+>   File "C:\Python24\Lib\site-packages\rpy.py", line 306, in
+> __getitem__
+>     obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))
+> RPy_RException: Erreur dans function (x, pos = -1, envir =
+> as.environment(pos), mode = "any",  :
+>   variable "set.default.mode" introuvable
+>
+>  >>> r.set_default_mode(rpy.NO_CONVERSION)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+>   File "C:\Python24\Lib\site-packages\rpy.py", line 302, in
+> __getattr__
+>     return self.__getitem__(name)
+>   File "C:\Python24\Lib\site-packages\rpy.py", line 306, in
+> __getitem__
+>     obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))
+> RPy_RException: Erreur dans function (x, pos = -1, envir =
+> as.environment(pos), mode = "any",  :
+>   variable "set.default.mode" introuvable
+>
+>  Is there any other solution :$ ? Thanks for answering.
+>  Lore.
+>
+>
+> >
+> > > Thank you for your time Sean.
+> > >
+> > > Lore.
+> > >
+> > >
+> > >
+> > >
+> > >
+> > > ________________________________
+> > > Windows Live Messenger 2008 vient de sortir, encore plus de fun !
+> > > Téléchargez gratuitement Messenger 2008
+> > >
+> -------------------------------------------------------------------------
+> > > This SF.net email is sponsored by: Microsoft
+> > > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > > _______________________________________________
+> > > rpy-list mailing list
+> > > rpy-list at lists.sourceforge.net
+> > > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> > >
+> > >
+> >
+> >
+> > --
+> > -----BEGIN PGP SIGNATURE-----
+> > Version: GnuPG v1.4.6 (GNU/Linux)
+> >
+> >
+> iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+> > 2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+> > =JPph
+> > -----END PGP SIGNATURE-----
+> >
+> >
+> -------------------------------------------------------------------------
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> ________________________________
+> Téléchargez gratuitement Messenger 2008
+> -------------------------------------------------------------------------
+>  This SF.net email is sponsored by: Microsoft
+>  Defy all challenges. Microsoft(R) Visual Studio 2008.
+>  http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+>  rpy-list mailing list
+>  rpy-list at lists.sourceforge.net
+>  https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+
+-- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+=JPph
+-----END PGP SIGNATURE-----
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From tchibadou at hotmail.com  Thu Feb 21 14:19:38 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Thu, 21 Feb 2008 14:19:38 +0000
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <27d1e6020802210603l8ff058cn4ba0519b1f7d15af@mail.gmail.com>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl> <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com> <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl> <27d1e6020802210548mba192ecg2fefec0d3c6c15a1@mail.gmail.com> <BAY134-W26484DC5EE2A563BBB43A6A41C0@phx.gbl> <27d1e6020802210603l8ff058cn4ba0519b1f7d15af@mail.gmail.com>
+Message-ID: <BAY134-W78215DA75744275D41A5AA41C0@phx.gbl>
+
+
+
+> Date: Thu, 21 Feb 2008 15:03:52 +0100> From: lgautier at gmail.com> To: rpy-list at lists.sourceforge.net> Subject: Re: [Rpy] help with the package survival> > May be importing rpy with> > import rpy> > does help ?> > > > > > 2008/2/21, Lore Merdrignac <tchibadou at hotmail.com>:> >> > > Date: Thu, 21 Feb 2008 14:48:10 +0100> > > From: lgautier at gmail.com> >> > > To: rpy-list at lists.sourceforge.net> > > Subject: Re: [Rpy] help with the package survival> > >> > > 2008/2/21, Lore Merdrignac <tchibadou at hotmail.com>:> > > >> > > > > Date: Thu, 21 Feb 2008 08:16:10 -0500> > > > > From: sdavis2 at mail.nih.gov> > > > > To: rpy-list at lists.sourceforge.net> > > > > Subject: Re: [Rpy] help with the package survival> > > >> > > > >> > > > > On Thu, Feb 21, 2008 at 8:08 AM, Lore Merdrignac> > <tchibadou at hotmail.com>> > > > wrote:> > > > > >> > > > > > Hi,> > > > > > I have a problem with the package "survival" in rpy. I have to use> > the> > > > > > function survit() , and it works with R but not by calling R from> > python> > > > > > with rpy :> > > > > >> > > > > > >>> ss=r.survfit(s,weights=pds)> > > > > > Traceback (most recent call last):> > > > > > File "<interactive input>", line 1, in ?> > > > > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode> > > > applicable> > > > > > pour "survfit"> > > > > >> > > > > > It seems that there is nothing implemented in rpy for this> > function...> > > > > > Do you know how I can manage this problem ? Have I made mistakes ?> > Or do> > > > > > you know what function I could use to have similar results ?> > > > >> > > > > Lore,> > > > >> > > > > You'll probably need to show how you construct "s", as it seems that> > > > > survfit is looking for a particular type of object. If "s" is not a> > > > > formula or a coxph object, that would explain the error. Note that> > > > > there is type-conversion going on in rpy, so even though "s" might> > > > > have started out as the correct type of object, it may not be by the> > > > > time you are calling the function here.> > > > >> > > > > Sean> > > > >> > > >> > -------------------------------------------------------------------------> > > > > This SF.net email is sponsored by: Microsoft> > > > > Defy all challenges. Microsoft(R) Visual Studio 2008.> > > > >> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> > > > > _______________________________________________> > > > > rpy-list mailing list> > > > > rpy-list at lists.sourceforge.net> > > > > https://lists.sourceforge.net/lists/listinfo/rpy-list> > > >> > > >> > > >> > > > Thank you for your reply Sean.> > > >> > > > So, this is how I proceed with R :> > > > > d=rep(1,41)> > > > > t=c( rep(6,5), rep(9,3) , rep(12,24), rep(15,9) )> > > > > plot(survfit(Surv(t,d)))> > > > And I get a graph of life span.> > > >> > > > With rpy :> > > > >>> from rpy import r> > > > >>> r.library("survival")> > > > >>> d=r.rep(1,41)> > > > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )> > > > >>> r.plot(r.survfit(r.Surv(t,d)))> > > > Traceback (most recent call last):> > > > File "<interactive input>", line 1, in ?> > > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode> > applicable> > > > pour "survfit"> > > >> > > > Or :> > > > >>> s=r.Surv(t,d)> > > > >>> ss=r.survfit(s)> > > > Traceback (most recent call last):> > > > File "<interactive input>", line 1, in ?> > > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode> > applicable> > > > pour "survfit"> > > >> > > > Is there a mistake...?> > >> > > Not really... it is just that the conversion Sean was referring to> > > seems to be happening> > > (and is causing confusion - there are improvements coming on that> > > front, but that will> > > be for an other post).> > >> > > You can try turning the conversion off with> > > rpy.set_default_mode(rpy.NO_CONVERSION)> > > prior to running your code.> > >> >> > I have just tried but it does not seem to work ... Below there is what I> > got :> >> > >>> rpy.set_default_mode(rpy.NO_CONVERSION)> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > NameError: name 'rpy' is not defined> >> > >>> r.set_default_mode(r.NO_CONVERSION)> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > File "C:\Python24\Lib\site-packages\rpy.py", line 302, in> > __getattr__> > return self.__getitem__(name)> > File "C:\Python24\Lib\site-packages\rpy.py", line 306, in> > __getitem__> > obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))> > RPy_RException: Erreur dans function (x, pos = -1, envir => > as.environment(pos), mode = "any", :> > variable "set.default.mode" introuvable> >> > >>> r.set_default_mode(rpy.NO_CONVERSION)> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > File "C:\Python24\Lib\site-packages\rpy.py", line 302, in> > __getattr__> > return self.__getitem__(name)> > File "C:\Python24\Lib\site-packages\rpy.py", line 306, in> > __getitem__> > obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))> > RPy_RException: Erreur dans function (x, pos = -1, envir => > as.environment(pos), mode = "any", :> > variable "set.default.mode" introuvable> >> > Is there any other solution :$ ? Thanks for answering.> > Lore.> >> Date: Thu, 21 Feb 2008 15:03:52 +0100> From: lgautier at gmail.com> To: rpy-list at lists.sourceforge.net> Subject: Re: [Rpy] help with the package survival> > May be importing rpy with> > import rpy> > does help ?> 
+It was almost good ! But, since I am really lucky, an other error appears... There is still an error in the function survfit(), in spite of the "NO_CONVERSION". 
+ 
+>>> import rpy>>> rpy.set_default_mode(rpy.NO_CONVERSION)>>> from rpy import r>>> r.library("survival")Le chargement a nécessité le package : splines<Robj object at 0x009FD390>>>> d=r.rep(1,41)>>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )>>> r.plot(r.survfit(r.Surv(t,d)))Traceback (most recent call last):  File "<interactive input>", line 1, in ?RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1, sep = "~")) :   unexpected numeric constant dans :"structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~112L"
+_________________________________________________________________
+Microsoft vous offre un logiciel pour classer, retoucher et partager vos photos !
+http://www.windowslive.fr/galerie/
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From sdavis2 at mail.nih.gov  Thu Feb 21 15:35:36 2008
+From: sdavis2 at mail.nih.gov (Sean Davis)
+Date: Thu, 21 Feb 2008 10:35:36 -0500
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <BAY134-W78215DA75744275D41A5AA41C0@phx.gbl>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl> <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com> <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl> <27d1e6020802210548mba192ecg2fefec0d3c6c15a1@mail.gmail.com> <BAY134-W26484DC5EE2A563BBB43A6A41C0@phx.gbl> <27d1e6020802210603l8ff058cn4ba0519b1f7d15af@mail.gmail.com> <BAY134-W78215DA75744275D41A5AA41C0@phx.gbl>
+Message-ID: <264855a00802210735j6a01797dp3ddbf34b943b285e@mail.gmail.com>
+
+On Thu, Feb 21, 2008 at 9:19 AM, Lore Merdrignac <tchibadou at hotmail.com> wrote:
+>
+>  ________________________________
+>  > Date: Thu, 21 Feb 2008 15:03:52 +0100
+>
+>
+> > From: lgautier at gmail.com
+> > To: rpy-list at lists.sourceforge.net
+> > Subject: Re: [Rpy] help with the package survival
+> >
+> > May be importing rpy with
+> >
+> > import rpy
+> >
+> > does help ?
+> >
+> >
+> >
+> >
+> >
+> > 2008/2/21, Lore Merdrignac <tchibadou at hotmail.com>:
+> > >
+> > > > Date: Thu, 21 Feb 2008 14:48:10 +0100
+> > > > From: lgautier at gmail.com
+> > >
+> > > > To: rpy-list at lists.sourceforge.net
+> > > > Subject: Re: [Rpy] help with the package survival
+> > > >
+> > > > 2008/2/21, Lore Merdrignac <tchibadou at hotmail.com>:
+> > > > >
+> > > > > > Date: Thu, 21 Feb 2008 08:16:10 -0500
+> > > > > > From: sdavis2 at mail.nih.gov
+> > > > > > To: rpy-list at lists.sourceforge.net
+> > > > > > Subject: Re: [Rpy] help with the package survival
+> > > > >
+> > > > > >
+> > > > > > On Thu, Feb 21, 2008 at 8:08 AM, Lore Merdrignac
+> > > <tchibadou at hotmail.com>
+> > > > > wrote:
+> > > > > > >
+> > > > > > > Hi,
+> > > > > > > I have a problem with the package "survival" in rpy. I have to
+> use
+> > > the
+> > > > > > > function survit() , and it works with R but not by calling R
+> from
+> > > python
+> > > > > > > with rpy :
+> > > > > > >
+> > > > > > > >>> ss=r.survfit(s,weights=pds)
+> > > > > > > Traceback (most recent call last):
+> > > > > > > File "<interactive input>", line 1, in ?
+> > > > > > > RPy_RException: Erreur dans UseMethod("survfit") : pas de
+> méthode
+> > > > > applicable
+> > > > > > > pour "survfit"
+> > > > > > >
+> > > > > > > It seems that there is nothing implemented in rpy for this
+> > > function...
+> > > > > > > Do you know how I can manage this problem ? Have I made mistakes
+> ?
+> > > Or do
+> > > > > > > you know what function I could use to have similar results ?
+> > > > > >
+> > > > > > Lore,
+> > > > > >
+> > > > > > You'll probably need to show how you construct "s", as it seems
+> that
+> > > > > > survfit is looking for a particular type of object. If "s" is not
+> a
+> > > > > > formula or a coxph object, that would explain the error. Note that
+> > > > > > there is type-conversion going on in rpy, so even though "s" might
+> > > > > > have started out as the correct type of object, it may not be by
+> the
+> > > > > > time you are calling the function here.
+> > > > > >
+> > > > > > Sean
+> > > > > >
+> > > > >
+> > >
+> -------------------------------------------------------------------------
+> > > > > > This SF.net email is sponsored by: Microsoft
+> > > > > > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > > > > >
+> > > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > > > > > _______________________________________________
+> > > > > > rpy-list mailing list
+> > > > > > rpy-list at lists.sourceforge.net
+> > > > > > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> > > > >
+> > > > >
+> > > > >
+> > > > > Thank you for your reply Sean.
+> > > > >
+> > > > > So, this is how I proceed with R :
+> > > > > > d=rep(1,41)
+> > > > > > t=c( rep(6,5), rep(9,3) , rep(12,24), rep(15,9) )
+> > > > > > plot(survfit(Surv(t,d)))
+> > > > > And I get a graph of life span.
+> > > > >
+> > > > > With rpy :
+> > > > > >>> from rpy import r
+> > > > > >>> r.library("survival")
+> > > > > >>> d=r.rep(1,41)
+> > > > > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )
+> > > > > >>> r.plot(r.survfit(r.Surv(t,d)))
+> > > > > Traceback (most recent call last):
+> > > > > File "<interactive input>", line 1, in ?
+> > > > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode
+> > > applicable
+> > > > > pour "survfit"
+> > > > >
+> > > > > Or :
+> > > > > >>> s=r.Surv(t,d)
+> > > > > >>> ss=r.survfit(s)
+> > > > > Traceback (most recent call last):
+> > > > > File "<interactive input>", line 1, in ?
+> > > > > RPy_RException: Erreur dans UseMethod("survfit") : pas de méthode
+> > > applicable
+> > > > > pour "survfit"
+> > > > >
+> > > > > Is there a mistake...?
+> > > >
+> > > > Not really... it is just that the conversion Sean was referring to
+> > > > seems to be happening
+> > > > (and is causing confusion - there are improvements coming on that
+> > > > front, but that will
+> > > > be for an other post).
+> > > >
+> > > > You can try turning the conversion off with
+> > > > rpy.set_default_mode(rpy.NO_CONVERSION)
+> > > > prior to running your code.
+> > > >
+> > >
+> > > I have just tried but it does not seem to work ... Below there is what I
+> > > got :
+> > >
+> > > >>> rpy.set_default_mode(rpy.NO_CONVERSION)
+> > > Traceback (most recent call last):
+> > > File "<interactive input>", line 1, in ?
+> > > NameError: name 'rpy' is not defined
+> > >
+> > > >>> r.set_default_mode(r.NO_CONVERSION)
+> > > Traceback (most recent call last):
+> > > File "<interactive input>", line 1, in ?
+> > > File "C:\Python24\Lib\site-packages\rpy.py", line 302, in
+> > > __getattr__
+> > > return self.__getitem__(name)
+> > > File "C:\Python24\Lib\site-packages\rpy.py", line 306, in
+> > > __getitem__
+> > > obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))
+> > > RPy_RException: Erreur dans function (x, pos = -1, envir =
+> > > as.environment(pos), mode = "any", :
+> > > variable "set.default.mode" introuvable
+> > >
+> > > >>> r.set_default_mode(rpy.NO_CONVERSION)
+> > > Traceback (most recent call last):
+> > > File "<interactive input>", line 1, in ?
+> > > File "C:\Python24\Lib\site-packages\rpy.py", line 302, in
+> > > __getattr__
+> > > return self.__getitem__(name)
+> > > File "C:\Python24\Lib\site-packages\rpy.py", line 306, in
+> > > __getitem__
+> > > obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))
+> > > RPy_RException: Erreur dans function (x, pos = -1, envir =
+> > > as.environment(pos), mode = "any", :
+> > > variable "set.default.mode" introuvable
+> > >
+> > > Is there any other solution :$ ? Thanks for answering.
+> > > Lore.
+> > >
+> > Date: Thu, 21 Feb 2008 15:03:52 +0100
+>
+> > From: lgautier at gmail.com
+> > To: rpy-list at lists.sourceforge.net
+> > Subject: Re: [Rpy] help with the package survival
+> >
+> > May be importing rpy with
+> >
+> > import rpy
+> >
+> > does help ?
+> >
+>
+>  It was almost good ! But, since I am really lucky, an other error
+> appears... There is still an error in the function survfit(), in spite of
+> the "NO_CONVERSION".
+>
+>  >>> import rpy
+>
+> >>> rpy.set_default_mode(rpy.NO_CONVERSION)
+
+Do not use this until after doing the library() call.
+
+> >>> from rpy import r
+> >>> r.library("survival")
+> Le chargement a nécessité le package : splines
+> <Robj object at 0x009FD390>
+>
+
+Place the rpy.set_default_mode(rpy.NO_CONVERSION) HERE and see what you get.
+
+> >>> d=r.rep(1,41)
+> >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )
+> >>> r.plot(r.survfit(r.Surv(t,d)))
+
+Let us know how it turns out....
+
+Sean
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From tchibadou at hotmail.com  Thu Feb 21 15:50:45 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Thu, 21 Feb 2008 15:50:45 +0000
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <264855a00802210735j6a01797dp3ddbf34b943b285e@mail.gmail.com>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl> <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com> <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl> <27d1e6020802210548mba192ecg2fefec0d3c6c15a1@mail.gmail.com> <BAY134-W26484DC5EE2A563BBB43A6A41C0@phx.gbl> <27d1e6020802210603l8ff058cn4ba0519b1f7d15af@mail.gmail.com> <BAY134-W78215DA75744275D41A5AA41C0@phx.gbl> <264855a00802210735j6a01797dp3ddbf34b943b285e@mail.gmail.com>
+Message-ID: <BAY134-W39821B6A0C45B121F86D24A41C0@phx.gbl>
+
+I still have the same error ... :(
+ 
+>>> from rpy import r>>> r.library("survival")Le chargement a nécessité le package : splines['survival', 'splines', 'stats', 'graphics', 'grDevices', 'utils', 'datasets', 'methods', 'base']>>> rpy.set_default_mode(rpy.NO_CONVERSION)Traceback (most recent call last):  File "<interactive input>", line 1, in ?NameError: name 'rpy' is not defined>>> r.set_default_mode(rpy.NO_CONVERSION)Traceback (most recent call last):  File "<interactive input>", line 1, in ?  File "C:\Python24\Lib\site-packages\rpy.py", line 302, in __getattr__    return self.__getitem__(name)  File "C:\Python24\Lib\site-packages\rpy.py", line 306, in __getitem__    obj = self.__dict__[name] = self.__dict__.get(name, self.get(name))RPy_RException: Erreur dans function (x, pos = -1, envir = as.environment(pos), mode = "any",  :   variable "set.default.mode" introuvable
+>>> import rpy>>> rpy.set_default_mode(rpy.NO_CONVERSION)>>> d=r.rep(1,41)>>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )>>> r.plot(r.survfit(r.Surv(t,d)))Traceback (most recent call last):  File "<interactive input>", line 1, in ?RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1, sep = "~")) :   unexpected numeric constant dans :"structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~112L"
+
+
+
+> Date: Thu, 21 Feb 2008 10:35:36 -0500> From: sdavis2 at mail.nih.gov> To: rpy-list at lists.sourceforge.net> Subject: Re: [Rpy] help with the package survival> > On Thu, Feb 21, 2008 at 9:19 AM, Lore Merdrignac <tchibadou at hotmail.com> wrote:> >> > ________________________________> > > Date: Thu, 21 Feb 2008 15:03:52 +0100> >> > It was almost good ! But, since I am really lucky, an other error> > appears... There is still an error in the function survfit(), in spite of> > the "NO_CONVERSION".> >> > >>> import rpy> >> > >>> rpy.set_default_mode(rpy.NO_CONVERSION)> > Do not use this until after doing the library() call.> > > >>> from rpy import r> > >>> r.library("survival")> > Le chargement a nécessité le package : splines> > <Robj object at 0x009FD390>> >> > Place the rpy.set_default_mode(rpy.NO_CONVERSION) HERE and see what you get.> > > >>> d=r.rep(1,41)> > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )> > >>> r.plot(r.survfit(r.Surv(t,d)))> > Let us know how it turns out....> > Sean> -------------------------------------------------------------------------> This SF.net email is sponsored by: Microsoft> Defy all challenges. Microsoft(R) Visual Studio 2008.> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> _______________________________________________> rpy-list mailing list> rpy-list at lists.sourceforge.net> https://lists.sourceforge.net/lists/listinfo/rpy-list
+_________________________________________________________________
+Nouveau ! Créez votre profil Messenger !
+http://home.services.spaces.live.com/
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From sdavis2 at mail.nih.gov  Thu Feb 21 16:22:00 2008
+From: sdavis2 at mail.nih.gov (Sean Davis)
+Date: Thu, 21 Feb 2008 11:22:00 -0500
+Subject: Re: [Rpy] help with the package survival
+In-Reply-To: <BAY134-W39821B6A0C45B121F86D24A41C0@phx.gbl>
+References: <BAY134-W138C87347F6BA30C7D4BFDA41C0@phx.gbl> <264855a00802210516v5ad2236flce17ed662c14ca9c@mail.gmail.com> <BAY134-W3243490621C815CA4A50A1A41C0@phx.gbl> <27d1e6020802210548mba192ecg2fefec0d3c6c15a1@mail.gmail.com> <BAY134-W26484DC5EE2A563BBB43A6A41C0@phx.gbl> <27d1e6020802210603l8ff058cn4ba0519b1f7d15af@mail.gmail.com> <BAY134-W78215DA75744275D41A5AA41C0@phx.gbl> <264855a00802210735j6a01797dp3ddbf34b943b285e@mail.gmail.com> <BAY134-W39821B6A0C45B121F86D24A41C0@phx.gbl>
+Message-ID: <264855a00802210822g7db9d224y352d0cc87fb3fa40@mail.gmail.com>
+
+On Thu, Feb 21, 2008 at 10:50 AM, Lore Merdrignac <tchibadou at hotmail.com> wrote:
+>
+> I still have the same error ... :(
+>
+>
+>  >>> from rpy import r
+> >>> r.library("survival")
+> Le chargement a nécessité le package : splines
+> ['survival', 'splines', 'stats', 'graphics', 'grDevices', 'utils',
+> 'datasets', 'methods', 'base']
+>
+> >>> rpy.set_default_mode(rpy.NO_CONVERSION)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> NameError: name 'rpy' is not defined
+
+Lore,
+
+You will probably need to do some reading on Python and R, but to fix
+this problem, you need to:
+
+import rpy
+
+as Laurent pointed out earlier.
+
+Sean
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From marco_hofmann at gmx.de  Fri Feb 22 17:36:11 2008
+From: marco_hofmann at gmx.de (marco hofmann)
+Date: Fri, 22 Feb 2008 18:36:11 +0100
+Subject: [Rpy] r.predict()
+Message-ID: <47BF080B.6050809@gmx.de>
+
+Hi all,
+I have a problem with the predict command. Here is an example:
+
+from rpy import *
+r.library("nnet")
+model = r("Fxy~x+y")
+
+df = r.data_frame(x = r.c(0,2,5,10,15)
+                   ,y = r.c(0,2,5,8,10)
+                   ,Fxy = r.c(0,2,5,8,10))
+
+NNModel = r.nnet(model, data = df
+                  , size =10, decay =1e-3
+                  , lineout=True, skip=True
+                  , maxit=1000, Hess =True)
+
+XG = r.expand_grid(x = r.seq(0,7,1), y = r.seq(0,7,1))
+x = r.seq(0,7,1)
+y = r.seq(0,7,1)
+
+fit = r.predict(NNModel,XG)
+
+Running that skript delivers an error:
+
+Traceback (most recent call last):
+   File "F:\test\Python\test.py", line 11, in <module>
+     fit = r.predict(NNModel,XG)
+rpy.RPy_RException: Fehler in UseMethod("predict") : keine anwendbare 
+Methode für "predict"
+
+
+But the same skript in R shows no problems. It seems that I got not the 
+right way to speech to the predict function, but I can't see why.
+
+Here's the code in R:
+
+library(nnet)
+
+model <- Fxy~x+y
+
+df <- data.frame(x=c(0,2,5,10,15)
+,y=c(0,2,5,8,10)
+,Fxy=c(0,2,5,8,10))
+
+NNModel <- nnet(model, data =df, size =10
+, decay =1e-3, lineout=TRUE
+, skip=TRUE, maxit=1000, Hess =TRUE)
+
+XG <- expand.grid(x=seq(0,7,1),y=seq(0,7,1))
+x <- seq(0,7,1)
+y <- seq(0,7,1)
+fit <- predict(NNModel,XG)
+
+
+which shows no problems. Where is the difference? I want to use the nnet 
+  Library to interpolate several 3D Datas. The python code loops over 
+Data files and sorts them.. Maybe I have to put the whole code to R?
+
+I have to say that I don't complete understand the predict function- But 
+  in R does it what I want. I looked in the thread of Thomas few days 
+ago, but it does not really help me.
+
+Thanks for any hints!
+
+Marco
+
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From sdavis2 at mail.nih.gov  Fri Feb 22 18:06:55 2008
+From: sdavis2 at mail.nih.gov (Sean Davis)
+Date: Fri, 22 Feb 2008 13:06:55 -0500
+Subject: Re: [Rpy] r.predict()
+In-Reply-To: <47BF080B.6050809@gmx.de>
+References: <47BF080B.6050809@gmx.de>
+Message-ID: <264855a00802221006s6534d108r5167b3449662beec@mail.gmail.com>
+
+On Fri, Feb 22, 2008 at 12:36 PM, marco hofmann <marco_hofmann at gmx.de> wrote:
+> Hi all,
+>  I have a problem with the predict command. Here is an example:
+>
+>  from rpy import *
+>  r.library("nnet")
+>  model = r("Fxy~x+y")
+>
+>  df = r.data_frame(x = r.c(0,2,5,10,15)
+>                    ,y = r.c(0,2,5,8,10)
+>                    ,Fxy = r.c(0,2,5,8,10))
+
+NNModel is being converted to python and r.predict is looking for the
+R object, which is no longer available.  You'll need to turn off
+conversion.
+
+>  NNModel = r.nnet(model, data = df
+>                   , size =10, decay =1e-3
+>                   , lineout=True, skip=True
+>                   , maxit=1000, Hess =True)
+>
+>  XG = r.expand_grid(x = r.seq(0,7,1), y = r.seq(0,7,1))
+>  x = r.seq(0,7,1)
+>  y = r.seq(0,7,1)
+>
+>  fit = r.predict(NNModel,XG)
+>
+>  Running that skript delivers an error:
+>
+>  Traceback (most recent call last):
+>    File "F:\test\Python\test.py", line 11, in <module>
+>      fit = r.predict(NNModel,XG)
+>  rpy.RPy_RException: Fehler in UseMethod("predict") : keine anwendbare
+>  Methode für "predict"
+>
+>
+>  But the same skript in R shows no problems. It seems that I got not the
+>  right way to speech to the predict function, but I can't see why.
+>
+>  Here's the code in R:
+>
+>  library(nnet)
+>
+>  model <- Fxy~x+y
+>
+>  df <- data.frame(x=c(0,2,5,10,15)
+>  ,y=c(0,2,5,8,10)
+>  ,Fxy=c(0,2,5,8,10))
+>
+>  NNModel <- nnet(model, data =df, size =10
+>  , decay =1e-3, lineout=TRUE
+>  , skip=TRUE, maxit=1000, Hess =TRUE)
+>
+>  XG <- expand.grid(x=seq(0,7,1),y=seq(0,7,1))
+>  x <- seq(0,7,1)
+>  y <- seq(0,7,1)
+>  fit <- predict(NNModel,XG)
+>
+>
+>  which shows no problems. Where is the difference? I want to use the nnet
+>   Library to interpolate several 3D Datas. The python code loops over
+>  Data files and sorts them.. Maybe I have to put the whole code to R?
+>
+>  I have to say that I don't complete understand the predict function- But
+>   in R does it what I want. I looked in the thread of Thomas few days
+>  ago, but it does not really help me.
+
+It is not a problem with R.  See the message here for more details on
+what I mentioned above:
+
+http://sourceforge.net/mailarchive/forum.php?thread_name=BAY134-W138C87347F6BA30C7D4BFDA41C0 at phx.gbl&forum_name=rpy-list
+
+Sean
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From gregory.warnes at mac.com  Fri Feb 22 19:32:51 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Fri, 22 Feb 2008 14:32:51 -0500
+Subject: Re: [Rpy] r.predict()
+In-Reply-To: <47BF080B.6050809@gmx.de>
+References: <47BF080B.6050809@gmx.de>
+Message-ID: <46B38133-67C3-4256-BEC0-D44F0B29A6B8@mac.com>
+
+
+The basic problem is that by default, RPy converts objects returned  
+to python to a python object.  Unfortunately, this conversion loses  
+some information, including the type of the original R object.
+
+To avoid this conversion add two lines to your code:
+
+
+On Feb 22, 2008, at 12:36PM , marco hofmann wrote:
+
+> Hi all,
+> I have a problem with the predict command. Here is an example:
+>
+> from rpy import *
+
+# avoid automatic conversion
+set_default_mode(NO_CONVERSION)
+
+> r.library("nnet")
+> model = r("Fxy~x+y")
+>
+> df = r.data_frame(x = r.c(0,2,5,10,15)
+>                    ,y = r.c(0,2,5,8,10)
+>                    ,Fxy = r.c(0,2,5,8,10))
+>
+> NNModel = r.nnet(model, data = df
+>                   , size =10, decay =1e-3
+>                   , lineout=True, skip=True
+>                   , maxit=1000, Hess =True)
+>
+> XG = r.expand_grid(x = r.seq(0,7,1), y = r.seq(0,7,1))
+> x = r.seq(0,7,1)
+> y = r.seq(0,7,1)
+>
+> fit = r.predict(NNModel,XG)
+
+
+# turn automatic conversion back on
+set_default_mode(BASIC_CONVERSION)
+
+fit = r.predict(NNModel,XG)
+print fit
+
+
+
+-Greg
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From dzhou at facebook.com  Fri Feb 22 22:40:55 2008
+From: dzhou at facebook.com (Ding Zhou)
+Date: Fri, 22 Feb 2008 14:40:55 -0800
+Subject: [Rpy] Rpy handling kmeans
+Message-ID: <F112B4E4D8D2074A809DC14953D1B8820274F026@sf2pmxb01.thefacebook.com>
+
+Hi,
+
+I was trying get the rpy to work but was stuck. Would you help us with
+these simple rpy commands?
+
+I did the following:
+
+python
+
+from rpy import r
+
+x = r.matrix(r.rnorm(100), 50, 2)
+
+r.kmeans(x, 2)
+
+The error was:
+
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+rpy.RException: Error in as.double.default(x) : (list) object cannot be
+coerced to 'double'
+
+I also tried:
+
+x = numpy.array(x) before r.kmeans but it didn't work.
+
+I was able to run the same thing in R by doing:
+
+x = matrix(rnorm(100), 50, 2)
+kmeans(x, 2)
+
+But the test with rpy failed miserably ... Any idea to help out?
+
+Thanks,
+-Ding.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From marco_hofmann at gmx.de  Sat Feb 23 12:46:51 2008
+From: marco_hofmann at gmx.de (marco hofmann)
+Date: Sat, 23 Feb 2008 13:46:51 +0100
+Subject: Re: [Rpy] r.predict()
+In-Reply-To: <46B38133-67C3-4256-BEC0-D44F0B29A6B8@mac.com>
+References: <47BF080B.6050809@gmx.de> <46B38133-67C3-4256-BEC0-D44F0B29A6B8@mac.com>
+Message-ID: <47C015BB.4050109@gmx.de>
+
+Hi Gregory and Sean,
+thanks a lot for your helpful answers! They solved the problem and I can 
+go on.
+
+Marco
+
+Gregory Warnes schrieb:
+> The basic problem is that by default, RPy converts objects returned  
+> to python to a python object.  Unfortunately, this conversion loses  
+> some information, including the type of the original R object.
+> 
+> To avoid this conversion add two lines to your code:
+> 
+> 
+> On Feb 22, 2008, at 12:36PM , marco hofmann wrote:
+> 
+>> Hi all,
+>> I have a problem with the predict command. Here is an example:
+>>
+>> from rpy import *
+> 
+> # avoid automatic conversion
+> set_default_mode(NO_CONVERSION)
+> 
+>> r.library("nnet")
+>> model = r("Fxy~x+y")
+>>
+>> df = r.data_frame(x = r.c(0,2,5,10,15)
+>>                    ,y = r.c(0,2,5,8,10)
+>>                    ,Fxy = r.c(0,2,5,8,10))
+>>
+>> NNModel = r.nnet(model, data = df
+>>                   , size =10, decay =1e-3
+>>                   , lineout=True, skip=True
+>>                   , maxit=1000, Hess =True)
+>>
+>> XG = r.expand_grid(x = r.seq(0,7,1), y = r.seq(0,7,1))
+>> x = r.seq(0,7,1)
+>> y = r.seq(0,7,1)
+>>
+>> fit = r.predict(NNModel,XG)
+> 
+> 
+> # turn automatic conversion back on
+> set_default_mode(BASIC_CONVERSION)
+> 
+> fit = r.predict(NNModel,XG)
+> print fit
+> 
+> 
+> 
+> -Greg
+> 
+> 
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+> 
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at users.sourceforge.net  Sat Feb 23 15:24:21 2008
+From: lgautier at users.sourceforge.net
+Date: Sat, 23 Feb 2008 07:24:21 -0800
+Subject: [Rpy] SF.net SVN: rpy: [404] trunk/sandbox
+Message-ID: <E1JSwEf-00081p-PN@sc8-pr-svn2.sourceforge.net>
+
+Revision: 404
+          http://rpy.svn.sourceforge.net/rpy/?rev=404&view=rev
+Author:   lgautier
+Date:     2008-02-23 07:24:21 -0800 (Sat, 23 Feb 2008)
+
+Log Message:
+-----------
+Initial commit on sourceforge.
+
+Status is: kinda-almost-pre-alpha
+
+Added Paths:
+-----------
+    trunk/sandbox/rpy_nextgen/
+    trunk/sandbox/rpy_nextgen/rinterface/
+    trunk/sandbox/rpy_nextgen/rinterface/rinterface.c
+    trunk/sandbox/rpy_nextgen/setup.py
+
+Added: trunk/sandbox/rpy_nextgen/rinterface/rinterface.c
+===================================================================
+--- trunk/sandbox/rpy_nextgen/rinterface/rinterface.c	                        (rev 0)
++++ trunk/sandbox/rpy_nextgen/rinterface/rinterface.c	2008-02-23 15:24:21 UTC (rev 404)
+@@ -0,0 +1,976 @@
++/* A python-R interface*/
++
++/* 
++ * This is an attempt at cleaning up RPy, while adding features
++ * at the same time. In other words, this can be seen as a rewrite 
++ * of RPy.
++ *
++ * The authors for the original RPy code, as well as
++ * belopolsky's contributed code, are listed here as authors;
++ * parts of this code is (sometimes shamelessly but with great 
++ * respect for the work) "inspired" from their contributions. 
++ * 
++ * FIXME: get everyone's name in the license block
++ *
++ * Laurent Gautier - 2008
++ */
++
++/*
++ ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "Python.h"
++
++#include <R.h>
++#include <Rinternals.h>
++#include <Rdefines.h>
++#include <Rinterface.h>
++#include <Rembedded.h>
++
++/* FIXME: consider the use of parsing */
++/* #include <R_ext/Parse.h> */
++#include <R_ext/Rdynload.h>
++
++#include <signal.h>
++
++//FIXME: get this out ASAP
++#define VERBOSE
++
++//FIXME: see the details of error handling
++static PyObject *ErrorObject;
++
++//FIXME: see the details of interruption
++/* Indicates whether the R interpreter was interrupted by a SIGINT */
++int interrupted = 0;
++/* Abort the current R computation due to a SIGINT */
++static void
++interrupt_R(int signum)
++{
++  interrupted = 1;
++  error("Interrupted");
++}
++
++
++
++
++/* The Python original SIGINT handler */
++PyOS_sighandler_t python_sigint;
++
++PyDoc_STRVAR(module_doc,
++	     "Low-level functions to interface with R.\n\
++ One should mostly consider calling the functions defined here when\
++ writing a higher level interface between python and R.\
++ Check the documentation for the module this is bundled into if\
++ you only wish to have an off-the-shelf interface with R.\
++\n\
++ Example of usage:\
++import rinterface\
++rinterface.initEmbeddedR(\"foo\", \"--verbose\")\
++n = rinterface.SexpVector(rinterface.REALSXP, (100,))\
++hist = rinterface.findVarEmbeddedR(\"hist\")\
++rnorm = rinterface.findVarEmbeddedR(\"rnorm\")\
++x = rnorm(n)\
++hist(x)\
++");
++//FIXME: check example above
++
++
++/* Representation of R objects (instances) as instances in Python.
++ */
++typedef struct {
++  PyObject_HEAD
++  SEXP sexp;
++} SexpObject;
++
++
++
++
++/* --- Initialize and terminate an embedded R --- */
++/* Should having multiple threads of R become possible, 
++ * Useful routines deal with can could appear here...
++ */
++static PyObject* EmbeddedR_init(PyObject *self, PyObject *args) 
++{
++  //char *defaultargv[] = {"rpython", "--verbose"};
++  char *options[5] = {"", "", "", "", ""};
++
++  if (!PyArg_ParseTuple(args, "s|ssss", 
++			&options[0], &options[1],
++			&options[2], &options[3],
++			&options[4]
++			)) { 
++    return NULL; 
++  }
++  
++  int n_opt;
++  for (n_opt=0; n_opt<5; n_opt++) {
++    if (options[n_opt] == "") {
++      break;
++    }
++  }
++  
++  int status = Rf_initEmbeddedR(n_opt, options);
++  PyObject *res = PyInt_FromLong(status);
++  return res;
++}
++PyDoc_STRVAR(EmbeddedR_init_doc,
++	     "initEmbeddedR()\n\
++\n\
++Initialize an embedded R.");
++
++
++static PyObject* EmbeddedR_end(PyObject *self, PyObject *arg)
++{
++  //FIXME: Have a reference count for R objects known to Python.
++  //ending R will not be possible until all such objects are already
++  //deallocated in Python ?
++  //other possibility would be to have a fallback for "unreachable" objects ?
++  //FIXME: rpy has something to terminate R. Check the details of what it is. 
++  if (! PyInt_Check(arg)) {
++  } else {
++    /* sanity checks needed ? */
++    const long fatal = PyInt_AsLong(arg);
++    Rf_endEmbeddedR((int)fatal);
++  }
++  Py_RETURN_NONE;
++}
++PyDoc_STRVAR(EmbeddedR_end_doc,
++	     "endEmbeddedR()\n\
++\n\
++Terminate an embedded R.");
++
++
++/* --- set output from the R console ---*/
++
++static void
++EmbeddedR_WriteConsole(char *buf, int len)
++{
++  PyOS_sighandler_t old_int;
++
++  /* It is necessary to restore the Python handler when using a Python
++     function for I/O. */
++  old_int = PyOS_getsig(SIGINT);
++  PyOS_setsig(SIGINT, python_sigint);
++  PySys_WriteStdout(buf);
++  signal(SIGINT, old_int);
++}
++
++
++/* Redirect R console output */
++//  R_Outputfile = NULL;
++
++
++/* FIXME: implement possibility to specify arbitrary callback functions */
++extern void (*ptr_R_WriteConsole)(char *, int);
++static PyObject* EmbeddedR_setWriteConsole(PyObject *self)
++{
++  ptr_R_WriteConsole = EmbeddedR_WriteConsole;
++  Py_RETURN_NONE;
++}
++PyDoc_STRVAR(EmbeddedR_setWriteConsole_doc,
++	     "setWriteConsoleEmbeddedR()\n\
++\n\
++Set the R console output to the Python console.");
++
++
++static PyObject*
++EmbeddedR_exception_from_errmessage(void)
++{
++  //FIXME: sort the error message thing geterrmessage
++  PyErr_SetString(ErrorObject, "Error.");
++  return NULL;
++}
++
++
++
++
++/*
++ * Access to R objects through Python objects
++ */
++
++static void
++Sexp_dealloc(SexpObject *self)
++{
++  if (self->sexp)
++    R_ReleaseObject(self->sexp);
++  self->ob_type->tp_free((PyObject*)self);
++}
++
++
++static PyObject*
++Sexp_repr(PyObject *self)
++{
++  return PyString_FromFormat("<%s - Python:\%p / R:\%p>",
++			     self->ob_type->tp_name,
++			     self,
++			     &(((SexpObject *)self)->sexp));
++}
++
++
++static PyObject*
++Sexp_typeof(PyObject *self)
++{
++  return PyInt_FromLong(TYPEOF(((SexpObject*)self)->sexp));
++}
++PyDoc_STRVAR(Sexp_typeof_doc,
++"\n\
++Returns the R internal SEXP type.");
++
++static PyMethodDef Sexp_methods[] = {
++  {"typeof", (PyCFunction)Sexp_typeof, METH_NOARGS,
++  Sexp_typeof_doc},
++  {NULL, NULL}          /* sentinel */
++};
++
++
++/*
++ * Generic Sexp_Type. It represents SEXP objects at large.
++ */
++static PyTypeObject Sexp_Type = {
++	/* The ob_type field must be initialized in the module init function
++	 * to be portable to Windows without using C++. */
++	PyObject_HEAD_INIT(NULL)
++	0,			/*ob_size*/
++	"rinterface.Sexp",	/*tp_name*/
++	sizeof(SexpObject),	/*tp_basicsize*/
++	0,			/*tp_itemsize*/
++	/* methods */
++	(destructor)Sexp_dealloc, /*tp_dealloc*/
++	0,			/*tp_print*/
++	0,                      /*tp_getattr*/
++	0,                      /*tp_setattr*/
++	0,			/*tp_compare*/
++	Sexp_repr,		/*tp_repr*/
++	0,			/*tp_as_number*/
++	0,			/*tp_as_sequence*/
++	0,			/*tp_as_mapping*/
++	0,			/*tp_hash*/
++	0,                      /*tp_call*/
++        0,//Sexp_str,               /*tp_str*/
++        0,                      /*tp_getattro*/
++        0,                      /*tp_setattro*/
++        0,                      /*tp_as_buffer*/
++        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,     /*tp_flags*/
++        0,                      /*tp_doc*/
++        0,                      /*tp_traverse*/
++        0,                      /*tp_clear*/
++        0,                      /*tp_richcompare*/
++        0,                      /*tp_weaklistoffset*/
++        0,                      /*tp_iter*/
++        0,                      /*tp_iternext*/
++        Sexp_methods,           /*tp_methods*/
++        0,                      /*tp_members*/
++        0,//Sexp_getset,            /*tp_getset*/
++        0,                      /*tp_base*/
++        0,                      /*tp_dict*/
++        0,                      /*tp_descr_get*/
++        0,                      /*tp_descr_set*/
++        0,                      /*tp_dictoffset*/
++        0,                      /*tp_init*/
++        0,                      /*tp_alloc*/
++        0,//Sexp_new,               /*tp_new*/
++        0,                      /*tp_free*/
++        0,                      /*tp_is_gc*/
++};
++
++
++/*
++ * Closure-type Sexp.
++ */
++
++static SexpObject* newSexpObject(SEXP);
++static SEXP newSEXP(PyObject *object, int rType);
++
++/* Evaluate a SEXP. It must be constructed by hand. It raises a Python
++   exception if an error ocurred in the evaluation */
++SEXP do_eval_expr(SEXP expr_R) {
++  SEXP res_R;
++  int error = 0;
++  PyOS_sighandler_t old_int;
++  
++  /* Enable our handler for SIGINT inside the R
++     interpreter. Otherwise, we cannot stop R calculations, since
++     SIGINT is only processed between Python bytecodes. Also, save the
++     Python SIGINT handler because it is necessary to temporally
++	   restore it in user defined I/O Python functions. */
++  /* stop_events(); */
++  
++#ifdef _WIN32
++  old_int = PyOS_getsig(SIGBREAK);
++#else
++  old_int = PyOS_getsig(SIGINT);
++#endif
++  python_sigint = old_int;
++  
++  signal(SIGINT, interrupt_R);
++  
++  interrupted = 0;
++  //FIXME: evaluate expression in the given
++  res_R = R_tryEval(expr_R, R_GlobalEnv, &error);
++
++#ifdef _WIN32
++  PyOS_setsig(SIGBREAK, old_int);   
++#else 
++  PyOS_setsig(SIGINT, old_int);
++#endif
++  
++  /* start_events(); */
++  
++  if (error) {
++    if (interrupted) {
++      PyErr_SetNone(PyExc_KeyboardInterrupt);
++    //FIXME: handling of interruptions
++    } else {
++      EmbeddedR_exception_from_errmessage();
++    }
++    return NULL;
++  }
++
++  return res_R;
++}
++
++
++/* This is the method to call when invoking an 'Sexp' */
++static PyObject *
++Sexp_call(PyObject *self, PyObject *args, PyObject *kwds)
++{
++  SEXP call_R, c_R, res_R;
++  int largs, lkwds;
++  
++  largs = lkwds = 0;
++  if (args)
++    largs = PyObject_Length(args);
++  if (kwds)
++    lkwds = PyObject_Length(kwds);
++  if ((largs<0) || (lkwds<0))
++    return NULL;
++
++  /* A SEXP with the function to call and the arguments and keywords. */
++  PROTECT(c_R = call_R = allocList(largs+lkwds+1));
++  SET_TYPEOF(c_R, LANGSXP);
++  SETCAR(c_R, ((SexpObject *)self)->sexp);
++  c_R = CDR(c_R);
++
++  int arg_i;
++  SEXP tmp_R;
++  for (arg_i=0; arg_i<largs; arg_i++) {
++    //FIXME: assert that all are SexpObjects
++    tmp_R = ((SexpObject *)PyTuple_GetItem(args, arg_i))->sexp;
++    SETCAR(c_R, tmp_R);
++    c_R = CDR(c_R);
++  }
++  
++/*   if (!make_kwds(lkwds, kwds, &e)) { */
++/*     UNPROTECT(1); */
++/*     return NULL; */
++/*   } */
++
++//FIXME: R_GlobalContext ?
++  PROTECT(res_R = do_eval_expr(call_R));
++
++/*   if (!res) { */
++/*     UNPROTECT(2); */
++/*     return NULL; */
++/*   } */
++  UNPROTECT(2);
++  //FIXME: standardize R outputs
++  extern void Rf_PrintWarnings(void);
++  Rf_PrintWarnings(); /* show any warning messages */
++
++  PyObject *res = (PyObject *)newSexpObject(res_R);
++  return res;
++}
++
++
++
++
++static SexpObject*
++Sexp_closureEnv(PyObject *self)
++{
++  SEXP closureEnv = CLOENV(((SexpObject*)self)->sexp);
++  return newSexpObject(closureEnv);
++}
++PyDoc_STRVAR(Sexp_closureEnv_doc,
++	     "\n\
++Returns the environment the object is defined in.\
++This corresponds to the C-level function CLOENV(SEXP).");
++
++static PyMethodDef ClosureSexp_methods[] = {
++  {"closureEnv", (PyCFunction)Sexp_closureEnv, METH_NOARGS,
++  Sexp_closureEnv_doc},
++  {NULL, NULL}          /* sentinel */
++};
++
++//FIXME: write more doc
++PyDoc_STRVAR(ClosureSexp_Type_doc,
++"A R object that is a closure, that is a function. \
++In R a function a function is defined in an enclosing \
++environement, thus the name of closure. \
++\n\
++The closure can be accessed with the method 'closureEnv'.\
++");
++
++static PyTypeObject ClosureSexp_Type = {
++	/* The ob_type field must be initialized in the module init function
++	 * to be portable to Windows without using C++. */
++	PyObject_HEAD_INIT(NULL)
++	0,			/*ob_size*/
++	"rinterface.ClosureSexp",	/*tp_name*/
++	sizeof(SexpObject),	/*tp_basicsize*/
++	0,			/*tp_itemsize*/
++	/* methods */
++	0, /*tp_dealloc*/
++	0,			/*tp_print*/
++	0,                      /*tp_getattr*/
++	0,                      /*tp_setattr*/
++	0,			/*tp_compare*/
++	0,		        /*tp_repr*/
++	0,			/*tp_as_number*/
++	0,			/*tp_as_sequence*/
++	0,			/*tp_as_mapping*/
++	0,			/*tp_hash*/
++	Sexp_call,              /*tp_call*/
++        0,//Sexp_str,               /*tp_str*/
++        0,                      /*tp_getattro*/
++        0,                      /*tp_setattro*/
++        0,                      /*tp_as_buffer*/
++        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,     /*tp_flags*/
++        0,                      /*tp_doc*/
++        0,                      /*tp_traverse*/
++        0,                      /*tp_clear*/
++        0,                      /*tp_richcompare*/
++        0,                      /*tp_weaklistoffset*/
++        0,                      /*tp_iter*/
++        0,                      /*tp_iternext*/
++        ClosureSexp_methods,           /*tp_methods*/
++        0,                      /*tp_members*/
++        0,//Sexp_getset,            /*tp_getset*/
++        &Sexp_Type,             /*tp_base*/
++        0,                      /*tp_dict*/
++        0,                      /*tp_descr_get*/
++        0,                      /*tp_descr_set*/
++        0,                      /*tp_dictoffset*/
++        0,                      /*tp_init*/
++        0,                      /*tp_alloc*/
++        0,//Sexp_new,               /*tp_new*/
++        0,                      /*tp_free*/
++        0                      /*tp_is_gc*/
++};
++
++static PyObject*
++VectorSexp_new(PyTypeObject *type, PyObject *args)
++{
++  int rType = -1;
++  PyObject *seq = 0;
++  if (!PyArg_ParseTuple(args, "iO:new",
++			&rType, &seq))
++    return NULL;
++  #ifdef VERBOSE
++  printf("type: %i\n", rType);
++  #endif
++  SEXP sexp;
++  sexp = newSEXP(seq, rType);
++  PyObject *res = (PyObject *)newSexpObject(sexp);
++  return res;
++}
++
++static Py_ssize_t VectorSexp_len(PyObject *object)
++{
++  Py_ssize_t len;
++  //FIXME: sanity checks.
++  len = (Py_ssize_t)LENGTH(((SexpObject *)object)->sexp);
++  return len;
++}
++
++static PySequenceMethods VectorSexp_sequenceMethods = {
++  (inquiry)VectorSexp_len,              /* sq_length */
++  0,                              /* sq_concat */
++  0,                              /* sq_repeat */
++  //FIXME: implement
++  0, //(ssizeargfunc)Sexp_item,        /* sq_item */
++  //FIXME: implement
++  0, //(ssizessizeargfunc)Sexp_slice,  /* sq_slice */
++  //FIXME: implement
++  0, //(ssizeobjargproc)Sexp_ass_item,   /* sq_ass_item */
++  0,                              /* sq_ass_slice */
++  0,                              /* sq_contains */
++  0,                              /* sq_inplace_concat */
++  0                               /* sq_inplace_repeat */
++};
++
++//FIXME: write more doc
++PyDoc_STRVAR(VectorSexp_Type_doc,
++"An R object that is a vector.\
++ R vectors start their indexing at one,\
++ while Python lists or arrays start indexing\
++ at zero.\
++\n\
++In the hope to avoid confusion, the indexing\
++ from the Python subset operator (__getitem__)\
++ is done at zero.");
++/* ", while an other method to perform\ */
++/*  it at one is provided (_not yet implemented_).\ */
++/*  That other method is also performing indexing."); */
++//FIXME: implement offset-one indexing.
++
++static PyTypeObject VectorSexp_Type = {
++	/* The ob_type field must be initialized in the module init function
++	 * to be portable to Windows without using C++. */
++	PyObject_HEAD_INIT(NULL)
++	0,			/*ob_size*/
++	"rinterface.VectorSexp",	/*tp_name*/
++	sizeof(SexpObject),	/*tp_basicsize*/
++	0,			/*tp_itemsize*/
++	/* methods */
++	0, /*tp_dealloc*/
++	0,			/*tp_print*/
++	0,                      /*tp_getattr*/
++	0,                      /*tp_setattr*/
++	0,			/*tp_compare*/
++	0,		        /*tp_repr*/
++	0,			/*tp_as_number*/
++	&VectorSexp_sequenceMethods,			/*tp_as_sequence*/
++	0,			/*tp_as_mapping*/
++	0,			/*tp_hash*/
++	0,              /*tp_call*/
++        0,//Sexp_str,               /*tp_str*/
++        0,                      /*tp_getattro*/
++        0,                      /*tp_setattro*/
++        0,                      /*tp_as_buffer*/
++        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,     /*tp_flags*/
++        VectorSexp_Type_doc,                      /*tp_doc*/
++        0,                      /*tp_traverse*/
++        0,                      /*tp_clear*/
++        0,                      /*tp_richcompare*/
++        0,                      /*tp_weaklistoffset*/
++        0,                      /*tp_iter*/
++        0,                      /*tp_iternext*/
++        0,           /*tp_methods*/
++        0,                      /*tp_members*/
++        0,//Sexp_getset,            /*tp_getset*/
++        &Sexp_Type,             /*tp_base*/
++        0,                      /*tp_dict*/
++        0,                      /*tp_descr_get*/
++        0,                      /*tp_descr_set*/
++        0,                      /*tp_dictoffset*/
++        0,                      /*tp_init*/
++        0,                      /*tp_alloc*/
++        VectorSexp_new,               /*tp_new*/
++        0,                      /*tp_free*/
++        0                      /*tp_is_gc*/
++};
++
++
++//FIXME: write more doc
++PyDoc_STRVAR(EnvironmentSexp_Type_doc,
++"An R object that is an environment.\
++ R environments can be seen as similar to Python\
++ dictionnaries, with the twist that looking for\
++ a key can be recursively propagated to the enclosing\
++ environment whenever the key is not found.\
++\n\
++ The subsetting operator is made to match Python's\
++ behavior, that is the enclosing environment are not\
++ inspect upon absence of a given key.\
++");
++
++static PyTypeObject EnvironmentSexp_Type = {
++	/* The ob_type field must be initialized in the module init function
++	 * to be portable to Windows without using C++. */
++	PyObject_HEAD_INIT(NULL)
++	0,			/*ob_size*/
++	"rinterface.EnvironmentSexp",	/*tp_name*/
++	sizeof(SexpObject),	/*tp_basicsize*/
++	0,			/*tp_itemsize*/
++	/* methods */
++	0, /*tp_dealloc*/
++	0,			/*tp_print*/
++	0,                      /*tp_getattr*/
++	0,                      /*tp_setattr*/
++	0,			/*tp_compare*/
++	0,		        /*tp_repr*/
++	0,			/*tp_as_number*/
++	0,			/*tp_as_sequence*/
++	0,			/*tp_as_mapping*/
++	0,			/*tp_hash*/
++	0,              /*tp_call*/
++        0,//Sexp_str,               /*tp_str*/
++        0,                      /*tp_getattro*/
++        0,                      /*tp_setattro*/
++        0,                      /*tp_as_buffer*/
++        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,     /*tp_flags*/
++        EnvironmentSexp_Type_doc,                      /*tp_doc*/
++        0,                      /*tp_traverse*/
++        0,                      /*tp_clear*/
++        0,                      /*tp_richcompare*/
++        0,                      /*tp_weaklistoffset*/
++        0,                      /*tp_iter*/
++        0,                      /*tp_iternext*/
++        0,           /*tp_methods*/
++        0,                      /*tp_members*/
++        0,//Sexp_getset,            /*tp_getset*/
++        &Sexp_Type,             /*tp_base*/
++        0,                      /*tp_dict*/
++        0,                      /*tp_descr_get*/
++        0,                      /*tp_descr_set*/
++        0,                      /*tp_dictoffset*/
++        0,                      /*tp_init*/
++        0,                      /*tp_alloc*/
++	//FIXME: add new method
++        0, //EnvironmentSexp_new,               /*tp_new*/
++        0,                      /*tp_free*/
++        0                      /*tp_is_gc*/
++};
++
++
++//FIXME: write more doc
++PyDoc_STRVAR(S4Sexp_Type_doc,
++"An R object that is an 'S4 object'.\
++");
++
++static PyTypeObject S4Sexp_Type = {
++	/* The ob_type field must be initialized in the module init function
++	 * to be portable to Windows without using C++. */
++	PyObject_HEAD_INIT(NULL)
++	0,			/*ob_size*/
++	"rinterface.S4Sexp",	/*tp_name*/
++	sizeof(SexpObject),	/*tp_basicsize*/
++	0,			/*tp_itemsize*/
++	/* methods */
++	0, /*tp_dealloc*/
++	0,			/*tp_print*/
++	0,                      /*tp_getattr*/
++	0,                      /*tp_setattr*/
++	0,			/*tp_compare*/
++	0,		        /*tp_repr*/
++	0,			/*tp_as_number*/
++	0,			/*tp_as_sequence*/
++	0,			/*tp_as_mapping*/
++	0,			/*tp_hash*/
++	0,              /*tp_call*/
++        0,//Sexp_str,               /*tp_str*/
++        0,                      /*tp_getattro*/
++        0,                      /*tp_setattro*/
++        0,                      /*tp_as_buffer*/
++        Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,     /*tp_flags*/
++        S4Sexp_Type_doc,                      /*tp_doc*/
++        0,                      /*tp_traverse*/
++        0,                      /*tp_clear*/
++        0,                      /*tp_richcompare*/
++        0,                      /*tp_weaklistoffset*/
++        0,                      /*tp_iter*/
++        0,                      /*tp_iternext*/
++        0,           /*tp_methods*/
++        0,                      /*tp_members*/
++        0,//Sexp_getset,            /*tp_getset*/
++        &Sexp_Type,             /*tp_base*/
++        0,                      /*tp_dict*/
++        0,                      /*tp_descr_get*/
++        0,                      /*tp_descr_set*/
++        0,                      /*tp_dictoffset*/
++        0,                      /*tp_init*/
++        0,                      /*tp_alloc*/
++	//FIXME: add new method
++        0, //S4Sexp_new,               /*tp_new*/
++        0,                      /*tp_free*/
++        0                      /*tp_is_gc*/
++};
++
++
++
++/* --- Create a SEXP object --- */
++static SexpObject*
++newSexpObject(SEXP sexp)
++{
++  SexpObject *object;
++  SEXP env_R;
++  
++  //FIXME: let the possibility to manipulate un-evaluated promises ?
++  if (TYPEOF(sexp) == PROMSXP) {
++    #ifdef VERBOSE
++    printf("evaluating promise...");
++    #endif
++    env_R = PRENV(sexp);
++    sexp = eval(sexp, env_R);
++    #ifdef VERBOSE
++    printf("done.\n");
++    #endif
++  }
++
++  switch (TYPEOF(sexp)) {
++  case CLOSXP:
++    object  = (SexpObject *)_PyObject_New(&ClosureSexp_Type); 
++    break;
++    //FIXME: handle other callable types ?
++    //case SPECIALSXP:
++    //callable type
++    //break;
++    //case BUILTINSXP:
++    //callable type
++    //break;
++  case REALSXP: 
++  case INTSXP: 
++  case LGLSXP: 
++  case STRSXP:
++    object = (SexpObject *)_PyObject_New(&VectorSexp_Type);
++    break;
++  case ENVSXP:
++    object = (SexpObject *)_PyObject_New(&EnvironmentSexp_Type);
++    break;
++  case S4SXP:
++    object = (SexpObject *)_PyObject_New(&S4Sexp_Type);
++    break;
++  default:
++    object  = (SexpObject *)_PyObject_New(&Sexp_Type); 
++    break;
++  }
++  if (!object)
++    PyErr_NoMemory();
++  object->sexp = sexp;
++  if (sexp)
++    R_PreserveObject(sexp);
++  return object;
++}
++
++static SEXP
++newSEXP(PyObject *object, int rType)
++{
++  SEXP sexp;
++  PyObject *seq_object, *item; 
++  seq_object = PySequence_Fast(object, "Cannot create"
++			   " R object from non-sequence Python object.");
++  if (! seq_object)
++    return NULL;
++  
++  const Py_ssize_t length = PySequence_Fast_GET_SIZE(seq_object);
++  //FIXME: PROTECT THIS
++  #ifdef VERBOSE
++  printf("size: %i", length);
++  #endif
++  sexp = allocVector(rType, length);
++
++  int i;
++  
++  switch(rType) {
++  case REALSXP:
++    for (i = 0; i < length; ++i) {
++      if((item = PyNumber_Float(PySequence_Fast_GET_ITEM(seq_object, i)))) {
++	REAL(sexp)[i] = PyFloat_AS_DOUBLE(item);
++	Py_DECREF(item);
++      }
++      else {
++	PyErr_Clear();
++	REAL(sexp)[i] = NA_REAL;
++      }
++    }
++    break;
++  case INTSXP:
++    for (i = 0; i < length; ++i) {
++      if((item = PyNumber_Int(PySequence_Fast_GET_ITEM(seq_object, i)))) {
++	long l = PyInt_AS_LONG(item);
++	INTEGER(sexp)[i] = (l<=INT_MAX && l>=INT_MIN)?l:NA_INTEGER;
++	Py_DECREF(item);
++      }
++      else {
++	PyErr_Clear();
++	INTEGER(sexp)[i] = NA_INTEGER;
++      }
++    }
++    break;
++  case LGLSXP:
++    for (i = 0; i < length; ++i) {
++      int q = PyObject_IsTrue(PySequence_Fast_GET_ITEM(seq_object, i));
++      if (q != -1)
++	LOGICAL(sexp)[i] = q;
++      else {
++	PyErr_Clear();
++	LOGICAL(sexp)[i] = NA_LOGICAL;
++      }
++    }
++    break;
++  case STRSXP:
++    for (i = 0; i < length; ++i) {
++      if((item = PyObject_Str(PySequence_Fast_GET_ITEM(seq_object, i)))) {
++	SEXP str_R = mkChar(PyString_AS_STRING(item));
++	if (!str_R) {
++	  PyErr_NoMemory();
++	  sexp = NULL;
++	  break;
++	}
++	SET_STRING_ELT(sexp, i, str_R);
++      }
++      else {
++	PyErr_Clear();
++	SET_STRING_ELT(sexp, i, NA_STRING);
++      }
++    }
++    break;
++  default:
++    PyErr_Format(PyExc_ValueError, "cannot handle type %d", rType);
++    sexp = NULL;
++  }
++  return sexp;
++}
++
++
++
++static PyObject*
++EmbeddedR_newSexpObject(SEXP sexp)
++{
++  SexpObject *res;
++
++  return (PyObject *)res;
++}
++
++//ClosureSexp_Type.tp_call = &Sexp_call; 
++//ClosureSexp_Type.tp_call = 0; 
++
++
++//(PyTypeObject *)ClosureSexp_Type.tp_new = 0;//ClosureSexp_methods; 
++
++
++static PyObject*
++Sexp_GlobalEnv(PyTypeObject* type)
++{
++	SexpObject* res = (SexpObject*)type->tp_alloc(type, 0);
++	res->sexp = R_GlobalEnv;
++	return (PyObject*)res;
++}
++
++
++
++/* --- Find a variable in an environment --- */
++
++
++static SexpObject*
++EmbeddedR_findVar(PyObject *self, PyObject *args)
++//EmbeddedR_findVar(PyTypeObject *type, PyObject *args)
++{
++  char *name;
++  SEXP rho = R_GlobalEnv, res;
++  PyObject *ErrorObject;
++
++  if (!PyArg_ParseTuple(args, "s", &name)) { 
++    //, "s|O&", &name, Get_SEXP, &rho)) {
++    return NULL; 
++  }
++  res = findVar(install(name), rho);
++  if (res != R_UnboundValue) {
++    #ifdef VERBOSE
++    printf("found.\n");
++    #endif
++    return newSexpObject(res);
++  }
++  PyErr_Format(ErrorObject, "'%s' not found", name);
++  return NULL;
++}
++PyDoc_STRVAR(EmbeddedR_findVar_doc,
++	     "Find a variable in R's .GlobalEnv.");
++
++
++
++
++/* --- List of functions defined in the module --- */
++
++static PyMethodDef EmbeddedR_methods[] = {
++  {"initEmbeddedR",     (PyCFunction)EmbeddedR_init,   METH_VARARGS,
++   EmbeddedR_init_doc},
++  {"endEmbeddedR",	(PyCFunction)EmbeddedR_end,    METH_O,
++   EmbeddedR_end_doc},
++  {"setWriteConsole",	(PyCFunction)EmbeddedR_setWriteConsole,	 METH_NOARGS,
++   EmbeddedR_setWriteConsole_doc},
++  {"findVarEmbeddedR",	(PyCFunction)EmbeddedR_findVar,	 METH_VARARGS,
++   EmbeddedR_findVar_doc},
++  {NULL,		NULL}		/* sentinel */
++};
++
++
++
++
++/* --- Initialize the module ---*/
++
++#define ADD_INT_CONSTANT(module, name) PyModule_AddIntConstant(module, #name, name)
++
++PyMODINIT_FUNC
++initrinterface(void)
++{
++  
++  /* Finalize the type object including setting type of the new type
++	 * object; doing it here is required for portability to Windows 
++	 * without requiring C++. */
++  if (PyType_Ready(&Sexp_Type) < 0)
++    return;
++  if (PyType_Ready(&ClosureSexp_Type) < 0)
++    return;
++  if (PyType_Ready(&VectorSexp_Type) < 0)
++    return;
++
++  PyObject *m;
++  m = Py_InitModule3("rinterface", EmbeddedR_methods, module_doc);
++  if (m == NULL)
++    return;
++
++  PyModule_AddObject(m, "Sexp", (PyObject *)&Sexp_Type);
++  PyModule_AddObject(m, "SexpClosure", (PyObject *)&ClosureSexp_Type);
++  PyModule_AddObject(m, "SexpVector", (PyObject *)&VectorSexp_Type);
++
++  //FIXME: clean the exception stuff
++  if (ErrorObject == NULL) {
++    ErrorObject = PyErr_NewException("rinterface.error", NULL, NULL);
++    if (ErrorObject == NULL)
++      return;
++  }
++  Py_INCREF(ErrorObject);
++  PyModule_AddObject(m, "RobjectNotFound", ErrorObject);
++
++
++  /* Add some symbolic constants to the module */
++  ADD_INT_CONSTANT(m, NILSXP);
++  ADD_INT_CONSTANT(m, SYMSXP);
++  ADD_INT_CONSTANT(m, LISTSXP);
++  ADD_INT_CONSTANT(m, CLOSXP);
++  ADD_INT_CONSTANT(m, ENVSXP);
++  ADD_INT_CONSTANT(m, PROMSXP);
++  ADD_INT_CONSTANT(m, LANGSXP);
++  ADD_INT_CONSTANT(m, SPECIALSXP);
++  ADD_INT_CONSTANT(m, BUILTINSXP);
++  ADD_INT_CONSTANT(m, CHARSXP);
++  ADD_INT_CONSTANT(m, STRSXP);
++  ADD_INT_CONSTANT(m, LGLSXP);
++  ADD_INT_CONSTANT(m, INTSXP);
++  ADD_INT_CONSTANT(m, REALSXP);
++  ADD_INT_CONSTANT(m, CPLXSXP);
++  ADD_INT_CONSTANT(m, DOTSXP);
++  ADD_INT_CONSTANT(m, ANYSXP);
++  ADD_INT_CONSTANT(m, VECSXP);
++  ADD_INT_CONSTANT(m, VECSXP);
++  ADD_INT_CONSTANT(m, EXPRSXP);
++  ADD_INT_CONSTANT(m, BCODESXP);
++  ADD_INT_CONSTANT(m, EXTPTRSXP);
++  ADD_INT_CONSTANT(m, RAWSXP);
++  ADD_INT_CONSTANT(m, S4SXP);
++}
+
+
+Property changes on: trunk/sandbox/rpy_nextgen/rinterface/rinterface.c
+___________________________________________________________________
+Name: svn:executable
+   + *
+
+Added: trunk/sandbox/rpy_nextgen/setup.py
+===================================================================
+--- trunk/sandbox/rpy_nextgen/setup.py	                        (rev 0)
++++ trunk/sandbox/rpy_nextgen/setup.py	2008-02-23 15:24:21 UTC (rev 404)
+@@ -0,0 +1,32 @@
++
++import os, os.path, sys, shutil
++from distutils.core import setup, Extension
++from subprocess import Popen, PIPE
++
++RHOME = os.getenv("R_HOME")
++if RHOME is None:
++    RHOME = Popen(["R", "RHOME"], stdout=PIPE).communicate()[0].strip()
++
++print('R\'s home is:%s' %RHOME)
++
++r_libs = [os.path.join(RHOME, 'lib')]
++
++
++rinterface = Extension(
++        "rinterface",
++        ["rinterface/rinterface.c", ],
++        include_dirs=[ os.path.join(RHOME, 'include'),],
++        libraries=['R'],
++        library_dirs=r_libs,
++        runtime_library_dirs=r_libs,
++        #extra_link_args=[],
++        )
++
++setup(name="rpython",
++      version="0.0.1",
++      description="Python interface to the R language",
++      url="http://rpy.sourceforge.net",
++      license="GPL",
++      ext_modules=[rinterface],
++      #py_modules=['rpython']
++      )
+
+
+Property changes on: trunk/sandbox/rpy_nextgen/setup.py
+___________________________________________________________________
+Name: svn:executable
+   + *
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at users.sourceforge.net  Sat Feb 23 22:53:23 2008
+From: lgautier at users.sourceforge.net
+Date: Sat, 23 Feb 2008 14:53:23 -0800
+Subject: [Rpy] SF.net SVN: rpy: [405] trunk/sandbox/rpy_nextgen/rinterface/rinterface.c
+Message-ID: <E1JT3FD-000293-9F@sc8-pr-svn2.sourceforge.net>
+
+Revision: 405
+          http://rpy.svn.sourceforge.net/rpy/?rev=405&view=rev
+Author:   lgautier
+Date:     2008-02-23 14:53:23 -0800 (Sat, 23 Feb 2008)
+
+Log Message:
+-----------
+adding types for environment and S4
+fixing many things
+
+Modified Paths:
+--------------
+    trunk/sandbox/rpy_nextgen/rinterface/rinterface.c
+
+Modified: trunk/sandbox/rpy_nextgen/rinterface/rinterface.c
+===================================================================
+--- trunk/sandbox/rpy_nextgen/rinterface/rinterface.c	2008-02-23 15:24:21 UTC (rev 404)
++++ trunk/sandbox/rpy_nextgen/rinterface/rinterface.c	2008-02-23 22:53:23 UTC (rev 405)
+@@ -49,6 +49,7 @@
+ #include <Rinternals.h>
+ #include <Rdefines.h>
+ #include <Rinterface.h>
++#include <R_ext/Complex.h>
+ #include <Rembedded.h>
+ 
+ /* FIXME: consider the use of parsing */
+@@ -75,8 +76,6 @@
+ }
+ 
+ 
+-
+-
+ /* The Python original SIGINT handler */
+ PyOS_sighandler_t python_sigint;
+ 
+@@ -95,7 +94,10 @@
+ rnorm = rinterface.findVarEmbeddedR(\"rnorm\")\
+ x = rnorm(n)\
+ hist(x)\
+-");
++\
++len(x)\
++\n\
++$Id$");
+ //FIXME: check example above
+ 
+ 
+@@ -224,6 +226,7 @@
+ static PyObject*
+ Sexp_repr(PyObject *self)
+ {
++  //FIXME: make sure this is making any sense
+   return PyString_FromFormat("<%s - Python:\%p / R:\%p>",
+ 			     self->ob_type->tp_name,
+ 			     self,
+@@ -430,6 +433,7 @@
+ "A R object that is a closure, that is a function. \
+ In R a function a function is defined in an enclosing \
+ environement, thus the name of closure. \
++In Python, 'nested scopes' could be the closest similar thing.\
+ \n\
+ The closure can be accessed with the method 'closureEnv'.\
+ ");
+@@ -439,7 +443,7 @@
+ 	 * to be portable to Windows without using C++. */
+ 	PyObject_HEAD_INIT(NULL)
+ 	0,			/*ob_size*/
+-	"rinterface.ClosureSexp",	/*tp_name*/
++	"rinterface.SexpClosure",	/*tp_name*/
+ 	sizeof(SexpObject),	/*tp_basicsize*/
+ 	0,			/*tp_itemsize*/
+ 	/* methods */
+@@ -459,7 +463,7 @@
+         0,                      /*tp_setattro*/
+         0,                      /*tp_as_buffer*/
+         Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,     /*tp_flags*/
+-        0,                      /*tp_doc*/
++        ClosureSexp_Type_doc,                      /*tp_doc*/
+         0,                      /*tp_traverse*/
+         0,                      /*tp_clear*/
+         0,                      /*tp_richcompare*/
+@@ -498,24 +502,79 @@
+   return res;
+ }
+ 
++/* len(x) */
+ static Py_ssize_t VectorSexp_len(PyObject *object)
+ {
+   Py_ssize_t len;
+   //FIXME: sanity checks.
+-  len = (Py_ssize_t)LENGTH(((SexpObject *)object)->sexp);
++  len = (Py_ssize_t)GET_LENGTH(((SexpObject *)object)->sexp);
+   return len;
+ }
+ 
++/* a[i] */
++static PyObject *
++VectorSexp_item(PyObject *object, Py_ssize_t i)
++{
++  PyObject* res;
++  R_len_t i_R;
++  SEXP *sexp = &(((SexpObject *)object)->sexp);
++  /* R is still with int for indexes */
++  if (i >= R_LEN_T_MAX) {
++    PyErr_Format(PyExc_IndexError, "Index value exceeds what R can handle.");
++    res = NULL;
++  }
++  else if (i >= GET_LENGTH(*sexp)) {
++    PyErr_Format(PyExc_IndexError, "Index out of range.");
++    res = NULL;
++  }
++  else {
++    double vd;
++    int vi;
++    Rcomplex vc;
++    char *vs;
++    i_R = (R_len_t)i;
++    switch (TYPEOF(*sexp)) {
++    case REALSXP:
++      vd = (NUMERIC_POINTER(*sexp))[i_R];
++      res = PyFloat_FromDouble(vd);
++      break;
++    case INTSXP:
++      vi = INTEGER_POINTER(*sexp)[i_R];
++      res = PyInt_FromLong((long)vi);
++      break;
++    case LGLSXP:
++      vi = LOGICAL_POINTER(*sexp)[i_R];
++      res = PyBool_FromLong((long)vi);
++      break;
++    case CPLXSXP:
++      vc = COMPLEX_POINTER(*sexp)[i_R];
++      res = PyComplex_FromDoubles(vc.r, vc.i);
++      break;
++    case STRSXP:
++      vs = CHARACTER_POINTER(STRING_ELT(*sexp, i_R));
++      res = PyString_FromString(vs);
++      break;
++    default:
++      PyErr_Format(PyExc_ValueError, "cannot handle type %d", 
++		   TYPEOF(*sexp));
++      res = NULL;
++      break;
++    }
++  }
++  return res;
++}
++
++
+ static PySequenceMethods VectorSexp_sequenceMethods = {
+-  (inquiry)VectorSexp_len,              /* sq_length */
++  (lenfunc)VectorSexp_len,              /* sq_length */
+   0,                              /* sq_concat */
+   0,                              /* sq_repeat */
+   //FIXME: implement
+-  0, //(ssizeargfunc)Sexp_item,        /* sq_item */
++  (ssizeargfunc)VectorSexp_item,        /* sq_item */
+   //FIXME: implement
+-  0, //(ssizessizeargfunc)Sexp_slice,  /* sq_slice */
++  0, //(ssizessizeargfunc)VectorSexp_slice,  /* sq_slice */
+   //FIXME: implement
+-  0, //(ssizeobjargproc)Sexp_ass_item,   /* sq_ass_item */
++  0, //(ssizeobjargproc)VectorSexp_ass_item,   /* sq_ass_item */
+   0,                              /* sq_ass_slice */
+   0,                              /* sq_contains */
+   0,                              /* sq_inplace_concat */
+@@ -542,7 +601,7 @@
+ 	 * to be portable to Windows without using C++. */
+ 	PyObject_HEAD_INIT(NULL)
+ 	0,			/*ob_size*/
+-	"rinterface.VectorSexp",	/*tp_name*/
++	"rinterface.SexpVector",	/*tp_name*/
+ 	sizeof(SexpObject),	/*tp_basicsize*/
+ 	0,			/*tp_itemsize*/
+ 	/* methods */
+@@ -585,7 +644,47 @@
+ };
+ 
+ 
+-//FIXME: write more doc
++/* --- */
++
++static SexpObject*
++EnvironmentSexp_findVar(PyObject *self, PyObject *args)
++{
++  char *name;
++  SEXP res_R;
++
++  if (!PyArg_ParseTuple(args, "s", &name)) { 
++    return NULL; 
++  }
++
++  const SEXP rho_R = ((SexpObject *)self)->sexp;
++  res_R = findVar(install(name), rho_R);
++
++
++  if (res_R != R_UnboundValue) {
++    return newSexpObject(res_R);
++  }
++  PyErr_Format(PyExc_LookupError, "'%s' not found", name);
++  return NULL;
++}
++PyDoc_STRVAR(EnvironmentSexp_findVar_doc,
++	     "Find an R object in the environment.");
++
++static PyMethodDef EnvironmentSexp_methods[] = {
++  {"get", (PyCFunction)EnvironmentSexp_findVar, METH_O,
++  EnvironmentSexp_findVar_doc},
++  {NULL, NULL}          /* sentinel */
++};
++
++
++//FIXME: Is this still needed ?
++static PyMappingMethods EnvironmentSexp_mappignMethods = {
++  0, /* mp_length */
++  0, /* mp_subscript */
++  0  /* mp_ass_subscript */
++};
++
++//FIXME: write more doc - should the environments
++// be made like mappings at the Python level ?
+ PyDoc_STRVAR(EnvironmentSexp_Type_doc,
+ "An R object that is an environment.\
+  R environments can be seen as similar to Python\
+@@ -594,8 +693,8 @@
+  environment whenever the key is not found.\
+ \n\
+  The subsetting operator is made to match Python's\
+- behavior, that is the enclosing environment are not\
+- inspect upon absence of a given key.\
++ behavior, that is the enclosing environments are not\
++ inspected upon absence of a given key.\
+ ");
+ 
+ static PyTypeObject EnvironmentSexp_Type = {
+@@ -603,7 +702,7 @@
+ 	 * to be portable to Windows without using C++. */
+ 	PyObject_HEAD_INIT(NULL)
+ 	0,			/*ob_size*/
+-	"rinterface.EnvironmentSexp",	/*tp_name*/
++	"rinterface.SexpEnvironment",	/*tp_name*/
+ 	sizeof(SexpObject),	/*tp_basicsize*/
+ 	0,			/*tp_itemsize*/
+ 	/* methods */
+@@ -630,7 +729,7 @@
+         0,                      /*tp_weaklistoffset*/
+         0,                      /*tp_iter*/
+         0,                      /*tp_iternext*/
+-        0,           /*tp_methods*/
++        EnvironmentSexp_methods,           /*tp_methods*/
+         0,                      /*tp_members*/
+         0,//Sexp_getset,            /*tp_getset*/
+         &Sexp_Type,             /*tp_base*/
+@@ -657,7 +756,7 @@
+ 	 * to be portable to Windows without using C++. */
+ 	PyObject_HEAD_INIT(NULL)
+ 	0,			/*ob_size*/
+-	"rinterface.S4Sexp",	/*tp_name*/
++	"rinterface.SexpS4",	/*tp_name*/
+ 	sizeof(SexpObject),	/*tp_basicsize*/
+ 	0,			/*tp_itemsize*/
+ 	/* methods */
+@@ -734,7 +833,9 @@
+     //break;
+   case REALSXP: 
+   case INTSXP: 
+-  case LGLSXP: 
++  case LGLSXP:
++  case CPLXSXP:
++  case LISTSXP:
+   case STRSXP:
+     object = (SexpObject *)_PyObject_New(&VectorSexp_Type);
+     break;
+@@ -767,10 +868,7 @@
+     return NULL;
+   
+   const Py_ssize_t length = PySequence_Fast_GET_SIZE(seq_object);
+-  //FIXME: PROTECT THIS
+-  #ifdef VERBOSE
+-  printf("size: %i", length);
+-  #endif
++  //FIXME: PROTECT THIS ?
+   sexp = allocVector(rType, length);
+ 
+   int i;
+@@ -829,6 +927,7 @@
+       }
+     }
+     break;
++    //FIXME: add complex 
+   default:
+     PyErr_Format(PyExc_ValueError, "cannot handle type %d", rType);
+     sexp = NULL;
+@@ -837,7 +936,7 @@
+ }
+ 
+ 
+-
++//FIXME: finish this
+ static PyObject*
+ EmbeddedR_newSexpObject(SEXP sexp)
+ {
+@@ -868,21 +967,20 @@
+ 
+ static SexpObject*
+ EmbeddedR_findVar(PyObject *self, PyObject *args)
+-//EmbeddedR_findVar(PyTypeObject *type, PyObject *args)
+ {
+   char *name;
+-  SEXP rho = R_GlobalEnv, res;
++  SEXP rho_R = R_GlobalEnv, res;
++  PyObject rho;
+   PyObject *ErrorObject;
+ 
+-  if (!PyArg_ParseTuple(args, "s", &name)) { 
+-    //, "s|O&", &name, Get_SEXP, &rho)) {
++  if (!PyArg_ParseTuple(args, "s", &name, &rho)) { 
+     return NULL; 
+   }
+-  res = findVar(install(name), rho);
++
++  res = findVar(install(name), rho_R);
++
++
+   if (res != R_UnboundValue) {
+-    #ifdef VERBOSE
+-    printf("found.\n");
+-    #endif
+     return newSexpObject(res);
+   }
+   PyErr_Format(ErrorObject, "'%s' not found", name);
+@@ -928,6 +1026,10 @@
+     return;
+   if (PyType_Ready(&VectorSexp_Type) < 0)
+     return;
++  if (PyType_Ready(&EnvironmentSexp_Type) < 0)
++    return;
++  if (PyType_Ready(&S4Sexp_Type) < 0)
++    return;
+ 
+   PyObject *m;
+   m = Py_InitModule3("rinterface", EmbeddedR_methods, module_doc);
+@@ -937,6 +1039,8 @@
+   PyModule_AddObject(m, "Sexp", (PyObject *)&Sexp_Type);
+   PyModule_AddObject(m, "SexpClosure", (PyObject *)&ClosureSexp_Type);
+   PyModule_AddObject(m, "SexpVector", (PyObject *)&VectorSexp_Type);
++  PyModule_AddObject(m, "SexpEnvironment", (PyObject *)&EnvironmentSexp_Type);
++  PyModule_AddObject(m, "SexpS4", (PyObject *)&S4Sexp_Type);
+ 
+   //FIXME: clean the exception stuff
+   if (ErrorObject == NULL) {
+@@ -967,10 +1071,10 @@
+   ADD_INT_CONSTANT(m, DOTSXP);
+   ADD_INT_CONSTANT(m, ANYSXP);
+   ADD_INT_CONSTANT(m, VECSXP);
+-  ADD_INT_CONSTANT(m, VECSXP);
+   ADD_INT_CONSTANT(m, EXPRSXP);
+   ADD_INT_CONSTANT(m, BCODESXP);
+   ADD_INT_CONSTANT(m, EXTPTRSXP);
+   ADD_INT_CONSTANT(m, RAWSXP);
+   ADD_INT_CONSTANT(m, S4SXP);
++
+ }
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From lgautier at users.sourceforge.net  Sun Feb 24 19:07:59 2008
+From: lgautier at users.sourceforge.net
+Date: Sun, 24 Feb 2008 11:07:59 -0800
+Subject: [Rpy] SF.net SVN: rpy: [406] trunk/sandbox/rpy_nextgen/rinterface
+Message-ID: <E1JTMCd-0000fg-2o@sc8-pr-svn2.sourceforge.net>
+
+Revision: 406
+          http://rpy.svn.sourceforge.net/rpy/?rev=406&view=rev
+Author:   lgautier
+Date:     2008-02-24 11:07:58 -0800 (Sun, 24 Feb 2008)
+
+Log Message:
+-----------
+- Added directory for tests (empty for the moment)
+- Switched order of arguments for VectorSexp_new
+- Added module object "globalEnv"
+- Fixed 'repr' for Sexp_type to give the actual address pointed by an SEXP
+- Added sanity check and error when calling ClosureSexp_call
+- Method "get" for EnviromentSexp objects
+- Subscript method for EnvironmentSexp objects (...but segfaults)
+
+Modified Paths:
+--------------
+    trunk/sandbox/rpy_nextgen/rinterface/rinterface.c
+
+Added Paths:
+-----------
+    trunk/sandbox/rpy_nextgen/rinterface/tests/
+
+Modified: trunk/sandbox/rpy_nextgen/rinterface/rinterface.c
+===================================================================
+--- trunk/sandbox/rpy_nextgen/rinterface/rinterface.c	2008-02-23 22:53:23 UTC (rev 405)
++++ trunk/sandbox/rpy_nextgen/rinterface/rinterface.c	2008-02-24 19:07:58 UTC (rev 406)
+@@ -89,7 +89,7 @@
+  Example of usage:\
+ import rinterface\
+ rinterface.initEmbeddedR(\"foo\", \"--verbose\")\
+-n = rinterface.SexpVector(rinterface.REALSXP, (100,))\
++n = rinterface.SexpVector((100, ), rinterface.REALSXP)\
+ hist = rinterface.findVarEmbeddedR(\"hist\")\
+ rnorm = rinterface.findVarEmbeddedR(\"rnorm\")\
+ x = rnorm(n)\
+@@ -109,8 +109,8 @@
+ } SexpObject;
+ 
+ 
++static SexpObject* globalEnv;
+ 
+-
+ /* --- Initialize and terminate an embedded R --- */
+ /* Should having multiple threads of R become possible, 
+  * Useful routines deal with can could appear here...
+@@ -136,6 +136,9 @@
+   }
+   
+   int status = Rf_initEmbeddedR(n_opt, options);
++
++  globalEnv->sexp = R_GlobalEnv;
++
+   PyObject *res = PyInt_FromLong(status);
+   return res;
+ }
+@@ -227,10 +230,11 @@
+ Sexp_repr(PyObject *self)
+ {
+   //FIXME: make sure this is making any sense
++  SEXP sexp = ((SexpObject *)self)->sexp;
+   return PyString_FromFormat("<%s - Python:\%p / R:\%p>",
+ 			     self->ob_type->tp_name,
+ 			     self,
+-			     &(((SexpObject *)self)->sexp));
++			     sexp);
+ }
+ 
+ 
+@@ -305,8 +309,8 @@
+  * Closure-type Sexp.
+  */
+ 
+-static SexpObject* newSexpObject(SEXP);
+-static SEXP newSEXP(PyObject *object, int rType);
++static SexpObject* newSexpObject(const SEXP sexp);
++static SEXP newSEXP(PyObject *object, const int rType);
+ 
+ /* Evaluate a SEXP. It must be constructed by hand. It raises a Python
+    exception if an error ocurred in the evaluation */
+@@ -380,13 +384,22 @@
+ 
+   int arg_i;
+   SEXP tmp_R;
++  PyObject *tmp_obj;
++  int is_SexpObject;
+   for (arg_i=0; arg_i<largs; arg_i++) {
+     //FIXME: assert that all are SexpObjects
+-    tmp_R = ((SexpObject *)PyTuple_GetItem(args, arg_i))->sexp;
++    tmp_obj = PyTuple_GetItem(args, arg_i);
++    is_SexpObject = PyObject_TypeCheck(tmp_obj, &Sexp_Type);
++    if (! is_SexpObject) {
++      PyErr_Format(PyExc_ValueError, "All parameters must be of type Sexp_Type.");
++      return NULL;
++    }
++    tmp_R = ((SexpObject *)tmp_obj)->sexp;
+     SETCAR(c_R, tmp_R);
+     c_R = CDR(c_R);
+   }
+   
++  //FIXME: implement named parameters.
+ /*   if (!make_kwds(lkwds, kwds, &e)) { */
+ /*     UNPROTECT(1); */
+ /*     return NULL; */
+@@ -490,14 +503,13 @@
+ {
+   int rType = -1;
+   PyObject *seq = 0;
+-  if (!PyArg_ParseTuple(args, "iO:new",
+-			&rType, &seq))
++  if (!PyArg_ParseTuple(args, "Oi:new",
++			&seq, &rType))
+     return NULL;
+   #ifdef VERBOSE
+   printf("type: %i\n", rType);
+   #endif
+-  SEXP sexp;
+-  sexp = newSEXP(seq, rType);
++  const SEXP sexp = newSEXP(seq, rType);
+   PyObject *res = (PyObject *)newSexpObject(sexp);
+   return res;
+ }
+@@ -583,7 +595,7 @@
+ 
+ //FIXME: write more doc
+ PyDoc_STRVAR(VectorSexp_Type_doc,
+-"An R object that is a vector.\
++"R object that is a vector.\
+  R vectors start their indexing at one,\
+  while Python lists or arrays start indexing\
+  at zero.\
+@@ -657,6 +669,11 @@
+   }
+ 
+   const SEXP rho_R = ((SexpObject *)self)->sexp;
++
++  if (rho_R == NULL) {
++    PyErr_Format(PyExc_LookupError, "Fatal error: NULL environment.");
++  }
++
+   res_R = findVar(install(name), rho_R);
+ 
+ 
+@@ -670,29 +687,58 @@
+ 	     "Find an R object in the environment.");
+ 
+ static PyMethodDef EnvironmentSexp_methods[] = {
+-  {"get", (PyCFunction)EnvironmentSexp_findVar, METH_O,
++  {"get", (PyCFunction)EnvironmentSexp_findVar, METH_VARARGS,
+   EnvironmentSexp_findVar_doc},
+   {NULL, NULL}          /* sentinel */
+ };
+ 
+ 
++//FIXME: segfault :/
++static SexpObject*
++EnvironmentSexp_subscript(PyObject *self, PyObject *key)
++{
++  char *name;
++  SEXP res_R;
++
++  if (!PyString_Check(key)) {
++    PyErr_Format(PyExc_ValueError, "Keys must be string objects.");
++    return NULL;
++  }
++
++  name = PyString_AsString(key);
++  
++  SEXP rho_R = ((SexpObject *)self)->sexp;
++  res_R = findVarInFrame(install(name), rho_R);
++
++
++  if (res_R != R_UnboundValue) {
++    return newSexpObject(res_R);
++  }
++  PyErr_Format(PyExc_LookupError, "'%s' not found", name);
++  return NULL;
++}
++PyDoc_STRVAR(EnvironmentSexp_subscript_doc,
++	     "Find an R object in the environment.\
++ Not all R environment are hash tables, and this may\n\
++influence performances when doing repeated lookups.");
++
+ //FIXME: Is this still needed ?
+ static PyMappingMethods EnvironmentSexp_mappignMethods = {
+   0, /* mp_length */
+-  0, /* mp_subscript */
++  EnvironmentSexp_subscript, /* mp_subscript */
+   0  /* mp_ass_subscript */
+ };
+ 
+ //FIXME: write more doc - should the environments
+ // be made like mappings at the Python level ?
+ PyDoc_STRVAR(EnvironmentSexp_Type_doc,
+-"An R object that is an environment.\
+- R environments can be seen as similar to Python\
++"R object that is an environment.\
++ R environments can be seen as similar to Python\n\
+  dictionnaries, with the twist that looking for\
+- a key can be recursively propagated to the enclosing\
++ a key can be recursively propagated to the enclosing\n\
+  environment whenever the key is not found.\
+ \n\
+- The subsetting operator is made to match Python's\
++ The subsetting operator is made to match Python's\n\
+  behavior, that is the enclosing environments are not\
+  inspected upon absence of a given key.\
+ ");
+@@ -714,7 +760,7 @@
+ 	0,		        /*tp_repr*/
+ 	0,			/*tp_as_number*/
+ 	0,			/*tp_as_sequence*/
+-	0,			/*tp_as_mapping*/
++	&EnvironmentSexp_mappignMethods,			/*tp_as_mapping*/
+ 	0,			/*tp_hash*/
+ 	0,              /*tp_call*/
+         0,//Sexp_str,               /*tp_str*/
+@@ -748,7 +794,7 @@
+ 
+ //FIXME: write more doc
+ PyDoc_STRVAR(S4Sexp_Type_doc,
+-"An R object that is an 'S4 object'.\
++"R object that is an 'S4 object'.\
+ ");
+ 
+ static PyTypeObject S4Sexp_Type = {
+@@ -803,10 +849,10 @@
+ 
+ /* --- Create a SEXP object --- */
+ static SexpObject*
+-newSexpObject(SEXP sexp)
++newSexpObject(const SEXP sexp)
+ {
+   SexpObject *object;
+-  SEXP env_R;
++  SEXP sexp_ok, env_R;
+   
+   //FIXME: let the possibility to manipulate un-evaluated promises ?
+   if (TYPEOF(sexp) == PROMSXP) {
+@@ -814,13 +860,16 @@
+     printf("evaluating promise...");
+     #endif
+     env_R = PRENV(sexp);
+-    sexp = eval(sexp, env_R);
++    sexp_ok = eval(sexp, env_R);
+     #ifdef VERBOSE
+     printf("done.\n");
+     #endif
++  } 
++  else {
++    sexp_ok = sexp;
+   }
+ 
+-  switch (TYPEOF(sexp)) {
++  switch (TYPEOF(sexp_ok)) {
+   case CLOSXP:
+     object  = (SexpObject *)_PyObject_New(&ClosureSexp_Type); 
+     break;
+@@ -851,9 +900,9 @@
+   }
+   if (!object)
+     PyErr_NoMemory();
+-  object->sexp = sexp;
++  object->sexp = sexp_ok;
+   if (sexp)
+-    R_PreserveObject(sexp);
++    R_PreserveObject(sexp_ok);
+   return object;
+ }
+ 
+@@ -862,11 +911,11 @@
+ {
+   SEXP sexp;
+   PyObject *seq_object, *item; 
+-  seq_object = PySequence_Fast(object, "Cannot create"
+-			   " R object from non-sequence Python object.");
+-  if (! seq_object)
++  seq_object = PySequence_Fast(object, "Cannot create R object from non-sequence Python object.");
++  //FIXME: Isn't the call above supposed to fire an Exception ?
++  if (! seq_object) {
+     return NULL;
+-  
++  }
+   const Py_ssize_t length = PySequence_Fast_GET_SIZE(seq_object);
+   //FIXME: PROTECT THIS ?
+   sexp = allocVector(rType, length);
+@@ -952,16 +1001,6 @@
+ //(PyTypeObject *)ClosureSexp_Type.tp_new = 0;//ClosureSexp_methods; 
+ 
+ 
+-static PyObject*
+-Sexp_GlobalEnv(PyTypeObject* type)
+-{
+-	SexpObject* res = (SexpObject*)type->tp_alloc(type, 0);
+-	res->sexp = R_GlobalEnv;
+-	return (PyObject*)res;
+-}
+-
+-
+-
+ /* --- Find a variable in an environment --- */
+ 
+ 
+@@ -983,7 +1022,7 @@
+   if (res != R_UnboundValue) {
+     return newSexpObject(res);
+   }
+-  PyErr_Format(ErrorObject, "'%s' not found", name);
++  PyErr_Format(PyExc_LookupError, "'%s' not found", name);
+   return NULL;
+ }
+ PyDoc_STRVAR(EmbeddedR_findVar_doc,
+@@ -1013,6 +1052,7 @@
+ 
+ #define ADD_INT_CONSTANT(module, name) PyModule_AddIntConstant(module, #name, name)
+ 
++
+ PyMODINIT_FUNC
+ initrinterface(void)
+ {
+@@ -1031,10 +1071,11 @@
+   if (PyType_Ready(&S4Sexp_Type) < 0)
+     return;
+ 
+-  PyObject *m;
++  PyObject *m, *d;
+   m = Py_InitModule3("rinterface", EmbeddedR_methods, module_doc);
+   if (m == NULL)
+     return;
++  d = PyModule_GetDict(m);
+ 
+   PyModule_AddObject(m, "Sexp", (PyObject *)&Sexp_Type);
+   PyModule_AddObject(m, "SexpClosure", (PyObject *)&ClosureSexp_Type);
+@@ -1051,6 +1092,12 @@
+   Py_INCREF(ErrorObject);
+   PyModule_AddObject(m, "RobjectNotFound", ErrorObject);
+ 
++  globalEnv = (SexpObject*)_PyObject_New(&EnvironmentSexp_Type);
++  globalEnv->sexp = NULL;
++  if (PyDict_SetItemString(d, "globalEnv", (PyObject*)globalEnv) < 0)
++    return;
++  //FIXME: DECREF ?
++  //Py_DECREF(globalEnv);
+ 
+   /* Add some symbolic constants to the module */
+   ADD_INT_CONSTANT(m, NILSXP);
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Tue Feb 26 01:24:36 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 25 Feb 2008 17:24:36 -0800
+Subject: [Rpy] [ rpy-Bugs-1901800 ] rpy does not install under python2.5?
+Message-ID: <E1JToYe-00070l-6F@sc8-sf-web23.sourceforge.net>
+
+Bugs item #1901800, was opened at 2008-02-25 17:24
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1901800&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Build
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: rpy does not install under python2.5?
+
+Initial Comment:
+>python setup.py install
+RHOMES= []
+DEBUG= True
+Setting RHOMES to  ['/usr/lib64/R']
+Traceback (most recent call last):
+  File "setup.py", line 76, in <module>
+    get_config_vars()['OPT'] = '-g -Wall'
+  File "/usr/lib64/python2.5/distutils/sysconfig.py", line 493, in get_config_vars
+    func()
+  File "/usr/lib64/python2.5/distutils/sysconfig.py", line 352, in _init_posix
+    raise DistutilsPlatformError(my_msg)
+distutils.errors.DistutilsPlatformError: invalid Python installation: unable to open /usr/lib64/python2.5/config/Makefile (No such file or directory)
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1901800&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From areynolds at stamlab.org  Tue Feb 26 01:51:14 2008
+From: areynolds at stamlab.org (Alex Reynolds)
+Date: Mon, 25 Feb 2008 17:51:14 -0800
+Subject: [Rpy] RPy, data frames, and referencing columns
+Message-ID: <47C37092.3030006@stamlab.org>
+
+Hi,
+
+I have been using RPy to try to manipulate a Python list within R. My 
+list is made up of five arrays (four of strings-type and one float-type).
+
+My problem is that I can't seem to get a data frame in R. I'd like to, 
+for example, group by 'target', 'build', etc. from calls made in Python.
+
+When I use r.data_frame() to create an object, the resulting object is 
+not a data frame. The following prints "False" on the call 
+r.is_data_frame():
+
+=====================================================
+timeDataFrame = { "utility":[],
+                   "target":[],
+                   "build":[],
+                   "timeType":[],
+                   "time":[] }
+
+for timeDataListObj in timeDataListArray:
+   for timeDataObj in timeDataListObj.timedata:
+     for timeDataType in timeDataTypes:
+       timeDataFrame["utility"].append(timeDataListObj.utility)
+       timeDataFrame["target"].append(timeDataListObj.target)
+       timeDataFrame["build"].append(timeDataListObj.build)
+       timeDataFrame["timeType"].append(timeDataType)
+       timeDataFrame["time"].append(float(timeValue))
+
+df = r.data_frame(timeDataFrame["utility"], \
+              timeDataFrame["target"], \
+              timeDataFrame["build"], \
+              timeDataFrame["timeType"], \
+              timeDataFrame["time"])
+r.print_(r.is_data_frame(df))
+=====================================================
+
+Is there something I am doing wrong to create a data frame from within 
+Python?
+
+Also, how can I perform a reference like df$target or df$timeType?
+
+When I tried to do either:
+
+r.print_(df$target)
+
+or
+
+r.print_(df+r['$']+target)
+
+I get syntax errors. Same with r.split(df$target, df$build) and similar, 
+etc.
+
+Any advice would be greatly appreciated.
+
+Thanks in advance,
+
+Alex
+
+-- 
+Alex Reynolds
+University of Washington Medical Genetics
+2211 Elliot Ave.
+Seattle, WA 98121
+areynolds at stamlab.org
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From daniel.dvorkin at gmail.com  Tue Feb 26 02:29:01 2008
+From: daniel.dvorkin at gmail.com (Daniel Dvorkin)
+Date: Mon, 25 Feb 2008 19:29:01 -0700
+Subject: Re: [Rpy] RPy, data frames, and referencing columns
+In-Reply-To: <47C37092.3030006@stamlab.org>
+References: <47C37092.3030006@stamlab.org>
+Message-ID: <95594ED6-24BA-4830-9203-9D8BD7534D8F@gmail.com>
+
+It looks like a conversion mode problem.  "df" in your example is  
+converted back into a Python dict as soon as it's created, so when  
+you pass it to r.is_data_frame(), R doesn't know what it is.  Try the  
+following:
+
+df = with_mode(NO_CONVERSION, r.data_frame) \
+              (timeDataFrame["utility"], \
+               timeDataFrame["target"], \
+               timeDataFrame["build"], \
+               timeDataFrame["timeType"], \
+               timeDataFrame["time"])
+r.print_(r.is_data_frame(df))
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From noreply at sourceforge.net  Tue Feb 26 06:06:26 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 25 Feb 2008 22:06:26 -0800
+Subject: [Rpy] [ rpy-Bugs-1901800 ] rpy does not install under python2.5?
+Message-ID: <E1JTsxO-0000re-Ir@sc8-sf-web24.sourceforge.net>
+
+Bugs item #1901800, was opened at 2008-02-26 09:24
+Message generated for change (Comment added) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1901800&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Build
+Group: None
+Status: Open
+>Resolution: Works For Me
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: rpy does not install under python2.5?
+
+Initial Comment:
+>python setup.py install
+RHOMES= []
+DEBUG= True
+Setting RHOMES to  ['/usr/lib64/R']
+Traceback (most recent call last):
+  File "setup.py", line 76, in <module>
+    get_config_vars()['OPT'] = '-g -Wall'
+  File "/usr/lib64/python2.5/distutils/sysconfig.py", line 493, in get_config_vars
+    func()
+  File "/usr/lib64/python2.5/distutils/sysconfig.py", line 352, in _init_posix
+    raise DistutilsPlatformError(my_msg)
+distutils.errors.DistutilsPlatformError: invalid Python installation: unable to open /usr/lib64/python2.5/config/Makefile (No such file or directory)
+
+
+----------------------------------------------------------------------
+
+>Comment By: lgautier (lgautier)
+Date: 2008-02-26 14:06
+
+Message:
+Logged In: YES 
+user_id=1623918
+Originator: NO
+
+It is working for me.
+
+I suspect that the python-dev (or similar package) is not installled on
+your machine.
+
+The error message says:
+distutils.errors.DistutilsPlatformError: invalid Python installation:
+unable to open /usr/lib64/python2.5/config/Makefile (No such file or
+directory)
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1901800&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From tchibadou at hotmail.com  Wed Feb 27 10:00:00 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Wed, 27 Feb 2008 10:00:00 +0000
+Subject: [Rpy] package : survival
+Message-ID: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl>
+
+Hi,
+I have already posted a first problem of "NO_CONVERSION" with the package SURVIVAL. But I still have a problem by using the function survfit() of the package. 
+Here is the code :
+ 
+>>> from rpy import *>>> r.library("survival")>>> set_default_mode(NO_CONVERSION)>>> d=r.rep(1,41)>>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )>>> r.plot(r.survfit(r.Surv(t,d)))Traceback (most recent call last):  File "<interactive input>", line 1, in ?RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1, sep = "~")) :   unexpected numeric constant dans :"structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~112L"
+Is there anything I am doing wrong ? I really need this function to complete my survival analysis... I would really appreciate if anyone could help me.
+Thanks.
+ 
+Lore.
+_________________________________________________________________
+Votre contact a choisi Hotmail, l'e-mail nouvelle génération. Créez un compte. 
+http://www.windowslive.fr/hotmail/default.asp
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Wed Feb 27 10:48:12 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Wed, 27 Feb 2008 11:48:12 +0100
+Subject: Re: [Rpy] package : survival
+In-Reply-To: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl>
+References: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl>
+Message-ID: <27d1e6020802270248n2c4814a9m5e3e6c9abcd3ba90@mail.gmail.com>
+
+2008/2/27, Lore Merdrignac <tchibadou at hotmail.com>:
+>
+> Hi,
+>  I have already posted a first problem of "NO_CONVERSION" with the package
+> SURVIVAL. But I still have a problem by using the function survfit() of the
+> package.
+>  Here is the code :
+>
+>  >>> from rpy import *
+> >>> r.library("survival")
+> >>> set_default_mode(NO_CONVERSION)
+> >>> d=r.rep(1,41)
+> >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )
+> >>> r.plot(r.survfit(r.Surv(t,d)))
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1, sep =
+> "~")) :
+>   unexpected numeric constant dans :
+> "structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~1
+> 12L"
+>
+>  Is there anything I am doing wrong ? I really need this function to
+> complete my survival analysis... I would really appreciate if anyone could
+> help me.
+
+I guess that an emergency solution is  to be doing the whole analysis in R.
+
+Otherwise, you could try splitting up a bit your expression
+r.plot(r.survfit(r.Surv(t,d)))
+to see better were things are going wrong:
+s = r.Surv(t,d)
+sf = r.survfit(s)
+plot(sf)
+
+The following has a chance to work (not tested):
+survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))
+survPlot(sf)
+
+
+L.
+
+PS: An alternative to the NO_CONVERSION business might be coming in not-so-long.
+
+
+>  Thanks.
+>
+>  Lore.
+>
+> ________________________________
+> Windows Live Messenger 2008 vient de sortir, découvrez son nouveau design !
+> Téléchargez gratuitement Messenger 2008
+> -------------------------------------------------------------------------
+>  This SF.net email is sponsored by: Microsoft
+>  Defy all challenges. Microsoft(R) Visual Studio 2008.
+>  http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+>  rpy-list mailing list
+>  rpy-list at lists.sourceforge.net
+>  https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From tchibadou at hotmail.com  Wed Feb 27 11:07:34 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Wed, 27 Feb 2008 11:07:34 +0000
+Subject: Re: [Rpy] package : survival
+In-Reply-To: <27d1e6020802270248n2c4814a9m5e3e6c9abcd3ba90@mail.gmail.com>
+References: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl> <27d1e6020802270248n2c4814a9m5e3e6c9abcd3ba90@mail.gmail.com>
+Message-ID: <BAY134-W275252D85852460EA21253A41A0@phx.gbl>
+
+Thanks for answering.
+I had already tested to split the expression but there is still a problem with the function survfit(). Nevertheless this expression works with R, but I have to implement it with python. Indeed, I am trying to create a software for survival analysis using python language...
+ 
+>>> s=r.Surv(t,d)>>> ss=r.survfit(s)Traceback (most recent call last):  File "<interactive input>", line 1, in ?RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1, sep = "~")) :   unexpected numeric constant dans :"structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~112L"
+ 
+and obviously, I get then :
+ 
+>>> survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))>>> survPlot(sf)Traceback (most recent call last):  File "<interactive input>", line 1, in ?NameError: name 'sf' is not defined
+ 
+Lore.
+ 
+
+
+> Date: Wed, 27 Feb 2008 11:48:12 +0100> From: lgautier at gmail.com> To: rpy-list at lists.sourceforge.net> Subject: Re: [Rpy] package : survival> > 2008/2/27, Lore Merdrignac <tchibadou at hotmail.com>:> >> > Hi,> > I have already posted a first problem of "NO_CONVERSION" with the package> > SURVIVAL. But I still have a problem by using the function survfit() of the> > package.> > Here is the code :> >> > >>> from rpy import *> > >>> r.library("survival")> > >>> set_default_mode(NO_CONVERSION)> > >>> d=r.rep(1,41)> > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )> > >>> r.plot(r.survfit(r.Surv(t,d)))> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1, sep => > "~")) :> > unexpected numeric constant dans :> > "structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~1> > 12L"> >> > Is there anything I am doing wrong ? I really need this function to> > complete my survival analysis... I would really appreciate if anyone could> > help me.> > I guess that an emergency solution is to be doing the whole analysis in R.> > Otherwise, you could try splitting up a bit your expression> r.plot(r.survfit(r.Surv(t,d)))> to see better were things are going wrong:> s = r.Surv(t,d)> sf = r.survfit(s)> plot(sf)> > The following has a chance to work (not tested):> survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))> survPlot(sf)> > > L.> > PS: An alternative to the NO_CONVERSION business might be coming in not-so-long.> > > > Thanks.> >> > Lore.> >> > ________________________________> > Windows Live Messenger 2008 vient de sortir, découvrez son nouveau design !> > Téléchargez gratuitement Messenger 2008> > -------------------------------------------------------------------------> > This SF.net email is sponsored by: Microsoft> > Defy all challenges. Microsoft(R) Visual Studio 2008.> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> > _______________________________________________> > rpy-list mailing list> > rpy-list at lists.sourceforge.net> > https://lists.sourceforge.net/lists/listinfo/rpy-list> >> >> > -------------------------------------------------------------------------> This SF.net email is sponsored by: Microsoft> Defy all challenges. Microsoft(R) Visual Studio 2008.> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> _______________________________________________> rpy-list mailing list> rpy-list at lists.sourceforge.net> https://lists.sourceforge.net/lists/listinfo/rpy-list
+_________________________________________________________________
+Microsoft vous offre un logiciel pour classer, retoucher et partager vos photos !
+http://www.windowslive.fr/galerie/
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From b.rowlingson at lancaster.ac.uk  Wed Feb 27 11:22:34 2008
+From: b.rowlingson at lancaster.ac.uk (Barry Rowlingson)
+Date: Wed, 27 Feb 2008 11:22:34 +0000
+Subject: Re: [Rpy] package : survival
+In-Reply-To: <BAY134-W275252D85852460EA21253A41A0@phx.gbl>
+References: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl> <27d1e6020802270248n2c4814a9m5e3e6c9abcd3ba90@mail.gmail.com> <BAY134-W275252D85852460EA21253A41A0@phx.gbl>
+Message-ID: <47C547FA.8090806@lancaster.ac.uk>
+
+Lore Merdrignac wrote:
+> Thanks for answering. I had already tested to split the expression
+> but there is still a problem with the function survfit().
+> Nevertheless this expression works with R, but I have to implement it
+> with python. Indeed, I am trying to create a software for survival
+> analysis using python language...
+> 
+
+  If you assign your Surv object into R and then call survfit using the 
+r('expression') evaluation method it works this way:
+
+r.assign('x',r.Surv(t,d))
+r.plot(r('survfit(x)'))
+
+  Barry
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From tchibadou at hotmail.com  Wed Feb 27 11:24:07 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Wed, 27 Feb 2008 11:24:07 +0000
+Subject: Re: [Rpy] package : survival
+In-Reply-To: <47C547FA.8090806@lancaster.ac.uk>
+References: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl> <27d1e6020802270248n2c4814a9m5e3e6c9abcd3ba90@mail.gmail.com> <BAY134-W275252D85852460EA21253A41A0@phx.gbl> <47C547FA.8090806@lancaster.ac.uk>
+Message-ID: <BAY134-W54E56B8C6617F355ACE19BA41A0@phx.gbl>
+
+THANKS !!!!!
+:D
+ 
+It works, thanks a lot.
+
+
+
+> Date: Wed, 27 Feb 2008 11:22:34 +0000> From: b.rowlingson at lancaster.ac.uk> To: rpy-list at lists.sourceforge.net> Subject: Re: [Rpy] package : survival> > Lore Merdrignac wrote:> > Thanks for answering. I had already tested to split the expression> > but there is still a problem with the function survfit().> > Nevertheless this expression works with R, but I have to implement it> > with python. Indeed, I am trying to create a software for survival> > analysis using python language...> > > > If you assign your Surv object into R and then call survfit using the > r('expression') evaluation method it works this way:> > r.assign('x',r.Surv(t,d))> r.plot(r('survfit(x)'))> > Barry> > -------------------------------------------------------------------------> This SF.net email is sponsored by: Microsoft> Defy all challenges. Microsoft(R) Visual Studio 2008.> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> _______________________________________________> rpy-list mailing list> rpy-list at lists.sourceforge.net> https://lists.sourceforge.net/lists/listinfo/rpy-list
+_________________________________________________________________
+Microsoft vous offre un logiciel pour classer, retoucher et partager vos photos !
+http://www.windowslive.fr/galerie/
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Wed Feb 27 11:24:53 2008
+From: lgautier at gmail.com (Laurent Gautier)
+Date: Wed, 27 Feb 2008 12:24:53 +0100
+Subject: Re: [Rpy] package : survival
+In-Reply-To: <BAY134-W275252D85852460EA21253A41A0@phx.gbl>
+References: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl> <27d1e6020802270248n2c4814a9m5e3e6c9abcd3ba90@mail.gmail.com> <BAY134-W275252D85852460EA21253A41A0@phx.gbl>
+Message-ID: <27d1e6020802270324s6d4463fdvf61b60f09769099d@mail.gmail.com>
+
+2008/2/27, Lore Merdrignac <tchibadou at hotmail.com>:
+>
+> Thanks for answering.
+>  I had already tested to split the expression but there is still a problem
+> with the function survfit(). Nevertheless this expression works with R, but
+> I have to implement it with python. Indeed, I am trying to create a software
+> for survival analysis using python language...
+>
+>  >>> s=r.Surv(t,d)
+> >>> ss=r.survfit(s)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1, sep =
+> "~")) :
+>   unexpected numeric constant dans :
+> "structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~1
+> 12L"
+>
+>  and obviously, I get then :
+>
+>  >>> survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))
+> >>> survPlot(sf)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> NameError: name 'sf' is not defined
+
+Wouldn't it be because the variable name 'sf' is indeed not defined ?
+(in your version above, the variable name is 'ss').
+
+Anyway, because of the error that variable will obviously not be created
+(and I was shooting in the dark, thinking that the error was coming from
+the call to "plot"... now we know that it is coming from "survfit").
+
+Out of curiosity, what is saying "print(s)" ?
+
+>  Lore.
+>
+>  ________________________________
+>  > Date: Wed, 27 Feb 2008 11:48:12 +0100
+> > From: lgautier at gmail.com
+> > To: rpy-list at lists.sourceforge.net
+> > Subject: Re: [Rpy] package : survival
+>
+> >
+> > 2008/2/27, Lore Merdrignac <tchibadou at hotmail.com>:
+> > >
+> > > Hi,
+> > > I have already posted a first problem of "NO_CONVERSION" with the
+> package
+> > > SURVIVAL. But I still have a problem by using the function survfit() of
+> the
+> > > package.
+> > > Here is the code :
+> > >
+> > > >>> from rpy import *
+> > > >>> r.library("survival")
+> > > >>> set_default_mode(NO_CONVERSION)
+> > > >>> d=r.rep(1,41)
+> > > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )
+> > > >>> r.plot(r.survfit(r.Surv(t,d)))
+> > > Traceback (most recent call last):
+> > > File "<interactive input>", line 1, in ?
+> > > RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1,
+> sep =
+> > > "~")) :
+> > > unexpected numeric constant dans :
+> > > "structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~1
+> > > 12L"
+> > >
+> > > Is there anything I am doing wrong ? I really need this function to
+> > > complete my survival analysis... I would really appreciate if anyone
+> could
+> > > help me.
+> >
+> > I guess that an emergency solution is to be doing the whole analysis in R.
+> >
+> > Otherwise, you could try splitting up a bit your expression
+> > r.plot(r.survfit(r.Surv(t,d)))
+> > to see better were things are going wrong:
+> > s = r.Surv(t,d)
+> > sf = r.survfit(s)
+> > plot(sf)
+> >
+> > The following has a chance to work (not tested):
+> > survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))
+> > survPlot(sf)
+> >
+> >
+> > L.
+> >
+> > PS: An alternative to the NO_CONVERSION business might be coming in
+> not-so-long.
+> >
+> >
+> > > Thanks.
+> > >
+> > > Lore.
+> > >
+> > > ________________________________
+> > > Windows Live Messenger 2008 vient de sortir, découvrez son nouveau
+> design !
+> > > Téléchargez gratuitement Messenger 2008
+> > >
+> -------------------------------------------------------------------------
+> > > This SF.net email is sponsored by: Microsoft
+> > > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > > _______________________________________________
+> > > rpy-list mailing list
+> > > rpy-list at lists.sourceforge.net
+> > > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> > >
+> > >
+> >
+> >
+> -------------------------------------------------------------------------
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> ________________________________
+> Windows Live Messenger 2008 vient de sortir, entièrement personnalisable !
+> Téléchargez gratuitement Messenger 2008
+> -------------------------------------------------------------------------
+>  This SF.net email is sponsored by: Microsoft
+>  Defy all challenges. Microsoft(R) Visual Studio 2008.
+>  http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+>  rpy-list mailing list
+>  rpy-list at lists.sourceforge.net
+>  https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+
+
+-- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R
+2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt
+=JPph
+-----END PGP SIGNATURE-----
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From tchibadou at hotmail.com  Wed Feb 27 12:54:02 2008
+From: tchibadou at hotmail.com (Lore Merdrignac)
+Date: Wed, 27 Feb 2008 12:54:02 +0000
+Subject: Re: [Rpy] package : survival
+In-Reply-To: <27d1e6020802270324s6d4463fdvf61b60f09769099d@mail.gmail.com>
+References: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl> <27d1e6020802270248n2c4814a9m5e3e6c9abcd3ba90@mail.gmail.com> <BAY134-W275252D85852460EA21253A41A0@phx.gbl> <27d1e6020802270324s6d4463fdvf61b60f09769099d@mail.gmail.com>
+Message-ID: <BAY134-W3916DB891F4D03C0D99A32A41A0@phx.gbl>
+
+It works like Barry told me to do. Thanks a lot for your time :)
+Lore.
+
+
+
+> Date: Wed, 27 Feb 2008 12:24:53 +0100> From: lgautier at gmail.com> To: rpy-list at lists.sourceforge.net> Subject: Re: [Rpy] package : survival> > 2008/2/27, Lore Merdrignac <tchibadou at hotmail.com>:> >> > Thanks for answering.> > I had already tested to split the expression but there is still a problem> > with the function survfit(). Nevertheless this expression works with R, but> > I have to implement it with python. Indeed, I am trying to create a software> > for survival analysis using python language...> >> > >>> s=r.Surv(t,d)> > >>> ss=r.survfit(s)> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1, sep => > "~")) :> > unexpected numeric constant dans :> > "structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~1> > 12L"> >> > and obviously, I get then :> >> > >>> survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))> > >>> survPlot(sf)> > Traceback (most recent call last):> > File "<interactive input>", line 1, in ?> > NameError: name 'sf' is not defined> > Wouldn't it be because the variable name 'sf' is indeed not defined ?> (in your version above, the variable name is 'ss').> > Anyway, because of the error that variable will obviously not be created> (and I was shooting in the dark, thinking that the error was coming from> the call to "plot"... now we know that it is coming from "survfit").> > Out of curiosity, what is saying "print(s)" ?> > > Lore.> >> > ________________________________> > > Date: Wed, 27 Feb 2008 11:48:12 +0100> > > From: lgautier at gmail.com> > > To: rpy-list at lists.sourceforge.net> > > Subject: Re: [Rpy] package : survival> >> > >> > > 2008/2/27, Lore Merdrignac <tchibadou at hotmail.com>:> > > >> > > > Hi,> > > > I have already posted a first problem of "NO_CONVERSION" with the> > package> > > > SURVIVAL. But I still have a problem by using the function survfit() of> > the> > > > package.> > > > Here is the code :> > > >> > > > >>> from rpy import *> > > > >>> r.library("survival")> > > > >>> set_default_mode(NO_CONVERSION)> > > > >>> d=r.rep(1,41)> > > > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )> > > > >>> r.plot(r.survfit(r.Surv(t,d)))> > > > Traceback (most recent call last):> > > > File "<interactive input>", line 1, in ?> > > > RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]), 1,> > sep => > > > "~")) :> > > > unexpected numeric constant dans :> > > > "structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~1> > > > 12L"> > > >> > > > Is there anything I am doing wrong ? I really need this function to> > > > complete my survival analysis... I would really appreciate if anyone> > could> > > > help me.> > >> > > I guess that an emergency solution is to be doing the whole analysis in R.> > >> > > Otherwise, you could try splitting up a bit your expression> > > r.plot(r.survfit(r.Surv(t,d)))> > > to see better were things are going wrong:> > > s = r.Surv(t,d)> > > sf = r.survfit(s)> > > plot(sf)> > >> > > The following has a chance to work (not tested):> > > survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))> > > survPlot(sf)> > >> > >> > > L.> > >> > > PS: An alternative to the NO_CONVERSION business might be coming in> > not-so-long.> > >> > >> > > > Thanks.> > > >> > > > Lore.> > > >> > > > ________________________________> > > > Windows Live Messenger 2008 vient de sortir, découvrez son nouveau> > design !> > > > Téléchargez gratuitement Messenger 2008> > > >> > -------------------------------------------------------------------------> > > > This SF.net email is sponsored by: Microsoft> > > > Defy all challenges. Microsoft(R) Visual Studio 2008.> > > > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> > > > _______________________________________________> > > > rpy-list mailing list> > > > rpy-list at lists.sourceforge.net> > > > https://lists.sourceforge.net/lists/listinfo/rpy-list> > > >> > > >> > >> > >> > -------------------------------------------------------------------------> > > This SF.net email is sponsored by: Microsoft> > > Defy all challenges. Microsoft(R) Visual Studio 2008.> > > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> > > _______________________________________________> > > rpy-list mailing list> > > rpy-list at lists.sourceforge.net> > > https://lists.sourceforge.net/lists/listinfo/rpy-list> >> >> > ________________________________> > Windows Live Messenger 2008 vient de sortir, entièrement personnalisable !> > Téléchargez gratuitement Messenger 2008> > -------------------------------------------------------------------------> > This SF.net email is sponsored by: Microsoft> > Defy all challenges. Microsoft(R) Visual Studio 2008.> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> > _______________________________________________> > rpy-list mailing list> > rpy-list at lists.sourceforge.net> > https://lists.sourceforge.net/lists/listinfo/rpy-list> >> >> > > -- > -----BEGIN PGP SIGNATURE-----> Version: GnuPG v1.4.6 (GNU/Linux)> > iEYEARECAAYFAkYgwJ4ACgkQB/w/MLoyRDeQlgCeMp8v69/Wy24Q4IaBVhoG1M5R> 2h4AoIOTvKbrFpTklRDjV7u8tEOeSQqt> =JPph> -----END PGP SIGNATURE-----> > -------------------------------------------------------------------------> This SF.net email is sponsored by: Microsoft> Defy all challenges. Microsoft(R) Visual Studio 2008.> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/> _______________________________________________> rpy-list mailing list> rpy-list at lists.sourceforge.net> https://lists.sourceforge.net/lists/listinfo/rpy-list
+_________________________________________________________________
+Microsoft vous recommande de mettre à jour Internet Explorer.
+http://specials.fr.msn.com/IE7P25
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From gregory.warnes at mac.com  Thu Feb 28 15:19:44 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Thu, 28 Feb 2008 10:19:44 -0500
+Subject: Re: [Rpy] package : survival
+In-Reply-To: <BAY134-W275252D85852460EA21253A41A0@phx.gbl>
+References: <BAY134-W36092F1561768EA44BC6DFA41A0@phx.gbl><27d1e6020802270248n2c4814a9m5e3e6c9abcd3ba90@mail.gmail.com> <BAY134-W275252D85852460EA21253A41A0@phx.gbl>
+Message-ID: <0A01E9D1-A202-4E2B-B162-D930C2064605@mac.com>
+
+
+The basic problem is that "survfit" is using deparse() to try to get  
+the name of the Surv() object so it can generate an R formula.   
+Unfortunately, this object doesn't have a name in R's namespace, so  
+deparse() gets the structure representation instead of the name, and  
+then things fail.
+
+As a consequence, this is one of the cases when you need to  
+explicitly place your  objects into R's own namespace, and then ask  
+R's own parser to work on the command string.  This code shows how to  
+accomplish this:
+
+
+from rpy import *
+r.library("survival")
+set_default_mode(NO_CONVERSION)
+d=r.rep(1,41)
+t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )
+
+## Put the 't' and 'd' objects into R's namespace
+r.assign("t",t)
+r.assign("d",d)
+
+## Use R's interpreter to execute the necessary code
+sf = r("survfit(Surv(t,d))")
+
+## Now we can examine the resulting object:
+r.print_(sf)
+
+## or display it
+r.plot(sf)
+
+
+I hope this helps,
+
+-Greg
+
+
+On Feb 27, 2008, at 6:07AM , Lore Merdrignac wrote:
+
+> Thanks for answering.
+> I had already tested to split the expression but there is still a  
+> problem with the function survfit(). Nevertheless this expression  
+> works with R, but I have to implement it with python. Indeed, I am  
+> trying to create a software for survival analysis using python  
+> language...
+>
+> >>> s=r.Surv(t,d)
+> >>> ss=r.survfit(s)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> RPy_RException: Erreur dans parse(text = paste(deparse(call[[2]]),  
+> 1, sep = "~")) :
+>   unexpected numeric constant dans :
+> "structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L, 12L, ~1
+> 12L"
+>
+> and obviously, I get then :
+>
+> >>> survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))
+> >>> survPlot(sf)
+> Traceback (most recent call last):
+>   File "<interactive input>", line 1, in ?
+> NameError: name 'sf' is not defined
+>
+> Lore.
+>
+> > Date: Wed, 27 Feb 2008 11:48:12 +0100
+> > From: lgautier at gmail.com
+> > To: rpy-list at lists.sourceforge.net
+> > Subject: Re: [Rpy] package : survival
+> >
+> > 2008/2/27, Lore Merdrignac <tchibadou at hotmail.com>:
+> > >
+> > > Hi,
+> > > I have already posted a first problem of "NO_CONVERSION" with  
+> the package
+> > > SURVIVAL. But I still have a problem by using the function  
+> survfit() of the
+> > > package.
+> > > Here is the code :
+> > >
+> > > >>> from rpy import *
+> > > >>> r.library("survival")
+> > > >>> set_default_mode(NO_CONVERSION)
+> > > >>> d=r.rep(1,41)
+> > > >>> t=r.c( r.rep(6,5), r.rep(9,3) , r.rep(12,24), r.rep(15,9) )
+> > > >>> r.plot(r.survfit(r.Surv(t,d)))
+> > > Traceback (most recent call last):
+> > > File "<interactive input>", line 1, in ?
+> > > RPy_RException: Erreur dans parse(text = paste(deparse(call 
+> [[2]]), 1, sep =
+> > > "~")) :
+> > > unexpected numeric constant dans :
+> > > "structure(c(6L, 6L, 6L, 6L, 6L, 9L, 9L, 9L, 12L, 12L, 12L,  
+> 12L, ~1
+> > > 12L"
+> > >
+> > > Is there anything I am doing wrong ? I really need this  
+> function to
+> > > complete my survival analysis... I would really appreciate if  
+> anyone could
+> > > help me.
+> >
+> > I guess that an emergency solution is to be doing the whole  
+> analysis in R.
+> >
+> > Otherwise, you could try splitting up a bit your expression
+> > r.plot(r.survfit(r.Surv(t,d)))
+> > to see better were things are going wrong:
+> > s = r.Surv(t,d)
+> > sf = r.survfit(s)
+> > plot(sf)
+> >
+> > The following has a chance to work (not tested):
+> > survPlot = r.get("plot.survfit", envir=r.getNamespace("survival"))
+> > survPlot(sf)
+> >
+> >
+> > L.
+> >
+> > PS: An alternative to the NO_CONVERSION business might be coming  
+> in not-so-long.
+> >
+> >
+> > > Thanks.
+> > >
+> > > Lore.
+> > >
+> > > ________________________________
+> > > Windows Live Messenger 2008 vient de sortir, découvrez son  
+> nouveau design !
+> > > Téléchargez gratuitement Messenger 2008
+> > >  
+> ---------------------------------------------------------------------- 
+> ---
+> > > This SF.net email is sponsored by: Microsoft
+> > > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > > _______________________________________________
+> > > rpy-list mailing list
+> > > rpy-list at lists.sourceforge.net
+> > > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> > >
+> > >
+> >
+> >  
+> ---------------------------------------------------------------------- 
+> ---
+> > This SF.net email is sponsored by: Microsoft
+> > Defy all challenges. Microsoft(R) Visual Studio 2008.
+> > http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> Windows Live Messenger 2008 vient de sortir, entièrement  
+> personnalisable ! Téléchargez gratuitement Messenger 2008
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/<mime- 
+> attachment.txt>
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From gregory.warnes at mac.com  Thu Feb 28 15:33:20 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Thu, 28 Feb 2008 10:33:20 -0500
+Subject: Re: [Rpy] Rpy handling kmeans
+In-Reply-To: <F112B4E4D8D2074A809DC14953D1B8820274F026@sf2pmxb01.thefacebook.com>
+References: <F112B4E4D8D2074A809DC14953D1B8820274F026@sf2pmxb01.thefacebook.com>
+Message-ID: <F7855866-D639-4B64-B61E-33809C4CC47B@mac.com>
+
+
+Hello Ding,
+
+It appears that either you don't have numpy properly installed, or  
+that your copy of rpy was compiled without numpy support.
+
+A simple workaround for this specific case would be to turn of  
+conversion of r to python objects, so that the object 'x' remains an  
+r matrix, rather than being converted into a python list object (if  
+numpy was being properly used, the return object would be a numpy  
+matrix).
+
+Try this code:
+
+from rpy import *
+set_default_mode(NO_CONVERSION)
+x = r.matrix(r.rnorm(100), 50, 2)
+
+# returned as an R object
+km_1 = r.kmeans(x, 2)
+r.print_(km_1)
+
+# returned and converted to a python object
+set_default_mode(BASIC_CONVERSION)
+km_2 = r.kmeans(x, 2)
+print km_2
+
+-Greg
+
+On Feb 22, 2008, at 5:40PM , Ding Zhou wrote:
+
+> Hi,
+>
+> I was trying get the rpy to work but was stuck. Would you help us with
+> these simple rpy commands?
+>
+> I did the following:
+>
+> python
+>
+> from rpy import r
+>
+> x = r.matrix(r.rnorm(100), 50, 2)
+>
+> r.kmeans(x, 2)
+>
+> The error was:
+>
+> Traceback (most recent call last):
+>   File "<stdin>", line 1, in ?
+> rpy.RException: Error in as.double.default(x) : (list) object  
+> cannot be
+> coerced to 'double'
+>
+> I also tried:
+>
+> x = numpy.array(x) before r.kmeans but it didn't work.
+>
+> I was able to run the same thing in R by doing:
+>
+> x = matrix(rnorm(100), 50, 2)
+> kmeans(x, 2)
+>
+> But the test with rpy failed miserably ... Any idea to help out?
+>
+> Thanks,
+> -Ding.
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From Waclaw.Marcin.Kusnierczyk at idi.ntnu.no  Thu Feb 28 15:39:05 2008
+From: Waclaw.Marcin.Kusnierczyk at idi.ntnu.no (Wacek Kusnierczyk)
+Date: Thu, 28 Feb 2008 16:39:05 +0100
+Subject: [Rpy] rpy crashes on graphics
+Message-ID: <47C6D599.8090908@idi.ntnu.no>
+
+Hi,
+
+Having used rpy for just a while on Fedora 7, python 2.5, I discover 
+that it crashes on graphics functions such as plot, hist, etc.
+
+This simple code:
+
+r.plot(range(1000))
+
+causes python to exit (not on all occasions, though) with this message:
+
+Error during wrapup: C stack usage is too close to the limit
+*** stack smashing detected ***: python terminated
+Aborted
+
+Is it a bug, or an installation problem?
+
+Otherwise, rpy is a great package.
+
+Thanks,
+vQ
+
+-- 
+-------------------------------------------------------
+Wacek Kusnierczyk, MD MSc
+
+Email: waku at idi.ntnu.no
+Phone: +47 73591875
+
+Department of Information and Computer Science (IDI)
+Faculty of Information Technology, Mathematics and Electrical Engineering (IME)
+Norwegian University of Science and Technology (NTNU)
+Sem Saelands vei 7, 7491 Trondheim, Norway
+
+Bioinformatics & Gene Regulation Group
+Department of Cancer Research and Molecular Medicine (IKM)
+Faculty of Medicine (DMF)
+Norwegian University of Science and Technology (NTNU)
+Laboratory Center, Erling Skjalgsons gt. 1, 7030 Trondheim, Norway
+
+-------------------------------------------------------
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From gregory.warnes at mac.com  Thu Feb 28 15:42:42 2008
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Thu, 28 Feb 2008 10:42:42 -0500
+Subject: Re: [Rpy] rpy crashes on graphics
+In-Reply-To: <47C6D599.8090908@idi.ntnu.no>
+References: <47C6D599.8090908@idi.ntnu.no>
+Message-ID: <4282422F-30A2-4A31-A763-5AD10997A76D@mac.com>
+
+
+This bug should be corrected in the latest version of rpy.  What  
+version are you using?
+
+-G
+
+On Feb 28, 2008, at 10:39AM , Wacek Kusnierczyk wrote:
+
+> Hi,
+>
+> Having used rpy for just a while on Fedora 7, python 2.5, I discover
+> that it crashes on graphics functions such as plot, hist, etc.
+>
+> This simple code:
+>
+> r.plot(range(1000))
+>
+> causes python to exit (not on all occasions, though) with this  
+> message:
+>
+> Error during wrapup: C stack usage is too close to the limit
+> *** stack smashing detected ***: python terminated
+> Aborted
+>
+> Is it a bug, or an installation problem?
+>
+> Otherwise, rpy is a great package.
+>
+> Thanks,
+> vQ
+>
+> -- 
+> -------------------------------------------------------
+> Wacek Kusnierczyk, MD MSc
+>
+> Email: waku at idi.ntnu.no
+> Phone: +47 73591875
+>
+> Department of Information and Computer Science (IDI)
+> Faculty of Information Technology, Mathematics and Electrical  
+> Engineering (IME)
+> Norwegian University of Science and Technology (NTNU)
+> Sem Saelands vei 7, 7491 Trondheim, Norway
+>
+> Bioinformatics & Gene Regulation Group
+> Department of Cancer Research and Molecular Medicine (IKM)
+> Faculty of Medicine (DMF)
+> Norwegian University of Science and Technology (NTNU)
+> Laboratory Center, Erling Skjalgsons gt. 1, 7030 Trondheim, Norway
+>
+> -------------------------------------------------------
+>
+>
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by: Microsoft
+> Defy all challenges. Microsoft(R) Visual Studio 2008.
+> http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+
+From Waclaw.Marcin.Kusnierczyk at idi.ntnu.no  Thu Feb 28 15:54:46 2008
+From: Waclaw.Marcin.Kusnierczyk at idi.ntnu.no (Wacek Kusnierczyk)
+Date: Thu, 28 Feb 2008 16:54:46 +0100
+Subject: Re: [Rpy] rpy crashes on graphics
+In-Reply-To: <4282422F-30A2-4A31-A763-5AD10997A76D@mac.com>
+References: <47C6D599.8090908@idi.ntnu.no> <4282422F-30A2-4A31-A763-5AD10997A76D@mac.com>
+Message-ID: <47C6D946.4080204@idi.ntnu.no>
+
+Gregory Warnes wrote:
+> This bug should be corrected in the latest version of rpy.  What  
+> version are you using?
+>
+>   
+1.0.1 (picked by easy_install). 
+
+vQ
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2008.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+

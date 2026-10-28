@@ -1,0 +1,3252 @@
+From hunter.hatfield-I1m3D+DYSVWlP80pJB477g at public.gmane.org  Fri Oct  4 03:46:09 2013
+From: hunter.hatfield-I1m3D+DYSVWlP80pJB477g at public.gmane.org (Hunter Hatfield)
+Date: Fri, 04 Oct 2013 03:46:09 +0000
+Subject: Re: loess curves
+In-Reply-To: <1378160985.22743.24.camel@mazurka>
+References: <E37BDF470EF29B4CA4C86E32B6936A1312735D9F@ITS-EXM-P05.registry.otago.ac.nz> <1378160985.22743.24.camel@mazurka>
+Message-ID: <E37BDF470EF29B4CA4C86E32B6936A131273AC82@ITS-EXM-P05.registry.otago.ac.nz>
+
+Dear list,
+
+A few weeks ago I asked for assistance on taking a set of time data, generating a smoothed curve for that data, and then calculating the rate of change of that time data. Kyle Gorman and Steve Piantadosi assisted me greatly by giving tips on how to use the loess() function and the diff() function. I've finally had time to go work through it and have attached my solution here in case it's of interest to anyone else. If I've made any conceptual (or other) errors, I very much welcome feedback on that. My data isn't actually some value over time, but a set of time values over steps.
+
+The short version of my code is in the text of this email. I've also attached a pdf with the more extensive code and plots to see the results.
+
+Hunter
+
+---
+
+In this data set, I have a set of Times over 51 steps. This data is divided into two conditions, low attachment (la) and high attachment (ha). I want to examine the time course of moving through these 51 steps in each condition. The shape of the main dataframe agg.rc.r.hala is
+Centre		Time		Cond
+1		62.927		la
+2		61.441		la
+3		67.678		la
+4		64.070		la
+5		66.825		la
+I was interested in the rate of change between these values. However, I did not want the change on the raw data, but upon a smoothed curve. With suggestions from Steve Piantadosi and Kyle Gorman, I was able to get this using loess() for smoothing and then diff() for calculating differences between steps in the curve. You can do this directly on the Time data; however, that would have the rate of change increasing when the time was longer, while we typically think of velocity and acceleration as decreasing when the time is longer. So, the Times were inverted for further analysis. The inverse of the Time is giving the proportion of one step convered in 1ms. Here’s the basic code:
+agg.rc.r.hala$InverseT <- 1/ agg.rc.r.hala$Time
+#get the loess curve from the loess() function
+rc.all.inv.la.lo <- loess(InverseT ~ Centre, agg.rc.r.hala[agg.rc.r.hala$Cond == "la",])
+rc.all.inv.ha.lo <- loess(InverseT ~ Centre, agg.rc.r.hala[agg.rc.r.hala$Cond == "ha",])
+#the result are the fitted values rc.all.la.lo$f
+#use diff() function to calculate differences between values on the loess curve
+#velocity
+rc.all.inv.la.lo.v <- diff(rc.all.inv.la.lo$f)
+rc.all.inv.ha.lo.v <- diff(rc.all.inv.ha.lo$f)
+#acceleration
+rc.all.inv.la.lo.a <- diff(rc.all.inv.la.lo.v)
+rc.all.inv.ha.lo.a <- diff(rc.all.inv.ha.lo.v)
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: Calculating change over time.pdf
+Type: application/pdf
+Size: 66340 bytes
+
+From sschmid-mE/TnhlqQNI at public.gmane.org  Wed Oct  9 22:44:02 2013
+From: sschmid-mE/TnhlqQNI at public.gmane.org (Sarah M Schmid)
+Date: Wed, 09 Oct 2013 22:44:02 +0000
+Subject: data.frames: how to average all values by year?
+Message-ID: <264A98F643B94B44BF709A15E00C8D177A831382@UBOX3.unr.edu>
+
+Hello all, hoping someone out there can help illuminate this problem....
+
+so i have a huge data.frame called df that looks like this:
+
+> str(df)
+'data.frame':   2260224 obs. of  5 variables:
+ $ year         : Date, format: "1901-01-01" "1901-01-01" ...
+ $ cru_mean_ppt : num  98.5 98.5 98.5 98.5 98.5 ...
+ $ udel_mean_ppt: num  7.9 7.9 7.9 7.9 7.9 ...
+ $ cru_mean_tmp : num  3.97 3.97 3.97 3.97 3.97 ...
+ $ udel_mean_tmp: num  2.67 4.04 15.81 2.94 5.74 ...
+
+
+head(df)
+        year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+1 1901-01-01     98.45945      7.896066     3.968293      2.671475
+2 1901-01-01     98.45945      7.896066     3.968293      4.044590
+3 1901-01-01     98.45945      7.896066     3.968293     15.809181
+4 1901-01-01     98.45945      7.896066     3.968293      2.935738
+5 1901-01-01     98.45945      7.896066     3.968293      5.741312
+6 1901-01-01     98.45945      7.896066     3.968293     10.626885
+
+...and so on for about 2milllion cells until 2009...
+
+
+the goal is to get the average for each year for each category, like this:
+
+        year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+1 1901-01-01     95.45945      6.896066     2.968293      3.671475
+2 1902-01-01     97.45945      5.896066     3.968293      4.044590
+3 1903-01-01     96.45945      7.806066     3.968293     12.809181
+4 1904-01-01     97.45945      5.896066     3.968293      4.935738
+5 1905-01-01     98.45945      7.896066     5.968293      5.741312
+6 1906-01-01     88.45945      7.896066     3.968293     6.626885
+
+any ideas on how to go about this? seems like it should be simple but i seem to be R-tarded....
+any help would be greatly appreciated. thanks all!
+
+cheers,
+Schmidee
+Geography Grad Student
+
+From danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Oct  9 22:51:25 2013
+From: danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Daniel Ezra Johnson)
+Date: Wed, 09 Oct 2013 23:51:25 +0100
+Subject: Re: data.frames: how to average all values by year?
+In-Reply-To: <264A98F643B94B44BF709A15E00C8D177A831382@UBOX3.unr.edu>
+References: <264A98F643B94B44BF709A15E00C8D177A831382@UBOX3.unr.edu>
+Message-ID: <CAABSvoWZAV-cuRTFhHr5fDxE7eLS6PA4E8N0uAaezTZBn9LiTQ@mail.gmail.com>
+
+you can use ddply() in the plyr package.
+it is very useful for this.
+dan
+
+
+On Wed, Oct 9, 2013 at 11:44 PM, Sarah M Schmid <sschmid-mE/TnhlqQNI at public.gmane.org> wrote:
+
+>  Hello all, hoping someone out there can help illuminate this problem....
+>
+>  so i have a huge data.frame called df that looks like this:
+>
+>  > str(df)
+> 'data.frame':   2260224 obs. of  5 variables:
+>  $ year         : Date, format: "1901-01-01" "1901-01-01" ...
+>  $ cru_mean_ppt : num  98.5 98.5 98.5 98.5 98.5 ...
+>  $ udel_mean_ppt: num  7.9 7.9 7.9 7.9 7.9 ...
+>  $ cru_mean_tmp : num  3.97 3.97 3.97 3.97 3.97 ...
+>  $ udel_mean_tmp: num  2.67 4.04 15.81 2.94 5.74 ...
+>
+>
+>  head(df)
+>         year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+> 1 1901-01-01     98.45945      7.896066     3.968293      2.671475
+> 2 1901-01-01     98.45945      7.896066     3.968293      4.044590
+> 3 1901-01-01     98.45945      7.896066     3.968293     15.809181
+> 4 1901-01-01     98.45945      7.896066     3.968293      2.935738
+> 5 1901-01-01     98.45945      7.896066     3.968293      5.741312
+> 6 1901-01-01     98.45945      7.896066     3.968293     10.626885
+>
+>  ...and so on for about 2milllion cells until 2009...
+>
+>
+>  the goal is to get the average for each year for each category, like
+> this:
+>
+>          year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+> 1 1901-01-01     95.45945      6.896066     2.968293      3.671475
+> 2 1902-01-01     97.45945      5.896066     3.968293      4.044590
+> 3 1903-01-01     96.45945      7.806066     3.968293     12.809181
+> 4 1904-01-01     97.45945      5.896066     3.968293      4.935738
+> 5 1905-01-01     98.45945      7.896066     5.968293      5.741312
+> 6 1906-01-01     88.45945      7.896066     3.968293     6.626885
+>
+>  any ideas on how to go about this? seems like it should be simple but i
+> seem to be R-tarded....
+> any help would be greatly appreciated. thanks all!
+>
+>  cheers,
+> Schmidee
+> Geography Grad Student
+>
+>
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Oct  9 23:08:49 2013
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Wed, 09 Oct 2013 19:08:49 -0400
+Subject: Re: data.frames: how to average all values by year?
+In-Reply-To: <CAABSvoWZAV-cuRTFhHr5fDxE7eLS6PA4E8N0uAaezTZBn9LiTQ@mail.gmail.com>
+References: <264A98F643B94B44BF709A15E00C8D177A831382@UBOX3.unr.edu> <CAABSvoWZAV-cuRTFhHr5fDxE7eLS6PA4E8N0uAaezTZBn9LiTQ@mail.gmail.com>
+Message-ID: <CA+tkQ_Ms_qUEie5UESNS3afoTQvuhjhJwRvcj6QsdgHy2D2PpQ@mail.gmail.com>
+
+another vote for ddply, specifically:
+
+ddply(df, "year", summarize, cru_mean_ppt = mean(cru_mean_ppt),
+udel_mean_ppt = mean(udel_mean_ppt), ... etc.)
+
+note that you can do other functions at the same time, like sd(), not just
+mean().
+
+-scott
+
+
+On Wed, Oct 9, 2013 at 6:51 PM, Daniel Ezra Johnson <
+danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> you can use ddply() in the plyr package.
+> it is very useful for this.
+> dan
+>
+>
+> On Wed, Oct 9, 2013 at 11:44 PM, Sarah M Schmid <sschmid-mE/TnhlqQNI at public.gmane.org> wrote:
+>
+>>  Hello all, hoping someone out there can help illuminate this problem....
+>>
+>>  so i have a huge data.frame called df that looks like this:
+>>
+>>  > str(df)
+>> 'data.frame':   2260224 obs. of  5 variables:
+>>  $ year         : Date, format: "1901-01-01" "1901-01-01" ...
+>>  $ cru_mean_ppt : num  98.5 98.5 98.5 98.5 98.5 ...
+>>  $ udel_mean_ppt: num  7.9 7.9 7.9 7.9 7.9 ...
+>>  $ cru_mean_tmp : num  3.97 3.97 3.97 3.97 3.97 ...
+>>  $ udel_mean_tmp: num  2.67 4.04 15.81 2.94 5.74 ...
+>>
+>>
+>>  head(df)
+>>         year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+>> 1 1901-01-01     98.45945      7.896066     3.968293      2.671475
+>> 2 1901-01-01     98.45945      7.896066     3.968293      4.044590
+>> 3 1901-01-01     98.45945      7.896066     3.968293     15.809181
+>> 4 1901-01-01     98.45945      7.896066     3.968293      2.935738
+>> 5 1901-01-01     98.45945      7.896066     3.968293      5.741312
+>> 6 1901-01-01     98.45945      7.896066     3.968293     10.626885
+>>
+>>  ...and so on for about 2milllion cells until 2009...
+>>
+>>
+>>  the goal is to get the average for each year for each category, like
+>> this:
+>>
+>>          year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+>> 1 1901-01-01     95.45945      6.896066     2.968293      3.671475
+>> 2 1902-01-01     97.45945      5.896066     3.968293      4.044590
+>> 3 1903-01-01     96.45945      7.806066     3.968293     12.809181
+>> 4 1904-01-01     97.45945      5.896066     3.968293      4.935738
+>> 5 1905-01-01     98.45945      7.896066     5.968293      5.741312
+>> 6 1906-01-01     88.45945      7.896066     3.968293     6.626885
+>>
+>>  any ideas on how to go about this? seems like it should be simple but i
+>> seem to be R-tarded....
+>> any help would be greatly appreciated. thanks all!
+>>
+>>  cheers,
+>> Schmidee
+>> Geography Grad Student
+>>
+>>
+>
+
+From mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org  Thu Oct 10 00:02:19 2013
+From: mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org (Michael Shvartsman)
+Date: Wed, 09 Oct 2013 20:02:19 -0400
+Subject: Re: data.frames: how to average all values by year?
+In-Reply-To: <CA+tkQ_Ms_qUEie5UESNS3afoTQvuhjhJwRvcj6QsdgHy2D2PpQ@mail.gmail.com>
+References: <264A98F643B94B44BF709A15E00C8D177A831382@UBOX3.unr.edu> <CAABSvoWZAV-cuRTFhHr5fDxE7eLS6PA4E8N0uAaezTZBn9LiTQ@mail.gmail.com> <CA+tkQ_Ms_qUEie5UESNS3afoTQvuhjhJwRvcj6QsdgHy2D2PpQ@mail.gmail.com>
+Message-ID: <5255EE8B.3040706@umich.edu>
+
+Another variant, using data.table, which should be (much?) faster than 
+plyr on 2m rows. Not tested since I don't have your dataset so watch out 
+for typos:
+
+library(data.table) # assuming you installed it
+df <- as.data.table(df)
+dSummary <- d[,list(cru_mean_ppt = mean(cru_mean_ppt), udel_mean_ppt = 
+mean(udel_mean_ppt)),by="year"]
+
+     Mike.
+
+> Scott Jackson <mailto:scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> October 9, 2013 7:08 PM
+> another vote for ddply, specifically:
+>
+> ddply(df, "year", summarize, cru_mean_ppt = mean(cru_mean_ppt), 
+> udel_mean_ppt = mean(udel_mean_ppt), ... etc.)
+>
+> note that you can do other functions at the same time, like sd(), not 
+> just mean().
+>
+> -scott
+>
+>
+>
+> Daniel Ezra Johnson <mailto:danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> October 9, 2013 6:51 PM
+> you can use ddply() in the plyr package.
+> it is very useful for this.
+> dan
+>
+>
+>
+> Sarah M Schmid <mailto:sschmid-mE/TnhlqQNI at public.gmane.org>
+> October 9, 2013 6:44 PM
+> Hello all, hoping someone out there can help illuminate this problem....
+>
+> so i have a huge data.frame called df that looks like this:
+>
+> > str(df)
+> 'data.frame':   2260224 obs. of  5 variables:
+>  $ year         : Date, format: "1901-01-01" "1901-01-01" ...
+>  $ cru_mean_ppt : num  98.5 98.5 98.5 98.5 98.5 ...
+>  $ udel_mean_ppt: num  7.9 7.9 7.9 7.9 7.9 ...
+>  $ cru_mean_tmp : num  3.97 3.97 3.97 3.97 3.97 ...
+>  $ udel_mean_tmp: num  2.67 4.04 15.81 2.94 5.74 ...
+>
+>
+> head(df)
+>         year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+> 1 1901-01-01     98.45945      7.896066     3.968293      2.671475
+> 2 1901-01-01     98.45945      7.896066     3.968293      4.044590
+> 3 1901-01-01     98.45945      7.896066     3.968293     15.809181
+> 4 1901-01-01     98.45945      7.896066     3.968293      2.935738
+> 5 1901-01-01     98.45945      7.896066     3.968293      5.741312
+> 6 1901-01-01     98.45945      7.896066     3.968293     10.626885
+>
+> ...and so on for about 2milllion cells until 2009...
+>
+>
+> the goal is to get the average for each year for each category, like this:
+>
+>         year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+> 1 1901-01-01     95.45945      6.896066     2.968293      3.671475
+> 2 1902-01-01     97.45945      5.896066     3.968293      4.044590
+> 3 1903-01-01     96.45945      7.806066     3.968293     12.809181
+> 4 1904-01-01     97.45945      5.896066     3.968293      4.935738
+> 5 1905-01-01     98.45945      7.896066     5.968293      5.741312
+> 6 1906-01-01     88.45945      7.896066     3.968293     6.626885
+>
+> any ideas on how to go about this? seems like it should be simple but 
+> i seem to be R-tarded....
+> any help would be greatly appreciated. thanks all!
+>
+> cheers,
+> Schmidee
+> Geography Grad Student
+>
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: compose-unknown-contact.jpg
+Type: image/jpeg
+Size: 770 bytes
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Thu Oct 10 01:26:29 2013
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Wed, 09 Oct 2013 21:26:29 -0400
+Subject: introduction to plyr (ddply, etc.)
+Message-ID: <CAG2Vd7hO3HJS5hugyfqjYAYPfmPAWrerznEi5_0hrHSgGSBBoQ@mail.gmail.com>
+
+in case it's of interest, here's a link to Dave Kleinschmidt's plyr (and
+reshape2) introduction slides
+
+http://hlplab.wordpress.com/2013/10/09/using-plyr-to-get-intimate-with-your-data/
+
+Florian
+
+From baron-wN2NlrKQg8ScxI7pCafu4Q at public.gmane.org  Thu Oct 10 01:37:13 2013
+From: baron-wN2NlrKQg8ScxI7pCafu4Q at public.gmane.org (Jonathan Baron)
+Date: Wed, 09 Oct 2013 21:37:13 -0400
+Subject: Re: data.frames: how to average all values by year?
+In-Reply-To: <5255EE8B.3040706@umich.edu>
+References: <264A98F643B94B44BF709A15E00C8D177A831382@UBOX3.unr.edu> <CAABSvoWZAV-cuRTFhHr5fDxE7eLS6PA4E8N0uAaezTZBn9LiTQ@mail.gmail.com> <CA+tkQ_Ms_qUEie5UESNS3afoTQvuhjhJwRvcj6QsdgHy2D2PpQ@mail.gmail.com> <5255EE8B.3040706@umich.edu>
+Message-ID: <20131010013713.GA8725@psych.upenn.edu>
+
+Another tool that might work well for this problem is aggregate(),
+which requires no extra packages. I started using it in preference to
+various functions in plyr because I could never figure out what was
+going wrong when those didn't work (the usual result when I do
+anything, so it is important to be able to learn from such a result,
+with informative error messages, etc.). But I don't know the details.
+
+Jon
+-- 
+Jonathan Baron, Professor of Psychology, University of Pennsylvania
+Home page: http://www.sas.upenn.edu/~baron
+
+From jkhartshorne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Oct 10 05:19:53 2013
+From: jkhartshorne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Joshua Hartshorne)
+Date: Thu, 10 Oct 2013 01:19:53 -0400
+Subject: lmer: main effects & interactions for a 4x3x2 design
+Message-ID: <CA+3amhfsgzZ3-va2zmvf7FPg_QfStLfDA5+-tokmWttDVz41XA@mail.gmail.com>
+
+Dear R-langers,
+
+This is a question about how to summarize a 4x3x2 mixed effects logistic
+regression such that readers' eyes won't just glaze over.
+
+What I've got is essentially the same experiment run 8 times (bear with
+me). The experiment has three conditions. To make sure that arbitrary
+aspects of the experimental design weren't responsible for any effects, I
+varied one experimental parameter 4 ways and another one 2 ways. Hence
+4x3x2.
+
+This makes for a very long table if I want to list all the fixed effects.
+Which I don't really want to do anyway, since they are mostly
+uninteresting. I have around 1000 subjects, so understand that it wouldn't
+be too bad to do model comparison. I think understand how to do that for
+looking at the omnibus interaction:
+
+model1 <-
+lmer(response~(condition+nuisance1+nuisance2)^3+(1+condition|subject),data=mydata,family="binomial")
+model2 <-
+lmer(response~(condition+nuisance1+nuisance2)^2+(1+condition|subject),data=mydata,family="binomial")
+anova(model1,model2)
+
+[my stimuli are randomly generated and most are not repeated across
+participants, so there's no reason to treat item as a random effect, so far
+as I can tell]
+
+but I'm less sure how to test other effects -- in particular, my main
+effect. One option I looked at was
+
+model3 <-
+lmer(response~(nuisance1+nuisance2)^2+(1+condition|subject),data=mydata,family="binomial")
+anova(model1,model3)
+
+I get a result out (it's significant!), but I'm not sure if that's truly
+testing a main effect or testing a main effect plus interactions. I tried
+
+model4 <-
+lmer(response~nuisance1+nuisance2+nuisance1:nuisance2+nuisance1:condition+nuisance2:condition+nuisance1:nuisance2:condition+(1+condition|subject),data=mydata,family="binomial")
+
+but although that didn't list fixed effects of condition, it nonetheless
+had the same dfs and same log likelihood as model1, so I'm not convinced
+it's actually a different model. This may reflect my poor understanding of
+how lmer actually works.
+
+What is the right way to proceed? Alternatively, is there another way of
+getting simpler, ANOVA-like summaries of the results?
+
+Josh
+
+From sascha-2ueri2yB8GB7tWBhaJIGHcLe8/daEDx8s0AfqQuZ5sE at public.gmane.org  Thu Oct 10 07:18:22 2013
+From: sascha-2ueri2yB8GB7tWBhaJIGHcLe8/daEDx8s0AfqQuZ5sE at public.gmane.org (Sascha Wolfer)
+Date: Thu, 10 Oct 2013 09:18:22 +0200
+Subject: Re: data.frames: how to average all values by year?
+In-Reply-To: <5255EE8B.3040706@umich.edu>
+References: <264A98F643B94B44BF709A15E00C8D177A831382@UBOX3.unr.edu> <CAABSvoWZAV-cuRTFhHr5fDxE7eLS6PA4E8N0uAaezTZBn9LiTQ@mail.gmail.com> <CA+tkQ_Ms_qUEie5UESNS3afoTQvuhjhJwRvcj6QsdgHy2D2PpQ@mail.gmail.com> <5255EE8B.3040706@umich.edu>
+Message-ID: <0F5771D2-E713-4948-9EDC-50F8D3D37D16@cognition.uni-freiburg.de>
+
+Another vote for using data.table. Speed ranking (from slow to really fast) should be
+
+aggregate > ddply > data.table
+
+I'm using Mike's method, too. It might look a bit cryptic, but it's very, very fast! I guess this should be an issue for you, especially with over 2m rows in your original data.frame.
+
+Maybe, you want to put an na.rm = T into the mean()-function. The may Mike wrote it up, you would get all NAs if one value is NA. Also, you might want to exclude the quotes around "year" after the by. So the call I would suggest should look like this:
+
+> dSummary <- d[,list(cru_mean_ppt = mean(cru_mean_ppt, na.rm = T), udel_mean_ppt = mean(udel_mean_ppt, na.rm = T)),by=year]
+
+If you want dSummary to be a data.frame again, just do an
+dSummary <- as.data.frame(dSummary)
+after finishing.
+
+Sascha W.
+
+Am 10.10.2013 um 02:02 schrieb Michael Shvartsman <mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org>:
+
+> Another variant, using data.table, which should be (much?) faster than plyr on 2m rows. Not tested since I don't have your dataset so watch out for typos: 
+> 
+> library(data.table) # assuming you installed it
+> df <- as.data.table(df)
+> dSummary <- d[,list(cru_mean_ppt = mean(cru_mean_ppt), udel_mean_ppt = mean(udel_mean_ppt)),by="year"]
+> 
+>     Mike. 
+> 
+>> 	Scott Jackson	October 9, 2013 7:08 PM
+>> another vote for ddply, specifically:
+>> 
+>> ddply(df, "year", summarize, cru_mean_ppt = mean(cru_mean_ppt), udel_mean_ppt = mean(udel_mean_ppt), ... etc.)
+>> 
+>> note that you can do other functions at the same time, like sd(), not just mean().
+>> 
+>> -scott
+>> 
+>> 
+>> 
+>> 	Daniel Ezra Johnson	October 9, 2013 6:51 PM
+>> you can use ddply() in the plyr package.
+>> it is very useful for this.
+>> dan
+>> 
+>> 
+>> 
+>> 	Sarah M Schmid	October 9, 2013 6:44 PM
+>> Hello all, hoping someone out there can help illuminate this problem....
+>> 
+>> so i have a huge data.frame called df that looks like this:
+>> 
+>> > str(df)
+>> 'data.frame':   2260224 obs. of  5 variables:
+>>  $ year         : Date, format: "1901-01-01" "1901-01-01" ...
+>>  $ cru_mean_ppt : num  98.5 98.5 98.5 98.5 98.5 ...
+>>  $ udel_mean_ppt: num  7.9 7.9 7.9 7.9 7.9 ...
+>>  $ cru_mean_tmp : num  3.97 3.97 3.97 3.97 3.97 ...
+>>  $ udel_mean_tmp: num  2.67 4.04 15.81 2.94 5.74 ...
+>> 
+>> 
+>> head(df)
+>>         year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+>> 1 1901-01-01     98.45945      7.896066     3.968293      2.671475
+>> 2 1901-01-01     98.45945      7.896066     3.968293      4.044590
+>> 3 1901-01-01     98.45945      7.896066     3.968293     15.809181
+>> 4 1901-01-01     98.45945      7.896066     3.968293      2.935738
+>> 5 1901-01-01     98.45945      7.896066     3.968293      5.741312
+>> 6 1901-01-01     98.45945      7.896066     3.968293     10.626885
+>> 
+>> ...and so on for about 2milllion cells until 2009...
+>> 
+>> 
+>> the goal is to get the average for each year for each category, like this:
+>> 
+>>         year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+>> 1 1901-01-01     95.45945      6.896066     2.968293      3.671475
+>> 2 1902-01-01     97.45945      5.896066     3.968293      4.044590
+>> 3 1903-01-01     96.45945      7.806066     3.968293     12.809181
+>> 4 1904-01-01     97.45945      5.896066     3.968293      4.935738
+>> 5 1905-01-01     98.45945      7.896066     5.968293      5.741312
+>> 6 1906-01-01     88.45945      7.896066     3.968293     6.626885
+>> 
+>> any ideas on how to go about this? seems like it should be simple but i seem to be R-tarded....
+>> any help would be greatly appreciated. thanks all!
+>> 
+>> cheers,
+>> Schmidee
+>> Geography Grad Student
+>> 
+
+---
+Sascha Wolfer
+Center for Cognitive Science
+University of Freiburg
+http://portal.uni-freiburg.de/cognition/wolfer
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: compose-unknown-contact.jpg
+Type: image/jpeg
+Size: 770 bytes
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Thu Oct 10 16:11:15 2013
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Thu, 10 Oct 2013 12:11:15 -0400
+Subject: Re: lmer: main effects & interactions for a 4x3x2 design
+In-Reply-To: <CA+3amhfsgzZ3-va2zmvf7FPg_QfStLfDA5+-tokmWttDVz41XA@mail.gmail.com>
+References: <CA+3amhfsgzZ3-va2zmvf7FPg_QfStLfDA5+-tokmWttDVz41XA@mail.gmail.com>
+Message-ID: <CAG2Vd7h30Swdj--DQmVqaL1bN0SjfYv7MAizecAud5fZ0XTmXQ@mail.gmail.com>
+
+Hi Josh,
+
+
+On Thu, Oct 10, 2013 at 1:19 AM, Joshua Hartshorne
+<jkhartshorne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:
+
+> Dear R-langers,
+>
+> This is a question about how to summarize a 4x3x2 mixed effects logistic
+> regression such that readers' eyes won't just glaze over.
+>
+> What I've got is essentially the same experiment run 8 times (bear with
+> me). The experiment has three conditions. To make sure that arbitrary
+> aspects of the experimental design weren't responsible for any effects, I
+> varied one experimental parameter 4 ways and another one 2 ways. Hence
+> 4x3x2.
+>
+> This makes for a very long table if I want to list all the fixed effects.
+> Which I don't really want to do anyway, since they are mostly
+> uninteresting. I have around 1000 subjects, so understand that it wouldn't
+> be too bad to do model comparison. I think understand how to do that for
+> looking at the omnibus interaction:
+>
+> model1 <-
+> lmer(response~(condition+nuisance1+nuisance2)^3+(1+condition|subject),data=mydata,family="binomial")
+> model2 <-
+> lmer(response~(condition+nuisance1+nuisance2)^2+(1+condition|subject),data=mydata,family="binomial")
+> anova(model1,model2)
+>
+> [my stimuli are randomly generated and most are not repeated across
+> participants, so there's no reason to treat item as a random effect, so far
+> as I can tell]
+>
+> but I'm less sure how to test other effects -- in particular, my main
+> effect. One option I looked at was
+>
+> model3 <-
+> lmer(response~(nuisance1+nuisance2)^2+(1+condition|subject),data=mydata,family="binomial")
+> anova(model1,model3)
+>
+> I get a result out (it's significant!), but I'm not sure if that's truly
+> testing a main effect or testing a main effect plus interactions. I tried
+>
+> model4 <-
+> lmer(response~nuisance1+nuisance2+nuisance1:nuisance2+nuisance1:condition+nuisance2:condition+nuisance1:nuisance2:condition+(1+condition|subject),data=mydata,family="binomial")
+>
+> but although that didn't list fixed effects of condition, it nonetheless
+> had the same dfs and same log likelihood as model1, so I'm not convinced
+> it's actually a different model. This may reflect my poor understanding of
+> how lmer actually works.
+>
+
+assuming that nuisance1, nuisance2, and condition were of class factor, R
+will given you something along the lines of a simple effects model for
+model4. I am saying "something along the lines of", because I'm not sure
+whether R will automatically use the right factor coding. In any case, if
+the predictors were all factors, you probably got the same number of dfs
+for model 1 and 4, but instead of the main effect and interaction, you now
+got simple effects. For example, model4 should contain estimates of the
+effect of nuisance1==baseline for both condition=A and condition=B,
+something like:
+
+nuisance1:condition==A
+nuisance1:condition==B
+
+and so on for nuisance2, etc.
+
+Is that what happens? The first test you provide above is what you want
+(model 3 vs. 1). That's testing the omnibus effect of condition and any of
+its interactions. In combination with omnibus tests of the effect of the
+different higher order interactions that condition has, this will provide
+the information you need. (i.e. only the three-way removed, the three-way +
+two-way with nuisance1 removed, the three-way + two-way with nuisance2
+removed, the three-way + two-ways with nuisance1 and 2 removed, everything
+removed). that's pretty much parallel to the ANOVA logic.
+
+hth?
+
+Florian
+
+>
+> What is the right way to proceed? Alternatively, is there another way of
+> getting simpler, ANOVA-like summaries of the results?
+>
+> Josh
+>
+
+From mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org  Thu Oct 10 17:10:46 2013
+From: mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org (Michael Shvartsman)
+Date: Thu, 10 Oct 2013 13:10:46 -0400
+Subject: Re: data.frames: how to average all values by year?
+In-Reply-To: <0F5771D2-E713-4948-9EDC-50F8D3D37D16@cognition.uni-freiburg.de>
+References: <264A98F643B94B44BF709A15E00C8D177A831382@UBOX3.unr.edu> <CAABSvoWZAV-cuRTFhHr5fDxE7eLS6PA4E8N0uAaezTZBn9LiTQ@mail.gmail.com> <CA+tkQ_Ms_qUEie5UESNS3afoTQvuhjhJwRvcj6QsdgHy2D2PpQ@mail.gmail.com> <5255EE8B.3040706@umich.edu> <0F5771D2-E713-4948-9EDC-50F8D3D37D16@cognition.uni-freiburg.de>
+Message-ID: <5256DF96.7080406@umich.edu>
+
+Either Sascha's or my option should work -- quoted and unquoted 
+by-statements are both fine in data.table, and data.table *is* a 
+data.frame (returns TRUE on is.data.frame() and guaranteed to support 
+all dataframe operations). vignette("datatable-intro") is a worthwhile 
+read to mitigate crypticness.
+
+Also, watch out for na.rm=T as a default choice, unless you know for 
+sure that you should have NAs in your data. Often a pile of unexpected 
+NAs tells me that something went funny in my import or preprocessing.
+
+         Mike.
+> Sascha Wolfer <mailto:sascha-2ueri2yB8GB7tWBhaJIGHcLe8/daEDx8s0AfqQuZ5sE at public.gmane.org>
+> October 10, 2013 3:18 AM
+> Another vote for using data.table. Speed ranking (from slow to really 
+> fast) should be
+>
+> aggregate > ddply > data.table
+>
+> I'm using Mike's method, too. It might look a bit cryptic, but it's 
+> very, very fast! I guess this should be an issue for you, especially 
+> with over 2m rows in your original data.frame.
+>
+> Maybe, you want to put an na.rm = T into the mean()-function. The may 
+> Mike wrote it up, you would get all NAs if one value is NA. Also, you 
+> might want to exclude the quotes around "year" after the by. So the 
+> call I would suggest should look like this:
+>
+>
+> If you want dSummary to be a data.frame again, just do an
+> dSummary <- as.data.frame(dSummary)
+> after finishing.
+>
+> Sascha W.
+>
+> Am 10.10.2013 um 02:02 schrieb Michael Shvartsman <mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org 
+> <mailto:mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org>>:
+>
+>
+> ---
+> Sascha Wolfer
+> Center for Cognitive Science
+> University of Freiburg
+> http://portal.uni-freiburg.de/cognition/wolfer
+>
+> Michael Shvartsman <mailto:mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org>
+> October 9, 2013 8:02 PM
+> Another variant, using data.table, which should be (much?) faster than 
+> plyr on 2m rows. Not tested since I don't have your dataset so watch 
+> out for typos:
+>
+> library(data.table) # assuming you installed it
+> df <- as.data.table(df)
+> dSummary <- d[,list(cru_mean_ppt = mean(cru_mean_ppt), udel_mean_ppt = 
+> mean(udel_mean_ppt)),by="year"]
+>
+>     Mike.
+>
+> Scott Jackson <mailto:scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> October 9, 2013 7:08 PM
+> another vote for ddply, specifically:
+>
+> ddply(df, "year", summarize, cru_mean_ppt = mean(cru_mean_ppt), 
+> udel_mean_ppt = mean(udel_mean_ppt), ... etc.)
+>
+> note that you can do other functions at the same time, like sd(), not 
+> just mean().
+>
+> -scott
+>
+>
+>
+> Daniel Ezra Johnson <mailto:danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> October 9, 2013 6:51 PM
+> you can use ddply() in the plyr package.
+> it is very useful for this.
+> dan
+>
+>
+>
+> Sarah M Schmid <mailto:sschmid-mE/TnhlqQNI at public.gmane.org>
+> October 9, 2013 6:44 PM
+> Hello all, hoping someone out there can help illuminate this problem....
+>
+> so i have a huge data.frame called df that looks like this:
+>
+> > str(df)
+> 'data.frame':   2260224 obs. of  5 variables:
+>  $ year         : Date, format: "1901-01-01" "1901-01-01" ...
+>  $ cru_mean_ppt : num  98.5 98.5 98.5 98.5 98.5 ...
+>  $ udel_mean_ppt: num  7.9 7.9 7.9 7.9 7.9 ...
+>  $ cru_mean_tmp : num  3.97 3.97 3.97 3.97 3.97 ...
+>  $ udel_mean_tmp: num  2.67 4.04 15.81 2.94 5.74 ...
+>
+>
+> head(df)
+>         year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+> 1 1901-01-01     98.45945      7.896066     3.968293      2.671475
+> 2 1901-01-01     98.45945      7.896066     3.968293      4.044590
+> 3 1901-01-01     98.45945      7.896066     3.968293     15.809181
+> 4 1901-01-01     98.45945      7.896066     3.968293      2.935738
+> 5 1901-01-01     98.45945      7.896066     3.968293      5.741312
+> 6 1901-01-01     98.45945      7.896066     3.968293     10.626885
+>
+> ...and so on for about 2milllion cells until 2009...
+>
+>
+> the goal is to get the average for each year for each category, like this:
+>
+>         year cru_mean_ppt udel_mean_ppt cru_mean_tmp udel_mean_tmp
+> 1 1901-01-01     95.45945      6.896066     2.968293      3.671475
+> 2 1902-01-01     97.45945      5.896066     3.968293      4.044590
+> 3 1903-01-01     96.45945      7.806066     3.968293     12.809181
+> 4 1904-01-01     97.45945      5.896066     3.968293      4.935738
+> 5 1905-01-01     98.45945      7.896066     5.968293      5.741312
+> 6 1906-01-01     88.45945      7.896066     3.968293     6.626885
+>
+> any ideas on how to go about this? seems like it should be simple but 
+> i seem to be R-tarded....
+> any help would be greatly appreciated. thanks all!
+>
+> cheers,
+> Schmidee
+> Geography Grad Student
+>
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: compose-unknown-contact.jpg
+Type: image/jpeg
+Size: 770 bytes
+
+From henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org  Thu Oct 10 20:32:36 2013
+From: henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org (Henrik Singmann)
+Date: Thu, 10 Oct 2013 22:32:36 +0200
+Subject: Re: lmer: main effects & interactions for a 4x3x2 design
+In-Reply-To: <CA+3amhfsgzZ3-va2zmvf7FPg_QfStLfDA5+-tokmWttDVz41XA@mail.gmail.com>
+References: <CA+3amhfsgzZ3-va2zmvf7FPg_QfStLfDA5+-tokmWttDVz41XA@mail.gmail.com>
+Message-ID: <52570EE4.7050209@psychologie.uni-freiburg.de>
+
+
+
+Hi Josh,
+
+To get something along the line of an ANOVA table you could use mixed from afex which will test all fixed factors in your experiment using for example likelihood ratio test (which might seem indicated, given your rather large n).
+
+require(afex)
+model1 <- mixed(response~(condition+nuisance1+nuisance2)^3+(1+condition|subject),data=mydata,family="binomial", method = "LRT")
+
+What afex does it that it subtracts the factors one by one and compares each model in which the factor of interest is removed against the full model (i.e., providing something similar to type 3 tests in the ANOVA framework).
+When using method = "LRT" it makes the comparison using likelihood ratio tests (i.e., simply using anova on the two models), alternatively one can use method = "PB" in which case it will compare the two models using parametric bootstrap as implemented in PBmodcomp (package pbkrtest). However, then one will probably need a lot of time with 1000 subjects and need to set the number of samples to reasonable high values, e.g. with 1000 samples:
+
+model1 <- mixed(response~(condition+nuisance1+nuisance2)^3+(1+condition|subject),data=mydata,family="binomial", args.test = list(nsim = 1000), method = "PB")
+
+Note that a both of functionalities, fitting and obtaining bootstrap samples, can be parallelized using a snow cluster (via package parallel).
+
+
+Finally, I have one more general comment. As I am relatively new to this list I would be really interested to hear what others think of the idea to test parameters by simply subtracting them from the model. Are there any obvious issues with this approach to test for the significance of factors?
+
+Cheers,
+Henrik
+
+Am 10.10.2013 07:19, schrieb Joshua Hartshorne:
+> Dear R-langers,
+>
+> This is a question about how to summarize a 4x3x2 mixed effects logistic regression such that readers' eyes won't just glaze over.
+>
+> What I've got is essentially the same experiment run 8 times (bear with me). The experiment has three conditions. To make sure that arbitrary aspects of the experimental design weren't responsible for any effects, I varied one experimental parameter 4 ways and another one 2 ways. Hence 4x3x2.
+>
+> This makes for a very long table if I want to list all the fixed effects. Which I don't really want to do anyway, since they are mostly uninteresting. I have around 1000 subjects, so understand that it wouldn't be too bad to do model comparison. I think understand how to do that for looking at the omnibus interaction:
+>
+> model1 <- lmer(response~(condition+nuisance1+nuisance2)^3+(1+condition|subject),data=mydata,family="binomial")
+> model2 <- lmer(response~(condition+nuisance1+nuisance2)^2+(1+condition|subject),data=mydata,family="binomial")
+> anova(model1,model2)
+>
+> [my stimuli are randomly generated and most are not repeated across participants, so there's no reason to treat item as a random effect, so far as I can tell]
+>
+> but I'm less sure how to test other effects -- in particular, my main effect. One option I looked at was
+>
+> model3 <- lmer(response~(nuisance1+nuisance2)^2+(1+condition|subject),data=mydata,family="binomial")
+> anova(model1,model3)
+>
+> I get a result out (it's significant!), but I'm not sure if that's truly testing a main effect or testing a main effect plus interactions. I tried
+>
+> model4 <- lmer(response~nuisance1+nuisance2+nuisance1:nuisance2+nuisance1:condition+nuisance2:condition+nuisance1:nuisance2:condition+(1+condition|subject),data=mydata,family="binomial")
+>
+> but although that didn't list fixed effects of condition, it nonetheless had the same dfs and same log likelihood as model1, so I'm not convinced it's actually a different model. This may reflect my poor understanding of how lmer actually works.
+>
+> What is the right way to proceed? Alternatively, is there another way of getting simpler, ANOVA-like summaries of the results?
+>
+> Josh
+
+-- 
+Dipl. Psych. Henrik Singmann
+PhD Student
+Albert-Ludwigs-Universität Freiburg, Germany
+http://www.psychologie.uni-freiburg.de/Members/singmann
+
+From jkhartshorne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Oct 13 14:35:54 2013
+From: jkhartshorne-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Joshua Hartshorne)
+Date: Sun, 13 Oct 2013 10:35:54 -0400
+Subject: Re: lmer: main effects & interactions for a 4x3x2 design
+Message-ID: <CA+3amhd59Ytv_et+8vnD55Og6hngWBM0Y8Pkb9yrEbhE9k1sEw@mail.gmail.com>
+
+Hi Henrik,
+
+Looks like a useful package. It seems that the LRT method hasn't been
+implemented yet, though. I didn't have much luck getting it to run using
+the other methods, either. Here are my attempts on a large dataset that
+involved a simpler (2x2) design:
+
+-----------------
+>
+mixed(correct~cued*targ+(1|randomID),data=thedata,family="binomial",method="KR")
+Fitting 5 lmer() models:
+[.....]
+Obtaining 4 p-values:
+[Error in modcomp_init
+either model  largeModel
+ is not a linear mixed of class mer
+
+or model smallModel
+ is neither of class mer nor a matrixError in
+KRmodcomp_init.mer(largeModel, smallModel, matrixOK = TRUE) :
+----------------
+
+and
+
+-----------------
+>
+mixed(correct~cued*targ+(1|randomID),data=thedata,family="binomial",method="PB")
+Fitting 5 lmer() models:
+[.....]
+Obtaining 4 p-values:
+[PBmodcomp.lmerMod
+Error in function (classes, fdef, mtable)  :
+  unable to find an inherited method for function "refit", for signature
+"mer"
+In addition: Warning message:
+In mixed(correct ~ cued * targ + (1 | randomID), data = thedata,  :
+  REML argument to lmer() set to FALSE for method = 'PB'
+-----------------
+
+Any ideas?
+Josh
+
+On Thu, Oct 10, 2013 at 4:32 PM, Henrik Singmann <
+henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org> wrote:
+
+>
+>
+> Hi Josh,
+>
+> To get something along the line of an ANOVA table you could use mixed from
+> afex which will test all fixed factors in your experiment using for example
+> likelihood ratio test (which might seem indicated, given your rather large
+> n).
+>
+> require(afex)
+> model1 <- mixed(response~(condition+**nuisance1+nuisance2)^3+(1+**
+> condition|subject),data=**mydata,family="binomial", method = "LRT")
+>
+> What afex does it that it subtracts the factors one by one and compares
+> each model in which the factor of interest is removed against the full
+> model (i.e., providing something similar to type 3 tests in the ANOVA
+> framework).
+> When using method = "LRT" it makes the comparison using likelihood ratio
+> tests (i.e., simply using anova on the two models), alternatively one can
+> use method = "PB" in which case it will compare the two models using
+> parametric bootstrap as implemented in PBmodcomp (package pbkrtest).
+> However, then one will probably need a lot of time with 1000 subjects and
+> need to set the number of samples to reasonable high values, e.g. with 1000
+> samples:
+>
+> model1 <- mixed(response~(condition+**nuisance1+nuisance2)^3+(1+**
+> condition|subject),data=**mydata,family="binomial", args.test = list(nsim
+> = 1000), method = "PB")
+>
+> Note that a both of functionalities, fitting and obtaining bootstrap
+> samples, can be parallelized using a snow cluster (via package parallel).
+>
+>
+> Finally, I have one more general comment. As I am relatively new to this
+> list I would be really interested to hear what others think of the idea to
+> test parameters by simply subtracting them from the model. Are there any
+> obvious issues with this approach to test for the significance of factors?
+>
+> Cheers,
+> Henrik
+>
+> Am 10.10.2013 07:19, schrieb Joshua Hartshorne:
+>
+>  Dear R-langers,
+>>
+>> This is a question about how to summarize a 4x3x2 mixed effects logistic
+>> regression such that readers' eyes won't just glaze over.
+>>
+>> What I've got is essentially the same experiment run 8 times (bear with
+>> me). The experiment has three conditions. To make sure that arbitrary
+>> aspects of the experimental design weren't responsible for any effects, I
+>> varied one experimental parameter 4 ways and another one 2 ways. Hence
+>> 4x3x2.
+>>
+>> This makes for a very long table if I want to list all the fixed effects.
+>> Which I don't really want to do anyway, since they are mostly
+>> uninteresting. I have around 1000 subjects, so understand that it wouldn't
+>> be too bad to do model comparison. I think understand how to do that for
+>> looking at the omnibus interaction:
+>>
+>> model1 <- lmer(response~(condition+**nuisance1+nuisance2)^3+(1+**
+>> condition|subject),data=**mydata,family="binomial")
+>> model2 <- lmer(response~(condition+**nuisance1+nuisance2)^2+(1+**
+>> condition|subject),data=**mydata,family="binomial")
+>> anova(model1,model2)
+>>
+>> [my stimuli are randomly generated and most are not repeated across
+>> participants, so there's no reason to treat item as a random effect, so far
+>> as I can tell]
+>>
+>> but I'm less sure how to test other effects -- in particular, my main
+>> effect. One option I looked at was
+>>
+>> model3 <- lmer(response~(nuisance1+**nuisance2)^2+(1+condition|**
+>> subject),data=mydata,family="**binomial")
+>> anova(model1,model3)
+>>
+>> I get a result out (it's significant!), but I'm not sure if that's truly
+>> testing a main effect or testing a main effect plus interactions. I tried
+>>
+>> model4 <- lmer(response~nuisance1+**nuisance2+nuisance1:nuisance2+**
+>> nuisance1:condition+nuisance2:**condition+nuisance1:nuisance2:**
+>> condition+(1+condition|**subject),data=mydata,family="**binomial")
+>>
+>> but although that didn't list fixed effects of condition, it nonetheless
+>> had the same dfs and same log likelihood as model1, so I'm not convinced
+>> it's actually a different model. This may reflect my poor understanding of
+>> how lmer actually works.
+>>
+>> What is the right way to proceed? Alternatively, is there another way of
+>> getting simpler, ANOVA-like summaries of the results?
+>>
+>> Josh
+>>
+>
+> --
+> Dipl. Psych. Henrik Singmann
+> PhD Student
+> Albert-Ludwigs-Universität Freiburg, Germany
+> http://www.psychologie.uni-**freiburg.de/Members/singmann<http://www.psychologie.uni-freiburg.de/Members/singmann>
+>
+>
+
+From henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org  Sun Oct 13 17:09:20 2013
+From: henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org (Henrik Singmann)
+Date: Sun, 13 Oct 2013 19:09:20 +0200
+Subject: Re: lmer: main effects & interactions for a 4x3x2 design
+In-Reply-To: <CA+3amhd59Ytv_et+8vnD55Og6hngWBM0Y8Pkb9yrEbhE9k1sEw@mail.gmail.com>
+References: <CA+3amhd59Ytv_et+8vnD55Og6hngWBM0Y8Pkb9yrEbhE9k1sEw@mail.gmail.com>
+Message-ID: <525AD3C0.2060803@psychologie.uni-freiburg.de>
+
+Hi Josh,
+
+you need to update the versions of all packages in use, lme4, pbkrtest, 
+and afex, preferrably the devlopment versions, e.g. for afex via:
+install.packages("afex", repos="http://R-Forge.R-project.org")
+
+For lme4 from github and for pbkrtest from the corresponding website.
+
+The error indicates that you have old versions (e.g., lme4 < 1.0).
+
+Please report back if this doesn't work.
+
+Best,
+Henrik
+
+Joshua Hartshorne schrieb:
+> Hi Henrik,
+>
+> Looks like a useful package. It seems that the LRT method hasn't been
+> implemented yet, though. I didn't have much luck getting it to run using
+> the other methods, either. Here are my attempts on a large dataset that
+> involved a simpler (2x2) design:
+>
+> -----------------
+>  >
+> mixed(correct~cued*targ+(1|randomID),data=thedata,family="binomial",method="KR")
+> Fitting 5 lmer() models:
+> [.....]
+> Obtaining 4 p-values:
+> [Error in modcomp_init
+> either model  largeModel
+>   is not a linear mixed of class mer
+> or model smallModel
+>   is neither of class mer nor a matrixError in
+> KRmodcomp_init.mer(largeModel, smallModel, matrixOK = TRUE) :
+> ----------------
+>
+> and
+>
+> -----------------
+>  >
+> mixed(correct~cued*targ+(1|randomID),data=thedata,family="binomial",method="PB")
+> Fitting 5 lmer() models:
+> [.....]
+> Obtaining 4 p-values:
+> [PBmodcomp.lmerMod
+> Error in function (classes, fdef, mtable)  :
+>    unable to find an inherited method for function "refit", for
+> signature "mer"
+> In addition: Warning message:
+> In mixed(correct ~ cued * targ + (1 | randomID), data = thedata,  :
+>    REML argument to lmer() set to FALSE for method = 'PB'
+> -----------------
+>
+> Any ideas?
+> Josh
+>
+> On Thu, Oct 10, 2013 at 4:32 PM, Henrik Singmann
+> <henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org
+> <mailto:henrik.singmann-RoHN3oFRSd0z1rruF8NHbrn0aRqv+C64G9Ur7JDdleE at public.gmane.org>>
+> wrote:
+>
+>
+>
+>     Hi Josh,
+>
+>     To get something along the line of an ANOVA table you could use
+>     mixed from afex which will test all fixed factors in your experiment
+>     using for example likelihood ratio test (which might seem indicated,
+>     given your rather large n).
+>
+>     require(afex)
+>     model1 <-
+>     mixed(response~(condition+__nuisance1+nuisance2)^3+(1+__condition|subject),data=__mydata,family="binomial",
+>     method = "LRT")
+>
+>     What afex does it that it subtracts the factors one by one and
+>     compares each model in which the factor of interest is removed
+>     against the full model (i.e., providing something similar to type 3
+>     tests in the ANOVA framework).
+>     When using method = "LRT" it makes the comparison using likelihood
+>     ratio tests (i.e., simply using anova on the two models),
+>     alternatively one can use method = "PB" in which case it will
+>     compare the two models using parametric bootstrap as implemented in
+>     PBmodcomp (package pbkrtest). However, then one will probably need a
+>     lot of time with 1000 subjects and need to set the number of samples
+>     to reasonable high values, e.g. with 1000 samples:
+>
+>     model1 <-
+>     mixed(response~(condition+__nuisance1+nuisance2)^3+(1+__condition|subject),data=__mydata,family="binomial",
+>     args.test = list(nsim = 1000), method = "PB")
+>
+>     Note that a both of functionalities, fitting and obtaining bootstrap
+>     samples, can be parallelized using a snow cluster (via package
+>     parallel).
+>
+>
+>     Finally, I have one more general comment. As I am relatively new to
+>     this list I would be really interested to hear what others think of
+>     the idea to test parameters by simply subtracting them from the
+>     model. Are there any obvious issues with this approach to test for
+>     the significance of factors?
+>
+>     Cheers,
+>     Henrik
+>
+>     Am 10.10.2013 07:19, schrieb Joshua Hartshorne:
+>
+>         Dear R-langers,
+>
+>         This is a question about how to summarize a 4x3x2 mixed effects
+>         logistic regression such that readers' eyes won't just glaze over.
+>
+>         What I've got is essentially the same experiment run 8 times
+>         (bear with me). The experiment has three conditions. To make
+>         sure that arbitrary aspects of the experimental design weren't
+>         responsible for any effects, I varied one experimental parameter
+>         4 ways and another one 2 ways. Hence 4x3x2.
+>
+>         This makes for a very long table if I want to list all the fixed
+>         effects. Which I don't really want to do anyway, since they are
+>         mostly uninteresting. I have around 1000 subjects, so understand
+>         that it wouldn't be too bad to do model comparison. I think
+>         understand how to do that for looking at the omnibus interaction:
+>
+>         model1 <-
+>         lmer(response~(condition+__nuisance1+nuisance2)^3+(1+__condition|subject),data=__mydata,family="binomial")
+>         model2 <-
+>         lmer(response~(condition+__nuisance1+nuisance2)^2+(1+__condition|subject),data=__mydata,family="binomial")
+>         anova(model1,model2)
+>
+>         [my stimuli are randomly generated and most are not repeated
+>         across participants, so there's no reason to treat item as a
+>         random effect, so far as I can tell]
+>
+>         but I'm less sure how to test other effects -- in particular, my
+>         main effect. One option I looked at was
+>
+>         model3 <-
+>         lmer(response~(nuisance1+__nuisance2)^2+(1+condition|__subject),data=mydata,family="__binomial")
+>         anova(model1,model3)
+>
+>         I get a result out (it's significant!), but I'm not sure if
+>         that's truly testing a main effect or testing a main effect plus
+>         interactions. I tried
+>
+>         model4 <-
+>         lmer(response~nuisance1+__nuisance2+nuisance1:nuisance2+__nuisance1:condition+nuisance2:__condition+nuisance1:nuisance2:__condition+(1+condition|__subject),data=mydata,family="__binomial")
+>
+>         but although that didn't list fixed effects of condition, it
+>         nonetheless had the same dfs and same log likelihood as model1,
+>         so I'm not convinced it's actually a different model. This may
+>         reflect my poor understanding of how lmer actually works.
+>
+>         What is the right way to proceed? Alternatively, is there
+>         another way of getting simpler, ANOVA-like summaries of the results?
+>
+>         Josh
+>
+>
+>     --
+>     Dipl. Psych. Henrik Singmann
+>     PhD Student
+>     Albert-Ludwigs-Universität Freiburg, Germany
+>     http://www.psychologie.uni-__freiburg.de/Members/singmann
+>     <http://www.psychologie.uni-freiburg.de/Members/singmann>
+>
+>
+
+-- 
+Dipl. Psych. Henrik Singmann
+PhD Student
+Albert-Ludwigs-Universität Freiburg, Germany
+http://www.psychologie.uni-freiburg.de/Members/singmann
+
+From zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 15 15:34:25 2013
+From: zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Zhenguang Cai)
+Date: Tue, 15 Oct 2013 16:34:25 +0100
+Subject: Huge SE from a full random effect structure model
+In-Reply-To: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu>
+References: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu>
+Message-ID: <525D6081.7060906@gmail.com>
+
+Hi,
+
+It is me again. I have a puzzling finding concerning the selection of 
+random effect structure in LME. I did a time perception experiment in 
+which participants reproduced the duration they had perceived. For the 
+data analysis, originally, I used model comparisons to determine the 
+random effect structure and chose the following model for my data.
+
+Formula: RT ~ cStimulus * cDuration + (cStimulus + cDuration + 1 | Subject)
+    Data: E1Flme
+
+Fixed effects:
+                       Estimate Std. Error t value
+(Intercept)         1745.35256   63.44293  27.511
+cStimulus           -518.89263   94.11508  -5.513
+cDuration              0.64573    0.05514  11.712
+cStimulus:cDuration   -0.07019    0.03404  -2.062
+
+As you can see, the results are quite expected; in particular, 
+participants time reproduction is a function of the stimulus duration.
+
+Later, following Barr et al (2013), I used a full random effect 
+structure model:
+
+Formula: RT ~ cStimulus * cDuration + (cStimulus * cDuration + 1 | Subject)
+    Data: E1Flme
+
+Fixed effects:
+                       Estimate Std. Error t value
+(Intercept)         1745.35256   62.64032  27.863
+cStimulus           -518.89263   72.68527  -7.139
+cDuration              0.64573   46.34611   0.014
+cStimulus:cDuration   -0.07019    2.19309  -0.032
+
+Now,  the results are very different from the first model (e.g., no 
+effect of duration, which is strange!). The lack of the duration effect 
+seems to be due to the *huge* SE associated with the effect. The size of 
+the SE is really incomprehensible given the size of the fixed effect 
+there. Note that in the first model, the SE is reasonably small!
+
+I attach the data here if anyone wants to have a try. I think this 
+example illustrates the weird world of LME for beginners like me.
+
+Zhenguang Cai
+
+-- 
+Zhenguang G. Cai
+
+Research Fellow
+Institute of Cogntion/ School of Psychology
+University of Plymouth
+Portland Square, Drake Circus, Plymouth, PL4 8AA
+
+https://sites.google.com/site/zhenguangcai/
+
+-------------- next part --------------
+Subject	Stimulus	Duration	RT
+1	Flickering	867	1343
+1	Flickering	1133	1644.25
+1	Flickering	1533	2208
+1	Flickering	1800	2241.75
+1	Flickering	2067	2433.333333
+1	Flickering	2333	2584
+1	Flickering	2733	3210.75
+1	Flickering	3000	3049.333333
+1	Static	867	618.25
+1	Static	1133	1132
+1	Static	1533	1329.25
+1	Static	1800	1608.25
+1	Static	2067	1786
+1	Static	2333	2097.5
+1	Static	2733	2403.5
+1	Static	3000	2589
+2	Flickering	867	1523.666667
+2	Flickering	1133	1591.75
+2	Flickering	1533	1755.75
+2	Flickering	1800	2228
+2	Flickering	2067	2195
+2	Flickering	2333	2211.75
+2	Flickering	2733	2334.75
+2	Flickering	3000	1975.25
+2	Static	867	920.3333333
+2	Static	1133	1104.5
+2	Static	1533	1410
+2	Static	1800	1244.25
+2	Static	2067	1719.5
+2	Static	2333	1563
+2	Static	2733	1882.25
+2	Static	3000	1778.5
+3	Flickering	867	1003
+3	Flickering	1133	1552.666667
+3	Flickering	1533	2038.75
+3	Flickering	1800	1890
+3	Flickering	2067	2154
+3	Flickering	2333	2302
+3	Flickering	2733	2652.25
+3	Flickering	3000	2575.5
+3	Static	867	437
+3	Static	1133	1034.666667
+3	Static	1533	1196.25
+3	Static	1800	1288.666667
+3	Static	2067	908
+3	Static	2333	974.6666667
+3	Static	2733	1670.666667
+3	Static	3000	2013.666667
+4	Flickering	867	1014
+4	Flickering	1133	1111.75
+4	Flickering	1533	1512.5
+4	Flickering	1800	1553.5
+4	Flickering	2067	1798.75
+4	Flickering	2333	2050.75
+4	Flickering	2733	2360.666667
+4	Flickering	3000	2550.25
+4	Static	867	506.5
+4	Static	1133	557.25
+4	Static	1533	909
+4	Static	1800	1103
+4	Static	2067	1149.25
+4	Static	2333	1378.75
+4	Static	2733	2058.333333
+4	Static	3000	1861
+5	Flickering	867	1858.75
+5	Flickering	1133	1408.75
+5	Flickering	1533	2044.666667
+5	Flickering	1800	2590.75
+5	Flickering	2067	2141
+5	Flickering	2333	2792.25
+5	Flickering	2733	2618.25
+5	Flickering	3000	3243.5
+5	Static	867	638
+5	Static	1133	648.5
+5	Static	1533	1318.75
+5	Static	1800	1245.5
+5	Static	2067	1773
+5	Static	2333	2104
+5	Static	2733	1876.5
+5	Static	3000	1691.25
+6	Flickering	867	1922.5
+6	Flickering	1133	1661.666667
+6	Flickering	1533	2149.5
+6	Flickering	1800	2207.75
+6	Flickering	2067	2323.75
+6	Flickering	2333	2461
+6	Flickering	2733	2322.25
+6	Flickering	3000	3019.75
+6	Static	867	753.75
+6	Static	1133	1290.5
+6	Static	1533	1728
+6	Static	1800	1809.75
+6	Static	2067	1661.75
+6	Static	2333	1970.25
+6	Static	2733	2109.5
+6	Static	3000	1972
+7	Flickering	867	1226.5
+7	Flickering	1133	1543.75
+7	Flickering	1533	1274.75
+7	Flickering	1800	1573.5
+7	Flickering	2067	1597.5
+7	Flickering	2333	1590.5
+7	Flickering	2733	2039.666667
+7	Flickering	3000	1935.333333
+7	Static	867	982
+7	Static	1133	1272.25
+7	Static	1533	1274.5
+7	Static	1800	1430.5
+7	Static	2067	1406.5
+7	Static	2333	1353
+7	Static	2733	1522.5
+7	Static	3000	1534.5
+8	Flickering	867	860.5
+8	Flickering	1133	1053.75
+8	Flickering	1533	1489.5
+8	Flickering	1800	1737.75
+8	Flickering	2067	2131.25
+8	Flickering	2333	2145
+8	Flickering	2733	2576.5
+8	Flickering	3000	2615.25
+8	Static	867	784.25
+8	Static	1133	972.25
+8	Static	1533	1422.25
+8	Static	1800	1529.75
+8	Static	2067	1845
+8	Static	2333	2145.25
+8	Static	2733	2112
+8	Static	3000	2464.5
+9	Flickering	867	1089
+9	Flickering	1133	1256
+9	Flickering	1533	1359.25
+9	Flickering	1800	1774.25
+9	Flickering	2067	1798
+9	Flickering	2333	2196.75
+9	Flickering	2733	2427.25
+9	Flickering	3000	2587.75
+9	Static	867	886.75
+9	Static	1133	988
+9	Static	1533	966.5
+9	Static	1800	1308.5
+9	Static	2067	1410.75
+9	Static	2333	1611.75
+9	Static	2733	1881.5
+9	Static	3000	2022.5
+10	Flickering	867	1130
+10	Flickering	1133	1091
+10	Flickering	1533	1838.25
+10	Flickering	1800	2200
+10	Flickering	2067	2135.5
+10	Flickering	2333	2502.75
+10	Flickering	2733	2768.25
+10	Flickering	3000	3003.75
+10	Static	867	688
+10	Static	1133	1007.75
+10	Static	1533	1321.75
+10	Static	1800	1517.75
+10	Static	2067	1602.75
+10	Static	2333	1913
+10	Static	2733	2248
+10	Static	3000	2489
+11	Flickering	867	1587.25
+11	Flickering	1133	1731.25
+11	Flickering	1533	2169.5
+11	Flickering	1800	2290
+11	Flickering	2067	2410.75
+11	Flickering	2333	2804.5
+11	Flickering	2733	3131.333333
+11	Flickering	3000	3123.75
+11	Static	867	1029
+11	Static	1133	1416.25
+11	Static	1533	1600.5
+11	Static	1800	1425.5
+11	Static	2067	1919
+11	Static	2333	2183.5
+11	Static	2733	1922
+11	Static	3000	2289.75
+12	Flickering	867	997.75
+12	Flickering	1133	1157.75
+12	Flickering	1533	1189
+12	Flickering	1800	1780
+12	Flickering	2067	1728.333333
+12	Flickering	2333	1680.75
+12	Flickering	2733	2179.75
+12	Flickering	3000	1931
+12	Static	867	698.75
+12	Static	1133	964.25
+12	Static	1533	1089.5
+12	Static	1800	1419
+12	Static	2067	1515.5
+12	Static	2333	1315.75
+12	Static	2733	1634.5
+12	Static	3000	2221.25
+13	Flickering	867	1022.5
+13	Flickering	1133	1201
+13	Flickering	1533	1867.5
+13	Flickering	1800	1919.333333
+13	Flickering	2067	1981.5
+13	Flickering	2333	2851.333333
+13	Flickering	2733	2702.5
+13	Flickering	3000	3095.25
+13	Static	867	757.5
+13	Static	1133	971
+13	Static	1533	1565.25
+13	Static	1800	1571.75
+13	Static	2067	1812
+13	Static	2333	1654
+13	Static	2733	2354.5
+13	Static	3000	2465.25
+
+From dale.barr-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org  Tue Oct 15 21:22:00 2013
+From: dale.barr-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org (Dale Barr)
+Date: Tue, 15 Oct 2013 22:22:00 +0100
+Subject: Re: Huge SE from a full random effect structure model
+In-Reply-To: <525D6081.7060906@gmail.com>
+References: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu> <525D6081.7060906@gmail.com>
+Message-ID: <525DB1F8.8090007@glasgow.ac.uk>
+
+Zhenguang,
+
+I am not able to reproduce your results.  In my analysis, the change 
+between the two models makes more sense: only the stderr of the 
+Stimulus:Duration parameter becomes slightly smaller.
+
+I used R version 3.0.1 and lme4 version lme4_0.999999-2; I haven't 
+upgraded to lme4 v1.0 yet.  What versions are you using?  (after loading 
+in lme4, use sessionInfo() to find out)
+
+-Dale
+
+On 15/10/13 16:34, Zhenguang Cai wrote:
+> Hi,
+>
+> It is me again. I have a puzzling finding concerning the selection of 
+> random effect structure in LME. I did a time perception experiment in 
+> which participants reproduced the duration they had perceived. For the 
+> data analysis, originally, I used model comparisons to determine the 
+> random effect structure and chose the following model for my data.
+>
+> Formula: RT ~ cStimulus * cDuration + (cStimulus + cDuration + 1 | 
+> Subject)
+>    Data: E1Flme
+>
+> Fixed effects:
+>                       Estimate Std. Error t value
+> (Intercept)         1745.35256   63.44293  27.511
+> cStimulus           -518.89263   94.11508  -5.513
+> cDuration              0.64573    0.05514  11.712
+> cStimulus:cDuration   -0.07019    0.03404  -2.062
+>
+> As you can see, the results are quite expected; in particular, 
+> participants time reproduction is a function of the stimulus duration.
+>
+> Later, following Barr et al (2013), I used a full random effect 
+> structure model:
+>
+> Formula: RT ~ cStimulus * cDuration + (cStimulus * cDuration + 1 | 
+> Subject)
+>    Data: E1Flme
+>
+> Fixed effects:
+>                       Estimate Std. Error t value
+> (Intercept)         1745.35256   62.64032  27.863
+> cStimulus           -518.89263   72.68527  -7.139
+> cDuration              0.64573   46.34611   0.014
+> cStimulus:cDuration   -0.07019    2.19309  -0.032
+>
+> Now,  the results are very different from the first model (e.g., no 
+> effect of duration, which is strange!). The lack of the duration 
+> effect seems to be due to the *huge* SE associated with the effect. 
+> The size of the SE is really incomprehensible given the size of the 
+> fixed effect there. Note that in the first model, the SE is reasonably 
+> small!
+>
+> I attach the data here if anyone wants to have a try. I think this 
+> example illustrates the weird world of LME for beginners like me.
+>
+> Zhenguang Cai
+>
+
+
+-- 
+Dale Barr
+Institute of Neuroscience and Psychology
+University of Glasgow
+58 Hillhead Street
+Glasgow G12 8QB
+
+From zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 15 22:22:22 2013
+From: zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Zhenguang Cai)
+Date: Tue, 15 Oct 2013 23:22:22 +0100
+Subject: Re: Huge SE from a full random effect structure model
+In-Reply-To: <525D6081.7060906@gmail.com>
+References: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu> <525D6081.7060906@gmail.com>
+Message-ID: <525DC01E.2040902@gmail.com>
+
+Dear R-Listers,
+
+Strangely, when I used an older version of R (and probably an older 
+version of lme4), I got different results using the full random effect 
+structure model on the same set of data. The following are what I got 
+from the older version of R (and lme4). Thanks to Daniel, Tuan, and Dale.
+
+Linear mixed model fit by REML
+Formula: RT ~ cStimulus * cDuration + (cStimulus * cDuration + 1 | Subject)
+    Data: E1Flme
+
+Fixed effects:
+                       Estimate Std. Error t value
+(Intercept)         1745.35256   58.40257  29.885
+cStimulus           -518.89263   62.62961  -8.285
+cDuration              0.64573    0.05269  12.255
+cStimulus:cDuration   -0.07019    0.03598  -1.951
+
+Correlation of Fixed Effects:
+             (Intr) cStmls cDurtn
+cStimulus   -0.454
+cDuration    0.406 -0.103
+cStmls:cDrt -0.104  0.055 -0.236
+
+I noticed tough that using a the newest version of R (and lme4) resulted 
+in a perfect negative correlation between cDuration and the interaction, 
+which I think may account for the null effect of cDuration here(?). 
+Anyone can explains the version difference here? Shall we be alarmed?
+
+Fixed effects:
+                       Estimate Std. Error t value
+(Intercept)         1745.35256   62.64032  27.863
+cStimulus           -518.89263   72.68527  -7.139
+cDuration              0.64573   46.34611   0.014
+cStimulus:cDuration   -0.07019    2.19309  -0.032
+
+Correlation of Fixed Effects:
+             (Intr) cStmls cDurtn
+cStimulus   -0.338
+cDuration    0.310  0.023
+cStmls:cDrt -0.311 -0.022 -1.000
+
+
+Zhenguang
+
+
+
+
+于 2013/10/15 16:34, Zhenguang Cai 写道:
+> Hi,
+>
+> It is me again. I have a puzzling finding concerning the selection of 
+> random effect structure in LME. I did a time perception experiment in 
+> which participants reproduced the duration they had perceived. For the 
+> data analysis, originally, I used model comparisons to determine the 
+> random effect structure and chose the following model for my data.
+>
+> Formula: RT ~ cStimulus * cDuration + (cStimulus + cDuration + 1 | 
+> Subject)
+>    Data: E1Flme
+>
+> Fixed effects:
+>                       Estimate Std. Error t value
+> (Intercept)         1745.35256   63.44293  27.511
+> cStimulus           -518.89263   94.11508  -5.513
+> cDuration              0.64573    0.05514  11.712
+> cStimulus:cDuration   -0.07019    0.03404  -2.062
+>
+> As you can see, the results are quite expected; in particular, 
+> participants time reproduction is a function of the stimulus duration.
+>
+> Later, following Barr et al (2013), I used a full random effect 
+> structure model:
+>
+> Formula: RT ~ cStimulus * cDuration + (cStimulus * cDuration + 1 | 
+> Subject)
+>    Data: E1Flme
+>
+> Fixed effects:
+>                       Estimate Std. Error t value
+> (Intercept)         1745.35256   62.64032  27.863
+> cStimulus           -518.89263   72.68527  -7.139
+> cDuration              0.64573   46.34611   0.014
+> cStimulus:cDuration   -0.07019    2.19309  -0.032
+>
+> Now,  the results are very different from the first model (e.g., no 
+> effect of duration, which is strange!). The lack of the duration 
+> effect seems to be due to the *huge* SE associated with the effect. 
+> The size of the SE is really incomprehensible given the size of the 
+> fixed effect there. Note that in the first model, the SE is reasonably 
+> small!
+>
+> I attach the data here if anyone wants to have a try. I think this 
+> example illustrates the weird world of LME for beginners like me.
+>
+> Zhenguang Cai
+>
+
+-- 
+Zhenguang G. Cai
+
+Research Fellow
+Institute of Cogntion/ School of Psychology
+University of Plymouth
+Portland Square, Drake Circus, Plymouth, PL4 8AA
+
+https://sites.google.com/site/zhenguangcai/
+
+From danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 15 22:43:22 2013
+From: danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Daniel Ezra Johnson)
+Date: Tue, 15 Oct 2013 23:43:22 +0100
+Subject: Re: Huge SE from a full random effect structure model
+In-Reply-To: <525DC01E.2040902@gmail.com>
+References: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu> <525D6081.7060906@gmail.com> <525DC01E.2040902@gmail.com>
+Message-ID: <CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com>
+
+Without getting into specifics, I have also noticed that results coming
+from lme4 version 1.0 are more different than I had expected, compared with
+the previous version. The development team emphasizes how they have changed
+optimization (for greater speed and flexibility, I assume), but it is not
+obvious to me why the ML or REML maxima (the deviances, the parameter
+estimates) should be so different.
+
+
+On Tue, Oct 15, 2013 at 11:22 PM, Zhenguang Cai <zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:
+
+>  Dear R-Listers,
+>
+> Strangely, when I used an older version of R (and probably an older
+> version of lme4), I got different results using the full random effect
+> structure model on the same set of data. The following are what I got from
+> the older version of R (and lme4). Thanks to Daniel, Tuan, and Dale.
+>
+> Linear mixed model fit by REML
+> Formula: RT ~ cStimulus * cDuration + (cStimulus * cDuration + 1 |
+> Subject)
+>    Data: E1Flme
+>
+> Fixed effects:
+>                       Estimate Std. Error t value
+> (Intercept)         1745.35256   58.40257  29.885
+> cStimulus           -518.89263   62.62961  -8.285
+> cDuration              0.64573    0.05269  12.255
+> cStimulus:cDuration   -0.07019    0.03598  -1.951
+>
+> Correlation of Fixed Effects:
+>             (Intr) cStmls cDurtn
+> cStimulus   -0.454
+> cDuration    0.406 -0.103
+> cStmls:cDrt -0.104  0.055 -0.236
+>
+> I noticed tough that using a the newest version of R (and lme4) resulted
+> in a perfect negative correlation between cDuration and the interaction,
+> which I think may account for the null effect of cDuration here(?). Anyone
+> can explains the version difference here? Shall we be alarmed?
+>
+>
+> Fixed effects:
+>                       Estimate Std. Error t value
+> (Intercept)         1745.35256   62.64032  27.863
+> cStimulus           -518.89263   72.68527  -7.139
+> cDuration              0.64573   46.34611   0.014
+> cStimulus:cDuration   -0.07019    2.19309  -0.032
+>
+> Correlation of Fixed Effects:
+>             (Intr) cStmls cDurtn
+> cStimulus   -0.338
+> cDuration    0.310  0.023
+> cStmls:cDrt -0.311 -0.022 -1.000
+>
+>
+> Zhenguang
+>
+>
+>
+>
+>  于 2013/10/15 16:34, Zhenguang Cai 写道:
+>
+> Hi,
+>
+> It is me again. I have a puzzling finding concerning the selection of
+> random effect structure in LME. I did a time perception experiment in which
+> participants reproduced the duration they had perceived. For the data
+> analysis, originally, I used model comparisons to determine the random
+> effect structure and chose the following model for my data.
+>
+> Formula: RT ~ cStimulus * cDuration + (cStimulus + cDuration + 1 |
+> Subject)
+>    Data: E1Flme
+>
+> Fixed effects:
+>                       Estimate Std. Error t value
+> (Intercept)         1745.35256   63.44293  27.511
+> cStimulus           -518.89263   94.11508  -5.513
+> cDuration              0.64573    0.05514  11.712
+> cStimulus:cDuration   -0.07019    0.03404  -2.062
+>
+> As you can see, the results are quite expected; in particular,
+> participants time reproduction is a function of the stimulus duration.
+>
+> Later, following Barr et al (2013), I used a full random effect structure
+> model:
+>
+> Formula: RT ~ cStimulus * cDuration + (cStimulus * cDuration + 1 |
+> Subject)
+>    Data: E1Flme
+>
+> Fixed effects:
+>                       Estimate Std. Error t value
+> (Intercept)         1745.35256   62.64032  27.863
+> cStimulus           -518.89263   72.68527  -7.139
+> cDuration              0.64573   46.34611   0.014
+> cStimulus:cDuration   -0.07019    2.19309  -0.032
+>
+> Now,  the results are very different from the first model (e.g., no effect
+> of duration, which is strange!). The lack of the duration effect seems to
+> be due to the *huge* SE associated with the effect. The size of the SE is
+> really incomprehensible given the size of the fixed effect there. Note that
+> in the first model, the SE is reasonably small!
+>
+> I attach the data here if anyone wants to have a try. I think this example
+> illustrates the weird world of LME for beginners like me.
+>
+> Zhenguang Cai
+>
+>
+> --
+> Zhenguang G. Cai
+>
+> Research Fellow
+> Institute of Cogntion/ School of Psychology
+> University of Plymouth
+> Portland Square, Drake Circus, Plymouth, PL4 8AA
+> https://sites.google.com/site/zhenguangcai/
+>
+>
+
+From zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 15 22:53:06 2013
+From: zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Zhenguang Cai)
+Date: Tue, 15 Oct 2013 23:53:06 +0100
+Subject: Re: Huge SE from a full random effect structure model
+In-Reply-To: <CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com>
+References: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu> <525D6081.7060906@gmail.com> <525DC01E.2040902@gmail.com> <CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com>
+Message-ID: <525DC752.4070402@gmail.com>
+
+Hi Dale (and Daniel),
+
+I just got Dale's message (in the digest).
+
+The new version of R is 3.0.2 and the lme4 I run on it is lme4_1.0-4 .
+
+The older version of R of mine is 2.10.1, and the lme4 package with it 
+is lme4_0.999375-35.
+
+May I point you to the fact that though the older lme4 gave a acceptable 
+correlation between cDuration and the interaction (-0.236), the new 
+version of lme4 showed a perfect negative correlation (-1). I wonder 
+whether that caused the differences in the fixed effect results.
+
+Zhenguang
+
+于 2013/10/15 23:43, Daniel Ezra Johnson 写道:
+> Without getting into specifics, I have also noticed that results 
+> coming from lme4 version 1.0 are more different than I had expected, 
+> compared with the previous version. The development team emphasizes 
+> how they have changed optimization (for greater speed and flexibility, 
+> I assume), but it is not obvious to me why the ML or REML maxima (the 
+> deviances, the parameter estimates) should be so different.
+>
+>
+> On Tue, Oct 15, 2013 at 11:22 PM, Zhenguang Cai 
+> <zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <mailto:zhenguangcai-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>> wrote:
+>
+>     Dear R-Listers,
+>
+>     Strangely, when I used an older version of R (and probably an
+>     older version of lme4), I got different results using the full
+>     random effect structure model on the same set of data. The
+>     following are what I got from the older version of R (and lme4).
+>     Thanks to Daniel, Tuan, and Dale.
+>
+>     Linear mixed model fit by REML
+>     Formula: RT ~ cStimulus * cDuration + (cStimulus * cDuration + 1 |
+>     Subject)
+>        Data: E1Flme
+>
+>     Fixed effects:
+>                           Estimate Std. Error t value
+>     (Intercept)         1745.35256   58.40257  29.885
+>     cStimulus           -518.89263   62.62961  -8.285
+>     cDuration              0.64573    0.05269  12.255
+>     cStimulus:cDuration   -0.07019    0.03598  -1.951
+>
+>     Correlation of Fixed Effects:
+>                 (Intr) cStmls cDurtn
+>     cStimulus   -0.454
+>     cDuration    0.406 -0.103
+>     cStmls:cDrt -0.104  0.055 -0.236
+>
+>     I noticed tough that using a the newest version of R (and lme4)
+>     resulted in a perfect negative correlation between cDuration and
+>     the interaction, which I think may account for the null effect of
+>     cDuration here(?). Anyone can explains the version difference
+>     here? Shall we be alarmed?
+>
+>
+>     Fixed effects:
+>                           Estimate Std. Error t value
+>     (Intercept)         1745.35256   62.64032  27.863
+>     cStimulus           -518.89263   72.68527  -7.139
+>     cDuration              0.64573   46.34611   0.014
+>     cStimulus:cDuration   -0.07019 2.19309  -0.032
+>     <tel:2.19309%C2%A0%20-0.032>
+>
+>     Correlation of Fixed Effects:
+>                 (Intr) cStmls cDurtn
+>     cStimulus   -0.338
+>     cDuration    0.310  0.023
+>     cStmls:cDrt -0.311 -0.022 -1.000
+>
+>
+>     Zhenguang
+>
+>
+>
+>
+>     于 2013/10/15 16:34, Zhenguang Cai 写道:
+>>     Hi,
+>>
+>>     It is me again. I have a puzzling finding concerning the
+>>     selection of random effect structure in LME. I did a time
+>>     perception experiment in which participants reproduced the
+>>     duration they had perceived. For the data analysis, originally, I
+>>     used model comparisons to determine the random effect structure
+>>     and chose the following model for my data.
+>>
+>>     Formula: RT ~ cStimulus * cDuration + (cStimulus + cDuration + 1
+>>     | Subject)
+>>        Data: E1Flme
+>>
+>>     Fixed effects:
+>>                           Estimate Std. Error t value
+>>     (Intercept)         1745.35256   63.44293  27.511
+>>     cStimulus           -518.89263   94.11508  -5.513
+>>     cDuration              0.64573    0.05514  11.712
+>>     cStimulus:cDuration   -0.07019    0.03404  -2.062
+>>
+>>     As you can see, the results are quite expected; in particular,
+>>     participants time reproduction is a function of the stimulus
+>>     duration.
+>>
+>>     Later, following Barr et al (2013), I used a full random effect
+>>     structure model:
+>>
+>>     Formula: RT ~ cStimulus * cDuration + (cStimulus * cDuration + 1
+>>     | Subject)
+>>        Data: E1Flme
+>>
+>>     Fixed effects:
+>>                           Estimate Std. Error t value
+>>     (Intercept)         1745.35256   62.64032  27.863
+>>     cStimulus           -518.89263   72.68527  -7.139
+>>     cDuration              0.64573   46.34611   0.014
+>>     cStimulus:cDuration   -0.07019 2.19309 -0.032
+>>     <tel:2.19309%C2%A0%20-0.032>
+>>
+>>     Now,  the results are very different from the first model (e.g.,
+>>     no effect of duration, which is strange!). The lack of the
+>>     duration effect seems to be due to the *huge* SE associated with
+>>     the effect. The size of the SE is really incomprehensible given
+>>     the size of the fixed effect there. Note that in the first model,
+>>     the SE is reasonably small!
+>>
+>>     I attach the data here if anyone wants to have a try. I think
+>>     this example illustrates the weird world of LME for beginners
+>>     like me.
+>>
+>>     Zhenguang Cai
+>>
+>
+>     -- 
+>     Zhenguang G. Cai
+>
+>     Research Fellow
+>     Institute of Cogntion/ School of Psychology
+>     University of Plymouth
+>     Portland Square, Drake Circus, Plymouth, PL4 8AA
+>
+>     https://sites.google.com/site/zhenguangcai/
+>
+>
+
+-- 
+Zhenguang G. Cai
+
+Research Fellow
+Institute of Cogntion/ School of Psychology
+University of Plymouth
+Portland Square, Drake Circus, Plymouth, PL4 8AA
+
+https://sites.google.com/site/zhenguangcai/
+
+From stgries-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 15 23:05:09 2013
+From: stgries-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Stefan Th. Gries)
+Date: Tue, 15 Oct 2013 16:05:09 -0700
+Subject: Re: Huge SE from a full random effect structure model
+In-Reply-To: <CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com>
+References: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu> <525D6081.7060906@gmail.com> <525DC01E.2040902@gmail.com> <CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com>
+Message-ID: <CAFrBz2nUwM_YZi0-Vruk0k+XzhC=ORPX-4nvj9OeuYwa=URUPQ@mail.gmail.com>
+
+I have had the same experience, with some results being so different
+that, one the random effects structure was determined, the new version
+of lme4 etc. led to a different result in the model selection process,
+getting rid of one of my central fixed-effects predictors. I am no
+expert by any means but would that really be no more than optimization
+...
+
+STG
+--
+Stefan Th. Gries
+-----------------------------------------------
+University of California, Santa Barbara
+http://www.linguistics.ucsb.edu/faculty/stgries
+-----------------------------------------------
+
+From danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 15 23:16:33 2013
+From: danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Daniel Ezra Johnson)
+Date: Wed, 16 Oct 2013 00:16:33 +0100
+Subject: Re: Huge SE from a full random effect structure model
+In-Reply-To: <CAFrBz2nUwM_YZi0-Vruk0k+XzhC=ORPX-4nvj9OeuYwa=URUPQ@mail.gmail.com>
+References: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu> <525D6081.7060906@gmail.com> <525DC01E.2040902@gmail.com> <CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com> <CAFrBz2nUwM_YZi0-Vruk0k+XzhC=ORPX-4nvj9OeuYwa=URUPQ@mail.gmail.com>
+Message-ID: <CAABSvoUF2d68mb3=Qp3KHKvWyPfY8EFYP1R_umNuLS=_bRibaw@mail.gmail.com>
+
+I did communicate this to Ben Bolker, who asked for my data to investigate
+what was going on. As of yet I haven't heard back from him.
+
+I haven't been keeping up to date on the R-sig-ME list, surely someone has
+brought this up over there?
+
+Dan
+
+
+On Wed, Oct 16, 2013 at 12:05 AM, Stefan Th. Gries <stgries-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:
+
+> I have had the same experience, with some results being so different
+> that, one the random effects structure was determined, the new version
+> of lme4 etc. led to a different result in the model selection process,
+> getting rid of one of my central fixed-effects predictors. I am no
+> expert by any means but would that really be no more than optimization
+> ...
+>
+> STG
+> --
+> Stefan Th. Gries
+> -----------------------------------------------
+> University of California, Santa Barbara
+> http://www.linguistics.ucsb.edu/faculty/stgries
+> -----------------------------------------------
+>
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Oct 16 00:10:48 2013
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Tue, 15 Oct 2013 20:10:48 -0400
+Subject: Re: Huge SE from a full random effect structure model
+In-Reply-To: <CAABSvoUF2d68mb3=Qp3KHKvWyPfY8EFYP1R_umNuLS=_bRibaw@mail.gmail.com>
+References: <mailman.43.1381437608.2522.ling-r-lang-l@mailman.ucsd.edu> <525D6081.7060906@gmail.com> <525DC01E.2040902@gmail.com> <CAABSvoVJYUp8rKwdSJaWUFB=SPRQDuVLK7qRgpWf8C2MLsBuzQ@mail.gmail.com> <CAFrBz2nUwM_YZi0-Vruk0k+XzhC=ORPX-4nvj9OeuYwa=URUPQ@mail.gmail.com> <CAABSvoUF2d68mb3=Qp3KHKvWyPfY8EFYP1R_umNuLS=_bRibaw@mail.gmail.com>
+Message-ID: <CA+tkQ_Pr9VqBh+jo4aGoJJC-D6gAw_hZ1vLEr-NF=J=dYbtwsw@mail.gmail.com>
+
+Thanks for a great discussion, all!  I hadn't updated yet, so I hadn't yet
+experienced this.
+
+I tried it out and replicated the problem you saw with v1.0-4
+
+But it turns out that if you standardize Duration (not just center it), you
+get pretty comparable results to the older lme4.  And if you just divide
+Duration by 1000, again, more comparable results (though still somewhat
+variable). It seems like even the old lme4 would sometimes have problems
+converging when predictors had radically different scales.  So maybe these
+issues get reflected in a different way in the new version.  I suspect that
+transforming predictors to be on roughly similar scale is generally a good
+practice for getting stable estimates for all versions of lme4, even if
+that means you need to back-transform the resulting coefs for
+interpretation.
+
+Also, I'll just point out that there is very little data per subject.  So
+maybe things would be a little less dependent on judicious transformations
+if there was more data.  Just a speculation.
+
+Code and results pasted in below.
+
+best,
+-scott
+
+E1Flme <- read.delim("E1F-lme.txt")
+E1Flme$cStimulus <- -0.5
+E1Flme$cStimulus[E1Flme$Stimulus == "Static"] <- 0.5
+
+E1Flme$cDuration <- scale(E1Flme$Duration, scale = F)
+E1Flme$scDuration <- scale(E1Flme$Duration, scale = T)
+
+lmer1 <- lmer(RT ~ cStimulus * cDuration + (1 + cStimulus + cDuration |
+Subject), E1Flme)
+lmer2 <- lmer(RT ~ cStimulus * cDuration + (1 + cStimulus * cDuration |
+Subject), E1Flme)
+lmer2b <- lmer(RT ~ cStimulus * scDuration + (1 + cStimulus * scDuration |
+Subject), E1Flme)
+lmer2c <- lmer(RT ~ cStimulus * I(cDuration/1000) + (1 + cStimulus *
+I(cDuration/1000) | Subject), E1Flme)
+
+##############################
+WITHOUT SCALING:
+Linear mixed model fit by REML ['lmerMod']
+Formula: RT ~ cStimulus * cDuration + (1 + cStimulus * cDuration | Subject)
+   Data: E1Flme
+
+REML criterion at convergence: 2968.91
+
+Random effects:
+ Groups   Name                Variance Std.Dev. Corr
+ Subject  (Intercept)         49249.82 221.923
+          cStimulus           61645.22 248.285  -0.36
+          cDuration           27923.61 167.104   0.32  0.02
+          cStimulus:cDuration    62.51   7.907  -0.32 -0.02 -1.00
+ Residual                     28143.00 167.759
+Number of obs: 208, groups: Subject, 13
+
+Fixed effects:
+                      Estimate Std. Error t value
+(Intercept)         1745.35256   62.63985  27.863
+cStimulus           -518.89263   72.68529  -7.139
+cDuration              0.64573   46.34620   0.014
+cStimulus:cDuration   -0.07019    2.19313  -0.032
+
+###############################
+WITH SCALING:
+Linear mixed model fit by REML ['lmerMod']
+Formula: RT ~ cStimulus * scDuration + (1 + cStimulus * scDuration |
+Subject)
+   Data: E1Flme
+
+REML criterion at convergence: 2788.962
+
+Random effects:
+ Groups   Name                 Variance Std.Dev. Corr
+ Subject  (Intercept)          48382.8  219.96
+          cStimulus            61477.3  247.95   -0.59
+          scDuration           19396.0  139.27    0.42 -0.07
+          cStimulus:scDuration   525.5   22.92   -0.31  0.26 -0.61
+ Residual                      29904.8  172.93
+Number of obs: 208, groups: Subject, 13
+
+Fixed effects:
+                     Estimate Std. Error t value
+(Intercept)           1745.35      62.17  28.072
+cStimulus             -518.89      72.83  -7.125
+scDuration             452.55      40.45  11.187
+cStimulus:scDuration   -49.19      24.87  -1.978
+
+#################################
+DIVIDING BY 1000
+Linear mixed model fit by REML ['lmerMod']
+Formula: RT ~ cStimulus * cDuration.1000 + (1 + cStimulus * cDuration.1000
+|      Subject)
+   Data: E1Flme
+
+REML criterion at convergence: 2786.481
+
+Random effects:
+ Groups   Name                     Variance Std.Dev. Corr
+ Subject  (Intercept)              43440.1  208.42
+          cStimulus                45523.2  213.36   -0.51
+          cDuration.1000           32101.9  179.17    0.44 -0.15
+          cStimulus:cDuration.1000   923.6   30.39   -0.44  0.15 -0.99
+ Residual                          30676.0  175.15
+Number of obs: 208, groups: Subject, 13
+
+Fixed effects:
+                         Estimate Std. Error t value
+(Intercept)               1745.35      59.07  29.548
+cStimulus                 -518.89      63.97  -8.112
+cDuration.1000             645.73      52.64  12.267
+cStimulus:cDuration.1000   -70.19      35.75  -1.964
+
+
+
+
+On Tue, Oct 15, 2013 at 7:16 PM, Daniel Ezra Johnson <
+danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> I did communicate this to Ben Bolker, who asked for my data to investigate
+> what was going on. As of yet I haven't heard back from him.
+>
+> I haven't been keeping up to date on the R-sig-ME list, surely someone has
+> brought this up over there?
+>
+> Dan
+>
+>
+> On Wed, Oct 16, 2013 at 12:05 AM, Stefan Th. Gries <stgries-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:
+>
+>> I have had the same experience, with some results being so different
+>> that, one the random effects structure was determined, the new version
+>> of lme4 etc. led to a different result in the model selection process,
+>> getting rid of one of my central fixed-effects predictors. I am no
+>> expert by any means but would that really be no more than optimization
+>> ...
+>>
+>> STG
+>> --
+>> Stefan Th. Gries
+>> -----------------------------------------------
+>> University of California, Santa Barbara
+>> http://www.linguistics.ucsb.edu/faculty/stgries
+>> -----------------------------------------------
+>>
+>
+>
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Sun Oct 27 17:48:37 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Sun, 27 Oct 2013 19:48:37 +0200
+Subject: Help: random effects using multinom or mixed logit
+Message-ID: <526D51F5.7030003@sabanciuniv.edu>
+
+I'm interested in understanding whether
+mixed logit models and the lmer function in R can be
+implemented on my data. Florian Jaeger used mixed logit
+to study IVs effects on binary level DV in a paper published
+in Language and Memory.
+
+In a similar vein, my set includes a categorical DV, but
+it is an unordered 4-level one.
+In a nutshell, I'm looking at Chinese speakers of English's
+choice of  's or /of /possessives when recalling a sentence that
+contained either of the two possessive structures 's or /of/.
+
+The data obtained looks something like the below.
+
+Structure to be recalled
+
+	
+
+Use of 's
+
+	
+
+Use of 'of'
+
+	
+
+Incomplete
+
+	
+
+No recall
+
+	
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+Count
+
+	
+
+% of Total
+
+	
+
+'s
+
+	
+
+118
+
+	
+
+64
+
+	
+
+4
+
+	
+
+7
+
+	
+
+55
+
+	
+
+21
+
+	
+
+29
+
+	
+
+8
+
+	
+
+of
+
+	
+
+9
+
+	
+
+10
+
+	
+
+108
+
+	
+
+67
+
+	
+
+40
+
+	
+
+16
+
+	
+
+22
+
+	
+
+7
+
+	
+
+
+You may notice respondents ended up using forms above
+and beyond those expected (labelled 'incomplete'), as well
+as not being able to recall at all.
+
+Our research question is 'Do non-native speakers of English
+produce more --s in /of/ context than /of /in -s contexts?'
+and 'Do they differ from native speakers?'
+
+W.r.t question 1, the data surprisingly shows very similar proportions 
+for these
+two cells which begs the question of whether there is any
+difference at all. The data is coded as a DV with four levels ('s, of, 
+incomplete,
+and no recall), plus three factor IVs: fixed IV = Syntactic Context fed
+(of or 's); random IVs = subject ID and item.
+
+Could someone suggest a code or way of implementing mixed
+logit to this dataset, if at all possible? Would I have to
+necessarily recode my data to only have two levels.
+In passing, I should say I have looked at the 'tree' solution
+suggested in other places, but I don't see a way of
+recategorising these responses in such a way.
+
+I'm fairly new at R so a patient explanation of the solution
+would be greatly appreciated, especially in terms of how to
+implement the nested effect needed for question 2.
+
+Thank you very much indeed in advance for taking the time to read.
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Oct 27 20:16:15 2013
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Sun, 27 Oct 2013 16:16:15 -0400
+Subject: Re: Help: random effects using multinom or mixed logit
+In-Reply-To: <526D51F5.7030003@sabanciuniv.edu>
+References: <526D51F5.7030003@sabanciuniv.edu>
+Message-ID: <CA+tkQ_N63qWNXJzQP6J6MQdMmeLR=zKaJsKEBO90Rkyy89fsXw@mail.gmail.com>
+
+Hi Francesco,
+
+As a first pass, would it make sense to recode the "s" and "of" responses
+as "correct" and "incorrect" recall, or something like that?  So if they
+correctly recalled "s" for an "s" or "of" for an "of", they get a 1, and if
+they recall the "wrong" one, they get a 0.  You would then be looking to
+see whether the rate of "correct recall" differs by what the correct recall
+would be. In other words, is the probability of "correct" responses for "s"
+greater than the "correct" responses for "of"?  So numerically, it looks
+like 's is more correctly recalled than of.  If you re-code in this way,
+you should get a pretty straightforward test of that.
+
+If you think this makes sense for your data, for Question 2, it would just
+be a matter of adding a native/non-native factor and seeing whether that
+interacts with the "s/of" factor.  This would tell whether that the effect
+of whether the target is 's/of on the probability of a correct response is
+different for natives vs. non-natives.
+
+That's my take on how I understand your data/questions.  The fact that you
+have two other responses complicates things somewhat, but you could leave
+those in unchanged, I think.
+
+Are these counts the total for all subjects?  If so, there is a very low
+occurrence of mismatches, with only four total cases of someone saying "of"
+when they should have said "s".  As we've seen on this list, this can wreak
+havoc on logit mixed models, especially if several of these are in just one
+person.  So please proceed with caution!  In the end, you may,
+unfortunately, find you need more data for lmer to give you sensible
+results.
+
+good luck!
+-scott
+
+
+
+On Sun, Oct 27, 2013 at 1:48 PM, Francesco <fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org> wrote:
+
+>  I'm interested in understanding whether
+> mixed logit models and the lmer function in R can be
+> implemented on my data. Florian Jaeger used mixed logit
+> to study IVs effects on binary level DV in a paper published
+> in Language and Memory.
+>
+> In a similar vein, my set includes a categorical DV, but
+> it is an unordered 4-level one.
+> In a nutshell, I'm looking at Chinese speakers of English's
+> choice of  's or *of *possessives when recalling a sentence that
+> contained either of the two possessive structures 's or *of*.
+>
+> The data obtained looks something like the below.
+>
+>    Structure to be recalled****
+>
+> Use of ‘s****
+>
+> Use of ‘of’****
+>
+> Incomplete****
+>
+> No recall****
+>
+>   ** **
+>
+> Count****
+>
+> % of Total****
+>
+> Count****
+>
+> % of Total****
+>
+> Count****
+>
+> % of Total****
+>
+> Count****
+>
+> % of Total****
+>
+>   ‘s****
+>
+> 118****
+>
+> 64****
+>
+> 4
+> ****
+>
+> 7****
+>
+> 55****
+>
+> 21****
+>
+> 29****
+>
+> 8****
+>
+>   of****
+>
+> 9
+> ****
+>
+> 10****
+>
+> 108****
+>
+> 67****
+>
+> 40****
+>
+> 16****
+>
+> 22****
+>
+> 7****
+>
+>
+> You may notice respondents ended up using forms above
+> and beyond those expected (labelled 'incomplete'), as well
+> as not being able to recall at all.
+>
+> Our research question is 'Do non-native speakers of English
+> produce more –s in *of* context than *of *in -s contexts?'
+> and 'Do they differ from native speakers?'
+>
+> W.r.t question 1, the data surprisingly shows very similar proportions for
+> these
+> two cells which begs the question of whether there is any
+> difference at all. The data is coded as a DV with four levels ('s, of,
+> incomplete,
+> and no recall), plus three factor IVs: fixed IV = Syntactic Context fed
+> (of or 's); random IVs = subject ID and item.
+>
+> Could someone suggest a code or way of implementing mixed
+> logit to this dataset, if at all possible? Would I have to
+> necessarily recode my data to only have two levels.
+> In passing, I should say I have looked at the 'tree' solution
+> suggested in other places, but I don't see a way of
+> recategorising these responses in such a way.
+>
+> I'm fairly new at R so a patient explanation of the solution
+> would be greatly appreciated, especially in terms of how to
+> implement the nested effect needed for question 2.
+>
+> Thank you very much indeed in advance for taking the time to read.
+>
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Tue Oct 29 14:14:04 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Tue, 29 Oct 2013 16:14:04 +0200
+Subject: Re: Help: random effects using multinom or mixed logit
+In-Reply-To: <CA+tkQ_N63qWNXJzQP6J6MQdMmeLR=zKaJsKEBO90Rkyy89fsXw@mail.gmail.com>
+References: <526D51F5.7030003@sabanciuniv.edu> <CA+tkQ_N63qWNXJzQP6J6MQdMmeLR=zKaJsKEBO90Rkyy89fsXw@mail.gmail.com>
+Message-ID: <526FC2AC.8000603@sabanciuniv.edu>
+
+Many thanks Scott.
+In fact this solution inspired me to modify my IV to correctness and 
+recoded the DV as use of 's or of in either of these contexts, treating 
+everything else as NA (but will also look at difference in model by just 
+deleting these from analysis). Of course there is an unever number of 
+correct and incorrect contexts but I think R functions are robust to 
+this violation. Please correct me if I'm mistaken.
+
+Now, one problem though: I can't do this in R. In SPSS there is an 
+example in the crosstabs function help called ' Crosstabulation table 
+with column proportions tests', using a Z test with adjusted p values 
+(Bonferroni). There I can do pairwise comparisons of proportions of the 
+DV. In many places folks illustrate pairwise comparisons of different 
+levels of the IV (Coerced priming) instead. Would you know how to do 
+this for R? Is it the multcom package?
+
+Another problem with the above analyses in SPSS is these pairwise 
+comparisons were not mixed effects (they did not include subjects and 
+items as random effects).
+
+PS: The numbers I gave in the last table are not the real data which 
+have larger counts.
+
+Best,
+
+Francesco
+
+On 10/27/13 10:16 PM, Scott Jackson wrote:
+> Hi Francesco,
+>
+> As a first pass, would it make sense to recode the "s" and "of" 
+> responses as "correct" and "incorrect" recall, or something like that? 
+>  So if they correctly recalled "s" for an "s" or "of" for an "of", 
+> they get a 1, and if they recall the "wrong" one, they get a 0.  You 
+> would then be looking to see whether the rate of "correct recall" 
+> differs by what the correct recall would be. In other words, is the 
+> probability of "correct" responses for "s" greater than the "correct" 
+> responses for "of"?  So numerically, it looks like 's is more 
+> correctly recalled than of.  If you re-code in this way, you should 
+> get a pretty straightforward test of that.
+>
+> If you think this makes sense for your data, for Question 2, it would 
+> just be a matter of adding a native/non-native factor and seeing 
+> whether that interacts with the "s/of" factor.  This would tell 
+> whether that the effect of whether the target is 's/of on the 
+> probability of a correct response is different for natives vs. 
+> non-natives.
+>
+> That's my take on how I understand your data/questions.  The fact that 
+> you have two other responses complicates things somewhat, but you 
+> could leave those in unchanged, I think.
+>
+> Are these counts the total for all subjects?  If so, there is a very 
+> low occurrence of mismatches, with only four total cases of someone 
+> saying "of" when they should have said "s".  As we've seen on this 
+> list, this can wreak havoc on logit mixed models, especially if 
+> several of these are in just one person.  So please proceed with 
+> caution!  In the end, you may, unfortunately, find you need more data 
+> for lmer to give you sensible results.
+>
+> good luck!
+> -scott
+>
+>
+>
+> On Sun, Oct 27, 2013 at 1:48 PM, Francesco <fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org 
+> <mailto:fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org>> wrote:
+>
+>     I'm interested in understanding whether
+>     mixed logit models and the lmer function in R can be
+>     implemented on my data. Florian Jaeger used mixed logit
+>     to study IVs effects on binary level DV in a paper published
+>     in Language and Memory.
+>
+>     In a similar vein, my set includes a categorical DV, but
+>     it is an unordered 4-level one.
+>     In a nutshell, I'm looking at Chinese speakers of English's
+>     choice of  's or /of /possessives when recalling a sentence that
+>     contained either of the two possessive structures 's or /of/.
+>
+>     The data obtained looks something like the below.
+>
+>     Structure to be recalled
+>
+>     	
+>
+>     Use of ‘s
+>
+>     	
+>
+>     Use of ‘of’
+>
+>     	
+>
+>     Incomplete
+>
+>     	
+>
+>     No recall
+>
+>     	
+>
+>     	
+>
+>     Count
+>
+>     	
+>
+>     % of Total
+>
+>     	
+>
+>     Count
+>
+>     	
+>
+>     % of Total
+>
+>     	
+>
+>     Count
+>
+>     	
+>
+>     % of Total
+>
+>     	
+>
+>     Count
+>
+>     	
+>
+>     % of Total
+>
+>     	
+>
+>     ‘s
+>
+>     	
+>
+>     118
+>
+>     	
+>
+>     64
+>
+>     	
+>
+>     4
+>
+>     	
+>
+>     7
+>
+>     	
+>
+>     55
+>
+>     	
+>
+>     21
+>
+>     	
+>
+>     29
+>
+>     	
+>
+>     8
+>
+>     	
+>
+>     of
+>
+>     	
+>
+>     9
+>
+>     	
+>
+>     10
+>
+>     	
+>
+>     108
+>
+>     	
+>
+>     67
+>
+>     	
+>
+>     40
+>
+>     	
+>
+>     16
+>
+>     	
+>
+>     22
+>
+>     	
+>
+>     7
+>
+>     	
+>
+>
+>     You may notice respondents ended up using forms above
+>     and beyond those expected (labelled 'incomplete'), as well
+>     as not being able to recall at all.
+>
+>     Our research question is 'Do non-native speakers of English
+>     produce more –s in /of/ context than /of /in -s contexts?'
+>     and 'Do they differ from native speakers?'
+>
+>     W.r.t question 1, the data surprisingly shows very similar
+>     proportions for these
+>     two cells which begs the question of whether there is any
+>     difference at all. The data is coded as a DV with four levels ('s,
+>     of, incomplete,
+>     and no recall), plus three factor IVs: fixed IV = Syntactic
+>     Context fed
+>     (of or 's); random IVs = subject ID and item.
+>
+>     Could someone suggest a code or way of implementing mixed
+>     logit to this dataset, if at all possible? Would I have to
+>     necessarily recode my data to only have two levels.
+>     In passing, I should say I have looked at the 'tree' solution
+>     suggested in other places, but I don't see a way of
+>     recategorising these responses in such a way.
+>
+>     I'm fairly new at R so a patient explanation of the solution
+>     would be greatly appreciated, especially in terms of how to
+>     implement the nested effect needed for question 2.
+>
+>     Thank you very much indeed in advance for taking the time to read.
+>
+>
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 29 14:55:12 2013
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Tue, 29 Oct 2013 10:55:12 -0400
+Subject: Re: Help: random effects using multinom or mixed logit
+In-Reply-To: <526FC2AC.8000603@sabanciuniv.edu>
+References: <526D51F5.7030003@sabanciuniv.edu> <CA+tkQ_N63qWNXJzQP6J6MQdMmeLR=zKaJsKEBO90Rkyy89fsXw@mail.gmail.com> <526FC2AC.8000603@sabanciuniv.edu>
+Message-ID: <CA+tkQ_NjsqQvwtbtOKLYhUCsnScM5zw1oVprBOAGv+t0pvk5Fg@mail.gmail.com>
+
+Yes, lmer is pretty robust to uneven cell sizes, so you should worry about
+it, unless some of your cells are extremely small, like I mentioned before.
+ But you say that the counts in the full data are more, so maybe you're
+safe there.  Just to be a little safer, I'd recommend summarizing the
+counts for each subject, and see how many people have 0 counts in a
+particular cell.  If there are lots, this may be a sign to be cautious when
+fitting and interpreting your models.
+
+When you say "I can't do this in R", I'm not sure what "this" refers to, so
+I'm not sure how to help.  Depending on how you fit your models, and how
+your factors/contrasts are coded, you may be able to get the contrasts
+you're interested in from just the lmer model-fitting results.  I've
+recommended the multcomp package a few times now on this list, but that may
+or may not be helpful here.  If you try to use that package, it's important
+to remember that it does two things: (1) provide an interface to get an
+arbitrary (i.e., user-defined) set of contrasts from just one model-fit,
+and (2) perform a correction on p-values to account for multiple
+comparisons.  Whether you want to employ (2) depends on your attitude about
+how you want to address the issue of multiple comparisons.  If you want a
+large number of contrasts, (1) might be useful.  But to be honest, it
+sounds like your design is not that complicated, so using multcomp might be
+more work than it's worth.
+
+Anyway, if you can be more specific about where you're getting stuck, I may
+be able to give you more specific advice.
+-scott
+
+
+
+On Tue, Oct 29, 2013 at 10:14 AM, Francesco <fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org>wrote:
+
+>  Many thanks Scott.
+> In fact this solution inspired me to modify my IV to correctness and
+> recoded the DV as use of 's or of in either of these contexts, treating
+> everything else as NA (but will also look at difference in model by just
+> deleting these from analysis). Of course there is an unever number of
+> correct and incorrect contexts but I think R functions are robust to this
+> violation. Please correct me if I'm mistaken.
+>
+> Now, one problem though: I can't do this in R. In SPSS there is an example
+> in the crosstabs function help called ' Crosstabulation table with column
+> proportions tests', using a Z test with adjusted p values (Bonferroni).
+> There I can do pairwise comparisons of proportions of the DV. In many
+> places folks illustrate pairwise comparisons of different levels of the IV
+> (Coerced priming) instead. Would you know how to do this for R? Is it the
+> multcom package?
+>
+> Another problem with the above analyses in SPSS is these pairwise
+> comparisons were not mixed effects (they did not include subjects and items
+> as random effects).
+>
+> PS: The numbers I gave in the last table are not the real data which have
+> larger counts.
+>
+> Best,
+>
+> Francesco
+>
+>
+> On 10/27/13 10:16 PM, Scott Jackson wrote:
+>
+> Hi Francesco,
+>
+>  As a first pass, would it make sense to recode the "s" and "of"
+> responses as "correct" and "incorrect" recall, or something like that?  So
+> if they correctly recalled "s" for an "s" or "of" for an "of", they get a
+> 1, and if they recall the "wrong" one, they get a 0.  You would then be
+> looking to see whether the rate of "correct recall" differs by what the
+> correct recall would be. In other words, is the probability of "correct"
+> responses for "s" greater than the "correct" responses for "of"?  So
+> numerically, it looks like 's is more correctly recalled than of.  If you
+> re-code in this way, you should get a pretty straightforward test of that.
+>
+>  If you think this makes sense for your data, for Question 2, it would
+> just be a matter of adding a native/non-native factor and seeing whether
+> that interacts with the "s/of" factor.  This would tell whether that the
+> effect of whether the target is 's/of on the probability of a correct
+> response is different for natives vs. non-natives.
+>
+>  That's my take on how I understand your data/questions.  The fact that
+> you have two other responses complicates things somewhat, but you could
+> leave those in unchanged, I think.
+>
+>  Are these counts the total for all subjects?  If so, there is a very low
+> occurrence of mismatches, with only four total cases of someone saying "of"
+> when they should have said "s".  As we've seen on this list, this can wreak
+> havoc on logit mixed models, especially if several of these are in just one
+> person.  So please proceed with caution!  In the end, you may,
+> unfortunately, find you need more data for lmer to give you sensible
+> results.
+>
+>  good luck!
+> -scott
+>
+>
+>
+> On Sun, Oct 27, 2013 at 1:48 PM, Francesco <fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org>wrote:
+>
+>>  I'm interested in understanding whether
+>> mixed logit models and the lmer function in R can be
+>> implemented on my data. Florian Jaeger used mixed logit
+>> to study IVs effects on binary level DV in a paper published
+>> in Language and Memory.
+>>
+>> In a similar vein, my set includes a categorical DV, but
+>> it is an unordered 4-level one.
+>> In a nutshell, I'm looking at Chinese speakers of English's
+>> choice of  's or *of *possessives when recalling a sentence that
+>> contained either of the two possessive structures 's or *of*.
+>>
+>> The data obtained looks something like the below.
+>>
+>>   Structure to be recalled
+>>
+>> Use of ‘s
+>>
+>> Use of ‘of’
+>>
+>> Incomplete
+>>
+>> No recall
+>>
+>>
+>>
+>> Count
+>>
+>> % of Total
+>>
+>> Count
+>>
+>> % of Total
+>>
+>> Count
+>>
+>> % of Total
+>>
+>> Count
+>>
+>> % of Total
+>>
+>>   ‘s
+>>
+>> 118
+>>
+>> 64
+>>
+>> 4
+>>
+>> 7
+>>
+>> 55
+>>
+>> 21
+>>
+>> 29
+>>
+>> 8
+>>
+>>   of
+>>
+>> 9
+>>
+>> 10
+>>
+>> 108
+>>
+>> 67
+>>
+>> 40
+>>
+>> 16
+>>
+>> 22
+>>
+>> 7
+>>
+>>
+>> You may notice respondents ended up using forms above
+>> and beyond those expected (labelled 'incomplete'), as well
+>> as not being able to recall at all.
+>>
+>> Our research question is 'Do non-native speakers of English
+>> produce more –s in *of* context than *of *in -s contexts?'
+>> and 'Do they differ from native speakers?'
+>>
+>> W.r.t question 1, the data surprisingly shows very similar proportions
+>> for these
+>> two cells which begs the question of whether there is any
+>> difference at all. The data is coded as a DV with four levels ('s, of,
+>> incomplete,
+>> and no recall), plus three factor IVs: fixed IV = Syntactic Context fed
+>> (of or 's); random IVs = subject ID and item.
+>>
+>> Could someone suggest a code or way of implementing mixed
+>> logit to this dataset, if at all possible? Would I have to
+>> necessarily recode my data to only have two levels.
+>> In passing, I should say I have looked at the 'tree' solution
+>> suggested in other places, but I don't see a way of
+>> recategorising these responses in such a way.
+>>
+>> I'm fairly new at R so a patient explanation of the solution
+>> would be greatly appreciated, especially in terms of how to
+>> implement the nested effect needed for question 2.
+>>
+>> Thank you very much indeed in advance for taking the time to read.
+>>
+>
+>
+>
+
+From fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org  Tue Oct 29 15:36:22 2013
+From: fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org (Francesco)
+Date: Tue, 29 Oct 2013 17:36:22 +0200
+Subject: Re: Help: random effects using multinom or mixed logit
+In-Reply-To: <CA+tkQ_NjsqQvwtbtOKLYhUCsnScM5zw1oVprBOAGv+t0pvk5Fg@mail.gmail.com>
+References: <526D51F5.7030003@sabanciuniv.edu> <CA+tkQ_N63qWNXJzQP6J6MQdMmeLR=zKaJsKEBO90Rkyy89fsXw@mail.gmail.com> <526FC2AC.8000603@sabanciuniv.edu> <CA+tkQ_NjsqQvwtbtOKLYhUCsnScM5zw1oVprBOAGv+t0pvk5Fg@mail.gmail.com>
+Message-ID: <526FD5F6.30200@sabanciuniv.edu>
+
+Thanks again Scott and sorry about the confusion.
+What I meant by 'this' is I can't figure out how to run pairwise 
+comparisons on different levels of my DV, though I am able to do this in 
+SPSS following the help tutorial I gave you in my previous email. The 
+problem with that tutorial is it does not take into account by-subject 
+and by-item random effects on any (if at all) significant differences 
+between the proportional counts for each responses I'm pair-comparing.
+
+Turning to your questions.
+"Depending on how you fit your models, and how your factors/contrasts 
+are coded, you may be able to get the contrasts you're interested in 
+from just the lmer model-fitting results."
+
+My DV has two levels, 's or of, as well as my only fixed effect IV, 
+correct vs incorrect contexts. Lmer, as far as I can understand, doesn't 
+contrast DV levels but IV ones. That my data shows a big difference for 
+the correctness condition is non-trivial (i.e. 's is definitely used a 
+lot more in the appropriate recall contexts than the other). Besides 
+this is not what is at stake. What is, instead, is whether the 
+proportion of the outcomes differs in the incorrect condition.
+
+"If you want a large number of contrasts"
+
+All I need is one contrast, so no adjustments are needed. There are 
+several functions in multicomp so I'm not sure which would work here and 
+if there would be a way to have it take into account mixed effects when 
+obtaining the p-value.
+
+I hope that makes more sense.
+
+Frank
+
+
+On 10/29/13 4:55 PM, Scott Jackson wrote:
+> Yes, lmer is pretty robust to uneven cell sizes, so you should worry 
+> about it, unless some of your cells are extremely small, like I 
+> mentioned before.  But you say that the counts in the full data are 
+> more, so maybe you're safe there.  Just to be a little safer, I'd 
+> recommend summarizing the counts for each subject, and see how many 
+> people have 0 counts in a particular cell.  If there are lots, this 
+> may be a sign to be cautious when fitting and interpreting your models.
+>
+> When you say "I can't do this in R", I'm not sure what "this" refers 
+> to, so I'm not sure how to help.  If you try to use that package, it's 
+> important to remember that it does two things: (1) provide an 
+> interface to get an arbitrary (i.e., user-defined) set of contrasts 
+> from just one model-fit, and (2) perform a correction on p-values to 
+> account for multiple comparisons.  Whether you want to employ (2) 
+> depends on your attitude about how you want to address the issue of 
+> multiple comparisons.  , (1) might be useful.  But to be honest, it 
+> sounds like your design is not that complicated, so using multcomp 
+> might be more work than it's worth.
+>
+> Anyway, if you can be more specific about where you're getting stuck, 
+> I may be able to give you more specific advice.
+> -scott
+>
+>
+>
+> On Tue, Oct 29, 2013 at 10:14 AM, Francesco <fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org 
+> <mailto:fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org>> wrote:
+>
+>     Many thanks Scott.
+>     In fact this solution inspired me to modify my IV to correctness
+>     and recoded the DV as use of 's or of in either of these contexts,
+>     treating everything else as NA (but will also look at difference
+>     in model by just deleting these from analysis). Of course there is
+>     an unever number of correct and incorrect contexts but I think R
+>     functions are robust to this violation. Please correct me if I'm
+>     mistaken.
+>
+>     Now, one problem though: I can't do this in R. In SPSS there is an
+>     example in the crosstabs function help called ' Crosstabulation
+>     table with column proportions tests', using a Z test with adjusted
+>     p values (Bonferroni). There I can do pairwise comparisons of
+>     proportions of the DV. In many places folks illustrate pairwise
+>     comparisons of different levels of the IV (Coerced priming)
+>     instead. Would you know how to do this for R? Is it the multcom
+>     package?
+>
+>     Another problem with the above analyses in SPSS is these pairwise
+>     comparisons were not mixed effects (they did not include subjects
+>     and items as random effects).
+>
+>     PS: The numbers I gave in the last table are not the real data
+>     which have larger counts.
+>
+>     Best,
+>
+>     Francesco
+>
+>
+>     On 10/27/13 10:16 PM, Scott Jackson wrote:
+>>     Hi Francesco,
+>>
+>>     As a first pass, would it make sense to recode the "s" and "of"
+>>     responses as "correct" and "incorrect" recall, or something like
+>>     that?  So if they correctly recalled "s" for an "s" or "of" for
+>>     an "of", they get a 1, and if they recall the "wrong" one, they
+>>     get a 0.  You would then be looking to see whether the rate of
+>>     "correct recall" differs by what the correct recall would be. In
+>>     other words, is the probability of "correct" responses for "s"
+>>     greater than the "correct" responses for "of"?  So numerically,
+>>     it looks like 's is more correctly recalled than of.  If you
+>>     re-code in this way, you should get a pretty straightforward test
+>>     of that.
+>>
+>>     If you think this makes sense for your data, for Question 2, it
+>>     would just be a matter of adding a native/non-native factor and
+>>     seeing whether that interacts with the "s/of" factor.  This would
+>>     tell whether that the effect of whether the target is 's/of on
+>>     the probability of a correct response is different for natives
+>>     vs. non-natives.
+>>
+>>     That's my take on how I understand your data/questions.  The fact
+>>     that you have two other responses complicates things somewhat,
+>>     but you could leave those in unchanged, I think.
+>>
+>>     Are these counts the total for all subjects?  If so, there is a
+>>     very low occurrence of mismatches, with only four total cases of
+>>     someone saying "of" when they should have said "s".  As we've
+>>     seen on this list, this can wreak havoc on logit mixed models,
+>>     especially if several of these are in just one person.  So please
+>>     proceed with caution!  In the end, you may, unfortunately, find
+>>     you need more data for lmer to give you sensible results.
+>>
+>>     good luck!
+>>     -scott
+>>
+>>
+>>
+>>     On Sun, Oct 27, 2013 at 1:48 PM, Francesco
+>>     <fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org <mailto:fbromano-JHpoxF/nT7aL56OO5FsKdw at public.gmane.org>> wrote:
+>>
+>>         I'm interested in understanding whether
+>>         mixed logit models and the lmer function in R can be
+>>         implemented on my data. Florian Jaeger used mixed logit
+>>         to study IVs effects on binary level DV in a paper published
+>>         in Language and Memory.
+>>
+>>         In a similar vein, my set includes a categorical DV, but
+>>         it is an unordered 4-level one.
+>>         In a nutshell, I'm looking at Chinese speakers of English's
+>>         choice of  's or /of /possessives when recalling a sentence that
+>>         contained either of the two possessive structures 's or /of/.
+>>
+>>         The data obtained looks something like the below.
+>>
+>>         Structure to be recalled
+>>
+>>         	
+>>
+>>         Use of ‘s
+>>
+>>         	
+>>
+>>         Use of ‘of’
+>>
+>>         	
+>>
+>>         Incomplete
+>>
+>>         	
+>>
+>>         No recall
+>>
+>>         	
+>>
+>>         	
+>>
+>>         Count
+>>
+>>         	
+>>
+>>         % of Total
+>>
+>>         	
+>>
+>>         Count
+>>
+>>         	
+>>
+>>         % of Total
+>>
+>>         	
+>>
+>>         Count
+>>
+>>         	
+>>
+>>         % of Total
+>>
+>>         	
+>>
+>>         Count
+>>
+>>         	
+>>
+>>         % of Total
+>>
+>>         	
+>>
+>>         ‘s
+>>
+>>         	
+>>
+>>         118
+>>
+>>         	
+>>
+>>         64
+>>
+>>         	
+>>
+>>         4
+>>
+>>         	
+>>
+>>         7
+>>
+>>         	
+>>
+>>         55
+>>
+>>         	
+>>
+>>         21
+>>
+>>         	
+>>
+>>         29
+>>
+>>         	
+>>
+>>         8
+>>
+>>         	
+>>
+>>         of
+>>
+>>         	
+>>
+>>         9
+>>
+>>         	
+>>
+>>         10
+>>
+>>         	
+>>
+>>         108
+>>
+>>         	
+>>
+>>         67
+>>
+>>         	
+>>
+>>         40
+>>
+>>         	
+>>
+>>         16
+>>
+>>         	
+>>
+>>         22
+>>
+>>         	
+>>
+>>         7
+>>
+>>         	
+>>
+>>
+>>         You may notice respondents ended up using forms above
+>>         and beyond those expected (labelled 'incomplete'), as well
+>>         as not being able to recall at all.
+>>
+>>         Our research question is 'Do non-native speakers of English
+>>         produce more –s in /of/ context than /of /in -s contexts?'
+>>         and 'Do they differ from native speakers?'
+>>
+>>         W.r.t question 1, the data surprisingly shows very similar
+>>         proportions for these
+>>         two cells which begs the question of whether there is any
+>>         difference at all. The data is coded as a DV with four levels
+>>         ('s, of, incomplete,
+>>         and no recall), plus three factor IVs: fixed IV = Syntactic
+>>         Context fed
+>>         (of or 's); random IVs = subject ID and item.
+>>
+>>         Could someone suggest a code or way of implementing mixed
+>>         logit to this dataset, if at all possible? Would I have to
+>>         necessarily recode my data to only have two levels.
+>>         In passing, I should say I have looked at the 'tree' solution
+>>         suggested in other places, but I don't see a way of
+>>         recategorising these responses in such a way.
+>>
+>>         I'm fairly new at R so a patient explanation of the solution
+>>         would be greatly appreciated, especially in terms of how to
+>>         implement the nested effect needed for question 2.
+>>
+>>         Thank you very much indeed in advance for taking the time to
+>>         read.
+>>
+>>
+>
+>
+

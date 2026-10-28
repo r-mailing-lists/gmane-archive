@@ -1,0 +1,607 @@
+From rlevy-XkckGZ689+c at public.gmane.org  Fri Aug  1 15:57:58 2008
+From: rlevy-XkckGZ689+c at public.gmane.org (Roger Levy)
+Date: Fri, 01 Aug 2008 08:57:58 -0700
+Subject: Re: SPR experiment: using lmer, transforming data, collinearity, and using a covariable
+In-Reply-To: <19629624.354681217257698915.JavaMail.root@co4>
+References: <19629624.354681217257698915.JavaMail.root@co4>
+Message-ID: <48933286.6090102@ucsd.edu>
+
+
+Claire Delle Luche wrote:
+> Dear R-lang users,
+> 
+> I try to analyse a self paced reading experiment where I have two fixed variables (Relativiser, Attachment), two random variables (Participant, ItemNbr), and one covariable (BiasValue). The dependant variable is RT, reading time region by region.
+> 
+> My main aim is to remove the variance induced by BiasValue on Attachment, but I did not find any code for that.
+> 
+> My procedure is the following, elaborated from bits and tips: 
+> - fit the data distribution, suggesting an inverse square root transform, rather than the classical log transform (on all RTs)
+> - exclude deviant participants
+> - calculate residual RTs (quite common in SPR experiments)
+> - check for collinearity
+> - then run the analysis region by region, with BiasValue as a covariate
+> - obtain HPD intervals (it fails)
+
+Dear Claire,
+
+Here are some thoughts:
+
+* I think it's more standard to calculate residual RTs by constructing 
+subject-specific linear regressions rather than a mixed-effect linear 
+regression pooling all the data.  Also, you usually want to use *all* 
+the regions (not just the critical region/regions) in constructing this 
+regression; maybe throw out the first and last regions of the sentence. 
+I can't tell whether you're doing this.
+
+* The problem with HPDinterval might be specific to the current state of 
+lme4.  What error do you get?  Can you replicate it with a tiny toy 
+dataset that you could post to the list?
+
+* This may incite controversy, but I personally would suggest being 
+careful about residualizing and analyzing transformed RTs.  The reason 
+for this is that the transform changes the interpretation of the linear 
+regression (used to calculate residuals) and of any interactions in your 
+analysis.
+
+* Is this a designed & balanced experiment?  If so, there shouldn't be 
+problems with collinearity.
+
+* You might consider having more random effects than intercepts in your 
+mixed-effects regression.  I believe this is an open issue.
+
+* I'm not sure what criteria you want to use to exclude deviant 
+participants.  Could you explain in greater detail?
+
+Hope this helps.
+
+Best
+
+Roger
+
+-- 
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy
+
+From kbicknell-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org  Fri Aug  1 16:49:14 2008
+From: kbicknell-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org (Klinton Bicknell)
+Date: Fri, 01 Aug 2008 09:49:14 -0700
+Subject: Re: SPR experiment: using lmer, transforming data, collinearity, and using a covariable
+In-Reply-To: <18156759.354661217257635804.JavaMail.root@co4>
+References: <18156759.354661217257635804.JavaMail.root@co4>
+Message-ID: <ACD6B25D-0BC6-4BFA-A041-330B78B53320@ling.ucsd.edu>
+
+Hi Claire,
+
+I have some experience using lmer models to analyze self-paced reading  
+data, and basically your script looks good! A few comments:
+
+1) I don't really have experience in fitting the distribution of RT  
+values and transforming them, but your approach seems reasonable to me.
+
+2) You probably want to center your three variables *after* doing the  
+subset to remove fillers, instead of before. Since in your script  
+right now you're centering them before doing this subset, there is a  
+good chance that they are no longer centered when you are doing your  
+actual analysis.
+
+3) You may want to try including random participant and item slopes  
+for your effects of interest, since that is something essentially  
+built in to analyses like a traditional repeated measures Anova.  
+However, putting in the full (1+cRelativiser * cAttachment | item),  
+may make your model hard for lmer to estimate. So, you may be able to  
+iteratively add or iteratively remove these random effects using the  
+anova() function to compare lmer models that are a subset of each  
+other. (Harald Baayen's In Press book discusses this in chapter 7.)
+
+4) I'm guessing that when the script says 'the highest value is 0.57',  
+you're meaning that 0.57 is the largest of the correlations of fixed  
+effects in the lmer summary? (and thus you're checking for  
+collinearity). I believe that as a rule of thumb (and someone please  
+correct me if I'm wrong), correlations of fixed effects over 0.1 are  
+somewhat troubling, and over 0.2 are bad. (Although I believe higher  
+correlations between a coefficient estimate and the intercept estimate  
+are inconsequential.) You may find that centering your variables after  
+doing the subset will fix the collinearity that you may be having.
+
+5) I'm not quite sure I understand the 'regression with residuals'  
+section. Are you trying to deal with a correlation between the  
+estimates of the coefficients for cRelativiser/cAttachment and their  
+interaction? If so, I'm not sure of a good way to do that--maybe  
+someone else knows of one? But centering your variables will probably  
+go a long way to helping. (You'll want to center again after making  
+the SPR.relativiser subset).
+
+6) Finally, regarding the error from HPDinterval, could you give the  
+error message that you're getting!
+
+Hope this helps!
+
+Klinton
+
+
+On Jul 28, 2008, at 8:07 , Claire Delle Luche wrote:
+
+> Dear R-lang users,
+>
+> I try to analyse a self paced reading experiment where I have two  
+> fixed variables (Relativiser, Attachment), two random variables  
+> (Participant, ItemNbr), and one covariable (BiasValue). The  
+> dependant variable is RT, reading time region by region.
+>
+> My main aim is to remove the variance induced by BiasValue on  
+> Attachment, but I did not find any code for that.
+>
+> My procedure is the following, elaborated from bits and tips:
+> - fit the data distribution, suggesting an inverse square root  
+> transform, rather than the classical log transform (on all RTs)
+> - exclude deviant participants
+> - calculate residual RTs (quite common in SPR experiments)
+> - check for collinearity
+> - then run the analysis region by region, with BiasValue as a  
+> covariate
+> - obtain HPD intervals (it fails)
+>
+> I am unsure about my script and would appreciate your help.
+>
+> Thank you very much in advance.
+>
+> Claire Delle Luche
+> Laboratoire Dynamique du Langage
+> Lyon, FRANCE
+>
+> Here is my script:
+>
+>
+> library(lme4)
+> library(languageR)
+>
+> SPR = read.table("DataWord.txt", header=TRUE)  # read data
+>
+> # fixed factors are Relativiser (qui, lequel), Attachment (N1, N2)
+> # BiasValue is the result from a pretest evaluating a bias for one  
+> construction over an other, used as covariable with Attachment
+> # random factors are Participant and ItemNbr
+> # the dependant variable is RT
+> # the "Word" column distinguish between FILLERS and experimental  
+> words, coded for their function in the sentence
+>
+> ###### data transformation: classical log or a transformation  
+> fitting the distribution better
+> #  Box-Cox transform
+> SPR.lm <- lm(RT ~ Relativiser * Attachment + Participant + ItemNbr +  
+> BiasValue, data = SPR)
+> SPR.bc <- MASS:::boxcox(SPR.lm)
+> SPR.bc$x[which.max(SPR.bc$y)]
+> # the result suggest an inverse square root transform would be best
+>
+> # comparison between a log transform and an inverse square root  
+> transform
+> SPR.lm <- lm(log(RT) ~ Relativiser * Attachment + Participant +  
+> ItemNbr + BiasValue, data = SPR)
+> SPR.lm2 <- lm(I(RT^(-1/2)) ~ Relativiser * Attachment + Participant  
+> + ItemNbr + BiasValue, data = SPR)
+> par(mfrow = c(2, 2))
+> plot(SPR.lm, which = 1:2)	
+> plot(SPR.lm2, which = 1:2)	
+> # the 2nd transformation is better
+>
+> SPR$transRT <- I((SPR$RT)^(-1/2))
+>
+> #####
+>
+> # identification of deviant participants
+> abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR 
+> $Participant))), mean)))) < 3
+> abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR 
+> $Participant))), mean)))) < 2.5
+> abs(scale(unlist(lapply(split(SPR$transRT, as.factor(as.character(SPR 
+> $Participant))), mean)))) < 2
+> # exclude deviant participants
+> SPR.RTcor <- subset(SPR, Participant != ("IM") , Participant !=  
+> ("PL"))
+> SPR.RTcorr <- subset(SPR, Participant != ("AF"))
+>
+> #### comparison of data distributions, without deviants
+> SPR.lm3 <- lm(I(RT^(-1/2)) ~ Relativiser * Attachment + Participant  
+> + ItemNbr + BiasValue, data = SPR.RTcorr)
+> par(mfrow = c(2, 2))
+> plot(SPR.lm2, which = 1:2)	
+> plot(SPR.lm3, which = 1:2)
+> # maybe delete the deviant data points as seen in the graph	
+>
+> # maybe add a spillover procedure
+>
+> # regression against Nbr of characters, position in the sentence and  
+> in the list
+> SPR.anal = lmer(transRT ~ CharNbr + WdNbr + SentNbr + (1|  
+> Participant), SPR.RTcorr)
+>
+> # residual RTs
+> SPR.RTcorr$RTResidual <- residuals(SPR.anal)
+>
+> # centering
+> SPR.RTcorr$cRelativiser <- as.numeric(scale(ifelse(SPR.RTcorr 
+> $Relativiser == "Qui",1,0), scale=F))
+> SPR.RTcorr$cAttachment <- as.numeric(scale(ifelse(SPR.RTcorr 
+> $Attachment == "N1",1,0), scale=F))
+> SPR.RTcorr$cBiasValue <- as.numeric(scale(SPR.RTcorr$BiasValue,  
+> scale=F))
+>
+> # subset for experimental data only
+> SPR.exp <- subset(SPR.RTcorr, Word != "FILLER")
+>
+> # analysis for experimental trials only and log transformed residual  
+> RTs
+> SPR.anal = lmer(RTResidual ~ cRelativiser * cAttachment + (1| 
+> Participant) + (1|ItemNbr) + cBiasValue, data=SPR.exp)
+> summary(SPR.anal)
+> # the highest value is 0.57
+>
+> # regression with residuals
+> SPR.exp$iRelAtt <- residuals(lm(I(cRelativiser * cAttachment) ~  
+> cRelativiser + cAttachment, SPR.exp))
+>
+> SPR.anal1 = lmer(RTResidual ~ cRelativiser + cAttachment + iRelAtt +  
+> (1|Participant) + (1|ItemNbr) + cBiasValue, data=SPR.exp)
+> summary(SPR.anal)
+> # the highest value is 0.57
+>
+> ##### is there collinearity problem?
+>
+>
+> #### analysis of the data word by word, here with RELATIVISER ONLY
+> #### Relativiser and Attachment are two fixed factors and BiasValue  
+> should be a covariate for Attachment, to remove the variance due to  
+> BiasValue
+> SPR.RELATIVISER <- subset (SPR.exp, Word == "Rel")
+> SPR.RELATIVISER = lmer(RTResidual ~Relativiser*Attachment + (1| 
+> Participant) + (1|ItemNbr) + BiasValue, data=SPR.RELATIVISER)
+> summary(SPR.RELATIVISER)  # Print results of LME analysis
+> plot(fitted(SPR.RELATIVISER), residuals(SPR.RELATIVISER))
+> qqnorm(residuals(SPR.RELATIVISER))
+>
+> SPR.RELATIVISER.mc <- mcmcsamp(SPR.RELATIVISER, 10000)
+> densityplot(SPR.RELATIVISER.mc)
+> qqmath(SPR.RELATIVISER.mc)
+> xyplot(SPR.RELATIVISER.mc)
+> HPDinterval(SPR.RELATIVISER.mc)
+> # I get an error for HPDinterval
+>
+>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Fri Aug  1 17:31:14 2008
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Fri, 01 Aug 2008 13:31:14 -0400
+Subject: Re: SPR experiment: using lmer, transforming data, collinearity, and using a covariable
+In-Reply-To: <48933286.6090102-XkckGZ689+c@public.gmane.org>
+References: <19629624.354681217257698915.JavaMail.root@co4> <48933286.6090102@ucsd.edu>
+Message-ID: <38dc9be90808011031m3640d5f5yab8ee684ab01cc83@mail.gmail.com>
+
+Hi Claire,
+
+a couple of comments on top of what Roger and Klinton already said:
+
+
+* I think it's more standard to calculate residual RTs by constructing
+> subject-specific linear regressions rather than a mixed-effect linear
+> regression pooling all the data.  Also, you usually want to use *all*
+> the regions (not just the critical region/regions) in constructing this
+> regression; maybe throw out the first and last regions of the sentence.
+> I can't tell whether you're doing this.
+
+
+
+   - Claire was following a suggestion I made on my blog - see
+   http://hlplab.wordpress.com/2008/01/23/modeling-self-paced-reading-data-effects-of-word-length-word-position-spill-over-etc/and
+linked posts, though I have changed things around a bit since then
+   [update to come soon) (and I am using this in a paper that's almost
+   finished). A mixed-effect regression with participants as random effect
+   should be better than by-subject linear regression for the same reason why
+   subject-differences generally are nicely accounted for by mixed-effect
+   regressions. in a balanced design with about equally much data for each
+   subject and, crucially, random slopes for all predictors (unlike what Claire
+   currently has) the two approaches won't differ much anyway. for less
+   balanced data, they will differ, and the mixed effect model should be better
+   as it recognizes that the group-internal mean and SE are less reliable for
+   small groups. Gelman & Hill 2007 have a nice discussion of this.
+
+
+>
+> * The problem with HPDinterval might be specific to the current state of
+> lme4.  What error do you get?  Can you replicate it with a tiny toy
+> dataset that you could post to the list?
+>
+
+   - HPDinterval is part of two packages, coda and lme4. i think languageR
+   loads coda, too, and in any case i ran into similar problems. You have to
+   specific which HPDinterval() you mean. i assume you want
+   lme4::HPDinterval().
+
+* This may incite controversy, but I personally would suggest being
+> careful about residualizing and analyzing transformed RTs.  The reason
+> for this is that the transform changes the interpretation of the linear
+> regression (used to calculate residuals) and of any interactions in your
+> analysis.
+>
+> * Is this a designed & balanced experiment?  If so, there shouldn't be
+> problems with collinearity.
+
+
+
+   - It's the covariate that introduces collinearity. but between the
+   balanced variables there should be not collinearity *after
+centering*(which you seem to do).
+   - Klinton is right though: centering (and other steps to reduce
+   collinearity) should be done on the the data set that only contains exactly
+   those cases that will go into the analysis!
+   - In answer to your question, Claire, I would be worried about a fixed
+   effect correlation of .5. I may be overly cautious, but so far i've always
+   checked whether my results hold if all fixed effect correlations are reduced
+   to < 0.3, often even < 0.1 (via centering, residualization or principal
+   component analysis). Most people are *less *conservative, but i found
+   cases, where even correlations of .3 can screw things up (especially in
+   larger models with many small correlations).
+
+* You might consider having more random effects than intercepts in your
+> mixed-effects regression.  I believe this is an open issue.
+
+
+   - I think Baayen et al in press describe pretty exactly how to make that
+   decision. it's a matter of model comparison, just as for fixed effects. I
+   suggest following their suggestion.
+
+* I'm not sure what criteria you want to use to exclude deviant
+> participants.  Could you explain in greater detail?
+
+
+   - I've seen exclusion based on more than 2 to 3 absolute subject-internal
+   SEs away from the subject's mean. I find it worrysome that there is so much
+   variance between papers. personally, i think 2 SEs is often too tight. also,
+   after having looked at lots of transforms for several data sets, I use log
+   RTs from the beginning (and I exclude based on deviations in the
+   log-transformed space).
+
+
+
+   - finally, the last point: regression with residuals: looks good to me. I
+   assume you're removing the collinearity between the interaction and the main
+   effects and that's indeed how it's done =)
+
+
+Florian
+
+>
+>
+> Hope this helps.
+>
+> Best
+>
+> Roger
+>
+> --
+>
+> Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+> Assistant Professor             Phone: 858-534-7219
+> Department of Linguistics       Fax:   858-534-4789
+> UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy<http://ling.ucsd.edu/%7Erlevy>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Sat Aug  9 04:57:56 2008
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Sat, 09 Aug 2008 00:57:56 -0400
+Subject: guidelines for lmer model comparison
+Message-ID: <38dc9be90808082157u76952406w3ed4b0aef0f53cce@mail.gmail.com>
+
+Hi folks,
+
+I am not sure whether everyone is already aware of this and I can't claim
+that I understand all of the discussion, but the following link discusses
+ways to compare *linear *mixed models with different fixed and/or random
+effects and what the trade-offs are.
+
+http://wiki.r-project.org/rwiki/doku.php?id=guides:lmer-tests
+
+Since more and more people are using mixed models, I think it would be good
+get a better understanding of the issues raised (and luckily discussed) on
+that page.
+
+Florian
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From j.tamminen-RJNGWNrS6WMq1Hupx70NKA at public.gmane.org  Fri Aug 15 11:27:14 2008
+From: j.tamminen-RJNGWNrS6WMq1Hupx70NKA at public.gmane.org (Jakke Tamminen)
+Date: Fri, 15 Aug 2008 12:27:14 +0100
+Subject: Error message in mixed-effects logistic regression
+Message-ID: <000501c8fec9$ddfd3660$88a22090@psych.york.ac.uk>
+
+Dear R-lang group,
+
+I have been trying to learn about mixed-effects logistic regression with the
+help of Florian Jaeger's excellent new JML paper. I keep getting stuck with
+a strange error message though. I'm a complete R and regression beginner, so
+please have patience!
+
+The experiment I'm trying to analyse is quite simple. It's a phoneme
+categorisation task, where participants categorise ambiguous phonemes as /t/
+or /d/, on three steps from a /t/-/d/ continuum. The main manipulation is
+between participants who have been biased to respond /d/ and participants
+who have been biased to respond /t/ (by  earlier presenting the ambiguous
+sound in a lexical context supporting a /t/ or /d/ interpretation). The
+experiment is repeated on three days to see if the effect of bias persists
+over time. 
+
+This is the model I'm trying to fit:
+
+tdMID.lmer1=lmer(Response~Bias+Day*Step+(1+Day*Step|Subject),data=E1tdMID,fa
+mily="binomial")
+
+and the error message I get is as follows:
+
+Error in if (any(sd < 0)) return("'sd' slot has negative entries") : 
+        missing value where TRUE/FALSE needed
+
+I have no problems with either (I attach the output at the end of the
+message):
+
+tdMID.lmer2=lmer(Response~Bias+Day*Step+(1+Step|Subject),data=E1tdMID,family
+="binomial")
+
+or
+
+tdMID.lmer3=lmer(Response~Bias+Day*Step+(1+Day|Subject),data=E1tdMID,family=
+"binomial")
+
+or
+
+tdMID.lmer4=lmer(Response~Bias+Day*Step+(1|Subject),data=E1tdMID,family="bin
+omial")
+
+Has anyone seen this error message before, or have any ideas where I'm going
+wrong?
+
+Many thanks in advance,
+
+Jakke
+
+> tdMID.lmer2
+Generalized linear mixed model fit using Laplace
+Formula: Response ~ Bias + Day * Step + (1 + Step | Subject) 
+   Data: E1tdMID
+ Family: binomial(logit link)
+  AIC  BIC logLik deviance
+ 3315 3412  -1641     3283
+Random effects:
+ Groups  Name        Variance Std.Dev. Corr          
+ Subject (Intercept) 1.41442  1.18930                
+         Steptd3     0.65114  0.80693  -0.704        
+         Steptd4     1.38725  1.17781  -0.549  0.938 
+number of obs: 3232, groups: Subject, 36
+
+Estimated scale (compare to  1 )  0.949306 
+
+Fixed effects:
+                Estimate Std. Error z value Pr(>|z|)
+(Intercept)       1.4648     0.2853   5.134 2.84e-07
+Biast            -0.7345     0.3096  -2.373  0.01766
+Dayday2           0.3926     0.1881   2.087  0.03686
+Dayday3           0.6341     0.1938   3.272  0.00107
+Steptd3          -1.6801     0.2229  -7.536 4.84e-14
+Steptd4          -2.8906     0.2806 -10.302  < 2e-16
+Dayday2:Steptd3  -0.1575     0.2492  -0.632  0.52739
+Dayday3:Steptd3  -0.2689     0.2534  -1.061  0.28864
+Dayday2:Steptd4  -0.5265     0.2783  -1.892  0.05853
+Dayday3:Steptd4  -0.8667     0.2840  -3.052  0.00228
+
+> tdMID.lmer3
+Generalized linear mixed model fit using Laplace
+Formula: Response ~ Bias + Day * Step + (1 + Day | Subject) 
+   Data: E1tdMID
+ Family: binomial(logit link)
+  AIC  BIC logLik deviance
+ 3342 3439  -1655     3310
+Random effects:
+ Groups  Name        Variance Std.Dev. Corr          
+ Subject (Intercept) 1.43175  1.19656                
+         Dayday2     0.38259  0.61854  -0.741        
+         Dayday3     0.54498  0.73823  -0.797  0.890 
+number of obs: 3232, groups: Subject, 36
+
+Estimated scale (compare to  1 )  0.9678673 
+
+Fixed effects:
+                Estimate Std. Error z value Pr(>|z|)
+(Intercept)      1.43597    0.27779   5.169 2.35e-07
+Biast           -0.74134    0.27934  -2.654  0.00796
+Dayday2          0.28426    0.21591   1.317  0.18799
+Dayday3          0.47782    0.22966   2.081  0.03747
+Steptd3         -1.72670    0.18359  -9.405  < 2e-16
+Steptd4         -2.87799    0.20556 -14.001  < 2e-16
+Dayday2:Steptd3  0.03089    0.25417   0.122  0.90327
+Dayday3:Steptd3 -0.02159    0.25688  -0.084  0.93302
+Dayday2:Steptd4 -0.24109    0.28474  -0.847  0.39717
+Dayday3:Steptd4 -0.49348    0.29032  -1.700  0.08917
+
+> tdMID.lmer4
+Generalized linear mixed model fit using Laplace
+Formula: Response ~ Bias + Day * Step + (1 | Subject) 
+   Data: E1tdMID
+ Family: binomial(logit link)
+  AIC  BIC logLik deviance
+ 3352 3419  -1665     3330
+Random effects:
+ Groups  Name        Variance Std.Dev.
+ Subject (Intercept) 0.73927  0.8598
+number of obs: 3232, groups: Subject, 36
+
+Estimated scale (compare to  1 )  0.977563 
+
+Fixed effects:
+                Estimate Std. Error z value Pr(>|z|)
+(Intercept)       1.3959     0.2437   5.728 1.01e-08
+Biast            -0.8138     0.2999  -2.713  0.00666
+Dayday2           0.3702     0.1834   2.018  0.04360
+Dayday3           0.5967     0.1888   3.161  0.00157
+Steptd3          -1.5705     0.1726  -9.101  < 2e-16
+Steptd4          -2.6397     0.1911 -13.814  < 2e-16
+Dayday2:Steptd3  -0.1374     0.2460  -0.559  0.57650
+Dayday3:Steptd3  -0.2342     0.2498  -0.937  0.34861
+Dayday2:Steptd4  -0.4955     0.2729  -1.816  0.06943
+Dayday3:Steptd4  -0.8198     0.2784  -2.945  0.00323
+
+From a.fugard-5WhEfG1TI8k at public.gmane.org  Fri Aug 15 11:44:56 2008
+From: a.fugard-5WhEfG1TI8k at public.gmane.org (Andy Fugard)
+Date: Fri, 15 Aug 2008 12:44:56 +0100
+Subject: Re: Error message in mixed-effects logistic regression
+In-Reply-To: <000501c8fec9$ddfd3660$88a22090@psych.york.ac.uk>
+References: <000501c8fec9$ddfd3660$88a22090@psych.york.ac.uk>
+Message-ID: <48A56C38.9030809@ed.ac.uk>
+
+> 
+> tdMID.lmer1=lmer(Response~Bias+Day*Step+(1+Day*Step|Subject),data=E1tdMID,fa
+> mily="binomial")
+> 
+> and the error message I get is as follows:
+> 
+> Error in if (any(sd < 0)) return("'sd' slot has negative entries") : 
+>         missing value where TRUE/FALSE needed
+
+If an sd (standard deviation) comes out negative then something has 
+broken somewhere.  The random effect specification
+
+   1+Day*Step|Subject
+
+Asks for a random intercept for each subject, and a random slope per 
+subject for: day, step, and the interaction of day and step --- the 
+error is probably indicative of insufficient data to fit a model this 
+complicated.
+
+A
+
+-- 
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+

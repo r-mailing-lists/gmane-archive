@@ -1,0 +1,319 @@
+{
+  "list": "stats-rosuda-devel",
+  "description": "",
+  "month": "2009-04",
+  "messages": [
+    {
+      "id": "msg-32e531a9510e",
+      "message_id": "<1e7471d50904051154i276dd011mf5b35f767e03604f@mail.gmail.com>",
+      "from_name": "Saptarshi Guha",
+      "from_email_hash": "f3fa9b0abd707e159d1fe38cdb884e6cc1f97b24720d75e16e850ce663b0f519",
+      "date": "2009-04-05T18:54:06Z",
+      "subject": "Re: [Rd] RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "subject_clean": "RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "in_reply_to": "<1e7471d50904051136yb75187n84f92c9c7648e477@mail.gmail.com>",
+      "references": [
+        "<1e7471d50904050626k789e6782mc6ecbcc44d45dfa6@mail.gmail.com>",
+        "<19E1F61B-C62C-489F-ABA4-2FAF5314B0B0@r-project.org>",
+        "<1e7471d50904051136yb75187n84f92c9c7648e477@mail.gmail.com>"
+      ],
+      "body_plain": "Hello,\n\n\nCan you, please, send me the exact code you're using? (I.e. exactly the\n>> value of CLASSPATH, your platform, how you started R and initialized rJava\n>> and what you tried to do to load the class).\n>>\n>\nPlatform is RH Enterprise Linux 5 on Intel. Started R from commandline as\nR.\n\n==Code==\nlibrary(rJava)\n.jinit();\ncfg <- .jnew(\"org/apache/hadoop/conf/Configuration\")\npath1 <-\n.jnew(\"org/apache/hadoop/fs/Path\",paste(Sys.getenv(\"HADOOP_CONF_DIR\"),\"/hadoop-default.xml\",sep=\"\"))\npath2 <-\n.jnew(\"org/apache/hadoop/fs/Path\",paste(Sys.getenv(\"HADOOP_CONF_DIR\"),\"/hadoop-site.xml\",sep=\"\"))\n.jcall(cfg,\"V\",\"addResource\", path1)\n.jcall(cfg,\"V\",\"addResource\", path2)\n.jcall(\"org/apache/hadoop/fs/FileSystem\",\"Lorg/apache/hadoop/fs/FileSystem;\",\"get\",cfg)\nfilesystem = FileSystem.get(config);\n##filesystem is NULL\n.jgetEx()\n[1] \"Java-Object{java.lang.RuntimeException:\njava.lang.ClassNotFoundException:\norg.apache.hadoop.hdfs.DistributedFileSystem}\"\n\nAll the above classes, including the one not found are in\nhadoop-0.19.2-dev-core.jar.\nStrangley, cfg,path1,path2 are not null.  I also tried passing a  vector of\nthe jar files to classpath jar files to .jinit but still got the same\nresult.\nYet when I create the JVM (as I described), then I I dont get the class not\nfound error.\n\nQuickly looking through the hadoop sources, it does do some sort of\nreflection  - does that have any bearing?\n\nThank you\nSaptarshi\n\n==CLASSPATH==\n:/home/sguha/tmp/rhipe/code/build/jar/rhipe.0.1.jar:/home/sguha/tmp/rhipe/code/libs/rhJRI.jar:/ln/meraki/custom/tspaces/lib/tspaces_client.jar:/ln/meraki/custom/tspaces/lib/tspaces_fixes.jar:/ln/meraki/custom/tspaces/lib/tspaces.jar::.:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-ant.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-core.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-examples.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-test.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-tools.jar:/ln/meraki/custom/hadoop/lib/commons-cli-2.0-SNAPSHOT.jar:/ln/meraki/custom/hadoop/lib/commons-codec-1.3.jar:/ln/meraki/custom/hadoop/lib/commons-httpclient-3.0.1.jar:/ln/meraki/custom/hadoop/lib/commons-logging-1.0.4.jar:/ln/meraki/custom/hadoop/lib/commons-logging-api-1.0.4.jar:/ln/meraki/custom/hadoop/lib/commons-net-1.4.1.jar:/ln/meraki/custom/hadoop/lib/hsqldb-1.8.0.10.jar:/ln/meraki/custom/hadoop/lib/jets3t-0.6.1.jar:/ln/meraki/custom/hadoop/lib/jetty-5.1.4.jar:/ln/meraki/custom/hadoop/lib/junit-3.8.1.jar:/ln/meraki/custom/hadoop/lib/kfs-0.2.0.jar:/ln/meraki/custom/hadoop/lib/log4j-1.2.15.jar:/ln/meraki/custom/hadoop/lib/oro-2.0.8.jar:/ln/meraki/custom/hadoop/lib/servlet-api.jar:/ln/meraki/custom/hadoop/lib/slf4j-api-1.4.3.jar:/ln/meraki/custom/hadoop/lib/slf4j-log4j12-1.4.3.jar:/ln/meraki/custom/hadoop/lib/xmlenc-0.52.jar\n\n\n\n\n\n\n\n\n>\n>> A side note - preferably you should not be using the CLASSPATH environment\n>> variable, because that is very limited and doesn't work if you have multiple\n>> packages using Java. Instead use .jinit or .jpackage (under the hood\n>> CLASSPATH gets converted but that is for compatibility only).\n>>\n>>\n>>  Now If if, create my own vm (see below), and then run .jinit (which will\n>>> use my vm), i can find the class in question\n>>> (org.apache.hadoop.io.longwritable)\n>>>\n>>> Is there some classloader problem in rJava?\n>>>\n>>>\n>> No, more likely that your code is using the wrong class loader for loading\n>> files. The code below sets the path in the system class loader but that is\n>> not the loader used by R code. Since R needs to modify the class path on the\n>> fly (as packages are loaded) it uses its own class loader. It seems as if\n>> you are bypassing that loader and thus running into problems (without exact\n>> details we can't tell for sure).\n>>\n>> Cheers,\n>> Simon\n>>\n>>\n>>\n>>  ==code==\n>>> void create_vm(const char *clap) {\n>>>  char* classpath = (char*) calloc(18+strlen(clap)+1, sizeof(char));\n>>>  sprintf(classpath,\"-Djava.class.path=%s\",clap);\n>>>  JavaVMInitArgs args;\n>>>  JavaVMOption options[2];\n>>>  args.version = JNI_VERSION_1_4;\n>>>  args.nOptions = 2;\n>>>  options[0].optionString = classpath;\n>>>  options[1].optionString = \"-Xrs\";\n>>>  args.options = options;\n>>>  args.ignoreUnrecognized = JNI_TRUE;\n>>>  JavaVM *jvms[32];\n>>>  jsize vms=0;\n>>>  int r=0;\n>>>  r=JNI_GetCreatedJavaVMs(jvms, 32, &vms);\n>>>  if (r) {\n>>>   error(\"JNI_GetCreatedJavaVMs returned %d\\n\", r);\n>>>  } else {\n>>>   if (vms>0) {\n>>>     int i=0;\n>>>     while (i<vms) {\n>>>   if (jvms[i]) {\n>>>     if (!(*jvms[i])->AttachCurrentThread(jvms[i], (void**)&jenv, NULL)) {\n>>>       jvm=jvms[i];\n>>>       break;\n>>>     }\n>>>   }\n>>>   i++;\n>>>     }\n>>>     if (i==vms) error(\"Failed to attach to any existing JVM.\");\n>>>   }else {\n>>>       JNI_CreateJavaVM(&jvm, (void **)&jenv, &args);\n>>>     }\n>>>   }\n>>>  }\n>>>\n>>>\n>>> Saptarshi Guha\n>>>\n>>>        [[alternative HTML version deleted]]\n>>>\n>>> ______________________________________________\n>>> R-devel at r-project.org mailing list\n>>> https://stat.ethz.ch/mailman/listinfo/r-devel\n>>>\n>>>\n>>>\n>>\n>\n\n-------------- next part --------------",
+      "body_snippet": "Hello,\n\n\nCan you, please, send me the exact code you're using? (I.e. exactly the\n>> value of CLASSPATH, your platform, how you started R and initialized rJava\n>> and what you tried to do to load the c",
+      "thread_id": "thread-32e531a9510e",
+      "thread_depth": 0,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-62da21285459",
+      "message_id": "<D967B0E1-B0CC-407B-B607-A2693C6055E9@r-project.org>",
+      "from_name": "Simon Urbanek",
+      "from_email_hash": "4b8015e605c1e8a78e0fc166d7f94d0bc9cab6230366ee1dfdd8a0de17b4b371",
+      "date": "2009-04-05T21:55:41Z",
+      "subject": "Re: [Rd] RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "subject_clean": "RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "in_reply_to": "<1e7471d50904051154i276dd011mf5b35f767e03604f@mail.gmail.com>",
+      "references": [
+        "<1e7471d50904050626k789e6782mc6ecbcc44d45dfa6@mail.gmail.com>",
+        "<19E1F61B-C62C-489F-ABA4-2FAF5314B0B0@r-project.org>",
+        "<1e7471d50904051136yb75187n84f92c9c7648e477@mail.gmail.com>",
+        "<1e7471d50904051154i276dd011mf5b35f767e03604f@mail.gmail.com>"
+      ],
+      "body_plain": "Saptarshi,\n\nOn Apr 5, 2009, at 2:54 PM, Saptarshi Guha wrote:\n\n>\n> Hello,\n>\n>\n> Can you, please, send me the exact code you're using? (I.e. exactly  \n> the value of CLASSPATH, your platform, how you started R and  \n> initialized rJava and what you tried to do to load the class).\n>\n> Platform is RH Enterprise Linux 5 on Intel. Started R from  \n> commandline as  R.\n>\n> ==Code==\n> library(rJava)\n> .jinit();\n\n^- this is the first problem as I mentioned in the previous e-mail -  \nyou should make sure that CLASSPATH is empty and use the classpath  \nargument of the .jinit function instead. The difference is subtle but  \nfatal in your case - see below.\n\n\n>\n> cfg <- .jnew(\"org/apache/hadoop/conf/Configuration\")\n> path1 <- .jnew(\"org/apache/hadoop/fs/ \n> Path\",paste(Sys.getenv(\"HADOOP_CONF_DIR\"),\"/hadoop- \n> default.xml\",sep=\"\"))\n> path2 <- .jnew(\"org/apache/hadoop/fs/ \n> Path\",paste(Sys.getenv(\"HADOOP_CONF_DIR\"),\"/hadoop-site.xml\",sep=\"\"))\n> .jcall(cfg,\"V\",\"addResource\", path1)\n> .jcall(cfg,\"V\",\"addResource\", path2)\n> .jcall(\"org/apache/hadoop/fs/FileSystem\",\"Lorg/apache/hadoop/fs/ \n> FileSystem;\",\"get\",cfg)\n> filesystem = FileSystem.get(config);\n> ##filesystem is NULL\n> .jgetEx()\n> [1] \"Java-Object{java.lang.RuntimeException:  \n> java.lang.ClassNotFoundException:  \n> org.apache.hadoop.hdfs.DistributedFileSystem}\"\n>\n> All the above classes, including the one not found are in  \n> hadoop-0.19.2-dev-core.jar.\n> Strangley, cfg,path1,path2 are not null.  I also tried passing a   \n> vector of the jar files to classpath jar files to .jinit but still  \n> got the same result.\n> Yet when I create the JVM (as I described), then I I dont get the  \n> class not found error.\n>\n> Quickly looking through the hadoop sources, it does do some sort of  \n> reflection  - does that have any bearing?\n>\n\nYes. Usually Java code queries the class loader of the invoking class  \n(i.e. the loader by which the class was loaded). Therefore if you use  \nreflection in your code, it becomes crucial to have the right class  \nloader. First problem is if really bad code attempts to use the  \nbootstrap or system loader directly - that it completely wrong and  \nwon't work (hopefully that's not the case here, but I didn't check  \nhadoop sources). Second problem arises when you set the system loader  \nto find some of your classes - e.g. via CLASSPATH. The problem is that  \nyou make it possible for your classes to be loaded by the system  \nloader instead of the rJava loader. Consequently those classes will  \nuse the wrong loader for reflection and thus won't find classes. As  \nlong as you don't use reflection (and don't load further packages that  \nmay use the same classes) everything may appear to work, but it's  \ngoing through the wrong loader.\n\nrJava uses its own loader because the Java system loader does not  \nallow changes to the class path. However, in R we need to sequentially  \nmodify the class path as we load R packages using Java. Unfortunately  \nJava does not allow full replacement of class loaders, it enforces a  \nhierarchy that cannot be changed and the first two loaders are always  \nthe bootstrap and system loader. Therefore it is important to not let  \nthose loaders see any of your classes, otherwise they will bypass the  \nrJava loader. If you use rJava as recommended, all is well, because  \nthe system and boot loaders will have an empty class path, so all  \ncontrol is in rJava. However, when you set CLASSPATH you will change  \nthat as described above.\n\nI hope this makes the potential issue clearer. Please do as I  \nrecommended in the last e-mail (unset CLASSPATH and use classpath  \nparameter of .jinit) and let me know if the problem persists.\n\nCheers,\nSimon\n\n\n> Thank you\n> Saptarshi\n>\n> ==CLASSPATH==\n> :/home/sguha/tmp/rhipe/code/build/jar/rhipe.0.1.jar:/home/sguha/tmp/ \n> rhipe/code/libs/rhJRI.jar:/ln/meraki/custom/tspaces/lib/ \n> tspaces_client.jar:/ln/meraki/custom/tspaces/lib/tspaces_fixes.jar:/ \n> ln/meraki/custom/tspaces/lib/tspaces.jar::.:/ln/meraki/custom/hadoop/ \n> hadoop-0.19.2-dev-ant.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev- \n> core.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-examples.jar:/ln/ \n> meraki/custom/hadoop/hadoop-0.19.2-dev-test.jar:/ln/meraki/custom/ \n> hadoop/hadoop-0.19.2-dev-tools.jar:/ln/meraki/custom/hadoop/lib/ \n> commons-cli-2.0-SNAPSHOT.jar:/ln/meraki/custom/hadoop/lib/commons- \n> codec-1.3.jar:/ln/meraki/custom/hadoop/lib/commons- \n> httpclient-3.0.1.jar:/ln/meraki/custom/hadoop/lib/commons- \n> logging-1.0.4.jar:/ln/meraki/custom/hadoop/lib/commons-logging- \n> api-1.0.4.jar:/ln/meraki/custom/hadoop/lib/commons-net-1.4.1.jar:/ln/ \n> meraki/custom/hadoop/lib/hsqldb-1.8.0.10.jar:/ln/meraki/custom/ \n> hadoop/lib/jets3t-0.6.1.jar:/ln/meraki/custom/hadoop/lib/ \n> jetty-5.1.4.jar:/ln/meraki/custom/hadoop/lib/junit-3.8.1.jar:/ln/ \n> meraki/custom/hadoop/lib/kfs-0.2.0.jar:/ln/meraki/custom/hadoop/lib/ \n> log4j-1.2.15.jar:/ln/meraki/custom/hadoop/lib/oro-2.0.8.jar:/ln/ \n> meraki/custom/hadoop/lib/servlet-api.jar:/ln/meraki/custom/hadoop/ \n> lib/slf4j-api-1.4.3.jar:/ln/meraki/custom/hadoop/lib/slf4j- \n> log4j12-1.4.3.jar:/ln/meraki/custom/hadoop/lib/xmlenc-0.52.jar\n>\n>\n>\n>\n>\n>\n>\n>\n> A side note - preferably you should not be using the CLASSPATH  \n> environment variable, because that is very limited and doesn't work  \n> if you have multiple packages using Java. Instead use .jinit  \n> or .jpackage (under the hood CLASSPATH gets converted but that is  \n> for compatibility only).\n>\n>\n>\n> Now If if, create my own vm (see below), and then run .jinit (which  \n> will use my vm), i can find the class in question  \n> (org.apache.hadoop.io.longwritable)\n>\n> Is there some classloader problem in rJava?\n>\n>\n> No, more likely that your code is using the wrong class loader for  \n> loading files. The code below sets the path in the system class  \n> loader but that is not the loader used by R code. Since R needs to  \n> modify the class path on the fly (as packages are loaded) it uses  \n> its own class loader. It seems as if you are bypassing that loader  \n> and thus running into problems (without exact details we can't tell  \n> for sure).\n>\n> Cheers,\n> Simon\n>\n>\n>\n> ==code==\n> void create_vm(const char *clap) {\n>  char* classpath = (char*) calloc(18+strlen(clap)+1, sizeof(char));\n>  sprintf(classpath,\"-Djava.class.path=%s\",clap);\n>  JavaVMInitArgs args;\n>  JavaVMOption options[2];\n>  args.version = JNI_VERSION_1_4;\n>  args.nOptions = 2;\n>  options[0].optionString = classpath;\n>  options[1].optionString = \"-Xrs\";\n>  args.options = options;\n>  args.ignoreUnrecognized = JNI_TRUE;\n>  JavaVM *jvms[32];\n>  jsize vms=0;\n>  int r=0;\n>  r=JNI_GetCreatedJavaVMs(jvms, 32, &vms);\n>  if (r) {\n>   error(\"JNI_GetCreatedJavaVMs returned %d\\n\", r);\n>  } else {\n>   if (vms>0) {\n>     int i=0;\n>     while (i<vms) {\n>   if (jvms[i]) {\n>     if (!(*jvms[i])->AttachCurrentThread(jvms[i], (void**)&jenv,  \n> NULL)) {\n>       jvm=jvms[i];\n>       break;\n>     }\n>   }\n>   i++;\n>     }\n>     if (i==vms) error(\"Failed to attach to any existing JVM.\");\n>   }else {\n>       JNI_CreateJavaVM(&jvm, (void **)&jenv, &args);\n>     }\n>   }\n>  }\n>\n>\n> Saptarshi Guha\n>\n>        [[alternative HTML version deleted]]\n>\n> ______________________________________________\n> R-devel at r-project.org mailing list\n> https://stat.ethz.ch/mailman/listinfo/r-devel\n>\n>\n>\n>\n>",
+      "body_snippet": "Saptarshi,\n\nOn Apr 5, 2009, at 2:54 PM, Saptarshi Guha wrote:\n\n>\n> Hello,\n>\n>\n> Can you, please, send me the exact code you're using? (I.e. exactly  \n> the value of CLASSPATH, your platform, how you s",
+      "thread_id": "thread-32e531a9510e",
+      "thread_depth": 1,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-f78de917d9e5",
+      "message_id": "<1e7471d50904051517n6a80efdaucca4a51093990c95@mail.gmail.com>",
+      "from_name": "Saptarshi Guha",
+      "from_email_hash": "f3fa9b0abd707e159d1fe38cdb884e6cc1f97b24720d75e16e850ce663b0f519",
+      "date": "2009-04-05T22:17:23Z",
+      "subject": "Re: [Rd] RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "subject_clean": "RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "in_reply_to": "<D967B0E1-B0CC-407B-B607-A2693C6055E9@r-project.org>",
+      "references": [
+        "<1e7471d50904050626k789e6782mc6ecbcc44d45dfa6@mail.gmail.com>",
+        "<19E1F61B-C62C-489F-ABA4-2FAF5314B0B0@r-project.org>",
+        "<1e7471d50904051136yb75187n84f92c9c7648e477@mail.gmail.com>",
+        "<1e7471d50904051154i276dd011mf5b35f767e03604f@mail.gmail.com>",
+        "<D967B0E1-B0CC-407B-B607-A2693C6055E9@r-project.org>"
+      ],
+      "body_plain": "Hello,\nThanks for the detailed response. I did as you suggested - deleted CLASSPATH\nfrom my bashrc, logged out and then back in. Checked CLASSPATH was empty and\nran the code below again.\nHowever, I still get the same exceptions (CLASS not found).\n\nI should at this stage start looking in the hadoop code to see where the\nexception is thrown.\n\nThank you\n\nSaptarshi Guha\n\n\nOn Sun, Apr 5, 2009 at 5:55 PM, Simon Urbanek\n<simon.urbanek at r-project.org>wrote:\n\n> Saptarshi,\n>\n> On Apr 5, 2009, at 2:54 PM, Saptarshi Guha wrote:\n>\n>\n>> Hello,\n>>\n>>\n>> Can you, please, send me the exact code you're using? (I.e. exactly the\n>> value of CLASSPATH, your platform, how you started R and initialized rJava\n>> and what you tried to do to load the class).\n>>\n>> Platform is RH Enterprise Linux 5 on Intel. Started R from commandline as\n>>  R.\n>>\n>> ==Code==\n>> library(rJava)\n>> .jinit();\n>>\n>\n> ^- this is the first problem as I mentioned in the previous e-mail - you\n> should make sure that CLASSPATH is empty and use the classpath argument of\n> the .jinit function instead. The difference is subtle but fatal in your case\n> - see below.\n>\n>\n>\n>> cfg <- .jnew(\"org/apache/hadoop/conf/Configuration\")\n>> path1 <-\n>> .jnew(\"org/apache/hadoop/fs/Path\",paste(Sys.getenv(\"HADOOP_CONF_DIR\"),\"/hadoop-default.xml\",sep=\"\"))\n>> path2 <-\n>> .jnew(\"org/apache/hadoop/fs/Path\",paste(Sys.getenv(\"HADOOP_CONF_DIR\"),\"/hadoop-site.xml\",sep=\"\"))\n>> .jcall(cfg,\"V\",\"addResource\", path1)\n>> .jcall(cfg,\"V\",\"addResource\", path2)\n>>\n>> .jcall(\"org/apache/hadoop/fs/FileSystem\",\"Lorg/apache/hadoop/fs/FileSystem;\",\"get\",cfg)\n>> filesystem = FileSystem.get(config);\n>> ##filesystem is NULL\n>> .jgetEx()\n>> [1] \"Java-Object{java.lang.RuntimeException:\n>> java.lang.ClassNotFoundException:\n>> org.apache.hadoop.hdfs.DistributedFileSystem}\"\n>>\n>> All the above classes, including the one not found are in\n>> hadoop-0.19.2-dev-core.jar.\n>> Strangley, cfg,path1,path2 are not null.  I also tried passing a  vector\n>> of the jar files to classpath jar files to .jinit but still got the same\n>> result.\n>> Yet when I create the JVM (as I described), then I I dont get the class\n>> not found error.\n>>\n>> Quickly looking through the hadoop sources, it does do some sort of\n>> reflection  - does that have any bearing?\n>>\n>>\n> Yes. Usually Java code queries the class loader of the invoking class (i.e.\n> the loader by which the class was loaded). Therefore if you use reflection\n> in your code, it becomes crucial to have the right class loader. First\n> problem is if really bad code attempts to use the bootstrap or system loader\n> directly - that it completely wrong and won't work (hopefully that's not the\n> case here, but I didn't check hadoop sources). Second problem arises when\n> you set the system loader to find some of your classes - e.g. via CLASSPATH.\n> The problem is that you make it possible for your classes to be loaded by\n> the system loader instead of the rJava loader. Consequently those classes\n> will use the wrong loader for reflection and thus won't find classes. As\n> long as you don't use reflection (and don't load further packages that may\n> use the same classes) everything may appear to work, but it's going through\n> the wrong loader.\n>\n> rJava uses its own loader because the Java system loader does not allow\n> changes to the class path. However, in R we need to sequentially modify the\n> class path as we load R packages using Java. Unfortunately Java does not\n> allow full replacement of class loaders, it enforces a hierarchy that cannot\n> be changed and the first two loaders are always the bootstrap and system\n> loader. Therefore it is important to not let those loaders see any of your\n> classes, otherwise they will bypass the rJava loader. If you use rJava as\n> recommended, all is well, because the system and boot loaders will have an\n> empty class path, so all control is in rJava. However, when you set\n> CLASSPATH you will change that as described above.\n>\n> I hope this makes the potential issue clearer. Please do as I recommended\n> in the last e-mail (unset CLASSPATH and use classpath parameter of .jinit)\n> and let me know if the problem persists.\n>\n> Cheers,\n> Simon\n>\n>\n>\n>  Thank you\n>> Saptarshi\n>>\n>> ==CLASSPATH==\n>>\n>> :/home/sguha/tmp/rhipe/code/build/jar/rhipe.0.1.jar:/home/sguha/tmp/rhipe/code/libs/rhJRI.jar:/ln/meraki/custom/tspaces/lib/tspaces_client.jar:/ln/meraki/custom/tspaces/lib/tspaces_fixes.jar:/ln/meraki/custom/tspaces/lib/tspaces.jar::.:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-ant.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-core.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-examples.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-test.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-tools.jar:/ln/meraki/custom/hadoop/lib/commons-cli-2.0-SNAPSHOT.jar:/ln/meraki/custom/hadoop/lib/commons-codec-1.3.jar:/ln/meraki/custom/hadoop/lib/commons-httpclient-3.0.1.jar:/ln/meraki/custom/hadoop/lib/commons-logging-1.0.4.jar:/ln/meraki/custom/hadoop/lib/commons-logging-api-1.0.4.jar:/ln/meraki/custom/hadoop/lib/commons-net-1.4.1.jar:/ln/meraki/custom/hadoop/lib/hsqldb-1.8.0.10.jar:/ln/meraki/custom/hadoop/lib/jets3t-0.6.1.jar:/ln/meraki/custom/hadoop/lib/jetty-5.1.4.jar:/ln/meraki/custom/hadoop/lib/junit-3.8.1.jar:/ln/meraki/custom/hadoop/lib/kfs-0.2.0.jar:/ln/meraki/custom/hadoop/lib/log4j-1.2.15.jar:/ln/meraki/custom/hadoop/lib/oro-2.0.8.jar:/ln/meraki/custom/hadoop/lib/servlet-api.jar:/ln/meraki/custom/hadoop/lib/slf4j-api-1.4.3.jar:/ln/meraki/custom/hadoop/lib/slf4j-log4j12-1.4.3.jar:/ln/meraki/custom/hadoop/lib/xmlenc-0.52.jar\n>>\n>>\n>>\n>>\n>>\n>>\n>>\n>>\n>> A side note - preferably you should not be using the CLASSPATH environment\n>> variable, because that is very limited and doesn't work if you have multiple\n>> packages using Java. Instead use .jinit or .jpackage (under the hood\n>> CLASSPATH gets converted but that is for compatibility only).\n>>\n>>\n>>\n>> Now If if, create my own vm (see below), and then run .jinit (which will\n>> use my vm), i can find the class in question\n>> (org.apache.hadoop.io.longwritable)\n>>\n>> Is there some classloader problem in rJava?\n>>\n>>\n>> No, more likely that your code is using the wrong class loader for loading\n>> files. The code below sets the path in the system class loader but that is\n>> not the loader used by R code. Since R needs to modify the class path on the\n>> fly (as packages are loaded) it uses its own class loader. It seems as if\n>> you are bypassing that loader and thus running into problems (without exact\n>> details we can't tell for sure).\n>>\n>> Cheers,\n>> Simon\n>>\n>>\n>>\n>> ==code==\n>> void create_vm(const char *clap) {\n>>  char* classpath = (char*) calloc(18+strlen(clap)+1, sizeof(char));\n>>  sprintf(classpath,\"-Djava.class.path=%s\",clap);\n>>  JavaVMInitArgs args;\n>>  JavaVMOption options[2];\n>>  args.version = JNI_VERSION_1_4;\n>>  args.nOptions = 2;\n>>  options[0].optionString = classpath;\n>>  options[1].optionString = \"-Xrs\";\n>>  args.options = options;\n>>  args.ignoreUnrecognized = JNI_TRUE;\n>>  JavaVM *jvms[32];\n>>  jsize vms=0;\n>>  int r=0;\n>>  r=JNI_GetCreatedJavaVMs(jvms, 32, &vms);\n>>  if (r) {\n>>  error(\"JNI_GetCreatedJavaVMs returned %d\\n\", r);\n>>  } else {\n>>  if (vms>0) {\n>>    int i=0;\n>>    while (i<vms) {\n>>  if (jvms[i]) {\n>>    if (!(*jvms[i])->AttachCurrentThread(jvms[i], (void**)&jenv, NULL)) {\n>>      jvm=jvms[i];\n>>      break;\n>>    }\n>>  }\n>>  i++;\n>>    }\n>>    if (i==vms) error(\"Failed to attach to any existing JVM.\");\n>>  }else {\n>>      JNI_CreateJavaVM(&jvm, (void **)&jenv, &args);\n>>    }\n>>  }\n>>  }\n>>\n>>\n>> Saptarshi Guha\n>>\n>>       [[alternative HTML version deleted]]\n>>\n>> ______________________________________________\n>> R-devel at r-project.org mailing list\n>> https://stat.ethz.ch/mailman/listinfo/r-devel\n>>\n>>\n>>\n>>\n>>\n>>\n>\n\n-------------- next part --------------",
+      "body_snippet": "Hello,\nThanks for the detailed response. I did as you suggested - deleted CLASSPATH\nfrom my bashrc, logged out and then back in. Checked CLASSPATH was empty and\nran the code below again.\nHowever, I st",
+      "thread_id": "thread-32e531a9510e",
+      "thread_depth": 2,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-2378b926ba1f",
+      "message_id": "<A625E871-2BC9-4F1B-9FEE-EA2CA5C38440@r-project.org>",
+      "from_name": "Simon Urbanek",
+      "from_email_hash": "4b8015e605c1e8a78e0fc166d7f94d0bc9cab6230366ee1dfdd8a0de17b4b371",
+      "date": "2009-04-06T14:23:36Z",
+      "subject": "Re: [Rd] RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "subject_clean": "RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "in_reply_to": "<1e7471d50904051517n6a80efdaucca4a51093990c95@mail.gmail.com>",
+      "references": [
+        "<1e7471d50904050626k789e6782mc6ecbcc44d45dfa6@mail.gmail.com>",
+        "<19E1F61B-C62C-489F-ABA4-2FAF5314B0B0@r-project.org>",
+        "<1e7471d50904051136yb75187n84f92c9c7648e477@mail.gmail.com>",
+        "<1e7471d50904051154i276dd011mf5b35f767e03604f@mail.gmail.com>",
+        "<D967B0E1-B0CC-407B-B607-A2693C6055E9@r-project.org>",
+        "<1e7471d50904051517n6a80efdaucca4a51093990c95@mail.gmail.com>"
+      ],
+      "body_plain": "Saptarshi,\n\nOn Apr 5, 2009, at 18:17 , Saptarshi Guha wrote:\n\n> Hello,\n> Thanks for the detailed response. I did as you suggested - deleted  \n> CLASSPATH from my bashrc, logged out and then back in. Checked  \n> CLASSPATH was empty and ran the code below again.1\n> However, I still get the same exceptions (CLASS not found).\n>\n> I should at this stage start looking in the hadoop code to see where  \n> the exception is thrown.\n>\n\nHmm.. I'm pretty sure that the issue is with hadoop picking up the  \nwrong loader - one way or the other*. Chances are that they may be  \nalso providing their own loader or some class path manipulation and  \nthey don't ask the parent loader. If you are willing to modify their  \ncode, it should always ask the loader of the class which should be  \nRJavaClassLoader (as an ultima ratio you can always get the loader  \nvia .jclassLoader() in R or RJavaClassLoader.getPrimaryLoader() in  \nJava but it should not be necessary). If they are performing some  \nmagic classpath manipulation then it may be really nasty since that is  \neffectively circumvention of the Java facilities. Let me know what you  \nfind out or if you need help with that.\n\n* - actually, you can enable debugging messages in the rJava loader to  \nsee if it gets queried at all:\n.jinit(..)\n#...\ncl=.jclassLoader()\ncl$verbose=TRUE\n\nthen you should see something like:\n > a=.jnew(\"Test\")\nRJavaClassLoaaer.findClass(\"Test\")\n  - trying class path \"/Users/urbanek/Library/R/2.8/library/rJava/java\"\n  - trying class path \".\"\nRJavaClassLoader: loaded class Test, 253 bytes\n\nThanks,\nSimon\n\nBTW: I could add an option to .jinit that forces the system class path  \nin the way you did manually for hard cases like this. It would be a  \nhack that can cause trouble if you don't know what you're doing, but  \nit could work around code that requires special class path handling  \nlike hadoop. The other limitation is that this can only be used as the  \nfirst R package since you have to initialize JVM in a special way  \nwhich won't work if another R package has initialized Java before  \n(which is why we use the special loader).\n\n\n>\n>\n> On Sun, Apr 5, 2009 at 5:55 PM, Simon Urbanek <simon.urbanek at r-project.org \n> > wrote:\n> Saptarshi,\n>\n>\n> On Apr 5, 2009, at 2:54 PM, Saptarshi Guha wrote:\n>\n>\n> Hello,\n>\n>\n> Can you, please, send me the exact code you're using? (I.e. exactly  \n> the value of CLASSPATH, your platform, how you started R and  \n> initialized rJava and what you tried to do to load the class).\n>\n> Platform is RH Enterprise Linux 5 on Intel. Started R from  \n> commandline as  R.\n>\n> ==Code==\n> library(rJava)\n> .jinit();\n>\n> ^- this is the first problem as I mentioned in the previous e-mail -  \n> you should make sure that CLASSPATH is empty and use the classpath  \n> argument of the .jinit function instead. The difference is subtle  \n> but fatal in your case - see below.\n>\n>\n>\n>\n> cfg <- .jnew(\"org/apache/hadoop/conf/Configuration\")\n> path1 <- .jnew(\"org/apache/hadoop/fs/ \n> Path\",paste(Sys.getenv(\"HADOOP_CONF_DIR\"),\"/hadoop- \n> default.xml\",sep=\"\"))\n> path2 <- .jnew(\"org/apache/hadoop/fs/ \n> Path\",paste(Sys.getenv(\"HADOOP_CONF_DIR\"),\"/hadoop-site.xml\",sep=\"\"))\n> .jcall(cfg,\"V\",\"addResource\", path1)\n> .jcall(cfg,\"V\",\"addResource\", path2)\n> .jcall(\"org/apache/hadoop/fs/FileSystem\",\"Lorg/apache/hadoop/fs/ \n> FileSystem;\",\"get\",cfg)\n> filesystem = FileSystem.get(config);\n> ##filesystem is NULL\n> .jgetEx()\n> [1] \"Java-Object{java.lang.RuntimeException:  \n> java.lang.ClassNotFoundException:  \n> org.apache.hadoop.hdfs.DistributedFileSystem}\"\n>\n> All the above classes, including the one not found are in  \n> hadoop-0.19.2-dev-core.jar.\n> Strangley, cfg,path1,path2 are not null.  I also tried passing a   \n> vector of the jar files to classpath jar files to .jinit but still  \n> got the same result.\n> Yet when I create the JVM (as I described), then I I dont get the  \n> class not found error.\n>\n> Quickly looking through the hadoop sources, it does do some sort of  \n> reflection  - does that have any bearing?\n>\n>\n> Yes. Usually Java code queries the class loader of the invoking  \n> class (i.e. the loader by which the class was loaded). Therefore if  \n> you use reflection in your code, it becomes crucial to have the  \n> right class loader. First problem is if really bad code attempts to  \n> use the bootstrap or system loader directly - that it completely  \n> wrong and won't work (hopefully that's not the case here, but I  \n> didn't check hadoop sources). Second problem arises when you set the  \n> system loader to find some of your classes - e.g. via CLASSPATH. The  \n> problem is that you make it possible for your classes to be loaded  \n> by the system loader instead of the rJava loader. Consequently those  \n> classes will use the wrong loader for reflection and thus won't find  \n> classes. As long as you don't use reflection (and don't load further  \n> packages that may use the same classes) everything may appear to  \n> work, but it's going through the wrong loader.\n>\n> rJava uses its own loader because the Java system loader does not  \n> allow changes to the class path. However, in R we need to  \n> sequentially modify the class path as we load R packages using Java.  \n> Unfortunately Java does not allow full replacement of class loaders,  \n> it enforces a hierarchy that cannot be changed and the first two  \n> loaders are always the bootstrap and system loader. Therefore it is  \n> important to not let those loaders see any of your classes,  \n> otherwise they will bypass the rJava loader. If you use rJava as  \n> recommended, all is well, because the system and boot loaders will  \n> have an empty class path, so all control is in rJava. However, when  \n> you set CLASSPATH you will change that as described above.\n>\n> I hope this makes the potential issue clearer. Please do as I  \n> recommended in the last e-mail (unset CLASSPATH and use classpath  \n> parameter of .jinit) and let me know if the problem persists.\n>\n> Cheers,\n> Simon\n>\n>\n>\n> Thank you\n> Saptarshi\n>\n> ==CLASSPATH==\n> :/home/sguha/tmp/rhipe/code/build/jar/rhipe.0.1.jar:/home/sguha/tmp/ \n> rhipe/code/libs/rhJRI.jar:/ln/meraki/custom/tspaces/lib/ \n> tspaces_client.jar:/ln/meraki/custom/tspaces/lib/tspaces_fixes.jar:/ \n> ln/meraki/custom/tspaces/lib/tspaces.jar::.:/ln/meraki/custom/hadoop/ \n> hadoop-0.19.2-dev-ant.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev- \n> core.jar:/ln/meraki/custom/hadoop/hadoop-0.19.2-dev-examples.jar:/ln/ \n> meraki/custom/hadoop/hadoop-0.19.2-dev-test.jar:/ln/meraki/custom/ \n> hadoop/hadoop-0.19.2-dev-tools.jar:/ln/meraki/custom/hadoop/lib/ \n> commons-cli-2.0-SNAPSHOT.jar:/ln/meraki/custom/hadoop/lib/commons- \n> codec-1.3.jar:/ln/meraki/custom/hadoop/lib/commons- \n> httpclient-3.0.1.jar:/ln/meraki/custom/hadoop/lib/commons- \n> logging-1.0.4.jar:/ln/meraki/custom/hadoop/lib/commons-logging- \n> api-1.0.4.jar:/ln/meraki/custom/hadoop/lib/commons-net-1.4.1.jar:/ln/ \n> meraki/custom/hadoop/lib/hsqldb-1.8.0.10.jar:/ln/meraki/custom/ \n> hadoop/lib/jets3t-0.6.1.jar:/ln/meraki/custom/hadoop/lib/ \n> jetty-5.1.4.jar:/ln/meraki/custom/hadoop/lib/junit-3.8.1.jar:/ln/ \n> meraki/custom/hadoop/lib/kfs-0.2.0.jar:/ln/meraki/custom/hadoop/lib/ \n> log4j-1.2.15.jar:/ln/meraki/custom/hadoop/lib/oro-2.0.8.jar:/ln/ \n> meraki/custom/hadoop/lib/servlet-api.jar:/ln/meraki/custom/hadoop/ \n> lib/slf4j-api-1.4.3.jar:/ln/meraki/custom/hadoop/lib/slf4j- \n> log4j12-1.4.3.jar:/ln/meraki/custom/hadoop/lib/xmlenc-0.52.jar\n>\n>\n>\n>\n>\n>\n>\n>\n> A side note - preferably you should not be using the CLASSPATH  \n> environment variable, because that is very limited and doesn't work  \n> if you have multiple packages using Java. Instead use .jinit  \n> or .jpackage (under the hood CLASSPATH gets converted but that is  \n> for compatibility only).\n>\n>\n>\n> Now If if, create my own vm (see below), and then run .jinit (which  \n> will use my vm), i can find the class in question  \n> (org.apache.hadoop.io.longwritable)\n>\n> Is there some classloader problem in rJava?\n>\n>\n> No, more likely that your code is using the wrong class loader for  \n> loading files. The code below sets the path in the system class  \n> loader but that is not the loader used by R code. Since R needs to  \n> modify the class path on the fly (as packages are loaded) it uses  \n> its own class loader. It seems as if you are bypassing that loader  \n> and thus running into problems (without exact details we can't tell  \n> for sure).\n>\n> Cheers,\n> Simon\n>\n>\n>\n> ==code==\n> void create_vm(const char *clap) {\n>  char* classpath = (char*) calloc(18+strlen(clap)+1, sizeof(char));\n>  sprintf(classpath,\"-Djava.class.path=%s\",clap);\n>  JavaVMInitArgs args;\n>  JavaVMOption options[2];\n>  args.version = JNI_VERSION_1_4;\n>  args.nOptions = 2;\n>  options[0].optionString = classpath;\n>  options[1].optionString = \"-Xrs\";\n>  args.options = options;\n>  args.ignoreUnrecognized = JNI_TRUE;\n>  JavaVM *jvms[32];\n>  jsize vms=0;\n>  int r=0;\n>  r=JNI_GetCreatedJavaVMs(jvms, 32, &vms);\n>  if (r) {\n>  error(\"JNI_GetCreatedJavaVMs returned %d\\n\", r);\n>  } else {\n>  if (vms>0) {\n>    int i=0;\n>    while (i<vms) {\n>  if (jvms[i]) {\n>    if (!(*jvms[i])->AttachCurrentThread(jvms[i], (void**)&jenv,  \n> NULL)) {\n>      jvm=jvms[i];\n>      break;\n>    }\n>  }\n>  i++;\n>    }\n>    if (i==vms) error(\"Failed to attach to any existing JVM.\");\n>  }else {\n>      JNI_CreateJavaVM(&jvm, (void **)&jenv, &args);\n>    }\n>  }\n>  }\n>\n>\n> Saptarshi Guha\n>\n>       [[alternative HTML version deleted]]\n>\n> ______________________________________________\n> R-devel at r-project.org mailing list\n> https://stat.ethz.ch/mailman/listinfo/r-devel\n>\n>\n>\n>\n>\n>\n>",
+      "body_snippet": "Saptarshi,\n\nOn Apr 5, 2009, at 18:17 , Saptarshi Guha wrote:\n\n> Hello,\n> Thanks for the detailed response. I did as you suggested - deleted  \n> CLASSPATH from my bashrc, logged out and then back in. C",
+      "thread_id": "thread-32e531a9510e",
+      "thread_depth": 3,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-45caddef73d9",
+      "message_id": "<49E885B0.1080008@wsl.ch>",
+      "from_name": "boris pezzatti",
+      "from_email_hash": "6b52a170bee750a6a96ba2a9bc84528ea7026df1ba4105a2a130feb11fda2639",
+      "date": "2009-04-17T13:35:44Z",
+      "subject": "console window background color",
+      "subject_clean": "console window background color",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi I'm using jgr on ubuntu intrepid and jaunty. There is a strange \nbehaviour in the window console background color:\n\n- if I run JGR as root I get a white background (as should be)\n\n- if I run i a normal user I get a grey background (probably depending \non my theme).\n\nDo you know a solution?\n\nThank you\nBoris\n-- \n*P**/ Please consider the environment before deciding to print this e-mail.\n/*\n_________________________________________________________\n*Boris Pezzatti\nSwiss Federal Research Institute WSL\n*Research unit Ecosystem Boundaries\nTeam Insubric Ecosystems\nvia Belsoggiorno 22\nCH-6500 Bellinzona\nSwitzerland\n\nphone direct ++41 91 821 52 32\nphone ++41 91 821 52 30\nfax ++41 91 821 52 39\nboris.pezzatti at wsl.ch\nhttp://www.wsl.ch <http://www.wsl.ch/>\n\n-------------- next part --------------",
+      "body_snippet": "Hi I'm using jgr on ubuntu intrepid and jaunty. There is a strange \nbehaviour in the window console background color:\n\n- if I run JGR as root I get a white background (as should be)\n\n- if I run i a no",
+      "thread_id": "thread-45caddef73d9",
+      "thread_depth": 0,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-5173892bc514",
+      "message_id": "<1e7471d50904191253y27172cb9j4c04567f959a95eb@mail.gmail.com>",
+      "from_name": "Saptarshi Guha",
+      "from_email_hash": "f3fa9b0abd707e159d1fe38cdb884e6cc1f97b24720d75e16e850ce663b0f519",
+      "date": "2009-04-19T19:53:54Z",
+      "subject": "Rserve Java client - REXPGenericVector of REXPRaw -assign fails",
+      "subject_clean": "Rserve Java client - REXPGenericVector of REXPRaw -assign fails",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hello,\nI am creating a REXPGenericVector of REXPRaw objects.\n\nArrayList<REXP> rexpArray = new ArrayList<REXP>();\nwhile(condition){\n byte[] vv = get.some.byte.array that corresponds to serialized bytes\nreturned from serialize(X,connection=NULL)\n    v = new REXPRaw( vv );\n    rexpArray.add(v); //(A)\ndo something\n}\nRList rlist = new RList(rexpArray);\nREXPGenericVector rl = new REXPGenericVector(rlist);\nre.assign(\"red.value\",rl);\n\nthe last statement causes Rserve Exception, assign failed, with\nError: unsupported type 24\nError: use of NULL environment is defunct\n\nin the Rserve output.\n\nIf instead I add new REXPDouble(21) instead of v in (A), it works, so it\nmust be an issue of creating a list of REXPRaw.\nThe REXPRaw themselves are valid, since I also unserialized each of them and\ngot back correct results.\n\nWhat might the be the problem here?\n\nSaptarshi Guha\n\n-------------- next part --------------",
+      "body_snippet": "Hello,\nI am creating a REXPGenericVector of REXPRaw objects.\n\nArrayList<REXP> rexpArray = new ArrayList<REXP>();\nwhile(condition){\n byte[] vv = get.some.byte.array that corresponds to serialized bytes",
+      "thread_id": "thread-5173892bc514",
+      "thread_depth": 0,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-588f8a732956",
+      "message_id": "<1e7471d50904191311k7fd14702qba4ae18dc64f5223@mail.gmail.com>",
+      "from_name": "Saptarshi Guha",
+      "from_email_hash": "f3fa9b0abd707e159d1fe38cdb884e6cc1f97b24720d75e16e850ce663b0f519",
+      "date": "2009-04-19T20:11:03Z",
+      "subject": "Re: Rserve Java client - REXPGenericVector of REXPRaw -assign fails",
+      "subject_clean": "Rserve Java client - REXPGenericVector of REXPRaw -assign fails",
+      "in_reply_to": "<1e7471d50904191253y27172cb9j4c04567f959a95eb@mail.gmail.com>",
+      "references": [
+        "<1e7471d50904191253y27172cb9j4c04567f959a95eb@mail.gmail.com>"
+      ],
+      "body_plain": "I've attached a self contained code example and I'm using Rserve-0.6 and its\nassociated Java client\n\n\nimport org.rosuda.REngine.*;\nimport org.rosuda.REngine.Rserve.*;\nimport java.util.ArrayList;\n\npublic class foo {\n    public static void main(String[] args){\n    try{\n        RConnection rc = new RConnection(\"127.0.0.1\",8888);\n        ArrayList<REXP> rexpArray = new ArrayList<REXP>();\n        for(int i=0;i<10;i++){\n        rc.assign(\"x\",new REXPInteger(i));\n        REXP v = rc.eval(\"serialize(x,connection=NULL)\");\n        rexpArray.add(v);\n        }\n        RList rlist = new RList(rexpArray);;\n        REXPGenericVector rl = new REXPGenericVector(rlist);\n        rc.assign(\"red.value\",rl);\n    }catch(RserveException e){\n        e.printStackTrace();\n    }\n    }\n}\n\n\n\n\n\n\n\n\n\n\n\nSaptarshi Guha\n\n\nOn Sun, Apr 19, 2009 at 3:53 PM, Saptarshi Guha <saptarshi.guha at gmail.com>wrote:\n\n> Hello,\n> I am creating a REXPGenericVector of REXPRaw objects.\n>\n> ArrayList<REXP> rexpArray = new ArrayList<REXP>();\n> while(condition){\n>  byte[] vv = get.some.byte.array that corresponds to serialized bytes\n> returned from serialize(X,connection=NULL)\n>     v = new REXPRaw( vv );\n>     rexpArray.add(v); //(A)\n> do something\n> }\n> RList rlist = new RList(rexpArray);\n> REXPGenericVector rl = new REXPGenericVector(rlist);\n> re.assign(\"red.value\",rl);\n>\n> the last statement causes Rserve Exception, assign failed, with\n> Error: unsupported type 24\n> Error: use of NULL environment is defunct\n>\n> in the Rserve output.\n>\n> If instead I add new REXPDouble(21) instead of v in (A), it works, so it\n> must be an issue of creating a list of REXPRaw.\n> The REXPRaw themselves are valid, since I also unserialized each of them\n> and got back correct results.\n>\n> What might the be the problem here?\n>\n> Saptarshi Guha\n>\n\n-------------- next part --------------",
+      "body_snippet": "I've attached a self contained code example and I'm using Rserve-0.6 and its\nassociated Java client\n\n\nimport org.rosuda.REngine.*;\nimport org.rosuda.REngine.Rserve.*;\nimport java.util.ArrayList;\n\npubl",
+      "thread_id": "thread-5173892bc514",
+      "thread_depth": 1,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-6b0dbbe02246",
+      "message_id": "<3D89E438-5260-4672-9955-D22CC7F5074D@r-project.org>",
+      "from_name": "Simon Urbanek",
+      "from_email_hash": "4b8015e605c1e8a78e0fc166d7f94d0bc9cab6230366ee1dfdd8a0de17b4b371",
+      "date": "2009-04-20T20:41:17Z",
+      "subject": "Re: Rserve Java client - REXPGenericVector of REXPRaw -assign fails",
+      "subject_clean": "Rserve Java client - REXPGenericVector of REXPRaw -assign fails",
+      "in_reply_to": "<1e7471d50904191311k7fd14702qba4ae18dc64f5223@mail.gmail.com>",
+      "references": [
+        "<1e7471d50904191253y27172cb9j4c04567f959a95eb@mail.gmail.com>",
+        "<1e7471d50904191311k7fd14702qba4ae18dc64f5223@mail.gmail.com>"
+      ],
+      "body_plain": "Thanks, this is now fixed in the SVN. It affected only RAW vectors  \nthat were packed in other structures.\nSimon\n\nOn Apr 19, 2009, at 16:11 , Saptarshi Guha wrote:\n\n> I've attached a self contained code example and I'm using Rserve-0.6  \n> and its associated Java client\n>\n>\n> import org.rosuda.REngine.*;\n> import org.rosuda.REngine.Rserve.*;\n> import java.util.ArrayList;\n>\n> public class foo {\n>     public static void main(String[] args){\n>     try{\n>         RConnection rc = new RConnection(\"127.0.0.1\",8888);\n>         ArrayList<REXP> rexpArray = new ArrayList<REXP>();\n>         for(int i=0;i<10;i++){\n>         rc.assign(\"x\",new REXPInteger(i));\n>         REXP v = rc.eval(\"serialize(x,connection=NULL)\");\n>         rexpArray.add(v);\n>         }\n>         RList rlist = new RList(rexpArray);;\n>         REXPGenericVector rl = new REXPGenericVector(rlist);\n>         rc.assign(\"red.value\",rl);\n>     }catch(RserveException e){\n>         e.printStackTrace();\n>     }\n>     }\n> }\n>\n>\n>\n>\n>\n>\n>\n>\n>\n>\n>\n> Saptarshi Guha\n>\n>\n> On Sun, Apr 19, 2009 at 3:53 PM, Saptarshi Guha <saptarshi.guha at gmail.com \n> > wrote:\n> Hello,\n> I am creating a REXPGenericVector of REXPRaw objects.\n>\n> ArrayList<REXP> rexpArray = new ArrayList<REXP>();\n> while(condition){\n>  byte[] vv = get.some.byte.array that corresponds to serialized  \n> bytes returned from serialize(X,connection=NULL)\n>     v = new REXPRaw( vv );\n>     rexpArray.add(v); //(A)\n> do something\n> }\n> RList rlist = new RList(rexpArray);\n> REXPGenericVector rl = new REXPGenericVector(rlist);\n> re.assign(\"red.value\",rl);\n>\n> the last statement causes Rserve Exception, assign failed, with\n> Error: unsupported type 24\n> Error: use of NULL environment is defunct\n>\n> in the Rserve output.\n>\n> If instead I add new REXPDouble(21) instead of v in (A), it works,  \n> so it must be an issue of creating a list of REXPRaw.\n> The REXPRaw themselves are valid, since I also unserialized each of  \n> them and got back correct results.\n>\n> What might the be the problem here?\n>\n> Saptarshi Guha\n>",
+      "body_snippet": "Thanks, this is now fixed in the SVN. It affected only RAW vectors  \nthat were packed in other structures.\nSimon\n\nOn Apr 19, 2009, at 16:11 , Saptarshi Guha wrote:\n\n> I've attached a self contained co",
+      "thread_id": "thread-5173892bc514",
+      "thread_depth": 2,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-6db5e4d207ca",
+      "message_id": "<c6a6f63b0904201704j2fbd93e7i87630833ad502c66@mail.gmail.com>",
+      "from_name": "Agile Aspect",
+      "from_email_hash": "e42d889a758b7ea8a1412cac46167f5692cbf3fc1a62897e7c65f48b4d024def",
+      "date": "2009-04-21T00:04:26Z",
+      "subject": "JGR on netbook",
+      "subject_clean": "JGR on netbook",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi - I'm try to run JGR on Windows on a Acer One Aspire One\nwith a 1024x600 display.\n\nThe problem is JGR extends well below the bottom of the display\neven when the task bar is removed.\n\nAnd there appears to be no way to re-size the window - it just \"twitches\"\nand then bounces back to the \"hard wired\" window size.\n\nNote, I don't have any trouble with the other applications I'm using\n- Firefox, Thunderbird, TexMaker, Eclipse, R, Cadabra, VLC, OpenOffice,\nSun VirtualBox,etc. - they all have enough intelligence to fit into\nthe 1024x600\nscreen (including MS applications.)\n\nAny help would be appreciated.\n\n-- Agile\n\n-- \n     \"We are drowning in information and starving for knowledge.\"\n\n                                                          --\nRutherford D. Roger",
+      "body_snippet": "Hi - I'm try to run JGR on Windows on a Acer One Aspire One\nwith a 1024x600 display.\n\nThe problem is JGR extends well below the bottom of the display\neven when the task bar is removed.\n\nAnd there appe",
+      "thread_id": "thread-6db5e4d207ca",
+      "thread_depth": 0,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-7c907f23343b",
+      "message_id": "<0DD5D7CE-D929-4686-973E-85A5C945583B@gnsbiotech.com>",
+      "from_name": "David Swartz",
+      "from_email_hash": "e6cadcf9af2c04aa4a9658e4ccb04bbcb072bf52283e6374d25d627e11bade5b",
+      "date": "2009-04-28T18:54:22Z",
+      "subject": "Run rJava on Mac OS X with the server JVM",
+      "subject_clean": "Run rJava on Mac OS X with the server JVM",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "I am running rJava 0.6-2 with R 2.8.1 on Mac OS X 10.5.6 on Intel. I  \nam trying to figure out how to use the server JVM instead of the  \nclient JVM. I have tried specifying this in the .jinit function call:\n\nlibrary(rJava)\n.jinit(parameters=c(\"-Xms100m\",\"-Xmx612m\",\"-server\"))\n.jcall(\"java/lang/System\", \"S\", \"getProperty\", \"java.vm.name\")\n[1] \"Java HotSpot(TM) Client VM\"\n.jcall(\"java/lang/System\", \"S\", \"getProperty\", \"java.version\")\n[1] \"1.5.0_16\"\n\nThanks,\nDave Swartz",
+      "body_snippet": "I am running rJava 0.6-2 with R 2.8.1 on Mac OS X 10.5.6 on Intel. I  \nam trying to figure out how to use the server JVM instead of the  \nclient JVM. I have tried specifying this in the .jinit functio",
+      "thread_id": "thread-7c907f23343b",
+      "thread_depth": 0,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-2fef9610d895",
+      "message_id": "<8AC7A7EA-7163-4453-8779-0169C7B3C58E@r-project.org>",
+      "from_name": "Simon Urbanek",
+      "from_email_hash": "4b8015e605c1e8a78e0fc166d7f94d0bc9cab6230366ee1dfdd8a0de17b4b371",
+      "date": "2009-04-29T14:24:21Z",
+      "subject": "Re: Run rJava on Mac OS X with the server JVM",
+      "subject_clean": "Run rJava on Mac OS X with the server JVM",
+      "in_reply_to": "<0DD5D7CE-D929-4686-973E-85A5C945583B@gnsbiotech.com>",
+      "references": [
+        "<0DD5D7CE-D929-4686-973E-85A5C945583B@gnsbiotech.com>"
+      ],
+      "body_plain": "On Apr 28, 2009, at 14:54 , David Swartz wrote:\n\n> I am running rJava 0.6-2 with R 2.8.1 on Mac OS X 10.5.6 on Intel. I\n> am trying to figure out how to use the server JVM instead of the\n> client JVM. I have tried specifying this in the .jinit function call:\n>\n> library(rJava)\n> .jinit(parameters=c(\"-Xms100m\",\"-Xmx612m\",\"-server\"))\n> .jcall(\"java/lang/System\", \"S\", \"getProperty\", \"java.vm.name\")\n> [1] \"Java HotSpot(TM) Client VM\"\n> .jcall(\"java/lang/System\", \"S\", \"getProperty\", \"java.version\")\n> [1] \"1.5.0_16\"\n>\n\nApple does not support server VM in 32-bit. You have to run 64-bit R  \nin order to be able to use the server VM:\n\n > R.version$platform\n[1] \"x86_64-apple-darwin9.6.0\"\n > .jinit(parameters=c(\"-Xms100m\",\"-Xmx612m\",\"-server\"))\n > .jcall(\"java/lang/System\", \"S\", \"getProperty\", \"java.vm.name\")\n[1] \"Java HotSpot(TM) 64-Bit Server VM\"\n\nCheers,\nSimon",
+      "body_snippet": "On Apr 28, 2009, at 14:54 , David Swartz wrote:\n\n> I am running rJava 0.6-2 with R 2.8.1 on Mac OS X 10.5.6 on Intel. I\n> am trying to figure out how to use the server JVM instead of the\n> client JVM.",
+      "thread_id": "thread-7c907f23343b",
+      "thread_depth": 1,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-4c72d4039dd8",
+      "message_id": "<49F87C0A.5010208@uiowa.edu>",
+      "from_name": "Russell V. Lenth",
+      "from_email_hash": "ae6e5529d7e6badf3dbfa6b37ac743806d91d1d860ea9b0df46540022d190714",
+      "date": "2009-04-29T16:10:50Z",
+      "subject": "Re: Run rJava on Mac OS X with the server JVM",
+      "subject_clean": "Run rJava on Mac OS X with the server JVM",
+      "in_reply_to": "<8AC7A7EA-7163-4453-8779-0169C7B3C58E@r-project.org>",
+      "references": [
+        "<0DD5D7CE-D929-4686-973E-85A5C945583B@gnsbiotech.com>",
+        "<8AC7A7EA-7163-4453-8779-0169C7B3C58E@r-project.org>"
+      ],
+      "body_plain": "This and several other questions I've seen roll by make me wonder why \nApple is so far behind the curve in its Java capabilities.  Most \nnotably, Java 1.6 is available only for 64-buit Macs.  32-bit Macs are \nstuck with 1.5 (aka J2SE 5.0).  Meanwhile, in java.sun.com, one reads:\n\n> J2SE 5.0 is in its Java Technology End of Life (EOL) transition period. The EOL transition period began April 8th, 2008 and will complete October 30th, 2009, when J2SE 5.0 will have reached its End of Service Life (EOSL).\n\nwhich suggests that Java 1.6 (aka J2SE 6.0) really should have been \nphased-in for all Macs at least a year ago.  Why is this?  And is it \npossible to build a Java 1.6 SDK from sources so that 32-bit Mac users \ncan be up-to-date?\n-- \nRussell V. Lenth, Professor\nDepartment of Statistics\n   & Actuarial Science            (319)335-0814    FAX (319)335-3017\nThe University of Iowa           russell-lenth at uiowa.edu\nIowa City, IA 52242  USA         http://www.stat.uiowa.edu/~rlenth/\n\n\nSimon Urbanek wrote:\n> On Apr 28, 2009, at 14:54 , David Swartz wrote:\n> \n>> I am running rJava 0.6-2 with R 2.8.1 on Mac OS X 10.5.6 on Intel. I\n>> am trying to figure out how to use the server JVM instead of the\n>> client JVM. I have tried specifying this in the .jinit function call:\n>>\n>> library(rJava)\n>> .jinit(parameters=c(\"-Xms100m\",\"-Xmx612m\",\"-server\"))\n>> .jcall(\"java/lang/System\", \"S\", \"getProperty\", \"java.vm.name\")\n>> [1] \"Java HotSpot(TM) Client VM\"\n>> .jcall(\"java/lang/System\", \"S\", \"getProperty\", \"java.version\")\n>> [1] \"1.5.0_16\"\n>>\n> \n> Apple does not support server VM in 32-bit. You have to run 64-bit R  \n> in order to be able to use the server VM:\n> \n>  > R.version$platform\n> [1] \"x86_64-apple-darwin9.6.0\"\n>  > .jinit(parameters=c(\"-Xms100m\",\"-Xmx612m\",\"-server\"))\n>  > .jcall(\"java/lang/System\", \"S\", \"getProperty\", \"java.vm.name\")\n> [1] \"Java HotSpot(TM) 64-Bit Server VM\"\n> \n> Cheers,\n> Simon\n> \n> \n> _______________________________________________\n> stats-rosuda-devel mailing list\n> stats-rosuda-devel at listserv.uni-augsburg.de\n> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel",
+      "body_snippet": "This and several other questions I've seen roll by make me wonder why \nApple is so far behind the curve in its Java capabilities.  Most \nnotably, Java 1.6 is available only for 64-buit Macs.  32-bit M",
+      "thread_id": "thread-7c907f23343b",
+      "thread_depth": 2,
+      "month": "2009-04"
+    },
+    {
+      "id": "msg-bdc7a1e911b8",
+      "message_id": "<e37a704c0904300235q27ffc65fv5333d9b0a879511@mail.gmail.com>",
+      "from_name": "Bilel",
+      "from_email_hash": "a7c2608121a6edf00ce856fa2a0294b320736684da198b0c5e56d66258bab2c4",
+      "date": "2009-04-30T09:35:43Z",
+      "subject": "using R with java",
+      "subject_clean": "using R with java",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi,\nI installed JRI to use R in java.\n\n1) My first question, can we do all things we can do with R, using JRI\n\n2)is there a simple use of R like this:\nsourcing functions from a file (.R)\nthen, appealing these functions\nthen retrieving values of variables defined in these function\n\nis there any examples\n\nthank you very much\n-- \nBilel\n\n-------------- next part --------------",
+      "body_snippet": "Hi,\nI installed JRI to use R in java.\n\n1) My first question, can we do all things we can do with R, using JRI\n\n2)is there a simple use of R like this:\nsourcing functions from a file (.R)\nthen, appeali",
+      "thread_id": "thread-bdc7a1e911b8",
+      "thread_depth": 0,
+      "month": "2009-04"
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-32e531a9510e",
+      "subject": "RJava question(class not found with rJava's vm, though found with alternate vm)",
+      "message_count": 4,
+      "participants": [
+        "Saptarshi Guha",
+        "Simon Urbanek"
+      ],
+      "started": "2009-04-05T18:54:06Z",
+      "last_reply": "2009-04-06T14:23:36Z",
+      "root_message_id": "msg-32e531a9510e"
+    },
+    {
+      "id": "thread-45caddef73d9",
+      "subject": "console window background color",
+      "message_count": 1,
+      "participants": [
+        "boris pezzatti"
+      ],
+      "started": "2009-04-17T13:35:44Z",
+      "last_reply": "2009-04-17T13:35:44Z",
+      "root_message_id": "msg-45caddef73d9"
+    },
+    {
+      "id": "thread-5173892bc514",
+      "subject": "Rserve Java client - REXPGenericVector of REXPRaw -assign fails",
+      "message_count": 3,
+      "participants": [
+        "Saptarshi Guha",
+        "Simon Urbanek"
+      ],
+      "started": "2009-04-19T19:53:54Z",
+      "last_reply": "2009-04-20T20:41:17Z",
+      "root_message_id": "msg-5173892bc514"
+    },
+    {
+      "id": "thread-6db5e4d207ca",
+      "subject": "JGR on netbook",
+      "message_count": 1,
+      "participants": [
+        "Agile Aspect"
+      ],
+      "started": "2009-04-21T00:04:26Z",
+      "last_reply": "2009-04-21T00:04:26Z",
+      "root_message_id": "msg-6db5e4d207ca"
+    },
+    {
+      "id": "thread-7c907f23343b",
+      "subject": "Run rJava on Mac OS X with the server JVM",
+      "message_count": 3,
+      "participants": [
+        "David Swartz",
+        "Russell V. Lenth",
+        "Simon Urbanek"
+      ],
+      "started": "2009-04-28T18:54:22Z",
+      "last_reply": "2009-04-29T16:10:50Z",
+      "root_message_id": "msg-7c907f23343b"
+    },
+    {
+      "id": "thread-bdc7a1e911b8",
+      "subject": "using R with java",
+      "message_count": 1,
+      "participants": [
+        "Bilel"
+      ],
+      "started": "2009-04-30T09:35:43Z",
+      "last_reply": "2009-04-30T09:35:43Z",
+      "root_message_id": "msg-bdc7a1e911b8"
+    }
+  ]
+}

@@ -1,0 +1,2026 @@
+From Friedrich.Schuster at analytical-software.de  Mon Dec  1 16:15:43 2014
+From: Friedrich.Schuster at analytical-software.de (Friedrich Schuster)
+Date: Mon, 01 Dec 2014 16:15:43 +0000
+Subject: "fork here" with Rserve 1.8-1
+Message-ID: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD92DE8@hd1srvms0012.analytical-software.eu>
+
+
+Hello, 
+
+I'm curious what "fork here" in Rserve 1.8-1 really does. 
+
+This is description in the NEWS file:  ... "fork here" directive which allows to spawn multiple pre-forked instances of Rserve which all share the same  memory. ".  So I can span multiple individual instances and use them individually as some kind of connection pool? But there is no information on how to use the instances. Or how many instances there are. 
+
+When looking closer I get the impression that "fork here" defines the line/place where a newly forked instance stops reading and interpreting the config file and so improves fork() time (while forking itself remains the same).
+
+Could you please describe the "fork here" directive? 
+
+Thanks,
+
+Friedrich Schuster
+
+______________________________________
+
+HMS Analytical Software GmbH
+Dipl.-Soz. Friedrich Schuster
+Senior Software-Ingenieur
+
+Tel.: +49 6221 6051 142
+
+E-Mail: friedrich.schuster at analytical-software.de
+Internet: www.analytical-software.de
+Rohrbacher Straße 26, D-69115 Heidelberg
+Geschäftsführer: Andreas Mangold
+Registergericht Mannheim: HRB-Nr. 337599
+_________________________________________
+
+From simon.urbanek at r-project.org  Tue Dec  2 22:24:52 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 02 Dec 2014 17:24:52 -0500
+Subject: Re: "fork here" with Rserve 1.8-1
+In-Reply-To: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD92DE8@hd1srvms0012.analytical-software.eu>
+References: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD92DE8@hd1srvms0012.analytical-software.eu>
+Message-ID: <E98D0639-C260-4902-8D5B-CEB53F161B57@r-project.org>
+
+On Dec 1, 2014, at 11:15 AM, Friedrich Schuster <Friedrich.Schuster at analytical-software.de> wrote:
+
+> 
+> Hello, 
+> 
+> I'm curious what "fork here" in Rserve 1.8-1 really does. 
+> 
+> This is description in the NEWS file:  ... "fork here" directive which allows to spawn multiple pre-forked instances of Rserve which all share the same  memory. ".  So I can span multiple individual instances and use them individually as some kind of connection pool? But there is no information on how to use the instances. Or how many instances there are. 
+> 
+> When looking closer I get the impression that "fork here" defines the line/place where a newly forked instance stops reading and interpreting the config file and so improves fork() time (while forking itself remains the same).
+> 
+
+Exactly. It was introduced for very specific tasks that use Rserve for very small requests (literally a hash look-up let's say), where the fork() time matters even though it's minimal (~4ms on our severs), because it is serial time. In this rather specific case it is beneficial to start multiple Rserve instances as to leverage multiple cores since each core will be serving connections requests in parallel, thus increasing the request throughput on a multi-core machine. So in the above example the upper bound on requests is 250 requests/s regardless of the number of cores since the server is run on one core until fork() finishes, but if you spawn multiple servers you can increase it to almost 2k/s on an 8-core machine.
+
+The usage is simple, in the above case they would just run each server on a different port and assign clients randomly. The config file for let's say four servers then looks like this:
+
+# ... regular conf directives here ...
+port 6300
+fork here
+port 6301
+fork here
+port 6302
+fork here
+port 6303
+
+Cheers,
+Simon
+
+
+> Could you please describe the "fork here" directive? 
+> 
+> Thanks,
+> 
+> Friedrich Schuster
+> 
+> ______________________________________
+> 
+> HMS Analytical Software GmbH
+> Dipl.-Soz. Friedrich Schuster
+> Senior Software-Ingenieur
+> 
+> Tel.: +49 6221 6051 142
+> 
+> E-Mail: friedrich.schuster at analytical-software.de
+> Internet: www.analytical-software.de
+> Rohrbacher Straße 26, D-69115 Heidelberg
+> Geschäftsführer: Andreas Mangold
+> Registergericht Mannheim: HRB-Nr. 337599
+> _________________________________________
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From golgauthic at yahoo.fr  Wed Dec  3 00:00:09 2014
+From: golgauthic at yahoo.fr (g b)
+Date: Wed, 03 Dec 2014 00:00:09 +0000
+Subject: new RConnection won't spawn a dedicated Rserve instance under windows?
+In-Reply-To: <1413700013.863422.1416922708021.JavaMail.yahoo@jws11136.mail.ir2.yahoo.com>
+References: <1413700013.863422.1416922708021.JavaMail.yahoo@jws11136.mail.ir2.yahoo.com>
+Message-ID: <1880287186.4640612.1417564809742.JavaMail.yahoo@jws11150.mail.ir2.yahoo.com>
+
+Hi all,
+I'm starting Rserve in a java thread as follows: 
+
+debug = false;
+cmd = "Path_To_R";rargs = "--no-save --slave";rsrvargs = "--no-save --slave --RS-enable-control";
+p = Runtime.getRuntime().exec("\""+cmd+"\" -e \"library(Rserve);Rserve("+(debug?"TRUE":"FALSE")+",args='"+rsrvargs+"')\" "+rargs);
+Under Linux, I'm able to get spawned a separate instance each time I open en new "RConnection" (through the main instance), but under windows, I get a completely different behaviour: Once the server has been instantiated for the very first time, any new connection I create tries to execute / evaluate on the same single instance. This results in having a single core in use as well as a blocked instance (until the evaluation is done). No way to get several evalutions asynchronously.
+I tried some arguments combinations like with/without "--vanilla" or removing "--RS-enable-control", but no effect.As well as starting Rserve directly from R:  
+library(Rserve);Rserve(FALSE, args="--no-save --no-restore --slave", wait=T)... (I read somewhere that 'wait' is defaulted to FALSE under Windows and to TRUE everywhere else)...
+
+
+What did I miss? Why is that working like a charme under Linux and not at all under Windows? Should I expect the right behaviour under MacOSX?
+My question could probably be more detailed, but I suspect this is a very common issue I get here.
+Any help would be greatly apreciated. Thanks for your time.
+RegardsGauthier
+
+-------------- next part --------------
+
+
+From golgauthic at yahoo.fr  Wed Dec  3 00:16:16 2014
+From: golgauthic at yahoo.fr (g b)
+Date: Wed, 03 Dec 2014 00:16:16 +0000
+Subject: Re: new RConnection won't spawn a dedicated Rserve instance under windows?
+In-Reply-To: <1880287186.4640612.1417564809742.JavaMail.yahoo@jws11150.mail.ir2.yahoo.com>
+References: <1880287186.4640612.1417564809742.JavaMail.yahoo@jws11150.mail.ir2.yahoo.com>
+Message-ID: <1253065814.4604617.1417565776787.JavaMail.yahoo@jws11161.mail.ir2.yahoo.com>
+
+Well I think I found what I was missing:
+
+| Which platforms/operating systems are supported by Rserve? |
+| 
+ | Rserve should work on any plarform supporting shared libraries which is also supported by R. The following platforms were tested and are known to work:   
+   - Linux (PPC, x86)
+   - Windows (x86)
+   - Mac OS X / Darwin (PPC, x86)
+   - AIX (PPC since version 0.1-10)
+   - SunOS (sun4u since version 0.2)
+   - HP-UX (HP-9000 since version 0.3-15)
+All platforms except Windows support parallel connections and local (unix) sockets. |
+
+>From Rserve's FAQ. Shame on me. Is this still the case at the time being?
+If yes, which I suppose so, what would be a workaround? Starting as many Rserve (non-daemonized) processes as parallel task I want to perform? Is there a better way?
+Thanks for your time.
+Best RegardsGauthier
+
+ 
+
+      De : g b <golgauthic at yahoo.fr>
+ À : Simon Urbanek <simon.urbanek at r-project.org> 
+Cc : "stats-rosuda-devel at listserv.uni-augsburg.de" <stats-rosuda-devel at listserv.uni-augsburg.de> 
+ Envoyé le : Mercredi 3 décembre 2014 1h00
+ Objet : [stats-rosuda-devel] new RConnection won't spawn a dedicated Rserve instance under windows?
+   
+Hi all,
+I'm starting Rserve in a java thread as follows: 
+
+debug = false;
+cmd = "Path_To_R";rargs = "--no-save --slave";rsrvargs = "--no-save --slave --RS-enable-control";
+p = Runtime.getRuntime().exec("\""+cmd+"\" -e \"library(Rserve);Rserve("+(debug?"TRUE":"FALSE")+",args='"+rsrvargs+"')\" "+rargs);
+Under Linux, I'm able to get spawned a separate instance each time I open en new "RConnection" (through the main instance), but under windows, I get a completely different behaviour: Once the server has been instantiated for the very first time, any new connection I create tries to execute / evaluate on the same single instance. This results in having a single core in use as well as a blocked instance (until the evaluation is done). No way to get several evalutions asynchronously.
+I tried some arguments combinations like with/without "--vanilla" or removing "--RS-enable-control", but no effect.As well as starting Rserve directly from R:  
+library(Rserve);Rserve(FALSE, args="--no-save --no-restore --slave", wait=T)... (I read somewhere that 'wait' is defaulted to FALSE under Windows and to TRUE everywhere else)...
+
+
+What did I miss? Why is that working like a charme under Linux and not at all under Windows? Should I expect the right behaviour under MacOSX?
+My question could probably be more detailed, but I suspect this is a very common issue I get here.
+Any help would be greatly apreciated. Thanks for your time.
+
+
+RegardsGauthier
+
+
+
+   
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Dec  3 01:20:40 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 02 Dec 2014 20:20:40 -0500
+Subject: Re: new RConnection won't spawn a dedicated Rserve instance under windows?
+In-Reply-To: <1880287186.4640612.1417564809742.JavaMail.yahoo@jws11150.mail.ir2.yahoo.com>
+References: <1413700013.863422.1416922708021.JavaMail.yahoo@jws11136.mail.ir2.yahoo.com> <1880287186.4640612.1417564809742.JavaMail.yahoo@jws11150.mail.ir2.yahoo.com>
+Message-ID: <7E9D7986-BEE9-4ABE-96B7-39B979FAF8C8@r-project.org>
+
+On Dec 2, 2014, at 7:00 PM, g b <golgauthic at yahoo.fr> wrote:
+
+> Hi all,
+> 
+> I'm starting Rserve in a java thread as follows: 
+> 
+> debug = false;
+> cmd = "Path_To_R";
+> rargs = "--no-save --slave";
+> rsrvargs = "--no-save --slave --RS-enable-control";
+> p = Runtime.getRuntime().exec("\""+cmd+"\" -e \"library(Rserve);Rserve("+(debug?"TRUE":"FALSE")+",args='"+rsrvargs+"')\" "+rargs);
+> 
+> Under Linux, I'm able to get spawned a separate instance each time I open en new "RConnection" (through the main instance), but under windows, I get a completely different behaviour: Once the server has been instantiated for the very first time, any new connection I create tries to execute / evaluate on the same single instance. This results in having a single core in use as well as a blocked instance (until the evaluation is done). No way to get several evalutions asynchronously.
+> 
+> I tried some arguments combinations like with/without "--vanilla" or removing "--RS-enable-control", but no effect.
+> As well as starting Rserve directly from R:  
+> 
+> library(Rserve);Rserve(FALSE, args="--no-save --no-restore --slave", wait=T)... (I read somewhere that 'wait' is defaulted to FALSE under Windows and to TRUE everywhere else)...
+> 
+> 
+> What did I miss? Why is that working like a charme under Linux and not at all under Windows?
+
+
+Because Windows is not a unix operating system and is much more limited. Unlike modern operating systems Windows lacks support for copy-on-write forking and thus is limited to a single core for interpreted R.
+
+
+> Should I expect the right behaviour under MacOSX?
+> 
+
+Yes, Mac OS X is a unix OS.
+
+
+> My question could probably be more detailed, but I suspect this is a very common issue I get here.
+> 
+
+Well, you'll find this on the main Rserve page:
+
+"Although Rserve works on Windows it is not recommended to use it on that platform. Windows lacks important features that make the separation of namespaces possible, therefore Rserve for Windows works in cooperative mode only, that is only one connection at a time is allowed and all subsequent connections share the same namespace. Briefly: don't use Windows unless you really have to."
+
+Cheers,
+Simon
+
+
+> Any help would be greatly apreciated. Thanks for your time.
+> 
+> Regards
+> Gauthier
+> 
+> 
+> 
+> 
+>
+
+From simon.urbanek at r-project.org  Wed Dec  3 01:30:18 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 02 Dec 2014 20:30:18 -0500
+Subject: Re: new RConnection won't spawn a dedicated Rserve instance under windows?
+In-Reply-To: <1253065814.4604617.1417565776787.JavaMail.yahoo@jws11161.mail.ir2.yahoo.com>
+References: <1880287186.4640612.1417564809742.JavaMail.yahoo@jws11150.mail.ir2.yahoo.com> <1253065814.4604617.1417565776787.JavaMail.yahoo@jws11161.mail.ir2.yahoo.com>
+Message-ID: <187AC91A-5EE8-43CE-9CCE-E8257DB8CF8A@r-project.org>
+
+On Dec 2, 2014, at 7:16 PM, g b <golgauthic at yahoo.fr> wrote:
+
+> Well I think I found what I was missing:
+> 
+> Which platforms/operating systems are supported by Rserve?
+> 
+> Rserve should work on any plarform supporting shared libraries which is also supported by R. The following platforms were tested and are known to work:
+> 	• Linux (PPC, x86)
+> 	• Windows (x86)
+> 	• Mac OS X / Darwin (PPC, x86)
+> 	• AIX (PPC since version 0.1-10)
+> 	• SunOS (sun4u since version 0.2)
+> 	• HP-UX (HP-9000 since version 0.3-15)
+> All platforms except Windows support parallel connections and local (unix) sockets.
+> From Rserve's FAQ. Shame on me. Is this still the case at the time being?
+> 
+> If yes, which I suppose so, what would be a workaround? Starting as many Rserve (non-daemonized) processes as parallel task I want to perform? Is there a better way?
+> 
+
+Not really. Simply put, you have to start a separate process for each concurrent connection. There was once a patch to simulate fork() by creating a new process and re-initializing at the expense of startup-up for each connection, but since it broke other things and any serious deployment will use unix it was never incorporated in the main trunk. Probably the best bet on Windows would be to spawn a pool of workers for warm startup-up and then add workers from new processes if the load increases. Again, since this is far inferior to any unix-based solution, I have not seen anyone willing to devote resources to such a project, though (especially these days when you can get unix computing VMs so easily). 
+
+Cheers,
+Simon
+
+
+
+> Thanks for your time.
+> 
+> Best Regards
+> Gauthier
+> 
+> 
+> 
+> 
+> De : g b <golgauthic at yahoo.fr>
+> À : Simon Urbanek <simon.urbanek at r-project.org> 
+> Cc : "stats-rosuda-devel at listserv.uni-augsburg.de" <stats-rosuda-devel at listserv.uni-augsburg.de> 
+> Envoyé le : Mercredi 3 décembre 2014 1h00
+> Objet : [stats-rosuda-devel] new RConnection won't spawn a dedicated Rserve instance under windows?
+> 
+> Hi all,
+> 
+> I'm starting Rserve in a java thread as follows: 
+> 
+> debug = false;
+> cmd = "Path_To_R";
+> rargs = "--no-save --slave";
+> rsrvargs = "--no-save --slave --RS-enable-control";
+> p = Runtime.getRuntime().exec("\""+cmd+"\" -e \"library(Rserve);Rserve("+(debug?"TRUE":"FALSE")+",args='"+rsrvargs+"')\" "+rargs);
+> 
+> Under Linux, I'm able to get spawned a separate instance each time I open en new "RConnection" (through the main instance), but under windows, I get a completely different behaviour: Once the server has been instantiated for the very first time, any new connection I create tries to execute / evaluate on the same single instance. This results in having a single core in use as well as a blocked instance (until the evaluation is done). No way to get several evalutions asynchronously.
+> 
+> I tried some arguments combinations like with/without "--vanilla" or removing "--RS-enable-control", but no effect.
+> As well as starting Rserve directly from R:  
+> 
+> library(Rserve);Rserve(FALSE, args="--no-save --no-restore --slave", wait=T)... (I read somewhere that 'wait' is defaulted to FALSE under Windows and to TRUE everywhere else)...
+> 
+> 
+> What did I miss? Why is that working like a charme under Linux and not at all under Windows? Should I expect the right behaviour under MacOSX?
+> 
+> My question could probably be more detailed, but I suspect this is a very common issue I get here.
+> 
+> Any help would be greatly apreciated. Thanks for your time.
+> 
+> 
+> 
+> Regards
+> Gauthier
+> 
+> 
+> 
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From Friedrich.Schuster at analytical-software.de  Wed Dec  3 07:53:46 2014
+From: Friedrich.Schuster at analytical-software.de (Friedrich Schuster)
+Date: Wed, 03 Dec 2014 07:53:46 +0000
+Subject: Re: "fork here" with Rserve 1.8-1
+In-Reply-To: <E98D0639-C260-4902-8D5B-CEB53F161B57@r-project.org>
+References: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD92DE8@hd1srvms0012.analytical-software.eu> <E98D0639-C260-4902-8D5B-CEB53F161B57@r-project.org>
+Message-ID: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD93403@hd1srvms0012.analytical-software.eu>
+
+Thank you very much
+> 
+> Hello,
+> 
+> I'm curious what "fork here" in Rserve 1.8-1 really does. 
+> 
+> This is description in the NEWS file:  ... "fork here" directive which allows to spawn multiple pre-forked instances of Rserve which all share the same  memory. ".  So I can span multiple individual instances and use them individually as some kind of connection pool? But there is no information on how to use the instances. Or how many instances there are. 
+> 
+> When looking closer I get the impression that "fork here" defines the line/place where a newly forked instance stops reading and interpreting the config file and so improves fork() time (while forking itself remains the same).
+> 
+
+Exactly. It was introduced for very specific tasks that use Rserve for very small requests (literally a hash look-up let's say), where the fork() time matters even though it's minimal (~4ms on our severs), because it is serial time. In this rather specific case it is beneficial to start multiple Rserve instances as to leverage multiple cores since each core will be serving connections requests in parallel, thus increasing the request throughput on a multi-core machine. So in the above example the upper bound on requests is 250 requests/s regardless of the number of cores since the server is run on one core until fork() finishes, but if you spawn multiple servers you can increase it to almost 2k/s on an 8-core machine.
+
+The usage is simple, in the above case they would just run each server on a different port and assign clients randomly. The config file for let's say four servers then looks like this:
+
+# ... regular conf directives here ...
+port 6300
+fork here
+port 6301
+fork here
+port 6302
+fork here
+port 6303
+
+Cheers,
+Simon
+
+From antje.janosch at web.de  Tue Dec  9 13:45:04 2014
+From: antje.janosch at web.de (Antje Janosch)
+Date: Tue, 09 Dec 2014 14:45:04 +0100
+Subject: push big java table to R
+Message-ID: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com>
+
+Hi,
+
+I have a quite big table in Java (let's say 200 columns and 3.000.000
+rows). I can access it rowwise in Java. Column types are different basic
+data types (integer, string, ...).
+What would be the best/fastest way to transfer it to R via an RServe
+connection?
+Currently, I am filling one array per column by reading the whole table and
+then use these arrays to create an RList. But I'm not sure whether this is
+very efficient (concerning memory and speed). And sometimes it even fails
+as the connection has a certain transfer limit (as far as I understood).
+Any suggestions?
+
+Antje
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Dec  9 14:39:19 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 09 Dec 2014 09:39:19 -0500
+Subject: Re: push big java table to R
+In-Reply-To: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com>
+References: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com>
+Message-ID: <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org>
+
+
+> On Dec 9, 2014, at 8:45 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> 
+> Hi,
+> 
+> I have a quite big table in Java (let's say 200 columns and 3.000.000 rows). I can access it rowwise in Java. Column types are different basic data types (integer, string, ...).
+> What would be the best/fastest way to transfer it to R via an RServe connection?
+> Currently, I am filling one array per column by reading the whole table and then use these arrays to create an RList. But I'm not sure whether this is very efficient (concerning memory and speed). And sometimes it even fails as the connection has a certain transfer limit (as far as I understood).
+> Any suggestions?
+> 
+
+It is almost the most efficient way. Depending on your R version, the most memory-efficient way may be to push them one column at a time since that reduces the memory used for transfer at the cost of multiple roundtrips. The alternative for R versions that don't have shallow copy is to assign each column to a variable and then construct the data frame from them. You certainly want to remove the upload limit in the config file - it's a safety measure that you can disable if your machine has enough memory.
+
+Note that in either case you want to create the data.frame "by hand" (attach row.names and class attributes to a list) not by calling data.frame()/as.data.frame() since those are very slow for big data frames.
+
+Cheers,
+Simon
+
+From Friedrich.Schuster at analytical-software.de  Wed Dec 10 07:53:21 2014
+From: Friedrich.Schuster at analytical-software.de (Friedrich Schuster)
+Date: Wed, 10 Dec 2014 07:53:21 +0000
+Subject: PID file contains wrong session PID?
+Message-ID: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD96F30@hd1srvms0012.analytical-software.eu>
+
+Hello, 
+
+I tried the command line argument 	--RS-pidfile <file> when starting Rserve with R CMD Rserve, and it contains a lower PID number than the running process. (current process ID -3, to be exact). 
+
+This was tested on CentOS 6.3, with Rserve-1.8-1.tar.gz downloaded around 2014-11-18.
+
+Is this a known bug? 
+
+(Installation of the latest download version failed with a compile problem)
+
+Kind regards, 
+Friedrich Schuster
+
+From antje.janosch at web.de  Wed Dec 10 10:41:01 2014
+From: antje.janosch at web.de (Antje Janosch)
+Date: Wed, 10 Dec 2014 11:41:01 +0100
+Subject: Re: push big java table to R
+In-Reply-To: <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org>
+References: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com> <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org>
+Message-ID: <CAN=W9xfvjAiZzUDQ4q1eLLxt=yoZ_8+h+5ZqPdYctJjpeqzxsg@mail.gmail.com>
+
+Hi Simon,
+
+thanks for the hint to create the data frame by hand. I did not know that
+it's much faster this way.
+Can you provide me a link concerning your comment on the 'shallow copy'
+thing? I was not aware that there were changes with newer R-versions and I
+don't know how these changes look like.
+It's also a good comment to switch off the upload limit. I though it would
+use some default then.
+
+Antje
+
+On 9 December 2014 at 15:39, Simon Urbanek <simon.urbanek at r-project.org>
+wrote:
+
+>
+> > On Dec 9, 2014, at 8:45 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> >
+> > Hi,
+> >
+> > I have a quite big table in Java (let's say 200 columns and 3.000.000
+> rows). I can access it rowwise in Java. Column types are different basic
+> data types (integer, string, ...).
+> > What would be the best/fastest way to transfer it to R via an RServe
+> connection?
+> > Currently, I am filling one array per column by reading the whole table
+> and then use these arrays to create an RList. But I'm not sure whether this
+> is very efficient (concerning memory and speed). And sometimes it even
+> fails as the connection has a certain transfer limit (as far as I
+> understood).
+> > Any suggestions?
+> >
+>
+> It is almost the most efficient way. Depending on your R version, the most
+> memory-efficient way may be to push them one column at a time since that
+> reduces the memory used for transfer at the cost of multiple roundtrips.
+> The alternative for R versions that don't have shallow copy is to assign
+> each column to a variable and then construct the data frame from them. You
+> certainly want to remove the upload limit in the config file - it's a
+> safety measure that you can disable if your machine has enough memory.
+>
+> Note that in either case you want to create the data.frame "by hand"
+> (attach row.names and class attributes to a list) not by calling
+> data.frame()/as.data.frame() since those are very slow for big data frames.
+>
+> Cheers,
+> Simon
+>
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Dec 10 14:00:05 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 10 Dec 2014 09:00:05 -0500
+Subject: Re: PID file contains wrong session PID?
+In-Reply-To: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD96F30@hd1srvms0012.analytical-software.eu>
+References: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD96F30@hd1srvms0012.analytical-software.eu>
+Message-ID: <6E849D88-327F-4503-B61E-D7ACE3C54F07@r-project.org>
+
+Thanks, PIDs were assumed to be 32-bit. Now fixed to support 64-bit pid_t as well - please test the most recent version from RForge.net.
+
+Thanks,
+Simon
+
+
+PS: Pelase feel free to use the bug tracker to report bugs
+https://github.com/s-u/Rserve/issues
+
+
+
+On Dec 10, 2014, at 2:53 AM, Friedrich Schuster <Friedrich.Schuster at analytical-software.de> wrote:
+
+> Hello, 
+> 
+> I tried the command line argument 	--RS-pidfile <file> when starting Rserve with R CMD Rserve, and it contains a lower PID number than the running process. (current process ID -3, to be exact). 
+> 
+> This was tested on CentOS 6.3, with Rserve-1.8-1.tar.gz downloaded around 2014-11-18.
+> 
+> Is this a known bug? 
+> 
+> (Installation of the latest download version failed with a compile problem)
+> 
+> Kind regards, 
+> Friedrich Schuster
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From simon.urbanek at r-project.org  Wed Dec 10 14:14:58 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 10 Dec 2014 09:14:58 -0500
+Subject: Re: push big java table to R
+In-Reply-To: <CAN=W9xfvjAiZzUDQ4q1eLLxt=yoZ_8+h+5ZqPdYctJjpeqzxsg@mail.gmail.com>
+References: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com> <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org> <CAN=W9xfvjAiZzUDQ4q1eLLxt=yoZ_8+h+5ZqPdYctJjpeqzxsg@mail.gmail.com>
+Message-ID: <7F0BA123-5216-485B-81AD-9B94A9AC2AAA@r-project.org>
+
+Antje,
+
+On Dec 10, 2014, at 5:41 AM, Antje Janosch <antje.janosch at web.de> wrote:
+
+> Hi Simon,
+> 
+> thanks for the hint to create the data frame by hand. I did not know that it's much faster this way.
+
+## let's say you have a list with the columns
+df = list(a=.., b=...)
+
+## you turn it to a data frame without copying with
+attr(df, "row.names") <- .set_row_names(length(df[[1]]))
+class(df) <- "data.frame"
+
+
+> Can you provide me a link concerning your comment on the 'shallow copy' thing? I was not aware that there were changes with newer R-versions and I don't know how these changes look like.
+
+---
+NEWS R 3.1.0:
+
+• Avoid duplicating the right hand side values in complex assignments when possible. This reduces copying of replacement values in expressions such as Z$a <- a0 and ans[[i]] <- tmp: some package code has relied on there being copies.
+
+Also, a number of other changes to reduce copying of objects; all contributed by or based on suggestions by Michael Lawrence.
+---
+
+What this means is that 
+
+l=list()
+l[[1]]=...
+l[[2]]=...
+
+is efficient since it doesn't copy the previous columns on each assignment (which older R versions did).
+
+If you want to avoid all copying, you'd use vector("list", n) to pre-allocate the columns, obviously.
+
+
+> It's also a good comment to switch off the upload limit. I though it would use some default then.
+> 
+
+The config setting is maxinbuf and you set it to kB of size, so let's say if you want to process at most 1Gb packets, you'd use
+
+maxinbuf 1048576
+
+The default is 256Mb. In most cases the limit should not exceed half of the available memory.
+
+Cheers,
+Simon
+
+
+
+> Antje
+> 
+> On 9 December 2014 at 15:39, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> 
+> > On Dec 9, 2014, at 8:45 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> >
+> > Hi,
+> >
+> > I have a quite big table in Java (let's say 200 columns and 3.000.000 rows). I can access it rowwise in Java. Column types are different basic data types (integer, string, ...).
+> > What would be the best/fastest way to transfer it to R via an RServe connection?
+> > Currently, I am filling one array per column by reading the whole table and then use these arrays to create an RList. But I'm not sure whether this is very efficient (concerning memory and speed). And sometimes it even fails as the connection has a certain transfer limit (as far as I understood).
+> > Any suggestions?
+> >
+> 
+> It is almost the most efficient way. Depending on your R version, the most memory-efficient way may be to push them one column at a time since that reduces the memory used for transfer at the cost of multiple roundtrips. The alternative for R versions that don't have shallow copy is to assign each column to a variable and then construct the data frame from them. You certainly want to remove the upload limit in the config file - it's a safety measure that you can disable if your machine has enough memory.
+> 
+> Note that in either case you want to create the data.frame "by hand" (attach row.names and class attributes to a list) not by calling data.frame()/as.data.frame() since those are very slow for big data frames.
+> 
+> Cheers,
+> Simon
+> 
+>
+
+From Friedrich.Schuster at analytical-software.de  Wed Dec 10 15:53:25 2014
+From: Friedrich.Schuster at analytical-software.de (Friedrich Schuster)
+Date: Wed, 10 Dec 2014 15:53:25 +0000
+Subject: Re: PID file contains wrong session PID?
+In-Reply-To: <6E849D88-327F-4503-B61E-D7ACE3C54F07@r-project.org>
+References: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD96F30@hd1srvms0012.analytical-software.eu> <6E849D88-327F-4503-B61E-D7ACE3C54F07@r-project.org>
+Message-ID: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD9751C@hd1srvms0012.analytical-software.eu>
+
+Thank you! 
+It looks like I still have a compile problem under CentOS 6.3 (64 bit): When installing/compiling the current version: 
+
+/tmp/.... Rserve/src/ioc.c:187: undefined reference to 'pthread_atfork'
+Collect2: ID returned 1 exit status
+Make: *** [server] Error 1
+
+-----Ursprüngliche Nachricht-----
+Von: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+Gesendet: Mittwoch, 10. Dezember 2014 15:00
+An: Friedrich Schuster
+Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+Betreff: Re: [stats-rosuda-devel] PID file contains wrong session PID?
+
+Thanks, PIDs were assumed to be 32-bit. Now fixed to support 64-bit pid_t as well - please test the most recent version from RForge.net.
+
+Thanks,
+Simon
+
+
+PS: Pelase feel free to use the bug tracker to report bugs https://github.com/s-u/Rserve/issues
+
+
+
+On Dec 10, 2014, at 2:53 AM, Friedrich Schuster <Friedrich.Schuster at analytical-software.de> wrote:
+
+> Hello,
+> 
+> I tried the command line argument 	--RS-pidfile <file> when starting Rserve with R CMD Rserve, and it contains a lower PID number than the running process. (current process ID -3, to be exact). 
+> 
+> This was tested on CentOS 6.3, with Rserve-1.8-1.tar.gz downloaded around 2014-11-18.
+> 
+> Is this a known bug? 
+> 
+> (Installation of the latest download version failed with a compile 
+> problem)
+> 
+> Kind regards,
+> Friedrich Schuster
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From simon.urbanek at r-project.org  Wed Dec 10 18:09:44 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 10 Dec 2014 13:09:44 -0500
+Subject: Re: PID file contains wrong session PID?
+In-Reply-To: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD9751C@hd1srvms0012.analytical-software.eu>
+References: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD96F30@hd1srvms0012.analytical-software.eu> <6E849D88-327F-4503-B61E-D7ACE3C54F07@r-project.org> <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD9751C@hd1srvms0012.analytical-software.eu>
+Message-ID: <D9A2D7BC-E4B1-42C1-9E2D-2EDEAB21AC0C@r-project.org>
+
+On Dec 10, 2014, at 10:53 AM, Friedrich Schuster <Friedrich.Schuster at analytical-software.de> wrote:
+
+> Thank you! 
+> It looks like I still have a compile problem under CentOS 6.3 (64 bit): When installing/compiling the current version: 
+> 
+> /tmp/.... Rserve/src/ioc.c:187: undefined reference to 'pthread_atfork'
+> Collect2: ID returned 1 exit status
+> Make: *** [server] Error 1
+> 
+
+AFAIK that is only used in the feature-compute-subprocess branch, not in master. Are you sure you are using the right source? The latest sources from the RForge.net repo is what I recommend using unless you go straight to Github and use mkdist.
+
+Cheers,
+Simon
+
+
+> -----Ursprüngliche Nachricht-----
+> Von: Simon Urbanek [mailto:simon.urbanek at r-project.org] 
+> Gesendet: Mittwoch, 10. Dezember 2014 15:00
+> An: Friedrich Schuster
+> Cc: stats-rosuda-devel at listserv.uni-augsburg.de
+> Betreff: Re: [stats-rosuda-devel] PID file contains wrong session PID?
+> 
+> Thanks, PIDs were assumed to be 32-bit. Now fixed to support 64-bit pid_t as well - please test the most recent version from RForge.net.
+> 
+> Thanks,
+> Simon
+> 
+> 
+> PS: Pelase feel free to use the bug tracker to report bugs https://github.com/s-u/Rserve/issues
+> 
+> 
+> 
+> On Dec 10, 2014, at 2:53 AM, Friedrich Schuster <Friedrich.Schuster at analytical-software.de> wrote:
+> 
+>> Hello,
+>> 
+>> I tried the command line argument 	--RS-pidfile <file> when starting Rserve with R CMD Rserve, and it contains a lower PID number than the running process. (current process ID -3, to be exact). 
+>> 
+>> This was tested on CentOS 6.3, with Rserve-1.8-1.tar.gz downloaded around 2014-11-18.
+>> 
+>> Is this a known bug? 
+>> 
+>> (Installation of the latest download version failed with a compile 
+>> problem)
+>> 
+>> Kind regards,
+>> Friedrich Schuster
+>> 
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>> 
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From antje.janosch at web.de  Thu Dec 11 13:57:46 2014
+From: antje.janosch at web.de (Antje Janosch)
+Date: Thu, 11 Dec 2014 14:57:46 +0100
+Subject: Re: push big java table to R
+In-Reply-To: <7F0BA123-5216-485B-81AD-9B94A9AC2AAA@r-project.org>
+References: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com> <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org> <CAN=W9xfvjAiZzUDQ4q1eLLxt=yoZ_8+h+5ZqPdYctJjpeqzxsg@mail.gmail.com> <7F0BA123-5216-485B-81AD-9B94A9AC2AAA@r-project.org>
+Message-ID: <CAN=W9xfoMAUVw48_q=B155WhrFHwM2YzDSj9dQQ_GvDS5W117g@mail.gmail.com>
+
+One more question:
+
+I'm not sure how I should proceed with the java-code. I thought, I could
+push chunks of columns as list to R, then combining these lists and then
+change the final list into a dataframe.
+
+for each chunk, I wanted to do something like this:
+
+// 1b) create empty list with given column number
+RList rList = new RList(columnsToPass.size(), true);
+
+//then iterate over the column-names I want to push and create an empty
+entry like this:
+rList.put(column, new REXPDouble(nRows));
+
+// and then I wanted to populate the vectors with data values by iterating
+row wise through the table
+// then, I wanted to push this RList-object over the connection to R
+
+But I don't know how to get the values into the list. I wanted to avoid to
+create and intermediate column vector for these values. Is it possible? Or
+do you suggest something complete different?
+
+Ciao,
+Antje
+
+
+
+On 10 December 2014 at 15:14, Simon Urbanek <simon.urbanek at r-project.org>
+wrote:
+
+> Antje,
+>
+> On Dec 10, 2014, at 5:41 AM, Antje Janosch <antje.janosch at web.de> wrote:
+>
+> > Hi Simon,
+> >
+> > thanks for the hint to create the data frame by hand. I did not know
+> that it's much faster this way.
+>
+> ## let's say you have a list with the columns
+> df = list(a=.., b=...)
+>
+> ## you turn it to a data frame without copying with
+> attr(df, "row.names") <- .set_row_names(length(df[[1]]))
+> class(df) <- "data.frame"
+>
+>
+> > Can you provide me a link concerning your comment on the 'shallow copy'
+> thing? I was not aware that there were changes with newer R-versions and I
+> don't know how these changes look like.
+>
+> ---
+> NEWS R 3.1.0:
+>
+> • Avoid duplicating the right hand side values in complex assignments when
+> possible. This reduces copying of replacement values in expressions such as
+> Z$a <- a0 and ans[[i]] <- tmp: some package code has relied on there being
+> copies.
+>
+> Also, a number of other changes to reduce copying of objects; all
+> contributed by or based on suggestions by Michael Lawrence.
+> ---
+>
+> What this means is that
+>
+> l=list()
+> l[[1]]=...
+> l[[2]]=...
+>
+> is efficient since it doesn't copy the previous columns on each assignment
+> (which older R versions did).
+>
+> If you want to avoid all copying, you'd use vector("list", n) to
+> pre-allocate the columns, obviously.
+>
+>
+> > It's also a good comment to switch off the upload limit. I though it
+> would use some default then.
+> >
+>
+> The config setting is maxinbuf and you set it to kB of size, so let's say
+> if you want to process at most 1Gb packets, you'd use
+>
+> maxinbuf 1048576
+>
+> The default is 256Mb. In most cases the limit should not exceed half of
+> the available memory.
+>
+> Cheers,
+> Simon
+>
+>
+>
+> > Antje
+> >
+> > On 9 December 2014 at 15:39, Simon Urbanek <simon.urbanek at r-project.org>
+> wrote:
+> >
+> > > On Dec 9, 2014, at 8:45 AM, Antje Janosch <antje.janosch at web.de>
+> wrote:
+> > >
+> > > Hi,
+> > >
+> > > I have a quite big table in Java (let's say 200 columns and 3.000.000
+> rows). I can access it rowwise in Java. Column types are different basic
+> data types (integer, string, ...).
+> > > What would be the best/fastest way to transfer it to R via an RServe
+> connection?
+> > > Currently, I am filling one array per column by reading the whole
+> table and then use these arrays to create an RList. But I'm not sure
+> whether this is very efficient (concerning memory and speed). And sometimes
+> it even fails as the connection has a certain transfer limit (as far as I
+> understood).
+> > > Any suggestions?
+> > >
+> >
+> > It is almost the most efficient way. Depending on your R version, the
+> most memory-efficient way may be to push them one column at a time since
+> that reduces the memory used for transfer at the cost of multiple
+> roundtrips. The alternative for R versions that don't have shallow copy is
+> to assign each column to a variable and then construct the data frame from
+> them. You certainly want to remove the upload limit in the config file -
+> it's a safety measure that you can disable if your machine has enough
+> memory.
+> >
+> > Note that in either case you want to create the data.frame "by hand"
+> (attach row.names and class attributes to a list) not by calling
+> data.frame()/as.data.frame() since those are very slow for big data frames.
+> >
+> > Cheers,
+> > Simon
+> >
+> >
+>
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Thu Dec 11 15:04:54 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 11 Dec 2014 10:04:54 -0500
+Subject: Re: push big java table to R
+In-Reply-To: <CAN=W9xfoMAUVw48_q=B155WhrFHwM2YzDSj9dQQ_GvDS5W117g@mail.gmail.com>
+References: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com> <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org> <CAN=W9xfvjAiZzUDQ4q1eLLxt=yoZ_8+h+5ZqPdYctJjpeqzxsg@mail.gmail.com> <7F0BA123-5216-485B-81AD-9B94A9AC2AAA@r-project.org> <CAN=W9xfoMAUVw48_q=B155WhrFHwM2YzDSj9dQQ_GvDS5W117g@mail.gmail.com>
+Message-ID: <484CBACE-C730-4157-BF19-7B806CE5F57F@r-project.org>
+
+On Dec 11, 2014, at 8:57 AM, Antje Janosch <antje.janosch at web.de> wrote:
+
+> One more question:
+> 
+> I'm not sure how I should proceed with the java-code. I thought, I could push chunks of columns as list to R, then combining these lists and then change the final list into a dataframe.
+> 
+> for each chunk, I wanted to do something like this:
+> 
+> // 1b) create empty list with given column number
+> RList rList = new RList(columnsToPass.size(), true);
+> 
+> //then iterate over the column-names I want to push and create an empty entry like this:
+> rList.put(column, new REXPDouble(nRows));
+> 
+> // and then I wanted to populate the vectors with data values by iterating row wise through the table
+> // then, I wanted to push this RList-object over the connection to R
+> 
+> But I don't know how to get the values into the list. I wanted to avoid to create and intermediate column vector for these values. Is it possible? Or do you suggest something complete different?
+> 
+
+Ah, if you have to assemble everything in memory in the Java side anyway then you may as well push the entire dataframe directly as you illustrate above. What I was talking about is the case where it makes sense to push the data one vector at a time. The only difference really is the memory usage on the transfer end - the result is the same in either case. With the entire dataframe you'll need 4 * n memory total (2n on each side - one for the data, one for the encoded message), by pushing them one at a time you need 2 * n + 4 * max. column.
+
+Cheers,
+Simon
+
+
+
+> Ciao,
+> Antje
+> 
+> 
+> 
+> On 10 December 2014 at 15:14, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> Antje,
+> 
+> On Dec 10, 2014, at 5:41 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> 
+> > Hi Simon,
+> >
+> > thanks for the hint to create the data frame by hand. I did not know that it's much faster this way.
+> 
+> ## let's say you have a list with the columns
+> df = list(a=.., b=...)
+> 
+> ## you turn it to a data frame without copying with
+> attr(df, "row.names") <- .set_row_names(length(df[[1]]))
+> class(df) <- "data.frame"
+> 
+> 
+> > Can you provide me a link concerning your comment on the 'shallow copy' thing? I was not aware that there were changes with newer R-versions and I don't know how these changes look like.
+> 
+> ---
+> NEWS R 3.1.0:
+> 
+> • Avoid duplicating the right hand side values in complex assignments when possible. This reduces copying of replacement values in expressions such as Z$a <- a0 and ans[[i]] <- tmp: some package code has relied on there being copies.
+> 
+> Also, a number of other changes to reduce copying of objects; all contributed by or based on suggestions by Michael Lawrence.
+> ---
+> 
+> What this means is that
+> 
+> l=list()
+> l[[1]]=...
+> l[[2]]=...
+> 
+> is efficient since it doesn't copy the previous columns on each assignment (which older R versions did).
+> 
+> If you want to avoid all copying, you'd use vector("list", n) to pre-allocate the columns, obviously.
+> 
+> 
+> > It's also a good comment to switch off the upload limit. I though it would use some default then.
+> >
+> 
+> The config setting is maxinbuf and you set it to kB of size, so let's say if you want to process at most 1Gb packets, you'd use
+> 
+> maxinbuf 1048576
+> 
+> The default is 256Mb. In most cases the limit should not exceed half of the available memory.
+> 
+> Cheers,
+> Simon
+> 
+> 
+> 
+> > Antje
+> >
+> > On 9 December 2014 at 15:39, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> >
+> > > On Dec 9, 2014, at 8:45 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> > >
+> > > Hi,
+> > >
+> > > I have a quite big table in Java (let's say 200 columns and 3.000.000 rows). I can access it rowwise in Java. Column types are different basic data types (integer, string, ...).
+> > > What would be the best/fastest way to transfer it to R via an RServe connection?
+> > > Currently, I am filling one array per column by reading the whole table and then use these arrays to create an RList. But I'm not sure whether this is very efficient (concerning memory and speed). And sometimes it even fails as the connection has a certain transfer limit (as far as I understood).
+> > > Any suggestions?
+> > >
+> >
+> > It is almost the most efficient way. Depending on your R version, the most memory-efficient way may be to push them one column at a time since that reduces the memory used for transfer at the cost of multiple roundtrips. The alternative for R versions that don't have shallow copy is to assign each column to a variable and then construct the data frame from them. You certainly want to remove the upload limit in the config file - it's a safety measure that you can disable if your machine has enough memory.
+> >
+> > Note that in either case you want to create the data.frame "by hand" (attach row.names and class attributes to a list) not by calling data.frame()/as.data.frame() since those are very slow for big data frames.
+> >
+> > Cheers,
+> > Simon
+> >
+> >
+> 
+>
+
+From Friedrich.Schuster at analytical-software.de  Fri Dec 12 09:05:47 2014
+From: Friedrich.Schuster at analytical-software.de (Friedrich Schuster)
+Date: Fri, 12 Dec 2014 09:05:47 +0000
+Subject: Change server mode, modify R objects in server memory?
+Message-ID: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD98702@hd1srvms0012.analytical-software.eu>
+
+
+
+Hello,
+
+It is possible to initialize the server instance via the "eval" or "source" directives in the config file.
+I can create or load R objects this way, e.g. a large data frame, and it is shared by all forked instances. That works great.
+
+Is it also possible to modify the objects in the R server environment while the Rserve server process is running? Or has it always to be restartet, when the data has to be updated? (The client sessions will have to be stopped, of course).
+
+Kind regards,
+
+Friedrich Schuster
+
+-------------- next part --------------
+
+
+From antje.janosch at web.de  Fri Dec 12 11:54:23 2014
+From: antje.janosch at web.de (Antje Janosch)
+Date: Fri, 12 Dec 2014 12:54:23 +0100
+Subject: Re: push big java table to R
+In-Reply-To: <484CBACE-C730-4157-BF19-7B806CE5F57F@r-project.org>
+References: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com> <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org> <CAN=W9xfvjAiZzUDQ4q1eLLxt=yoZ_8+h+5ZqPdYctJjpeqzxsg@mail.gmail.com> <7F0BA123-5216-485B-81AD-9B94A9AC2AAA@r-project.org> <CAN=W9xfoMAUVw48_q=B155WhrFHwM2YzDSj9dQQ_GvDS5W117g@mail.gmail.com> <484CBACE-C730-4157-BF19-7B806CE5F57F@r-project.org>
+Message-ID: <CAN=W9xcy0MkJAh_H5ov_G51kL8VbBrbre1bPrnEjcGtEyPeVXw@mail.gmail.com>
+
+Hi Simon,
+
+theoretically, it would make sense to push each vector at a time. But then
+it gets very very slow (as I have to iterate over the whole table for each
+vector).
+So, I decided to read in a certain number of vectors (let's say 10) and
+push this as list to R. Then, I would read in the next 10 vectors, push it
+as another list to R and combine them into a single list. With this method,
+I would save memory and I could speed up a bit.
+But it also means that for each table row iteration, I have to store its 10
+values in 10 different data vectors.
+I was wondering if there is a way to set these values as single entries
+directly to the initialized RList (rList.put(column, new REXPDouble(nRows))).
+But I cannot find a way to alter a single value then.
+Do I need to store my data within a temporary vector (let's say double[] )
+to then add it to the RList? Or is there any other way?
+
+Ciao,
+Antje
+
+
+On 11 December 2014 at 16:04, Simon Urbanek <simon.urbanek at r-project.org>
+wrote:
+
+> On Dec 11, 2014, at 8:57 AM, Antje Janosch <antje.janosch at web.de> wrote:
+>
+> > One more question:
+> >
+> > I'm not sure how I should proceed with the java-code. I thought, I could
+> push chunks of columns as list to R, then combining these lists and then
+> change the final list into a dataframe.
+> >
+> > for each chunk, I wanted to do something like this:
+> >
+> > // 1b) create empty list with given column number
+> > RList rList = new RList(columnsToPass.size(), true);
+> >
+> > //then iterate over the column-names I want to push and create an empty
+> entry like this:
+> > rList.put(column, new REXPDouble(nRows));
+> >
+> > // and then I wanted to populate the vectors with data values by
+> iterating row wise through the table
+> > // then, I wanted to push this RList-object over the connection to R
+> >
+> > But I don't know how to get the values into the list. I wanted to avoid
+> to create and intermediate column vector for these values. Is it possible?
+> Or do you suggest something complete different?
+> >
+>
+> Ah, if you have to assemble everything in memory in the Java side anyway
+> then you may as well push the entire dataframe directly as you illustrate
+> above. What I was talking about is the case where it makes sense to push
+> the data one vector at a time. The only difference really is the memory
+> usage on the transfer end - the result is the same in either case. With the
+> entire dataframe you'll need 4 * n memory total (2n on each side - one for
+> the data, one for the encoded message), by pushing them one at a time you
+> need 2 * n + 4 * max. column.
+>
+> Cheers,
+> Simon
+>
+>
+>
+> > Ciao,
+> > Antje
+> >
+> >
+> >
+> > On 10 December 2014 at 15:14, Simon Urbanek <simon.urbanek at r-project.org>
+> wrote:
+> > Antje,
+> >
+> > On Dec 10, 2014, at 5:41 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> >
+> > > Hi Simon,
+> > >
+> > > thanks for the hint to create the data frame by hand. I did not know
+> that it's much faster this way.
+> >
+> > ## let's say you have a list with the columns
+> > df = list(a=.., b=...)
+> >
+> > ## you turn it to a data frame without copying with
+> > attr(df, "row.names") <- .set_row_names(length(df[[1]]))
+> > class(df) <- "data.frame"
+> >
+> >
+> > > Can you provide me a link concerning your comment on the 'shallow
+> copy' thing? I was not aware that there were changes with newer R-versions
+> and I don't know how these changes look like.
+> >
+> > ---
+> > NEWS R 3.1.0:
+> >
+> > • Avoid duplicating the right hand side values in complex assignments
+> when possible. This reduces copying of replacement values in expressions
+> such as Z$a <- a0 and ans[[i]] <- tmp: some package code has relied on
+> there being copies.
+> >
+> > Also, a number of other changes to reduce copying of objects; all
+> contributed by or based on suggestions by Michael Lawrence.
+> > ---
+> >
+> > What this means is that
+> >
+> > l=list()
+> > l[[1]]=...
+> > l[[2]]=...
+> >
+> > is efficient since it doesn't copy the previous columns on each
+> assignment (which older R versions did).
+> >
+> > If you want to avoid all copying, you'd use vector("list", n) to
+> pre-allocate the columns, obviously.
+> >
+> >
+> > > It's also a good comment to switch off the upload limit. I though it
+> would use some default then.
+> > >
+> >
+> > The config setting is maxinbuf and you set it to kB of size, so let's
+> say if you want to process at most 1Gb packets, you'd use
+> >
+> > maxinbuf 1048576
+> >
+> > The default is 256Mb. In most cases the limit should not exceed half of
+> the available memory.
+> >
+> > Cheers,
+> > Simon
+> >
+> >
+> >
+> > > Antje
+> > >
+> > > On 9 December 2014 at 15:39, Simon Urbanek <
+> simon.urbanek at r-project.org> wrote:
+> > >
+> > > > On Dec 9, 2014, at 8:45 AM, Antje Janosch <antje.janosch at web.de>
+> wrote:
+> > > >
+> > > > Hi,
+> > > >
+> > > > I have a quite big table in Java (let's say 200 columns and
+> 3.000.000 rows). I can access it rowwise in Java. Column types are
+> different basic data types (integer, string, ...).
+> > > > What would be the best/fastest way to transfer it to R via an RServe
+> connection?
+> > > > Currently, I am filling one array per column by reading the whole
+> table and then use these arrays to create an RList. But I'm not sure
+> whether this is very efficient (concerning memory and speed). And sometimes
+> it even fails as the connection has a certain transfer limit (as far as I
+> understood).
+> > > > Any suggestions?
+> > > >
+> > >
+> > > It is almost the most efficient way. Depending on your R version, the
+> most memory-efficient way may be to push them one column at a time since
+> that reduces the memory used for transfer at the cost of multiple
+> roundtrips. The alternative for R versions that don't have shallow copy is
+> to assign each column to a variable and then construct the data frame from
+> them. You certainly want to remove the upload limit in the config file -
+> it's a safety measure that you can disable if your machine has enough
+> memory.
+> > >
+> > > Note that in either case you want to create the data.frame "by hand"
+> (attach row.names and class attributes to a list) not by calling
+> data.frame()/as.data.frame() since those are very slow for big data frames.
+> > >
+> > > Cheers,
+> > > Simon
+> > >
+> > >
+> >
+> >
+>
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Fri Dec 12 14:32:11 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 12 Dec 2014 09:32:11 -0500
+Subject: Re: Change server mode, modify R objects in server memory?
+In-Reply-To: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD98702@hd1srvms0012.analytical-software.eu>
+References: <709C127B0A89FE4D9E8EBCC3ABE7D00C8BD98702@hd1srvms0012.analytical-software.eu>
+Message-ID: <33E7ADF3-A120-4718-8F1A-7EAE707A5097@r-project.org>
+
+On Dec 12, 2014, at 4:05 AM, Friedrich Schuster <Friedrich.Schuster at analytical-software.de> wrote:
+> 
+> 
+> Hello, 
+>  
+> It is possible to initialize the server instance via the “eval” or “source” directives in the config file.
+> I can create or load R objects this way, e.g. a large data frame, and it is shared by all forked instances. That works great.
+>  
+> Is it also possible to modify the objects in the R server environment while the Rserve server process is running? Or has it always to be restartet, when the data has to be updated? (The client sessions will have to be stopped, of course). 
+
+Yes, using control commands (serverEval/serverSource). The existing client sessions don't need to be stopped since they are independent of the server. However, the server will queue up new connection requests until the evaluation finishes.
+
+Note that there is a known bug in the development version of Rserve (1.8) in control commands (since the connection implementation between the clients and the server has been completely rewritten) which can lead to a stalling server, so if you need control commands it's currently advisable to use the 1.7 series where the control commands are stable.
+
+Cheers,
+Simon
+
+
+
+>  
+> Kind regards,
+>  
+> Friedrich Schuster
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From simon.urbanek at r-project.org  Fri Dec 12 14:42:44 2014
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 12 Dec 2014 09:42:44 -0500
+Subject: Re: push big java table to R
+In-Reply-To: <CAN=W9xcy0MkJAh_H5ov_G51kL8VbBrbre1bPrnEjcGtEyPeVXw@mail.gmail.com>
+References: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com> <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org> <CAN=W9xfvjAiZzUDQ4q1eLLxt=yoZ_8+h+5ZqPdYctJjpeqzxsg@mail.gmail.com> <7F0BA123-5216-485B-81AD-9B94A9AC2AAA@r-project.org> <CAN=W9xfoMAUVw48_q=B155WhrFHwM2YzDSj9dQQ_GvDS5W117g@mail.gmail.com> <484CBACE-C730-4157-BF19-7B806CE5F57F@r-project.org> <CAN=W9xcy0MkJAh_H5ov_G51kL8VbBrbre1bPrnEjcGtEyPeVXw@mail.gmail.com>
+Message-ID: <8053B503-799B-4B03-895C-1D58717AF083@r-project.org>
+
+
+> On Dec 12, 2014, at 6:54 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> 
+> Hi Simon,
+> 
+> theoretically, it would make sense to push each vector at a time. But then it gets very very slow (as I have to iterate over the whole table for each vector). 
+> So, I decided to read in a certain number of vectors (let's say 10) and push this as list to R. Then, I would read in the next 10 vectors, push it as another list to R and combine them into a single list. With this method, I would save memory and I could speed up a bit.
+
+I'm not sure how this speeds up anything - since you have to go from row-oiriented access to columns, you have to alway fill all columns, otherwise you'd have to run multiple iterations through the dataset. The fastest is simply to build the entire DF and push it.
+
+
+> But it also means that for each table row iteration, I have to store its 10 values in 10 different data vectors.
+> I was wondering if there is a way to set these values as single entries directly to the initialized RList (rList.put(column, new REXPDouble(nRows))). But I cannot find a way to alter a single value then.
+> Do I need to store my data within a temporary vector (let's say double[] ) to then add it to the RList? Or is there any other way?
+> 
+
+Note that REXPDouble() is just a wrapper around double[] so there is no copying involved, you can modify any value of the vector. 
+
+double xd[] = new double[n];
+REXPDouble x = REXPDouble(xd);
+
+You can modify the vector directly with xd[i] = d;
+I was assuming that's what you do - allocate the data, convert in on the Java side from row to column format by filling the columns, then create RList from it and call createDataFrame()
+
+Cheers,
+Simon
+
+
+
+> Ciao,
+> Antje
+> 
+> 
+> On 11 December 2014 at 16:04, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> On Dec 11, 2014, at 8:57 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> 
+> > One more question:
+> >
+> > I'm not sure how I should proceed with the java-code. I thought, I could push chunks of columns as list to R, then combining these lists and then change the final list into a dataframe.
+> >
+> > for each chunk, I wanted to do something like this:
+> >
+> > // 1b) create empty list with given column number
+> > RList rList = new RList(columnsToPass.size(), true);
+> >
+> > //then iterate over the column-names I want to push and create an empty entry like this:
+> > rList.put(column, new REXPDouble(nRows));
+> >
+> > // and then I wanted to populate the vectors with data values by iterating row wise through the table
+> > // then, I wanted to push this RList-object over the connection to R
+> >
+> > But I don't know how to get the values into the list. I wanted to avoid to create and intermediate column vector for these values. Is it possible? Or do you suggest something complete different?
+> >
+> 
+> Ah, if you have to assemble everything in memory in the Java side anyway then you may as well push the entire dataframe directly as you illustrate above. What I was talking about is the case where it makes sense to push the data one vector at a time. The only difference really is the memory usage on the transfer end - the result is the same in either case. With the entire dataframe you'll need 4 * n memory total (2n on each side - one for the data, one for the encoded message), by pushing them one at a time you need 2 * n + 4 * max. column.
+> 
+> Cheers,
+> Simon
+> 
+> 
+> 
+> > Ciao,
+> > Antje
+> >
+> >
+> >
+> > On 10 December 2014 at 15:14, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> > Antje,
+> >
+> > On Dec 10, 2014, at 5:41 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> >
+> > > Hi Simon,
+> > >
+> > > thanks for the hint to create the data frame by hand. I did not know that it's much faster this way.
+> >
+> > ## let's say you have a list with the columns
+> > df = list(a=.., b=...)
+> >
+> > ## you turn it to a data frame without copying with
+> > attr(df, "row.names") <- .set_row_names(length(df[[1]]))
+> > class(df) <- "data.frame"
+> >
+> >
+> > > Can you provide me a link concerning your comment on the 'shallow copy' thing? I was not aware that there were changes with newer R-versions and I don't know how these changes look like.
+> >
+> > ---
+> > NEWS R 3.1.0:
+> >
+> > • Avoid duplicating the right hand side values in complex assignments when possible. This reduces copying of replacement values in expressions such as Z$a <- a0 and ans[[i]] <- tmp: some package code has relied on there being copies.
+> >
+> > Also, a number of other changes to reduce copying of objects; all contributed by or based on suggestions by Michael Lawrence.
+> > ---
+> >
+> > What this means is that
+> >
+> > l=list()
+> > l[[1]]=...
+> > l[[2]]=...
+> >
+> > is efficient since it doesn't copy the previous columns on each assignment (which older R versions did).
+> >
+> > If you want to avoid all copying, you'd use vector("list", n) to pre-allocate the columns, obviously.
+> >
+> >
+> > > It's also a good comment to switch off the upload limit. I though it would use some default then.
+> > >
+> >
+> > The config setting is maxinbuf and you set it to kB of size, so let's say if you want to process at most 1Gb packets, you'd use
+> >
+> > maxinbuf 1048576
+> >
+> > The default is 256Mb. In most cases the limit should not exceed half of the available memory.
+> >
+> > Cheers,
+> > Simon
+> >
+> >
+> >
+> > > Antje
+> > >
+> > > On 9 December 2014 at 15:39, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> > >
+> > > > On Dec 9, 2014, at 8:45 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> > > >
+> > > > Hi,
+> > > >
+> > > > I have a quite big table in Java (let's say 200 columns and 3.000.000 rows). I can access it rowwise in Java. Column types are different basic data types (integer, string, ...).
+> > > > What would be the best/fastest way to transfer it to R via an RServe connection?
+> > > > Currently, I am filling one array per column by reading the whole table and then use these arrays to create an RList. But I'm not sure whether this is very efficient (concerning memory and speed). And sometimes it even fails as the connection has a certain transfer limit (as far as I understood).
+> > > > Any suggestions?
+> > > >
+> > >
+> > > It is almost the most efficient way. Depending on your R version, the most memory-efficient way may be to push them one column at a time since that reduces the memory used for transfer at the cost of multiple roundtrips. The alternative for R versions that don't have shallow copy is to assign each column to a variable and then construct the data frame from them. You certainly want to remove the upload limit in the config file - it's a safety measure that you can disable if your machine has enough memory.
+> > >
+> > > Note that in either case you want to create the data.frame "by hand" (attach row.names and class attributes to a list) not by calling data.frame()/as.data.frame() since those are very slow for big data frames.
+> > >
+> > > Cheers,
+> > > Simon
+> > >
+> > >
+> >
+> >
+> 
+> 
+
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From antje.janosch at web.de  Fri Dec 12 16:12:53 2014
+From: antje.janosch at web.de (Antje Janosch)
+Date: Fri, 12 Dec 2014 17:12:53 +0100
+Subject: Re: push big java table to R
+In-Reply-To: <8053B503-799B-4B03-895C-1D58717AF083@r-project.org>
+References: <CAN=W9xc8dPdm0Eu_8CkDkUu1_NCqSTE9NKPBVjEf5KrOsE_eWw@mail.gmail.com> <0A9A070A-B64D-4CA3-9026-CF5E49C922AC@r-project.org> <CAN=W9xfvjAiZzUDQ4q1eLLxt=yoZ_8+h+5ZqPdYctJjpeqzxsg@mail.gmail.com> <7F0BA123-5216-485B-81AD-9B94A9AC2AAA@r-project.org> <CAN=W9xfoMAUVw48_q=B155WhrFHwM2YzDSj9dQQ_GvDS5W117g@mail.gmail.com> <484CBACE-C730-4157-BF19-7B806CE5F57F@r-project.org> <CAN=W9xcy0MkJAh_H5ov_G51kL8VbBrbre1bPrnEjcGtEyPeVXw@mail.gmail.com> <8053B503-799B-4B03-895C-1D58717AF083@r-project.org>
+Message-ID: <CAN=W9xeocHbqmrYq=Y_fm8D8nrFTFqovFW+mTr1E3_B_JXWfXw@mail.gmail.com>
+
+okay - I missed that fact, that the array is not copied. Indeed good news
+:-)
+
+Antje
+
+On 12 December 2014 at 15:42, Simon Urbanek <simon.urbanek at r-project.org>
+wrote:
+
+>
+> > On Dec 12, 2014, at 6:54 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> >
+> > Hi Simon,
+> >
+> > theoretically, it would make sense to push each vector at a time. But
+> then it gets very very slow (as I have to iterate over the whole table for
+> each vector).
+> > So, I decided to read in a certain number of vectors (let's say 10) and
+> push this as list to R. Then, I would read in the next 10 vectors, push it
+> as another list to R and combine them into a single list. With this method,
+> I would save memory and I could speed up a bit.
+>
+> I'm not sure how this speeds up anything - since you have to go from
+> row-oiriented access to columns, you have to alway fill all columns,
+> otherwise you'd have to run multiple iterations through the dataset. The
+> fastest is simply to build the entire DF and push it.
+>
+>
+> > But it also means that for each table row iteration, I have to store its
+> 10 values in 10 different data vectors.
+> > I was wondering if there is a way to set these values as single entries
+> directly to the initialized RList (rList.put(column, new
+> REXPDouble(nRows))). But I cannot find a way to alter a single value then.
+> > Do I need to store my data within a temporary vector (let's say double[]
+> ) to then add it to the RList? Or is there any other way?
+> >
+>
+> Note that REXPDouble() is just a wrapper around double[] so there is no
+> copying involved, you can modify any value of the vector.
+>
+> double xd[] = new double[n];
+> REXPDouble x = REXPDouble(xd);
+>
+> You can modify the vector directly with xd[i] = d;
+> I was assuming that's what you do - allocate the data, convert in on the
+> Java side from row to column format by filling the columns, then create
+> RList from it and call createDataFrame()
+>
+> Cheers,
+> Simon
+>
+>
+>
+> > Ciao,
+> > Antje
+> >
+> >
+> > On 11 December 2014 at 16:04, Simon Urbanek <simon.urbanek at r-project.org>
+> wrote:
+> > On Dec 11, 2014, at 8:57 AM, Antje Janosch <antje.janosch at web.de> wrote:
+> >
+> > > One more question:
+> > >
+> > > I'm not sure how I should proceed with the java-code. I thought, I
+> could push chunks of columns as list to R, then combining these lists and
+> then change the final list into a dataframe.
+> > >
+> > > for each chunk, I wanted to do something like this:
+> > >
+> > > // 1b) create empty list with given column number
+> > > RList rList = new RList(columnsToPass.size(), true);
+> > >
+> > > //then iterate over the column-names I want to push and create an
+> empty entry like this:
+> > > rList.put(column, new REXPDouble(nRows));
+> > >
+> > > // and then I wanted to populate the vectors with data values by
+> iterating row wise through the table
+> > > // then, I wanted to push this RList-object over the connection to R
+> > >
+> > > But I don't know how to get the values into the list. I wanted to
+> avoid to create and intermediate column vector for these values. Is it
+> possible? Or do you suggest something complete different?
+> > >
+> >
+> > Ah, if you have to assemble everything in memory in the Java side anyway
+> then you may as well push the entire dataframe directly as you illustrate
+> above. What I was talking about is the case where it makes sense to push
+> the data one vector at a time. The only difference really is the memory
+> usage on the transfer end - the result is the same in either case. With the
+> entire dataframe you'll need 4 * n memory total (2n on each side - one for
+> the data, one for the encoded message), by pushing them one at a time you
+> need 2 * n + 4 * max. column.
+> >
+> > Cheers,
+> > Simon
+> >
+> >
+> >
+> > > Ciao,
+> > > Antje
+> > >
+> > >
+> > >
+> > > On 10 December 2014 at 15:14, Simon Urbanek <
+> simon.urbanek at r-project.org> wrote:
+> > > Antje,
+> > >
+> > > On Dec 10, 2014, at 5:41 AM, Antje Janosch <antje.janosch at web.de>
+> wrote:
+> > >
+> > > > Hi Simon,
+> > > >
+> > > > thanks for the hint to create the data frame by hand. I did not know
+> that it's much faster this way.
+> > >
+> > > ## let's say you have a list with the columns
+> > > df = list(a=.., b=...)
+> > >
+> > > ## you turn it to a data frame without copying with
+> > > attr(df, "row.names") <- .set_row_names(length(df[[1]]))
+> > > class(df) <- "data.frame"
+> > >
+> > >
+> > > > Can you provide me a link concerning your comment on the 'shallow
+> copy' thing? I was not aware that there were changes with newer R-versions
+> and I don't know how these changes look like.
+> > >
+> > > ---
+> > > NEWS R 3.1.0:
+> > >
+> > > • Avoid duplicating the right hand side values in complex assignments
+> when possible. This reduces copying of replacement values in expressions
+> such as Z$a <- a0 and ans[[i]] <- tmp: some package code has relied on
+> there being copies.
+> > >
+> > > Also, a number of other changes to reduce copying of objects; all
+> contributed by or based on suggestions by Michael Lawrence.
+> > > ---
+> > >
+> > > What this means is that
+> > >
+> > > l=list()
+> > > l[[1]]=...
+> > > l[[2]]=...
+> > >
+> > > is efficient since it doesn't copy the previous columns on each
+> assignment (which older R versions did).
+> > >
+> > > If you want to avoid all copying, you'd use vector("list", n) to
+> pre-allocate the columns, obviously.
+> > >
+> > >
+> > > > It's also a good comment to switch off the upload limit. I though it
+> would use some default then.
+> > > >
+> > >
+> > > The config setting is maxinbuf and you set it to kB of size, so let's
+> say if you want to process at most 1Gb packets, you'd use
+> > >
+> > > maxinbuf 1048576
+> > >
+> > > The default is 256Mb. In most cases the limit should not exceed half
+> of the available memory.
+> > >
+> > > Cheers,
+> > > Simon
+> > >
+> > >
+> > >
+> > > > Antje
+> > > >
+> > > > On 9 December 2014 at 15:39, Simon Urbanek <
+> simon.urbanek at r-project.org> wrote:
+> > > >
+> > > > > On Dec 9, 2014, at 8:45 AM, Antje Janosch <antje.janosch at web.de>
+> wrote:
+> > > > >
+> > > > > Hi,
+> > > > >
+> > > > > I have a quite big table in Java (let's say 200 columns and
+> 3.000.000 rows). I can access it rowwise in Java. Column types are
+> different basic data types (integer, string, ...).
+> > > > > What would be the best/fastest way to transfer it to R via an
+> RServe connection?
+> > > > > Currently, I am filling one array per column by reading the whole
+> table and then use these arrays to create an RList. But I'm not sure
+> whether this is very efficient (concerning memory and speed). And sometimes
+> it even fails as the connection has a certain transfer limit (as far as I
+> understood).
+> > > > > Any suggestions?
+> > > > >
+> > > >
+> > > > It is almost the most efficient way. Depending on your R version,
+> the most memory-efficient way may be to push them one column at a time
+> since that reduces the memory used for transfer at the cost of multiple
+> roundtrips. The alternative for R versions that don't have shallow copy is
+> to assign each column to a variable and then construct the data frame from
+> them. You certainly want to remove the upload limit in the config file -
+> it's a safety measure that you can disable if your machine has enough
+> memory.
+> > > >
+> > > > Note that in either case you want to create the data.frame "by hand"
+> (attach row.names and class attributes to a list) not by calling
+> data.frame()/as.data.frame() since those are very slow for big data frames.
+> > > >
+> > > > Cheers,
+> > > > Simon
+> > > >
+> > > >
+> > >
+> > >
+> >
+> >
+>
+>
+
+-------------- next part --------------
+
+
+From dscheffy at gmail.com  Mon Dec 15 20:20:46 2014
+From: dscheffy at gmail.com (Jeff Hansen)
+Date: Mon, 15 Dec 2014 14:20:46 -0600
+Subject: rJava issues with deserializing objects
+Message-ID: <CAA77SLvrQ9VNhsS-qg2z5LRwwcZ8SysHngnu5m_XnQPZ_-1FsQ@mail.gmail.com>
+
+I've run into some problems trying to deserialize model objects created by
+RWeka. I have no problem serializing the objects with an ObjectOutputStream
+and the writeObject() method, however when I try to deserialize the file I
+previously created I get a ClassNotFoundException.
+
+I've traced it back to a relatively long standing issue with the underlying
+implementation of ObjectInputStream.resolveClass(). It calls a private
+method latestUserDefinedLoader() which in turn calls a native method
+sun.misc.VM.latestUserDefinedLoader().
+
+It's not clear to me how this method determines what classloader to use,
+but I'm finding in practice that it's never the RJavaClassLoader. So far
+the only way I've found to work around the issue is to create my own custom
+subclass of ObjectInputStream and override the resolveObject() method to
+use a custom specified class loader.
+
+I've pasted sample R and Java code used to illustrate the issue below.
+
+Please let me know if there's a better way to implement this, or if you
+have any thoughts on how to make this work more automatically from the
+rJava code.
+
+Thanks!
+Jeff
+
+debug.R:
+
+
+library("RWeka")
+library("rJava")
+.jclassPath()
+#.jaddClassPath("path to my custom jar file with class
+CustomObjectInputStream")
+
+
+serializeObject <- function(object,filename) {
+  fileOutputStream = .jnew("java/io/FileOutputStream", filename)
+  objectOutputStream = .jnew("java/io/ObjectOutputStream",
+.jcast(fileOutputStream, new.class="java/io/OutputStream"))
+  .jcall(objectOutputStream, "V", "writeObject", .jcast(object,
+new.class="java/lang/Object"))
+}
+
+deserializeObject <- function(filename) {
+  fileInputStream = .jnew("java/io/FileInputStream", filename)
+  objectInputStream = .jnew("java/io/ObjectInputStream",
+.jcast(fileInputStream, new.class="java/io/InputStream"))
+  .jcall(objectInputStream, "Ljava/lang/Object;", "readObject", check=TRUE)
+}
+
+customDeserializeObject <- function(filename) {
+  fileInputStream = .jnew("java/io/FileInputStream", filename)
+  objectInputStream = .jnew("CustomObjectInputStream",
+.jcast(fileInputStream, new.class="java/io/InputStream"),
+.jcast(.jclassLoader(), new.class="java.lang.ClassLoader"))
+  .jcall(objectInputStream, "Ljava/lang/Object;", "readObject", check=TRUE)
+}
+
+
+#This works no problem
+cat("Create a file object, serialize it and deserialize it")
+cat("\n")
+
+file1 <- .jnew("java/io/File", "file.name")
+serializeObject(file1, "testobject1.out")
+file2 <- deserializeObject("testobject1.out")
+cat("Created file object, serialized it and deserialized it with no
+problem")
+cat("\n")
+
+
+
+#This works up until we try to deserialize the object
+cat("Create a weka object")
+cat("\n")
+
+j48.1 = .jnew("weka/classifiers/trees/J48")
+cat("We've successfully created it, so it must be on the classpath")
+cat("\n")
+
+serializeObject(j48.1, "testobject2.out")
+cat("We've also serialized it with no problem")
+cat("\n")
+cat("However, when we try to deserialize it...")
+cat("\n")
+
+
+j48.2 <- deserializeObject("testobject2.out")
+
+cat("Let's try again and print the exception stack trace")
+cat("\n")
+
+tryCatch(deserializeObject("testobject2.out"), Exception = function(e){
+e$jobj$printStackTrace()
+} )
+
+#Finally, this does work
+j48.2 <- customDeserializeObject("testobject2.out")
+
+
+
+
+
+CustomObjectInputStream.java:
+
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamClass;
+import java.util.HashMap;
+
+public class CustomObjectInputStream extends ObjectInputStream {
+
+    ClassLoader classloader;
+    private static final HashMap<String, Class<?>> primClasses = new
+HashMap(8,
+            1.0F);
+    static {
+        primClasses.put("boolean", boolean.class);
+        primClasses.put("byte", byte.class);
+        primClasses.put("char", char.class);
+        primClasses.put("short", short.class);
+        primClasses.put("int", int.class);
+        primClasses.put("long", long.class);
+        primClasses.put("float", float.class);
+        primClasses.put("double", double.class);
+        primClasses.put("void", void.class);
+    }
+
+    public CustomObjectInputStream(InputStream in, ClassLoader cl)
+            throws IOException {
+        super(in);
+        classloader = cl;
+    }
+
+    protected Class<?> resolveClass(ObjectStreamClass desc) throws
+IOException,
+            ClassNotFoundException {
+        String name = desc.getName();
+        try {
+            return Class.forName(name, false, classloader);
+        } catch (ClassNotFoundException ex) {
+            Class<?> cl = primClasses.get(name);
+            if (cl != null) {
+                return cl;
+            } else {
+                throw ex;
+            }
+        }
+    }
+
+}
+
+-------------- next part --------------
+
+
+From dscheffy at gmail.com  Wed Dec 17 19:55:33 2014
+From: dscheffy at gmail.com (Jeff Hansen)
+Date: Wed, 17 Dec 2014 13:55:33 -0600
+Subject: Re: rJava issues with deserializing objects
+In-Reply-To: <CAA77SLvrQ9VNhsS-qg2z5LRwwcZ8SysHngnu5m_XnQPZ_-1FsQ@mail.gmail.com>
+References: <CAA77SLvrQ9VNhsS-qg2z5LRwwcZ8SysHngnu5m_XnQPZ_-1FsQ@mail.gmail.com>
+Message-ID: <CAA77SLu0ZYGa+KJ2QLGsJCYrANsbD7McBGgTApssyPAXUbteUA@mail.gmail.com>
+
+I believe I've found the answer to my question. I now see that their are
+two methods:
+
+.jserialize
+.junserialize
+
+That call custom methods implemented on the RJavaClassLoader. These methods
+offer the same functionality as writing to and reading from
+Object[Output|Input]Stream objects and work with classes available on the
+RJavaClassLoader. In my code above, serializeObject(object, filename) can
+be replace with
+
+serializeObject <- function(object, filename) {
+  file.con <- file(filename, "wb")
+  writeBin(.jserialize(object), file.con)
+  flush(file.con)
+  close(file.con)
+}
+
+and deserializeObject(filename) can be replace with:
+
+deserializeObject <- function(filename) {
+  file.con <- file(filename, "rb")
+  file.size <- file.info(filename)$size
+  data <- readBin(file.con, raw(), file.size)
+  close(file.con)
+  object <- .junserialize(file.con)
+}
+
+I've verified that the files created are identical to the ones that would
+be created with ObjectOutputStream, so they can be used to reconstruct any
+saved objects outside of R (i.e. if using Weka or some other library
+directly from java).
+
+Thanks!
+
+
+On Mon, Dec 15, 2014 at 2:20 PM, Jeff Hansen <dscheffy at gmail.com> wrote:
+>
+> I've run into some problems trying to deserialize model objects created by
+> RWeka. I have no problem serializing the objects with an ObjectOutputStream
+> and the writeObject() method, however when I try to deserialize the file I
+> previously created I get a ClassNotFoundException.
+>
+> I've traced it back to a relatively long standing issue with the
+> underlying implementation of ObjectInputStream.resolveClass(). It calls a
+> private method latestUserDefinedLoader() which in turn calls a native
+> method sun.misc.VM.latestUserDefinedLoader().
+>
+> It's not clear to me how this method determines what classloader to use,
+> but I'm finding in practice that it's never the RJavaClassLoader. So far
+> the only way I've found to work around the issue is to create my own custom
+> subclass of ObjectInputStream and override the resolveObject() method to
+> use a custom specified class loader.
+>
+> I've pasted sample R and Java code used to illustrate the issue below.
+>
+> Please let me know if there's a better way to implement this, or if you
+> have any thoughts on how to make this work more automatically from the
+> rJava code.
+>
+> Thanks!
+> Jeff
+>
+> debug.R:
+>
+>
+> library("RWeka")
+> library("rJava")
+> .jclassPath()
+> #.jaddClassPath("path to my custom jar file with class
+> CustomObjectInputStream")
+>
+>
+> serializeObject <- function(object,filename) {
+>   fileOutputStream = .jnew("java/io/FileOutputStream", filename)
+>   objectOutputStream = .jnew("java/io/ObjectOutputStream",
+> .jcast(fileOutputStream, new.class="java/io/OutputStream"))
+>   .jcall(objectOutputStream, "V", "writeObject", .jcast(object,
+> new.class="java/lang/Object"))
+> }
+>
+> deserializeObject <- function(filename) {
+>   fileInputStream = .jnew("java/io/FileInputStream", filename)
+>   objectInputStream = .jnew("java/io/ObjectInputStream",
+> .jcast(fileInputStream, new.class="java/io/InputStream"))
+>   .jcall(objectInputStream, "Ljava/lang/Object;", "readObject", check=TRUE)
+> }
+>
+> customDeserializeObject <- function(filename) {
+>   fileInputStream = .jnew("java/io/FileInputStream", filename)
+>   objectInputStream = .jnew("CustomObjectInputStream",
+> .jcast(fileInputStream, new.class="java/io/InputStream"),
+> .jcast(.jclassLoader(), new.class="java.lang.ClassLoader"))
+>   .jcall(objectInputStream, "Ljava/lang/Object;", "readObject", check=TRUE)
+> }
+>
+>
+> #This works no problem
+> cat("Create a file object, serialize it and deserialize it")
+> cat("\n")
+>
+> file1 <- .jnew("java/io/File", "file.name")
+> serializeObject(file1, "testobject1.out")
+> file2 <- deserializeObject("testobject1.out")
+> cat("Created file object, serialized it and deserialized it with no
+> problem")
+> cat("\n")
+>
+>
+>
+> #This works up until we try to deserialize the object
+> cat("Create a weka object")
+> cat("\n")
+>
+> j48.1 = .jnew("weka/classifiers/trees/J48")
+> cat("We've successfully created it, so it must be on the classpath")
+> cat("\n")
+>
+> serializeObject(j48.1, "testobject2.out")
+> cat("We've also serialized it with no problem")
+> cat("\n")
+> cat("However, when we try to deserialize it...")
+> cat("\n")
+>
+>
+> j48.2 <- deserializeObject("testobject2.out")
+>
+> cat("Let's try again and print the exception stack trace")
+> cat("\n")
+>
+> tryCatch(deserializeObject("testobject2.out"), Exception = function(e){
+> e$jobj$printStackTrace()
+> } )
+>
+> #Finally, this does work
+> j48.2 <- customDeserializeObject("testobject2.out")
+>
+>
+>
+>
+>
+> CustomObjectInputStream.java:
+>
+>
+> import java.io.IOException;
+> import java.io.InputStream;
+> import java.io.ObjectInputStream;
+> import java.io.ObjectStreamClass;
+> import java.util.HashMap;
+>
+> public class CustomObjectInputStream extends ObjectInputStream {
+>
+>     ClassLoader classloader;
+>     private static final HashMap<String, Class<?>> primClasses = new
+> HashMap(8,
+>             1.0F);
+>     static {
+>         primClasses.put("boolean", boolean.class);
+>         primClasses.put("byte", byte.class);
+>         primClasses.put("char", char.class);
+>         primClasses.put("short", short.class);
+>         primClasses.put("int", int.class);
+>         primClasses.put("long", long.class);
+>         primClasses.put("float", float.class);
+>         primClasses.put("double", double.class);
+>         primClasses.put("void", void.class);
+>     }
+>
+>     public CustomObjectInputStream(InputStream in, ClassLoader cl)
+>             throws IOException {
+>         super(in);
+>         classloader = cl;
+>     }
+>
+>     protected Class<?> resolveClass(ObjectStreamClass desc) throws
+> IOException,
+>             ClassNotFoundException {
+>         String name = desc.getName();
+>         try {
+>             return Class.forName(name, false, classloader);
+>         } catch (ClassNotFoundException ex) {
+>             Class<?> cl = primClasses.get(name);
+>             if (cl != null) {
+>                 return cl;
+>             } else {
+>                 throw ex;
+>             }
+>         }
+>     }
+>
+> }
+>
+>
+>
+
+-------------- next part --------------
+
+

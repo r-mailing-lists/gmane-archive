@@ -1,0 +1,4616 @@
+From lgautier at users.sourceforge.net  Mon Sep  1 15:34:10 2008
+From: lgautier at users.sourceforge.net
+Date: Mon, 01 Sep 2008 15:34:10 +0000
+Subject: [Rpy] SF.net SVN: rpy:[647] branches/rpy_nextgen
+Message-ID: <E1KaBPu-0004k0-Mq@dn4whf1.ch3.sourceforge.com>
+
+Revision: 647
+          http://rpy.svn.sourceforge.net/rpy/?rev=647&view=rev
+Author:   lgautier
+Date:     2008-09-01 15:34:09 +0000 (Mon, 01 Sep 2008)
+
+Log Message:
+-----------
+rinterface:
+
+  - sexpTypeEmbeddedR() is now called str_typeint()
+
+robjects:
+
+  - fix in the string representation of R
+  - getenvironment() for RFormula, 'environment' defined as a property
+  - constructor for RDataFrame cleaned up and modified
+  - getdim() for RArray, and dim now a property (no longer a test in 
+__getattr__)
+
+doc:
+
+  still some editing
+
+Modified Paths:
+--------------
+    branches/rpy_nextgen/NEWS
+    branches/rpy_nextgen/README
+    branches/rpy_nextgen/doc/source/rinterface.rst
+    branches/rpy_nextgen/doc/source/robjects.rst
+    branches/rpy_nextgen/rpy/rinterface/rinterface.c
+    branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py
+    branches/rpy_nextgen/rpy/rinterface/tests/test_Sexp.py
+    branches/rpy_nextgen/rpy/robjects/__init__.py
+    branches/rpy_nextgen/rpy/robjects/tests/testRDataFrame.py
+    branches/rpy_nextgen/rpy/robjects/tests/testRFormula.py
+
+Modified: branches/rpy_nextgen/NEWS
+===================================================================
+--- branches/rpy_nextgen/NEWS	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/NEWS	2008-09-01 15:34:09 UTC (rev 647)
+@@ -1,16 +1,38 @@
+ SVN
+ ===
+ 
++New features
++------------
++
++:mod:`rpy2.robjects`:
++
++- added :meth:`setenvironment` for :class:`RFormula`, and defined `environment` as a property
++
++- defined `names` as a property for :class:`RVector`
++
++
++Changes
++-------
++
++:mod:`rpy2.robjects`:
++
++- constructor for RDataFrame now now accepts either :class:`rlike.container.TaggedList` or :class:`rinterface.SexpEnvironment`
++
++:mod:`rpy2.rinterface`:
++
++- :func:`sexpTypeEmbeddedR` is now called :func:`str_typeint`.
++
+ Bugs fixed
+----------
++----------
+ 
+-- Crash of :meth:`Sexp.enclos` when R not yet initialized (bug report #2078176)
++- crash of :meth:`Sexp.enclos` when R not yet initialized (bug report #2078176)
+ 
+-- Potential crash of :meth:`Sexp.frame` when R not yet initialized
++- potential crash of :meth:`Sexp.frame` when R not yet initialized
+ 
+-- Proper reference counting when handling, and deleting, :attr:`Sexp.__sexp__` instances
++- proper reference counting when handling, and deleting, :attr:`Sexp.__sexp__` generated CObjects
+ 
+ 
++
+ Release 2.0.0a3
+ ===============
+ 
+
+Modified: branches/rpy_nextgen/README
+===================================================================
+--- branches/rpy_nextgen/README	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/README	2008-09-01 15:34:09 UTC (rev 647)
+@@ -1,7 +1,16 @@
++This is the source tree or distribution for the rpy2 package.
+ 
+-All this is under development, getting quickly to an alpha stage.
++Installation
++============
+ 
+-The development is currently done with Python 2.5.2 and R-2.7.0-devel
++The disutils mechanism can be used:
+ 
+-Compatibility with Python 2.4.x should be ok, now or later (might already be ok).
++python setup.py install
+ 
++Documentation
++=============
++
++Documentation is available either in the source tree (to be built),
++or as built HTML online (see the rpy home page on sourceforge).
++
++
+
+Modified: branches/rpy_nextgen/doc/source/rinterface.rst
+===================================================================
+--- branches/rpy_nextgen/doc/source/rinterface.rst	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/doc/source/rinterface.rst	2008-09-01 15:34:09 UTC (rev 647)
+@@ -286,6 +286,21 @@
+ >>> LETTERS = rinterface.globalEnv.get("LETTERS") 
+ 
+ 
++R types
++^^^^^^^
++
++R vectors all have a `type`, sometimes referred to in R as a `mode`.
++This information is encoded as an integer by R, but it can sometimes be
++better for human reader to be able to provide a string.
++
++.. function:: str_typeint(typeint)
++
++   Return a string corresponding to a integer-encoded R type.
++
++   :param typeint: integer (as returned by :attr:`Sexp.typeof`)
++   :rtype: string
++
++
+ .. index::
+    pair: rinterface;indexing
+ 
+
+Modified: branches/rpy_nextgen/doc/source/robjects.rst
+===================================================================
+--- branches/rpy_nextgen/doc/source/robjects.rst	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/doc/source/robjects.rst	2008-09-01 15:34:09 UTC (rev 647)
+@@ -250,8 +250,10 @@
+ 
+ A :class:`RDataFrame` represents the `R` class `data.frame`.
+ 
+-Currently, the constructor is flagged as experimental. It accepts either a :class:`rinterface.SexpVector`
+-or a dictonnary which elements will be the columns of the `data.frame`.
++Currently, the constructor is flagged as experimental.
++It accepts either a :class:`rinterface.SexpVector` 
++(with :attr:`typeof` equal to *VECSXP*)
++or an instance of class :class:`rpy2.rlike.container.TaggedList`.
+ 
+ .. autoclass:: rpy2.robjects.RDataFrame
+    :show-inheritance:
+
+Modified: branches/rpy_nextgen/rpy/rinterface/rinterface.c
+===================================================================
+--- branches/rpy_nextgen/rpy/rinterface/rinterface.c	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/rpy/rinterface/rinterface.c	2008-09-01 15:34:09 UTC (rev 647)
+@@ -2376,8 +2376,8 @@
+    EmbeddedR_setReadConsole_doc},
+   {"findVarEmbeddedR",	(PyCFunction)EmbeddedR_findVar,	 METH_VARARGS,
+    EmbeddedR_findVar_doc},
+-  {"sexpTypeEmbeddedR",	(PyCFunction)EmbeddedR_sexpType, METH_VARARGS,
+-   "Return the SEXP name tag corresponding to an integer."},
++  {"str_typeint",	(PyCFunction)EmbeddedR_sexpType, METH_VARARGS,
++   "Return the SEXP name tag (string) corresponding to an integer."},
+   {NULL,		NULL}		/* sentinel */
+ };
+ 
+@@ -2545,7 +2545,6 @@
+ 			       PyString_FromString("--no-save"))
+ 		);
+   PyModule_AddObject(m, "initOptions", initOptions);
+-			       //			       PyString_FromString("--quiet"))
+ 
+ 
+   PyModule_AddObject(m, "Sexp", (PyObject *)&Sexp_Type);
+
+Modified: branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py
+===================================================================
+--- branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py	2008-09-01 15:34:09 UTC (rev 647)
+@@ -32,7 +32,13 @@
+         self.assertRaises(RuntimeError, t)
+         rinterface.initr()
+ 
++    def testStr_typeint(self):
++        t = rinterface.baseNameSpaceEnv['letters']
++        self.assertEquals('STRSXP', rinterface.str_typeint(t.typeof))
++        t = rinterface.baseNameSpaceEnv['pi']
++        self.assertEquals('REALSXP', rinterface.str_typeint(t.typeof))
+ 
++
+ class ObjectDispatchTestCase(unittest.TestCase):
+     def testObjectDispatchLang(self):
+         formula = rinterface.globalEnv.get('formula')
+
+Modified: branches/rpy_nextgen/rpy/rinterface/tests/test_Sexp.py
+===================================================================
+--- branches/rpy_nextgen/rpy/rinterface/tests/test_Sexp.py	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/rpy/rinterface/tests/test_Sexp.py	2008-09-01 15:34:09 UTC (rev 647)
+@@ -70,7 +70,14 @@
+         sexp_a = rinterface.globalEnv.get("letters")
+         self.assertRaises(ValueError, sexp_a.rsame, 'foo')
+         
++    def testSexp_sexp_destroyCobj(self):
++        sexp = rinterface.IntSexpVector([1,2,3])
++        cobj = sexp.__sexp__
++        del(cobj)
++        # no real test, just make sure that it does
++        # not create a segfault
+ 
++
+ def suite():
+     suite = unittest.TestLoader().loadTestsFromTestCase(SexpTestCase)
+     return suite
+
+Modified: branches/rpy_nextgen/rpy/robjects/__init__.py
+===================================================================
+--- branches/rpy_nextgen/rpy/robjects/__init__.py	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/rpy/robjects/__init__.py	2008-09-01 15:34:09 UTC (rev 647)
+@@ -8,6 +8,7 @@
+ 
+ import os, sys
+ import array
++import itertools
+ import rpy2.rinterface as rinterface
+ import rpy2.rlike.container as rlc
+ 
+@@ -281,19 +282,20 @@
+         if not r["is.array"](self)[0]:
+             raise(TypeError("The object must be representing an R array"))
+ 
+-    def __getattr__(self, name):
+-        if name == 'dim':
+-            res = r.dim(self)
+-            res = ri2py(res)
+-            return res
++    def getdim(self):
++        res = r.dim(self)
++        res = ri2py(res)
++        return res
+ 
+-    def __setattr__(self, name, value):
+-        if name == 'dim':
+-            value = py2ro(value)
+-            res = r["dim<-"](self, value)
++    def setdim(self, value):
++        value = py2ro(value)
++        res = r["dim<-"](self, value)
+             #FIXME: not properly done
+-            raise(Exception("Not yet implemented"))
++        raise(Exception("Not yet implemented"))
+ 
++    dim = property(getdim, setdim, 
++                   "Dimension of the array.")
++
+     def getnames(self):
+         """ Return a list of name vectors
+         (like the R function 'dimnames' does it)."""
+@@ -301,6 +303,7 @@
+         res = r.dimnames(self)
+         return res
+         
++    names = property(getnames)
+ 
+ 
+ class RMatrix(RArray):
+@@ -317,25 +320,19 @@
+         return self.dim[1]
+ 
+ class RDataFrame(RVector):
+-    def __init__(self, *args, **kwargs):
+-
+-        if len(args) > 1:
+-            raise(ValueError("Only one unnamed parameter is allowed."))
+-
+-        if len(args) == 1:
+-            if len(kwargs) != 0:
+-                raise(ValueError("No named parameters allowed when there is an unnamed parameter."))
+-            else:
+-                super(RDataFrame, self).__init__(args[0])
++    def __init__(self, tlist):
++        if isinstance(tlist, rlc.TaggedList):
++            df = baseNameSpaceEnv["data.frame"].rcall(tlist.items())
++            super(RDataFrame, self).__init__(df)
++        elif isinstance(tlist, rinterface.SexpVector):
++            if tlist.typeof != rinterface.VECSXP:
++                raise ValueError("tlist should of typeof VECSXP")
++            super(RDataFrame, self).__init__(tlist)
+         else:
+-            if len(kwargs) == 0:
+-                raise(ValueError("Initialization parameters needed."))
+-            df = baseNameSpaceEnv["data.frame"](**kwargs)
+-            super(RDataFrame, self).__init__(df)
+-
+-        #import pdb; pdb.set_trace()
+-        if not baseNameSpaceEnv["is.data.frame"](self)[0]:
+-            raise(TypeError("The object must be representing an R data.frame"))
++            raise ValueError("tlist can be either"+
++                             " an instance of rpy2.rlike.container.TaggedList" +
++                             " or an instance of rpy2.rinterface.SexpVector" +
++                             " of type VECSXP.")
+     
+     def nrow(self):
+         """ Number of rows. 
+@@ -426,14 +423,20 @@
+         super(RFormula, self).__init__(robj)
+         
+     def getenvironment(self):
+-        """ Return the R environment in which the formula will look for
+-        its variables. """
+         res = self.do_slot(".Environment")
+         res = ri2py(res)
+         return res
+ 
+-    
++    def setenvironment(self, val):
++        if not isinstance(val, rinterface.SexpEnvironment):
++            raise ValueError("The environment must be an instance of" +
++                             " rpy2.rinterface.Sexp.environment")
++        self.do_slot_assign(".Environment", val)
+ 
++    environment = property(getenvironment, setenvironment,
++                           "R environment in which the formula will look for" +
++                           " its variables.")
++
+     
+ class R(object):
+     _instance = None
+@@ -461,7 +464,10 @@
+ 
+     def __str__(self):
+         s = super(R, self).__str__()
+-        s += str(self["version"])
++        s += os.linesep
++        version = self["version"]
++        tmp = [n+': '+val[0] for n, val in itertools.izip(version.getnames(), version)]
++        s += str.join(os.linesep, tmp)
+         return s
+ 
+     def __call__(self, string):
+@@ -473,4 +479,4 @@
+ 
+ globalEnv = ri2py(rinterface.globalEnv)
+ baseNameSpaceEnv = ri2py(rinterface.baseNameSpaceEnv)
+-
++emptyEnv = ri2py(rinterface.emptyEnv)
+
+Modified: branches/rpy_nextgen/rpy/robjects/tests/testRDataFrame.py
+===================================================================
+--- branches/rpy_nextgen/rpy/robjects/tests/testRDataFrame.py	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/rpy/robjects/tests/testRDataFrame.py	2008-09-01 15:34:09 UTC (rev 647)
+@@ -1,6 +1,8 @@
+ import unittest
+ import rpy2.robjects as robjects
+ rinterface = robjects.rinterface
++import rpy2.rlike.container as rlc
++
+ import array
+ 
+ class RDataFrameTestCase(unittest.TestCase):
+@@ -8,14 +10,16 @@
+     def testNew(self):
+         letters = robjects.r.letters        
+         numbers = robjects.r('1:26')
+-        df = robjects.RDataFrame(letters=letters, numbers=numbers)
++        df = robjects.RDataFrame(rlc.TaggedList((letters, numbers),
++                                                tags = ('letters', 'numbers')))
+ 
+         self.assertEquals("data.frame", df.rclass()[0])
+ 
+     def testDim(self):
+         letters = robjects.r.letters        
+         numbers = robjects.r('1:26')
+-        df = robjects.RDataFrame(letters=letters, numbers=numbers)
++        df = robjects.RDataFrame(rlc.TaggedList((letters, numbers),
++                                                tags = ('letters', 'numbers')))
+ 
+         self.assertEquals(26, df.nrow())
+         self.assertEquals(2, df.ncol())
+
+Modified: branches/rpy_nextgen/rpy/robjects/tests/testRFormula.py
+===================================================================
+--- branches/rpy_nextgen/rpy/robjects/tests/testRFormula.py	2008-08-28 07:19:07 UTC (rev 646)
++++ branches/rpy_nextgen/rpy/robjects/tests/testRFormula.py	2008-09-01 15:34:09 UTC (rev 647)
+@@ -13,6 +13,14 @@
+         env = fml.getenvironment()
+         self.assertEquals("environment", env.rclass()[0])
+ 
++    def testSetenvironment(self):
++        fml = robjects.RFormula("y ~ x")
++        newenv = robjects.baseNameSpaceEnv['new.env']()
++        env = fml.getenvironment()
++        self.assertFalse(newenv.rsame(env))
++        fml.setenvironment(newenv)
++        env = fml.getenvironment()
++        self.assertTrue(newenv.rsame(env))
+ 
+ def suite():
+     suite = unittest.TestLoader().loadTestsFromTestCase(RFormulaTestCase)
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From hyunchul.mailing at gmail.com  Tue Sep  2 02:03:28 2008
+From: hyunchul.mailing at gmail.com (Hyunchul Kim)
+Date: Tue, 02 Sep 2008 11:03:28 +0900
+Subject: [Rpy] How to install rpy on 64bit machine?
+Message-ID: <18839f340809011903y4ba28212s235d055a05106a61@mail.gmail.com>
+
+Hi, all
+
+I tried to install rpy-1.0.3 with r-2.7.2 on Ubuntu 8.0.4-64bit but failed.
+I used ./configure --enable-R-shlib and I installed successfully many times
+on 32bit machine, previously. Thus, probably, it is the machine architecture
+problem.
+
+How did you install rpy on 64bit machine?
+
+Hyunchul Kim
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From lgautier at gmail.com  Tue Sep  2 07:05:05 2008
+From: lgautier at gmail.com (laurent)
+Date: Tue, 02 Sep 2008 09:05:05 +0200
+Subject: Re: [Rpy] How to install rpy on 64bit machine?
+In-Reply-To: <18839f340809011903y4ba28212s235d055a05106a61@mail.gmail.com>
+References: <18839f340809011903y4ba28212s235d055a05106a61@mail.gmail.com>
+Message-ID: <1220339105.6717.2.camel@hot-spring>
+
+
+People may have difficulties helping you without further
+specifications (like console output, etc...)
+
+I previously installed rpy and rpy2 on 64bit machines
+without trouble.
+
+
+L.
+
+
+On Tue, 2008-09-02 at 11:03 +0900, Hyunchul Kim wrote:
+> Hi, all
+> 
+> I tried to install rpy-1.0.3 with r-2.7.2 on Ubuntu 8.0.4-64bit but
+> failed.
+> I used ./configure --enable-R-shlib and I installed successfully many
+> times on 32bit machine, previously. Thus, probably, it is the machine
+> architecture problem.
+> 
+> How did you install rpy on 64bit machine?
+> 
+> Hyunchul Kim
+> 
+> -------------------------------------------------------------------------
+> This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+> Build the coolest Linux based applications with Moblin SDK & win great prizes
+> Grand prize is a trip for two to an Open Source event anywhere in the world
+> http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> _______________________________________________ rpy-list mailing list rpy-list at lists.sourceforge.net https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From rnuske at gwdg.de  Tue Sep  2 08:21:24 2008
+From: rnuske at gwdg.de (Robert Nuske)
+Date: Tue, 02 Sep 2008 10:21:24 +0200
+Subject: [Rpy] problem installing rpy2
+Message-ID: <200809021021.24217.rnuske@gwdg.de>
+
+Hi,
+
+there are rumors that "Django seems to be working with rpy2 on linux" so I 
+tried to install rpy2-2.0.0a3 and also the revision 647 of rpy_nextgen.
+
+Debian testing with R 2.7.1-1+lenny1 and python 2.5.2-2.
+
+With both rpy versions I got similar errors of not finding some header files. 
+I pasted the output of 'python setup.py install' in rpy_nextgen below.
+
+Any help (compiling rpy2 or generally using rpy within django) is much 
+appreciated.
+
+cheers,
+  robert 
+
+
+...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+running install
+running build
+running build_py
+running build_ext
+building 'rpy2.rinterface.rinterface' extension
+gcc -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -fPIC -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/usr/lib/R/include -Irpy/rinterface -I/usr/include/python2.5 -c 
+rpy/rinterface/array.c -o build/temp.linux-i686-2.5/rpy/rinterface/array.o
+rpy/rinterface/array.c:5:22: error: Rdefines.h: No such file or directory
+rpy/rinterface/array.c:6:24: error: Rinternals.h: No such file or directory
+In file included from rpy/rinterface/array.c:7:
+rpy/rinterface/rinterface.h:5:15: error: R.h: No such file or directory
+In file included from rpy/rinterface/array.c:7:
+rpy/rinterface/rinterface.h:28: error: expected specifier-qualifier-list 
+before 'SEXP'
+rpy/rinterface/array.c:30: error: expected ')' before 'sexp'
+rpy/rinterface/array.c:45: error: expected ')' before 'sexp'
+rpy/rinterface/array.c:59: error: expected ')' before 'sexp'
+rpy/rinterface/array.c:72: error: expected ')' before 'sexp'
+rpy/rinterface/array.c:81: error: expected ')' before 'sexp'
+rpy/rinterface/array.c: In function 'array_struct_get':
+rpy/rinterface/array.c:105: error: 'SEXP' undeclared (first use in this 
+function)
+rpy/rinterface/array.c:105: error: (Each undeclared identifier is reported 
+only once
+rpy/rinterface/array.c:105: error: for each function it appears in.)
+rpy/rinterface/array.c:105: error: expected ';' before 'sexp'
+rpy/rinterface/array.c:106: error: 'sexp' undeclared (first use in this 
+function)
+rpy/rinterface/array.c:111: warning: implicit declaration of 
+function 'sexp_typekind'
+rpy/rinterface/array.c:120: warning: implicit declaration of 
+function 'sexp_rank'
+rpy/rinterface/array.c:125: warning: implicit declaration of 
+function 'sexp_itemsize'
+rpy/rinterface/array.c:128: warning: implicit declaration of 
+function 'sexp_shape'
+rpy/rinterface/array.c:136: warning: implicit declaration of 
+function 'sexp_typepointer'
+rpy/rinterface/array.c:136: warning: assignment makes pointer from integer 
+without a cast
+error: command 'gcc' failed with exit status 1
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Tue Sep  2 08:43:48 2008
+From: lgautier at gmail.com (laurent)
+Date: Tue, 02 Sep 2008 10:43:48 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <200809021021.24217.rnuske@gwdg.de>
+References: <200809021021.24217.rnuske@gwdg.de>
+Message-ID: <1220345029.6717.40.camel@hot-spring>
+
+On Tue, 2008-09-02 at 10:21 +0200, Robert Nuske wrote:
+> Hi,
+> 
+> there are rumors that "Django seems to be working with rpy2 on linux" so I 
+> tried to install rpy2-2.0.0a3 and also the revision 647 of rpy_nextgen.
+> 
+> Debian testing with R 2.7.1-1+lenny1 and python 2.5.2-2.
+> 
+> With both rpy versions I got similar errors of not finding some header files. 
+> I pasted the output of 'python setup.py install' in rpy_nextgen below.
+
+Did you check what are the headers claimed missing ?
+>>From your output they look like R's own headers, and that could mean
+that you should check your R installation (you may have a "R-dev"
+package missing).
+
+> Any help (compiling rpy2 or generally using rpy within django) is much 
+> appreciated.
+> 
+> cheers,
+>   robert 
+> 
+> 
+> ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> running install
+> running build
+> running build_py
+> running build_ext
+> building 'rpy2.rinterface.rinterface' extension
+> gcc -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -fPIC -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/usr/lib/R/include -Irpy/rinterface -I/usr/include/python2.5 -c 
+> rpy/rinterface/array.c -o build/temp.linux-i686-2.5/rpy/rinterface/array.o
+> rpy/rinterface/array.c:5:22: error: Rdefines.h: No such file or directory
+> rpy/rinterface/array.c:6:24: error: Rinternals.h: No such file or directory
+> In file included from rpy/rinterface/array.c:7:
+> rpy/rinterface/rinterface.h:5:15: error: R.h: No such file or directory
+> In file included from rpy/rinterface/array.c:7:
+> rpy/rinterface/rinterface.h:28: error: expected specifier-qualifier-list 
+> before 'SEXP'
+> rpy/rinterface/array.c:30: error: expected ')' before 'sexp'
+> rpy/rinterface/array.c:45: error: expected ')' before 'sexp'
+> rpy/rinterface/array.c:59: error: expected ')' before 'sexp'
+> rpy/rinterface/array.c:72: error: expected ')' before 'sexp'
+> rpy/rinterface/array.c:81: error: expected ')' before 'sexp'
+> rpy/rinterface/array.c: In function 'array_struct_get':
+> rpy/rinterface/array.c:105: error: 'SEXP' undeclared (first use in this 
+> function)
+> rpy/rinterface/array.c:105: error: (Each undeclared identifier is reported 
+> only once
+> rpy/rinterface/array.c:105: error: for each function it appears in.)
+> rpy/rinterface/array.c:105: error: expected ';' before 'sexp'
+> rpy/rinterface/array.c:106: error: 'sexp' undeclared (first use in this 
+> function)
+> rpy/rinterface/array.c:111: warning: implicit declaration of 
+> function 'sexp_typekind'
+> rpy/rinterface/array.c:120: warning: implicit declaration of 
+> function 'sexp_rank'
+> rpy/rinterface/array.c:125: warning: implicit declaration of 
+> function 'sexp_itemsize'
+> rpy/rinterface/array.c:128: warning: implicit declaration of 
+> function 'sexp_shape'
+> rpy/rinterface/array.c:136: warning: implicit declaration of 
+> function 'sexp_typepointer'
+> rpy/rinterface/array.c:136: warning: assignment makes pointer from integer 
+> without a cast
+> error: command 'gcc' failed with exit status 1
+> 
+> -------------------------------------------------------------------------
+> This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+> Build the coolest Linux based applications with Moblin SDK & win great prizes
+> Grand prize is a trip for two to an Open Source event anywhere in the world
+> http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From rnuske at gwdg.de  Tue Sep  2 09:05:57 2008
+From: rnuske at gwdg.de (Robert Nuske)
+Date: Tue, 02 Sep 2008 11:05:57 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <1220345029.6717.40.camel@hot-spring>
+References: <200809021021.24217.rnuske@gwdg.de> <1220345029.6717.40.camel@hot-spring>
+Message-ID: <200809021105.57676.rnuske@gwdg.de>
+
+Am Dienstag, 2. September 2008 10:43:48 schrieben Sie:
+> On Tue, 2008-09-02 at 10:21 +0200, Robert Nuske wrote:
+> > Hi,
+> >
+> > there are rumors that "Django seems to be working with rpy2 on linux" so
+> > I tried to install rpy2-2.0.0a3 and also the revision 647 of rpy_nextgen.
+> >
+> > Debian testing with R 2.7.1-1+lenny1 and python 2.5.2-2.
+> >
+> > With both rpy versions I got similar errors of not finding some header
+> > files. I pasted the output of 'python setup.py install' in rpy_nextgen
+> > below.
+>
+> Did you check what are the headers claimed missing ?
+according to the output I attached following headers are not found:
+Rdefines.h
+Rinternals.h
+R.h
+
+I found them here:
+/usr/share/R/include/Rdefines.h
+/usr/share/R/include/Rinternals.h
+/usr/share/R/include/R.h
+
+
+> >From your output they look like R's own headers, and that could mean
+> >that you should check your R installation (you may have a "R-dev"
+> >package missing).
+
+I have r-base-dev installed. 
+But I think its not needed, since these headers are part of of the debian 
+package r-base-core. Which is probably installed with any R installation from 
+debian packages, because r-base and r-recommned depend on it.
+
+cheers,
+  robert
+
+>
+> > Any help (compiling rpy2 or generally using rpy within django) is much
+> > appreciated.
+> >
+> > cheers,
+> >   robert
+> >
+> >
+> > ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> > running install
+> > running build
+> > running build_py
+> > running build_ext
+> > building 'rpy2.rinterface.rinterface' extension
+> > gcc -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall
+> > -Wstrict-prototypes -fPIC -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1
+> > -DRIF_HAS_RSIGHAND=1 -I/usr/lib/R/include -Irpy/rinterface
+> > -I/usr/include/python2.5 -c rpy/rinterface/array.c -o
+> > build/temp.linux-i686-2.5/rpy/rinterface/array.o
+> > rpy/rinterface/array.c:5:22: error: Rdefines.h: No such file or directory
+> > rpy/rinterface/array.c:6:24: error: Rinternals.h: No such file or
+> > directory In file included from rpy/rinterface/array.c:7:
+> > rpy/rinterface/rinterface.h:5:15: error: R.h: No such file or directory
+> > In file included from rpy/rinterface/array.c:7:
+> > rpy/rinterface/rinterface.h:28: error: expected specifier-qualifier-list
+> > before 'SEXP'
+> > rpy/rinterface/array.c:30: error: expected ')' before 'sexp'
+> > rpy/rinterface/array.c:45: error: expected ')' before 'sexp'
+> > rpy/rinterface/array.c:59: error: expected ')' before 'sexp'
+> > rpy/rinterface/array.c:72: error: expected ')' before 'sexp'
+> > rpy/rinterface/array.c:81: error: expected ')' before 'sexp'
+> > rpy/rinterface/array.c: In function 'array_struct_get':
+> > rpy/rinterface/array.c:105: error: 'SEXP' undeclared (first use in this
+> > function)
+> > rpy/rinterface/array.c:105: error: (Each undeclared identifier is
+> > reported only once
+> > rpy/rinterface/array.c:105: error: for each function it appears in.)
+> > rpy/rinterface/array.c:105: error: expected ';' before 'sexp'
+> > rpy/rinterface/array.c:106: error: 'sexp' undeclared (first use in this
+> > function)
+> > rpy/rinterface/array.c:111: warning: implicit declaration of
+> > function 'sexp_typekind'
+> > rpy/rinterface/array.c:120: warning: implicit declaration of
+> > function 'sexp_rank'
+> > rpy/rinterface/array.c:125: warning: implicit declaration of
+> > function 'sexp_itemsize'
+> > rpy/rinterface/array.c:128: warning: implicit declaration of
+> > function 'sexp_shape'
+> > rpy/rinterface/array.c:136: warning: implicit declaration of
+> > function 'sexp_typepointer'
+> > rpy/rinterface/array.c:136: warning: assignment makes pointer from
+> > integer without a cast
+> > error: command 'gcc' failed with exit status 1
+> >
+> > -------------------------------------------------------------------------
+> > This SF.Net email is sponsored by the Moblin Your Move Developer's
+> > challenge Build the coolest Linux based applications with Moblin SDK &
+> > win great prizes Grand prize is a trip for two to an Open Source event
+> > anywhere in the world
+> > http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+
+-- 
+   Robert Nuske
+   Department of Ecoinformatics,
+   Biometrics & Forest Growth
+
+   Buesgenweg 4
+   37077 Goettingen
+   GERMANY
+
+   Phone: +49-551-39-22362
+   Fax  : +49-551-39-3465
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Tue Sep  2 13:09:04 2008
+From: lgautier at gmail.com (laurent)
+Date: Tue, 02 Sep 2008 15:09:04 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <200809021105.57676.rnuske@gwdg.de>
+References: <200809021021.24217.rnuske@gwdg.de> <1220345029.6717.40.camel@hot-spring> <200809021105.57676.rnuske@gwdg.de>
+Message-ID: <1220360944.13981.37.camel@hot-spring>
+
+On Tue, 2008-09-02 at 11:05 +0200, Robert Nuske wrote:
+> Am Dienstag, 2. September 2008 10:43:48 schrieben Sie:
+> > On Tue, 2008-09-02 at 10:21 +0200, Robert Nuske wrote:
+> > > Hi,
+> > >
+> > > there are rumors that "Django seems to be working with rpy2 on linux" so
+> > > I tried to install rpy2-2.0.0a3 and also the revision 647 of rpy_nextgen.
+> > >
+> > > Debian testing with R 2.7.1-1+lenny1 and python 2.5.2-2.
+> > >
+> > > With both rpy versions I got similar errors of not finding some header
+> > > files. I pasted the output of 'python setup.py install' in rpy_nextgen
+> > > below.
+> >
+> > Did you check what are the headers claimed missing ?
+> according to the output I attached following headers are not found:
+> Rdefines.h
+> Rinternals.h
+> R.h
+> 
+> I found them here:
+> /usr/share/R/include/Rdefines.h
+> /usr/share/R/include/Rinternals.h
+> /usr/share/R/include/R.h
+> 
+
+I may have seen that one problem mentioned earlier to the list.
+
+The location of R's include files is seemingly a bit too exotic for the
+disutils script.
+The setup.py script expects them to be in ${RHOME}/include
+(RHOME being the outcome of running 'R RHOME').
+There is currently no other way around that than either
+- edit setup.py
+- copy or link the headers.
+
+
+> > >From your output they look like R's own headers, and that could mean
+> > >that you should check your R installation (you may have a "R-dev"
+> > >package missing).
+> 
+> I have r-base-dev installed. 
+> But I think its not needed, since these headers are part of of the debian 
+> package r-base-core. Which is probably installed with any R installation from 
+> debian packages, because r-base and r-recommned depend on it.
+> 
+> cheers,
+>   robert
+> 
+> >
+> > > Any help (compiling rpy2 or generally using rpy within django) is much
+> > > appreciated.
+> > >
+> > > cheers,
+> > >   robert
+> > >
+> > >
+> > > ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> > > running install
+> > > running build
+> > > running build_py
+> > > running build_ext
+> > > building 'rpy2.rinterface.rinterface' extension
+> > > gcc -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall
+> > > -Wstrict-prototypes -fPIC -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1
+> > > -DRIF_HAS_RSIGHAND=1 -I/usr/lib/R/include -Irpy/rinterface
+> > > -I/usr/include/python2.5 -c rpy/rinterface/array.c -o
+> > > build/temp.linux-i686-2.5/rpy/rinterface/array.o
+> > > rpy/rinterface/array.c:5:22: error: Rdefines.h: No such file or directory
+> > > rpy/rinterface/array.c:6:24: error: Rinternals.h: No such file or
+> > > directory In file included from rpy/rinterface/array.c:7:
+> > > rpy/rinterface/rinterface.h:5:15: error: R.h: No such file or directory
+> > > In file included from rpy/rinterface/array.c:7:
+> > > rpy/rinterface/rinterface.h:28: error: expected specifier-qualifier-list
+> > > before 'SEXP'
+> > > rpy/rinterface/array.c:30: error: expected ')' before 'sexp'
+> > > rpy/rinterface/array.c:45: error: expected ')' before 'sexp'
+> > > rpy/rinterface/array.c:59: error: expected ')' before 'sexp'
+> > > rpy/rinterface/array.c:72: error: expected ')' before 'sexp'
+> > > rpy/rinterface/array.c:81: error: expected ')' before 'sexp'
+> > > rpy/rinterface/array.c: In function 'array_struct_get':
+> > > rpy/rinterface/array.c:105: error: 'SEXP' undeclared (first use in this
+> > > function)
+> > > rpy/rinterface/array.c:105: error: (Each undeclared identifier is
+> > > reported only once
+> > > rpy/rinterface/array.c:105: error: for each function it appears in.)
+> > > rpy/rinterface/array.c:105: error: expected ';' before 'sexp'
+> > > rpy/rinterface/array.c:106: error: 'sexp' undeclared (first use in this
+> > > function)
+> > > rpy/rinterface/array.c:111: warning: implicit declaration of
+> > > function 'sexp_typekind'
+> > > rpy/rinterface/array.c:120: warning: implicit declaration of
+> > > function 'sexp_rank'
+> > > rpy/rinterface/array.c:125: warning: implicit declaration of
+> > > function 'sexp_itemsize'
+> > > rpy/rinterface/array.c:128: warning: implicit declaration of
+> > > function 'sexp_shape'
+> > > rpy/rinterface/array.c:136: warning: implicit declaration of
+> > > function 'sexp_typepointer'
+> > > rpy/rinterface/array.c:136: warning: assignment makes pointer from
+> > > integer without a cast
+> > > error: command 'gcc' failed with exit status 1
+> > >
+> > > -------------------------------------------------------------------------
+> > > This SF.Net email is sponsored by the Moblin Your Move Developer's
+> > > challenge Build the coolest Linux based applications with Moblin SDK &
+> > > win great prizes Grand prize is a trip for two to an Open Source event
+> > > anywhere in the world
+> > > http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> > > _______________________________________________
+> > > rpy-list mailing list
+> > > rpy-list at lists.sourceforge.net
+> > > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> 
+> 
+> 
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From rnuske at gwdg.de  Tue Sep  2 16:26:59 2008
+From: rnuske at gwdg.de (Robert Nuske)
+Date: Tue, 02 Sep 2008 18:26:59 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <1220360944.13981.37.camel@hot-spring>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring>
+Message-ID: <200809021826.59978.rnuske@gwdg.de>
+
+Hi laurent,
+
+
+> > I found them here:
+> > /usr/share/R/include/Rdefines.h
+> > /usr/share/R/include/Rinternals.h
+> > /usr/share/R/include/R.h
+>
+> I may have seen that one problem mentioned earlier to the list.
+me to, but can't find it now 
+
+> The location of R's include files is seemingly a bit too exotic for the
+> disutils script.
+they were placed there by the debian package
+
+> The setup.py script expects them to be in ${RHOME}/include
+> (RHOME being the outcome of running 'R RHOME').
+
+by googeling R_INCLUDE_DIR I found that it is not recommended to rely on 
+${RHOME}/include
+
+eg.
+http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t-reflect-new-file-locations-tp3175446p3175720.html
+
+
+> There is currently no other way around that than either
+> - edit setup.py
+> - copy or link the headers.
+
+one way to get the include dirs
+R CMD echo $R_INCLUDE_DIR
+
+but the recommed way of finding the include dirs seems to be:
+R CMD config --cppflags 
+
+on my system this returns 
+-I/usr/share/R/include -I/usr/share/R/include
+
+but I can't use it with get_rconfig, since get_rconfig checks for -l/-L and 
+raises an ecxecption otherwise, more or less
+
+
+If I hardcode the include dir in setup.py it finds the headers, but stops 
+with:
+
+...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+running install
+running build
+running build_py
+running build_ext
+building 'rpy2.rinterface.rinterface' extension
+gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions 
+build/temp.linux-i686-2.5/rpy/rinterface/array.o 
+build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o 
+build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR -lRlapack -lRblas -o 
+build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib -lR -llapack -lblas
+/usr/bin/ld: cannot find -lRlapack
+collect2: ld returned 1 exit status
+error: command 'gcc' failed with exit status 1
+
+
+cheers,
+  robert
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From nikko at hailmail.net  Tue Sep  2 16:56:41 2008
+From: nikko at hailmail.net (Nicholas Lewin-Koh)
+Date: Tue, 02 Sep 2008 09:56:41 -0700
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <200809021826.59978.rnuske@gwdg.de>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring> <200809021826.59978.rnuske@gwdg.de>
+Message-ID: <1220374601.16683.1271766683@webmail.messagingengine.com>
+
+Hi,
+I had the similar problems with on ubuntu. When I set RHOME manually,
+export RHOME=/usr/local/lib64/R
+I got problems with finding one of the headers, specifically
+in rpy/interface/array.c
+changing 
+#include "rinterface.h"
+to include #include <Rinterface.h>
+
+got around my first errors but I am noit sure that this is the header
+that is meant?
+the next error is a pointer error
+
+PyObject* 
+array_struct_get(PySexpObject *self)
+
+which should be ok, so Rinterface.h is the wrong header.
+Of course i am at work and I was doing this on my home computer.
+
+Is setup.py supposed to create rinterface.h?
+
+Nicholas
+
+I noticed in 
+On Tue, 2 Sep 2008 18:26:59 +0200, "Robert Nuske" <rnuske at gwdg.de> said:
+> Hi laurent,
+> 
+> 
+> > > I found them here:
+> > > /usr/share/R/include/Rdefines.h
+> > > /usr/share/R/include/Rinternals.h
+> > > /usr/share/R/include/R.h
+> >
+> > I may have seen that one problem mentioned earlier to the list.
+> me to, but can't find it now 
+> 
+> > The location of R's include files is seemingly a bit too exotic for the
+> > disutils script.
+> they were placed there by the debian package
+> 
+> > The setup.py script expects them to be in ${RHOME}/include
+> > (RHOME being the outcome of running 'R RHOME').
+> 
+> by googeling R_INCLUDE_DIR I found that it is not recommended to rely on 
+> ${RHOME}/include
+> 
+> eg.
+> http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t-reflect-new-file-locations-tp3175446p3175720.html
+> 
+> 
+> > There is currently no other way around that than either
+> > - edit setup.py
+> > - copy or link the headers.
+> 
+> one way to get the include dirs
+> R CMD echo $R_INCLUDE_DIR
+> 
+> but the recommed way of finding the include dirs seems to be:
+> R CMD config --cppflags 
+> 
+> on my system this returns 
+> -I/usr/share/R/include -I/usr/share/R/include
+> 
+> but I can't use it with get_rconfig, since get_rconfig checks for -l/-L
+> and 
+> raises an ecxecption otherwise, more or less
+> 
+> 
+> If I hardcode the include dir in setup.py it finds the headers, but stops 
+> with:
+> 
+> ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> running install
+> running build
+> running build_py
+> running build_ext
+> building 'rpy2.rinterface.rinterface' extension
+> gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions 
+> build/temp.linux-i686-2.5/rpy/rinterface/array.o 
+> build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o 
+> build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib
+> -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR
+> -lRlapack -lRblas -o 
+> build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib
+> -lR -llapack -lblas
+> /usr/bin/ld: cannot find -lRlapack
+> collect2: ld returned 1 exit status
+> error: command 'gcc' failed with exit status 1
+> 
+> 
+> cheers,
+>   robert
+> 
+> -------------------------------------------------------------------------
+> This SF.Net email is sponsored by the Moblin Your Move Developer's
+> challenge
+> Build the coolest Linux based applications with Moblin SDK & win great
+> prizes
+> Grand prize is a trip for two to an Open Source event anywhere in the
+> world
+> http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From nikko at hailmail.net  Tue Sep  2 17:09:06 2008
+From: nikko at hailmail.net (Nicholas Lewin-Koh)
+Date: Tue, 02 Sep 2008 10:09:06 -0700
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <1220374601.16683.1271766683@webmail.messagingengine.com>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring> <200809021826.59978.rnuske@gwdg.de> <1220374601.16683.1271766683@webmail.messagingengine.com>
+Message-ID: <1220375346.19127.1271770223@webmail.messagingengine.com>
+
+Hi,
+Silly me! 
+I just checked svn, and I was using the rpy-2.0a3 tar ball.
+All the .h files are missing in rpy/rinterfaces.
+
+Nicholas
+
+On Tue, 02 Sep 2008 09:56:41 -0700, "Nicholas Lewin-Koh"
+<nikko at hailmail.net> said:
+> Hi,
+> I had the similar problems with on ubuntu. When I set RHOME manually,
+> export RHOME=/usr/local/lib64/R
+> I got problems with finding one of the headers, specifically
+> in rpy/interface/array.c
+> changing 
+> #include "rinterface.h"
+> to include #include <Rinterface.h>
+> 
+> got around my first errors but I am noit sure that this is the header
+> that is meant?
+> the next error is a pointer error
+> 
+> PyObject* 
+> array_struct_get(PySexpObject *self)
+> 
+> which should be ok, so Rinterface.h is the wrong header.
+> Of course i am at work and I was doing this on my home computer.
+> 
+> Is setup.py supposed to create rinterface.h?
+> 
+> Nicholas
+> 
+> I noticed in 
+> On Tue, 2 Sep 2008 18:26:59 +0200, "Robert Nuske" <rnuske at gwdg.de> said:
+> > Hi laurent,
+> > 
+> > 
+> > > > I found them here:
+> > > > /usr/share/R/include/Rdefines.h
+> > > > /usr/share/R/include/Rinternals.h
+> > > > /usr/share/R/include/R.h
+> > >
+> > > I may have seen that one problem mentioned earlier to the list.
+> > me to, but can't find it now 
+> > 
+> > > The location of R's include files is seemingly a bit too exotic for the
+> > > disutils script.
+> > they were placed there by the debian package
+> > 
+> > > The setup.py script expects them to be in ${RHOME}/include
+> > > (RHOME being the outcome of running 'R RHOME').
+> > 
+> > by googeling R_INCLUDE_DIR I found that it is not recommended to rely on 
+> > ${RHOME}/include
+> > 
+> > eg.
+> > http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t-reflect-new-file-locations-tp3175446p3175720.html
+> > 
+> > 
+> > > There is currently no other way around that than either
+> > > - edit setup.py
+> > > - copy or link the headers.
+> > 
+> > one way to get the include dirs
+> > R CMD echo $R_INCLUDE_DIR
+> > 
+> > but the recommed way of finding the include dirs seems to be:
+> > R CMD config --cppflags 
+> > 
+> > on my system this returns 
+> > -I/usr/share/R/include -I/usr/share/R/include
+> > 
+> > but I can't use it with get_rconfig, since get_rconfig checks for -l/-L
+> > and 
+> > raises an ecxecption otherwise, more or less
+> > 
+> > 
+> > If I hardcode the include dir in setup.py it finds the headers, but stops 
+> > with:
+> > 
+> > ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> > running install
+> > running build
+> > running build_py
+> > running build_ext
+> > building 'rpy2.rinterface.rinterface' extension
+> > gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions 
+> > build/temp.linux-i686-2.5/rpy/rinterface/array.o 
+> > build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o 
+> > build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib
+> > -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR
+> > -lRlapack -lRblas -o 
+> > build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib
+> > -lR -llapack -lblas
+> > /usr/bin/ld: cannot find -lRlapack
+> > collect2: ld returned 1 exit status
+> > error: command 'gcc' failed with exit status 1
+> > 
+> > 
+> > cheers,
+> >   robert
+> > 
+> > -------------------------------------------------------------------------
+> > This SF.Net email is sponsored by the Moblin Your Move Developer's
+> > challenge
+> > Build the coolest Linux based applications with Moblin SDK & win great
+> > prizes
+> > Grand prize is a trip for two to an Open Source event anywhere in the
+> > world
+> > http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> 
+> -------------------------------------------------------------------------
+> This SF.Net email is sponsored by the Moblin Your Move Developer's
+> challenge
+> Build the coolest Linux based applications with Moblin SDK & win great
+> prizes
+> Grand prize is a trip for two to an Open Source event anywhere in the
+> world
+> http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Tue Sep  2 17:12:26 2008
+From: lgautier at gmail.com (laurent)
+Date: Tue, 02 Sep 2008 19:12:26 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <1220375346.19127.1271770223@webmail.messagingengine.com>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring> <200809021826.59978.rnuske@gwdg.de> <1220374601.16683.1271766683@webmail.messagingengine.com> <1220375346.19127.1271770223@webmail.messagingengine.com>
+Message-ID: <1220375546.13981.80.camel@hot-spring>
+
+
+
+On Tue, 2008-09-02 at 10:09 -0700, Nicholas Lewin-Koh wrote:
+> Hi,
+> Silly me! 
+> I just checked svn, and I was using the rpy-2.0a3 tar ball.
+> All the .h files are missing in rpy/rinterfaces.
+
+Ooops...
+
+Obviously it tells that most of the people are *not* relying on the
+tarballs...
+
+
+
+> Nicholas
+> 
+> On Tue, 02 Sep 2008 09:56:41 -0700, "Nicholas Lewin-Koh"
+> <nikko at hailmail.net> said:
+> > Hi,
+> > I had the similar problems with on ubuntu. When I set RHOME manually,
+> > export RHOME=/usr/local/lib64/R
+> > I got problems with finding one of the headers, specifically
+> > in rpy/interface/array.c
+> > changing 
+> > #include "rinterface.h"
+> > to include #include <Rinterface.h>
+> > 
+> > got around my first errors but I am noit sure that this is the header
+> > that is meant?
+> > the next error is a pointer error
+> > 
+> > PyObject* 
+> > array_struct_get(PySexpObject *self)
+> > 
+> > which should be ok, so Rinterface.h is the wrong header.
+> > Of course i am at work and I was doing this on my home computer.
+> > 
+> > Is setup.py supposed to create rinterface.h?
+> > 
+> > Nicholas
+> > 
+> > I noticed in 
+> > On Tue, 2 Sep 2008 18:26:59 +0200, "Robert Nuske" <rnuske at gwdg.de> said:
+> > > Hi laurent,
+> > > 
+> > > 
+> > > > > I found them here:
+> > > > > /usr/share/R/include/Rdefines.h
+> > > > > /usr/share/R/include/Rinternals.h
+> > > > > /usr/share/R/include/R.h
+> > > >
+> > > > I may have seen that one problem mentioned earlier to the list.
+> > > me to, but can't find it now 
+> > > 
+> > > > The location of R's include files is seemingly a bit too exotic for the
+> > > > disutils script.
+> > > they were placed there by the debian package
+> > > 
+> > > > The setup.py script expects them to be in ${RHOME}/include
+> > > > (RHOME being the outcome of running 'R RHOME').
+> > > 
+> > > by googeling R_INCLUDE_DIR I found that it is not recommended to rely on 
+> > > ${RHOME}/include
+> > > 
+> > > eg.
+> > > http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t-reflect-new-file-locations-tp3175446p3175720.html
+> > > 
+> > > 
+> > > > There is currently no other way around that than either
+> > > > - edit setup.py
+> > > > - copy or link the headers.
+> > > 
+> > > one way to get the include dirs
+> > > R CMD echo $R_INCLUDE_DIR
+> > > 
+> > > but the recommed way of finding the include dirs seems to be:
+> > > R CMD config --cppflags 
+> > > 
+> > > on my system this returns 
+> > > -I/usr/share/R/include -I/usr/share/R/include
+> > > 
+> > > but I can't use it with get_rconfig, since get_rconfig checks for -l/-L
+> > > and 
+> > > raises an ecxecption otherwise, more or less
+> > > 
+> > > 
+> > > If I hardcode the include dir in setup.py it finds the headers, but stops 
+> > > with:
+> > > 
+> > > ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> > > running install
+> > > running build
+> > > running build_py
+> > > running build_ext
+> > > building 'rpy2.rinterface.rinterface' extension
+> > > gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions 
+> > > build/temp.linux-i686-2.5/rpy/rinterface/array.o 
+> > > build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o 
+> > > build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib
+> > > -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR
+> > > -lRlapack -lRblas -o 
+> > > build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib
+> > > -lR -llapack -lblas
+> > > /usr/bin/ld: cannot find -lRlapack
+> > > collect2: ld returned 1 exit status
+> > > error: command 'gcc' failed with exit status 1
+> > > 
+> > > 
+> > > cheers,
+> > >   robert
+> > > 
+> > > -------------------------------------------------------------------------
+> > > This SF.Net email is sponsored by the Moblin Your Move Developer's
+> > > challenge
+> > > Build the coolest Linux based applications with Moblin SDK & win great
+> > > prizes
+> > > Grand prize is a trip for two to an Open Source event anywhere in the
+> > > world
+> > > http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> > > _______________________________________________
+> > > rpy-list mailing list
+> > > rpy-list at lists.sourceforge.net
+> > > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> > 
+> > -------------------------------------------------------------------------
+> > This SF.Net email is sponsored by the Moblin Your Move Developer's
+> > challenge
+> > Build the coolest Linux based applications with Moblin SDK & win great
+> > prizes
+> > Grand prize is a trip for two to an Open Source event anywhere in the
+> > world
+> > http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at users.sourceforge.net  Tue Sep  2 17:48:52 2008
+From: lgautier at users.sourceforge.net
+Date: Tue, 02 Sep 2008 17:48:52 +0000
+Subject: [Rpy] SF.net SVN: rpy:[648] branches/rpy_nextgen
+Message-ID: <E1KaZzo-0006Qa-FQ@74yxhf1.ch3.sourceforge.com>
+
+Revision: 648
+          http://rpy.svn.sourceforge.net/rpy/?rev=648&view=rev
+Author:   lgautier
+Date:     2008-09-02 17:48:47 +0000 (Tue, 02 Sep 2008)
+
+Log Message:
+-----------
+fix for R include files in "other" places
+
+Modified Paths:
+--------------
+    branches/rpy_nextgen/NEWS
+    branches/rpy_nextgen/setup.py
+
+Modified: branches/rpy_nextgen/NEWS
+===================================================================
+--- branches/rpy_nextgen/NEWS	2008-09-01 15:34:09 UTC (rev 647)
++++ branches/rpy_nextgen/NEWS	2008-09-02 17:48:47 UTC (rev 648)
+@@ -31,6 +31,7 @@
+ 
+ - proper reference counting when handling, and deleting, :attr:`Sexp.__sexp__` generated CObjects
+ 
++- get properly the include directories (no matter where they are) #bug report and fix adapted from Robert Nuske
+ 
+ 
+ Release 2.0.0a3
+
+Modified: branches/rpy_nextgen/setup.py
+===================================================================
+--- branches/rpy_nextgen/setup.py	2008-09-01 15:34:09 UTC (rev 647)
++++ branches/rpy_nextgen/setup.py	2008-09-02 17:48:47 UTC (rev 648)
+@@ -4,7 +4,7 @@
+ 
+ 
+ pack_name = 'rpy2'
+-pack_version = '2.0.0-dev'
++pack_version = '2.0.0a3'
+ 
+ RHOMES = os.getenv('RHOMES')
+ 
+@@ -68,6 +68,8 @@
+         # MacOSX
+         rconfig_m = re.match('^(-F.+) (-framework.+)$', rconfig)
+     if rconfig_m is None:
++        rconfig_m = re.match('^(-I.+)$', rconfig)
++    if rconfig_m is None:
+         raise Exception(cmd + '\nreturned\n' + rconfig)
+     return rconfig_m.groups()
+ 
+@@ -81,7 +83,7 @@
+     rversions.append(rversion)
+ 
+ def getRinterface_ext(RHOME, r_packversion):
+-    r_libs = [os.path.join(RHOME, 'lib'), os.path.join(RHOME, 'modules')]
+
+From edd at debian.org  Tue Sep  2 17:52:15 2008
+From: edd at debian.org (Dirk Eddelbuettel)
+Date: Tue, 02 Sep 2008 12:52:15 -0500
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <200809021826.59978.rnuske@gwdg.de>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring> <200809021826.59978.rnuske@gwdg.de>
+Message-ID: <18621.32079.437909.938317@ron.nulle.part>
+
+
+On 2 September 2008 at 18:26, Robert Nuske wrote:
+| > I may have seen that one problem mentioned earlier to the list.
+| me to, but can't find it now 
+| 
+| > The location of R's include files is seemingly a bit too exotic for the
+| > disutils script.
+| they were placed there by the debian package
+
+Yes, as we were once asked / forced to place architecture-independent files
+below /usr/share/
+
+| > The setup.py script expects them to be in ${RHOME}/include
+| > (RHOME being the outcome of running 'R RHOME').
+| 
+| by googeling R_INCLUDE_DIR I found that it is not recommended to rely on 
+| ${RHOME}/include
+| 
+| eg.
+| http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t-reflect-new-file-locations-tp3175446p3175720.html
+
+It works always everywhere but alas not on Debian.
+ 
+| > There is currently no other way around that than either
+| > - edit setup.py
+| > - copy or link the headers.
+| 
+| one way to get the include dirs
+| R CMD echo $R_INCLUDE_DIR
+
+For rpy (v1) it works out-of-the-box on all Debian systems. But as I recall
+that may have taken Greg and myself a few iterations over setup.py.
+
+I'm sure we can achieve the same for rpy v2, I just haven't gotten to it yet.
+
+| but the recommed way of finding the include dirs seems to be:
+| R CMD config --cppflags 
+| 
+| on my system this returns 
+| -I/usr/share/R/include -I/usr/share/R/include
+| 
+| but I can't use it with get_rconfig, since get_rconfig checks for -l/-L and 
+| raises an ecxecption otherwise, more or less
+| 
+| 
+| If I hardcode the include dir in setup.py it finds the headers, but stops 
+| with:
+| 
+| ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+| running install
+| running build
+| running build_py
+| running build_ext
+| building 'rpy2.rinterface.rinterface' extension
+| gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions 
+| build/temp.linux-i686-2.5/rpy/rinterface/array.o 
+| build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o 
+| build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR -lRlapack -lRblas -o 
+| build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib -lR -llapack -lblas
+| /usr/bin/ld: cannot find -lRlapack
+| collect2: ld returned 1 exit status
+| error: command 'gcc' failed with exit status 1
+
+Similarly, prior to the new gfortran-built liblapack / libblas / libatlas
+packages, we used to build R with its copy of Lapack --- hence -lRlapack.
+
+Since last winter, however, we have newer / better lapack libs and no longer
+use R's lapack source --- hence now
+
+	edd@ron:~> R CMD config --ldflags
+	-L/usr/lib/R/lib -lR
+	edd@ron:~> R CMD config LAPACK_LIBS
+	-llapack
+	edd@ron:~>  
+
+Hth, Dirk
+
+-- 
+Three out of two people have difficulties with fractions.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Tue Sep  2 17:52:25 2008
+From: lgautier at gmail.com (laurent)
+Date: Tue, 02 Sep 2008 19:52:25 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <200809021826.59978.rnuske@gwdg.de>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring> <200809021826.59978.rnuske@gwdg.de>
+Message-ID: <1220377945.13981.85.camel@hot-spring>
+
+On Tue, 2008-09-02 at 18:26 +0200, Robert Nuske wrote:
+> Hi laurent,
+> 
+> 
+> > > I found them here:
+> > > /usr/share/R/include/Rdefines.h
+> > > /usr/share/R/include/Rinternals.h
+> > > /usr/share/R/include/R.h
+> >
+> > I may have seen that one problem mentioned earlier to the list.
+> me to, but can't find it now 
+> 
+> > The location of R's include files is seemingly a bit too exotic for the
+> > disutils script.
+> they were placed there by the debian package
+> 
+> > The setup.py script expects them to be in ${RHOME}/include
+> > (RHOME being the outcome of running 'R RHOME').
+> 
+> by googeling R_INCLUDE_DIR I found that it is not recommended to rely on 
+> ${RHOME}/include
+> 
+> eg.
+> http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t-reflect-new-file-locations-tp3175446p3175720.html
+> 
+> 
+> > There is currently no other way around that than either
+> > - edit setup.py
+> > - copy or link the headers.
+> 
+> one way to get the include dirs
+> R CMD echo $R_INCLUDE_DIR
+> 
+> but the recommed way of finding the include dirs seems to be:
+> R CMD config --cppflags 
+> 
+> on my system this returns 
+> -I/usr/share/R/include -I/usr/share/R/include
+> 
+> but I can't use it with get_rconfig, since get_rconfig checks for -l/-L and 
+> raises an ecxecption otherwise, more or less
+> 
+
+get_rconfig is very picky before returning anything (that makes it
+return generally useful error reports when failing).
+Now it nows about '^-I'.
+
+> If I hardcode the include dir in setup.py it finds the headers, but stops 
+> with:
+> 
+> ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> running install
+> running build
+> running build_py
+> running build_ext
+> building 'rpy2.rinterface.rinterface' extension
+> gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions 
+> build/temp.linux-i686-2.5/rpy/rinterface/array.o 
+> build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o 
+> build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR -lRlapack -lRblas -o 
+> build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib -lR -llapack -lblas
+> /usr/bin/ld: cannot find -lRlapack
+
+Is this still happening with the last fix committed to SVN ?
+
+
+
+
+
+L.
+
+
+> collect2: ld returned 1 exit status
+> error: command 'gcc' failed with exit status 1
+> 
+> 
+> cheers,
+>   robert
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Tue Sep  2 18:01:01 2008
+From: lgautier at gmail.com (laurent)
+Date: Tue, 02 Sep 2008 20:01:01 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <18621.32079.437909.938317@ron.nulle.part>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring> <200809021826.59978.rnuske@gwdg.de> <18621.32079.437909.938317@ron.nulle.part>
+Message-ID: <1220378461.13981.94.camel@hot-spring>
+
+On Tue, 2008-09-02 at 12:52 -0500, Dirk Eddelbuettel wrote:
+> On 2 September 2008 at 18:26, Robert Nuske wrote:
+> | > I may have seen that one problem mentioned earlier to the list.
+> | me to, but can't find it now 
+> | 
+> | > The location of R's include files is seemingly a bit too exotic for the
+> | > disutils script.
+> | they were placed there by the debian package
+> 
+> Yes, as we were once asked / forced to place architecture-independent files
+> below /usr/share/
+> 
+> | > The setup.py script expects them to be in ${RHOME}/include
+> | > (RHOME being the outcome of running 'R RHOME').
+> | 
+> | by googeling R_INCLUDE_DIR I found that it is not recommended to rely on 
+> | ${RHOME}/include
+> | 
+> | eg.
+> | http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t-reflect-new-file-locations-tp3175446p3175720.html
+> 
+> It works always everywhere but alas not on Debian.
+> | > There is currently no other way around that than either
+> | > - edit setup.py
+> | > - copy or link the headers.
+> | 
+> | one way to get the include dirs
+> | R CMD echo $R_INCLUDE_DIR
+> 
+> For rpy (v1) it works out-of-the-box on all Debian systems. But as I recall
+> that may have taken Greg and myself a few iterations over setup.py.
+> 
+> I'm sure we can achieve the same for rpy v2, I just haven't gotten to it yet.
+
+I looked at the one for rpy in the begining, dismantled it, then built
+it again. There were nuts and bolts left on the side when I was done...
+may be they were not useless... ;-)
+
+I have it working with --cppflags on ubuntu (and that's debian-based,
+isn't it ?)
+
+(more below)
+
+
+> | but the recommed way of finding the include dirs seems to be:
+> | R CMD config --cppflags 
+> | 
+> | on my system this returns 
+> | -I/usr/share/R/include -I/usr/share/R/include
+> | 
+> | but I can't use it with get_rconfig, since get_rconfig checks for -l/-L and 
+> | raises an ecxecption otherwise, more or less
+> | 
+> | 
+> | If I hardcode the include dir in setup.py it finds the headers, but stops 
+> | with:
+> | 
+> | ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> | running install
+> | running build
+> | running build_py
+> | running build_ext
+> | building 'rpy2.rinterface.rinterface' extension
+> | gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions 
+> | build/temp.linux-i686-2.5/rpy/rinterface/array.o 
+> | build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o 
+> | build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR -lRlapack -lRblas -o 
+> | build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib -lR -llapack -lblas
+> | /usr/bin/ld: cannot find -lRlapack
+> | collect2: ld returned 1 exit status
+> | error: command 'gcc' failed with exit status 1
+> 
+> Similarly, prior to the new gfortran-built liblapack / libblas / libatlas
+> packages, we used to build R with its copy of Lapack --- hence -lRlapack.
+> 
+> Since last winter, however, we have newer / better lapack libs and no longer
+> use R's lapack source --- hence now
+> 
+> 	edd@ron:~> R CMD config --ldflags
+> 	-L/usr/lib/R/lib -lR
+> 	edd@ron:~> R CMD config LAPACK_LIBS
+> 	-llapack
+> 	edd@ron:~>  
+
+rpy2's setup.py is getting its LAPACK (and BLAS) info
+from R CMD config (but now I see that it is also using Rblas and Rlapack
+no matter what).
+
+Easy to fix (and fixed soon).
+
+
+> Hth, Dirk
+> 
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From edd at debian.org  Tue Sep  2 18:19:42 2008
+From: edd at debian.org (Dirk Eddelbuettel)
+Date: Tue, 02 Sep 2008 13:19:42 -0500
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <1220378461.13981.94.camel@hot-spring>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring> <200809021826.59978.rnuske@gwdg.de> <18621.32079.437909.938317@ron.nulle.part> <1220378461.13981.94.camel@hot-spring>
+Message-ID: <18621.33726.900209.128320@ron.nulle.part>
+
+
+On 2 September 2008 at 20:01, laurent wrote:
+| I have it working with --cppflags on ubuntu (and that's debian-based,
+| isn't it ?)
+
+Right. But the -lRlapack vs -llapack switch only happened more recently at
+Ubuntu 8.04, so on older systems you wouldn't have seen it yet.
+ 
+| rpy2's setup.py is getting its LAPACK (and BLAS) info
+| from R CMD config (but now I see that it is also using Rblas and Rlapack
+| no matter what).
+| 
+| Easy to fix (and fixed soon).
+
+Cool!
+
+Dirk
+
+-- 
+Three out of two people have difficulties with fractions.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From etuka at tesco.net  Wed Sep  3 00:59:07 2008
+From: etuka at tesco.net (Etuka Onono)
+Date: Wed, 03 Sep 2008 01:59:07 +0100
+Subject: [Rpy] RPy Compile Error on OS X 10.5 with Python 2.5.1 R 2.7.2
+Message-ID: <ABE0B7CD-CE33-479D-9632-55FF09A33B65@tesco.net>
+
+Hello,
+
+I have the following compile error when trying to build rpy2-2.0.0a3.
+ >>>
+building 'rpy2.rinterface.rinterface' extension
+gcc -fno-strict-aliasing -Wno-long-double -no-cpp-precomp -mno-fused- 
+madd -fno-common -dynamic -DNDEBUG -g -Os -Wall -Wstrict-prototypes - 
+DMACOSX -I/usr/include/ffi -DENABLE_DTRACE -arch i386 -arch ppc -pipe - 
+g -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/ 
+Library/Frameworks/R.framework/Resources/include -Irpy/rinterface -I/ 
+System/Library/Frameworks/Python.framework/Versions/2.5/include/ 
+python2.5 -c rpy/rinterface/array.c -o build/temp.macosx-10.5-i386-2.5/ 
+rpy/rinterface/array.o
+rpy/rinterface/array.c:103: error: syntax error before ‘*’ token
+rpy/rinterface/array.c:104: warning: function declaration isn’t a  
+prototype
+rpy/rinterface/array.c: In function ‘array_struct_get’:
+rpy/rinterface/array.c:105: warning: implicit declaration of function  
+‘RPY_SEXP’
+rpy/rinterface/array.c:105: error: ‘self’ undeclared (first use in  
+this function)
+rpy/rinterface/array.c:105: error: (Each undeclared identifier is  
+reported only once
+rpy/rinterface/array.c:105: error: for each function it appears in.)
+rpy/rinterface/array.c:105: warning: initialization makes pointer from  
+integer without a cast
+rpy/rinterface/array.c:103: error: syntax error before ‘*’ token
+rpy/rinterface/array.c:104: warning: function declaration isn’t a  
+prototype
+rpy/rinterface/array.c: In function ‘array_struct_get’:
+rpy/rinterface/array.c:105: warning: implicit declaration of function  
+‘RPY_SEXP’
+rpy/rinterface/array.c:105: error: ‘self’ undeclared (first use in  
+this function)
+rpy/rinterface/array.c:105: error: (Each undeclared identifier is  
+reported only once
+rpy/rinterface/array.c:105: error: for each function it appears in.)
+rpy/rinterface/array.c:105: warning: initialization makes pointer from  
+integer without a cast
+lipo: can't open input file: /var/folders/S0/S0L2IJNaGdqPs3a4cwhVck++ 
++TI/-Tmp-//ccOoqfmp.out (No such file or directory)
+<<<
+
+Any help to sort this out would be appreciated.
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From nikko at hailmail.net  Wed Sep  3 04:36:14 2008
+From: nikko at hailmail.net (Nicholas Lewin-Koh)
+Date: Tue, 02 Sep 2008 21:36:14 -0700
+Subject: Re: [Rpy] RPy Compile Error on OS X 10.5 with Python 2.5.1 R 2.7.2
+In-Reply-To: <ABE0B7CD-CE33-479D-9632-55FF09A33B65@tesco.net>
+References: <ABE0B7CD-CE33-479D-9632-55FF09A33B65@tesco.net>
+Message-ID: <1220416574.22117.1271871189@webmail.messagingengine.com>
+
+Hi,
+Try using the svn version, rpy2-2.0.0a3 is missing headers.
+
+Nicholas
+On Wed, 3 Sep 2008 01:59:07 +0100, "Etuka Onono" <etuka at tesco.net> said:
+> Hello,
+> 
+> I have the following compile error when trying to build rpy2-2.0.0a3.
+>  >>>
+> building 'rpy2.rinterface.rinterface' extension
+> gcc -fno-strict-aliasing -Wno-long-double -no-cpp-precomp -mno-fused- 
+> madd -fno-common -dynamic -DNDEBUG -g -Os -Wall -Wstrict-prototypes - 
+> DMACOSX -I/usr/include/ffi -DENABLE_DTRACE -arch i386 -arch ppc -pipe - 
+> g -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/ 
+> Library/Frameworks/R.framework/Resources/include -Irpy/rinterface -I/ 
+> System/Library/Frameworks/Python.framework/Versions/2.5/include/ 
+> python2.5 -c rpy/rinterface/array.c -o build/temp.macosx-10.5-i386-2.5/ 
+> rpy/rinterface/array.o
+> rpy/rinterface/array.c:103: error: syntax error before &#8216;*&#8217; token
+> rpy/rinterface/array.c:104: warning: function declaration isn&#8217;t a  
+> prototype
+> rpy/rinterface/array.c: In function &#8216;array_struct_get&#8217;:
+> rpy/rinterface/array.c:105: warning: implicit declaration of function  
+> &#8216;RPY_SEXP&#8217;
+> rpy/rinterface/array.c:105: error: &#8216;self&#8217; undeclared (first use in  
+> this function)
+> rpy/rinterface/array.c:105: error: (Each undeclared identifier is  
+> reported only once
+> rpy/rinterface/array.c:105: error: for each function it appears in.)
+> rpy/rinterface/array.c:105: warning: initialization makes pointer from  
+> integer without a cast
+> rpy/rinterface/array.c:103: error: syntax error before &#8216;*&#8217; token
+> rpy/rinterface/array.c:104: warning: function declaration isn&#8217;t a  
+> prototype
+> rpy/rinterface/array.c: In function &#8216;array_struct_get&#8217;:
+> rpy/rinterface/array.c:105: warning: implicit declaration of function  
+> &#8216;RPY_SEXP&#8217;
+> rpy/rinterface/array.c:105: error: &#8216;self&#8217; undeclared (first use in  
+> this function)
+> rpy/rinterface/array.c:105: error: (Each undeclared identifier is  
+> reported only once
+> rpy/rinterface/array.c:105: error: for each function it appears in.)
+> rpy/rinterface/array.c:105: warning: initialization makes pointer from  
+> integer without a cast
+> lipo: can't open input file: /var/folders/S0/S0L2IJNaGdqPs3a4cwhVck++ 
+> +TI/-Tmp-//ccOoqfmp.out (No such file or directory)
+> <<<
+> 
+> Any help to sort this out would be appreciated.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at users.sourceforge.net  Wed Sep  3 07:28:54 2008
+From: lgautier at users.sourceforge.net
+Date: Wed, 03 Sep 2008 07:28:54 +0000
+Subject: [Rpy] SF.net SVN: rpy:[649] branches/rpy_nextgen
+Message-ID: <E1KamnO-0006mQ-52@d5vjzd1.ch3.sourceforge.com>
+
+Revision: 649
+          http://rpy.svn.sourceforge.net/rpy/?rev=649&view=rev
+Author:   lgautier
+Date:     2008-09-03 07:28:53 +0000 (Wed, 03 Sep 2008)
+
+Log Message:
+-----------
+tentative fix for the external (non-R) blas or lapack libraries
+(someone to test ?)
+
+Modified Paths:
+--------------
+    branches/rpy_nextgen/NEWS
+    branches/rpy_nextgen/setup.py
+
+Modified: branches/rpy_nextgen/NEWS
+===================================================================
+--- branches/rpy_nextgen/NEWS	2008-09-02 17:48:47 UTC (rev 648)
++++ branches/rpy_nextgen/NEWS	2008-09-03 07:28:53 UTC (rev 649)
+@@ -31,9 +31,11 @@
+ 
+ - proper reference counting when handling, and deleting, :attr:`Sexp.__sexp__` generated CObjects
+ 
+-- get properly the include directories (no matter where they are) #bug report and fix adapted from Robert Nuske
++- setup.py: get properly the include directories (no matter where they are) #bug report and fix adapted from Robert Nuske
+ 
++- setup.py: link to external lapack or blas library when relevant
+ 
++
+ Release 2.0.0a3
+ ===============
+ 
+
+Modified: branches/rpy_nextgen/setup.py
+===================================================================
+--- branches/rpy_nextgen/setup.py	2008-09-02 17:48:47 UTC (rev 648)
++++ branches/rpy_nextgen/setup.py	2008-09-03 07:28:53 UTC (rev 649)
+@@ -113,7 +113,7 @@
+              os.path.join('rpy', 'rinterface', 'rinterface.c')],
+             include_dirs = include_dirs + 
+                             [os.path.join('rpy', 'rinterface'),],
+-            libraries = ['R', 'Rlapack', 'Rblas'],
++            libraries = ['R', ],
+             library_dirs = r_libs,
+             define_macros = define_macros,
+             runtime_library_dirs = r_libs,
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From rnuske at gwdg.de  Wed Sep  3 07:49:04 2008
+From: rnuske at gwdg.de (Robert Nuske)
+Date: Wed, 03 Sep 2008 09:49:04 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <1220377945.13981.85.camel@hot-spring>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021826.59978.rnuske@gwdg.de> <1220377945.13981.85.camel@hot-spring>
+Message-ID: <200809030949.05084.rnuske@gwdg.de>
+
+Hi laurent,
+
+I just opend my mail-program to write you that I had to 
+delete 'Rlapack', 'Rblas' to make the setup.py finally work, when I saw the 
+note about your change in svn.
+
+I checked out revision 649.
+And yes, I can confirm it works now ;-)
+
+I was wondering about line 107 in setup.py
+include_dirs = [x.lstrip('-I') for x in include_dirs]
+is there a reason to keep duplicate information about the path to the include 
+dir? Or could there resonably be more than one include dir?
+
+cheers,
+  robert
+
+> > > > I found them here:
+> > > > /usr/share/R/include/Rdefines.h
+> > > > /usr/share/R/include/Rinternals.h
+> > > > /usr/share/R/include/R.h
+> > >
+> > > I may have seen that one problem mentioned earlier to the list.
+> >
+> > me to, but can't find it now
+> >
+> > > The location of R's include files is seemingly a bit too exotic for the
+> > > disutils script.
+> >
+> > they were placed there by the debian package
+> >
+> > > The setup.py script expects them to be in ${RHOME}/include
+> > > (RHOME being the outcome of running 'R RHOME').
+> >
+> > by googeling R_INCLUDE_DIR I found that it is not recommended to rely on
+> > ${RHOME}/include
+> >
+> > eg.
+> > http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t
+> >-reflect-new-file-locations-tp3175446p3175720.html
+> >
+> > > There is currently no other way around that than either
+> > > - edit setup.py
+> > > - copy or link the headers.
+> >
+> > one way to get the include dirs
+> > R CMD echo $R_INCLUDE_DIR
+> >
+> > but the recommed way of finding the include dirs seems to be:
+> > R CMD config --cppflags
+> >
+> > on my system this returns
+> > -I/usr/share/R/include -I/usr/share/R/include
+> >
+> > but I can't use it with get_rconfig, since get_rconfig checks for -l/-L
+> > and raises an ecxecption otherwise, more or less
+>
+> get_rconfig is very picky before returning anything (that makes it
+> return generally useful error reports when failing).
+> Now it nows about '^-I'.
+>
+> > If I hardcode the include dir in setup.py it finds the headers, but stops
+> > with:
+> >
+> > ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> > running install
+> > running build
+> > running build_py
+> > running build_ext
+> > building 'rpy2.rinterface.rinterface' extension
+> > gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions
+> > build/temp.linux-i686-2.5/rpy/rinterface/array.o
+> > build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o
+> > build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib
+> > -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR
+> > -lRlapack -lRblas -o
+> > build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib
+> > -lR -llapack -lblas /usr/bin/ld: cannot find -lRlapack
+>
+> Is this still happening with the last fix committed to SVN ?
+>
+>
+>
+>
+>
+> L.
+>
+> > collect2: ld returned 1 exit status
+> > error: command 'gcc' failed with exit status 1
+> >
+> >
+> > cheers,
+> >   robert
+
+
+
+-- 
+   Robert Nuske
+   Department of Ecoinformatics,
+   Biometrics & Forest Growth
+
+   Buesgenweg 4
+   37077 Goettingen
+   GERMANY
+
+   Phone: +49-551-39-22362
+   Fax  : +49-551-39-3465
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Wed Sep  3 08:14:28 2008
+From: lgautier at gmail.com (laurent)
+Date: Wed, 03 Sep 2008 10:14:28 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <200809030949.05084.rnuske@gwdg.de>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021826.59978.rnuske@gwdg.de> <1220377945.13981.85.camel@hot-spring> <200809030949.05084.rnuske@gwdg.de>
+Message-ID: <1220429668.6784.8.camel@hot-spring>
+
+On Wed, 2008-09-03 at 09:49 +0200, Robert Nuske wrote:
+> Hi laurent,
+> 
+> I just opend my mail-program to write you that I had to 
+> delete 'Rlapack', 'Rblas' to make the setup.py finally work, when I saw the 
+> note about your change in svn.
+> 
+> I checked out revision 649.
+> And yes, I can confirm it works now ;-)
+> 
+> I was wondering about line 107 in setup.py
+> include_dirs = [x.lstrip('-I') for x in include_dirs]
+> is there a reason to keep duplicate information about the path to the include 
+> dir? Or could there resonably be more than one include dir?
+
+R CMD config --cppflags returned two paths here (twice the same,
+now that you point it out).
+I went for the safest and make sure all are included.
+
+> cheers,
+>   robert
+> 
+> > > > > I found them here:
+> > > > > /usr/share/R/include/Rdefines.h
+> > > > > /usr/share/R/include/Rinternals.h
+> > > > > /usr/share/R/include/R.h
+> > > >
+> > > > I may have seen that one problem mentioned earlier to the list.
+> > >
+> > > me to, but can't find it now
+> > >
+> > > > The location of R's include files is seemingly a bit too exotic for the
+> > > > disutils script.
+> > >
+> > > they were placed there by the debian package
+> > >
+> > > > The setup.py script expects them to be in ${RHOME}/include
+> > > > (RHOME being the outcome of running 'R RHOME').
+> > >
+> > > by googeling R_INCLUDE_DIR I found that it is not recommended to rely on
+> > > ${RHOME}/include
+> > >
+> > > eg.
+> > > http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t
+> > >-reflect-new-file-locations-tp3175446p3175720.html
+> > >
+> > > > There is currently no other way around that than either
+> > > > - edit setup.py
+> > > > - copy or link the headers.
+> > >
+> > > one way to get the include dirs
+> > > R CMD echo $R_INCLUDE_DIR
+> > >
+> > > but the recommed way of finding the include dirs seems to be:
+> > > R CMD config --cppflags
+> > >
+> > > on my system this returns
+> > > -I/usr/share/R/include -I/usr/share/R/include
+> > >
+> > > but I can't use it with get_rconfig, since get_rconfig checks for -l/-L
+> > > and raises an ecxecption otherwise, more or less
+> >
+> > get_rconfig is very picky before returning anything (that makes it
+> > return generally useful error reports when failing).
+> > Now it nows about '^-I'.
+> >
+> > > If I hardcode the include dir in setup.py it finds the headers, but stops
+> > > with:
+> > >
+> > > ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> > > running install
+> > > running build
+> > > running build_py
+> > > running build_ext
+> > > building 'rpy2.rinterface.rinterface' extension
+> > > gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions
+> > > build/temp.linux-i686-2.5/rpy/rinterface/array.o
+> > > build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o
+> > > build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib
+> > > -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR
+> > > -lRlapack -lRblas -o
+> > > build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib
+> > > -lR -llapack -lblas /usr/bin/ld: cannot find -lRlapack
+> >
+> > Is this still happening with the last fix committed to SVN ?
+> >
+> >
+> >
+> >
+> >
+> > L.
+> >
+> > > collect2: ld returned 1 exit status
+> > > error: command 'gcc' failed with exit status 1
+> > >
+> > >
+> > > cheers,
+> > >   robert
+> 
+> 
+> 
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Wed Sep  3 09:40:13 2008
+From: lgautier at gmail.com (laurent)
+Date: Wed, 03 Sep 2008 11:40:13 +0200
+Subject: Re: [Rpy] How to install rpy on 64bit machine?
+In-Reply-To: <573a3abd0809030235h1d1d2097k8983e14d9351739c@mail.gmail.com>
+References: <18839f340809011903y4ba28212s235d055a05106a61@mail.gmail.com> <1220339105.6717.2.camel@hot-spring> <573a3abd0809030235h1d1d2097k8983e14d9351739c@mail.gmail.com>
+Message-ID: <1220434813.12939.11.camel@hot-spring>
+
+Checking what is the first error message seems to be helpful.
+(headers for Python appear to be missing)
+
+On Wed, 2008-09-03 at 18:35 +0900, Hyunchul Kim wrote:
+> In file included from src/rpymodule2070.c:51:
+> src/RPy.h:56:20: error: Python.h: No such file or directory
+> In file included from src/RPy.h:57,
+>                  from src/rpymodule2070.c:51:
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From hyunchul.mailing at gmail.com  Wed Sep  3 10:58:29 2008
+From: hyunchul.mailing at gmail.com (Hyunchul Kim)
+Date: Wed, 03 Sep 2008 19:58:29 +0900
+Subject: Re: [Rpy] How to install rpy on 64bit machine?
+In-Reply-To: <1220434813.12939.11.camel@hot-spring>
+References: <18839f340809011903y4ba28212s235d055a05106a61@mail.gmail.com> <1220339105.6717.2.camel@hot-spring> <573a3abd0809030235h1d1d2097k8983e14d9351739c@mail.gmail.com> <1220434813.12939.11.camel@hot-spring>
+Message-ID: <573a3abd0809030358u23afbe66ua48eaca5f7e3be8b@mail.gmail.com>
+
+Thank you for your comments. :)
+I installed python-dev, which includes Python.h file, and then rpy was
+successfully installed.
+
+On Wed, Sep 3, 2008 at 6:40 PM, laurent <lgautier at gmail.com> wrote:
+
+> Checking what is the first error message seems to be helpful.
+> (headers for Python appear to be missing)
+>
+> On Wed, 2008-09-03 at 18:35 +0900, Hyunchul Kim wrote:
+> > In file included from src/rpymodule2070.c:51:
+> > src/RPy.h:56:20: error: Python.h: No such file or directory
+> > In file included from src/RPy.h:57,
+> >                  from src/rpymodule2070.c:51:
+>
+>
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From sundol at sfc.keio.ac.jp  Wed Sep  3 09:35:04 2008
+From: sundol at sfc.keio.ac.jp (Hyunchul Kim)
+Date: Wed, 03 Sep 2008 18:35:04 +0900
+Subject: Re: [Rpy] How to install rpy on 64bit machine?
+In-Reply-To: <1220339105.6717.2.camel@hot-spring>
+References: <18839f340809011903y4ba28212s235d055a05106a61@mail.gmail.com> <1220339105.6717.2.camel@hot-spring>
+Message-ID: <573a3abd0809030235h1d1d2097k8983e14d9351739c@mail.gmail.com>
+
+./configure step worked well but "make" made errors.
+I attached console output file.
+
+Any suggestion, please?
+
+Hyunchul
+
+
+
+On Tue, Sep 2, 2008 at 4:05 PM, laurent <lgautier at gmail.com> wrote:
+
+>
+> People may have difficulties helping you without further
+> specifications (like console output, etc...)
+>
+> I previously installed rpy and rpy2 on 64bit machines
+> without trouble.
+>
+>
+> L.
+>
+>
+> On Tue, 2008-09-02 at 11:03 +0900, Hyunchul Kim wrote:
+> > Hi, all
+> >
+> > I tried to install rpy-1.0.3 with r-2.7.2 on Ubuntu 8.0.4-64bit but
+> > failed.
+> > I used ./configure --enable-R-shlib and I installed successfully many
+> > times on 32bit machine, previously. Thus, probably, it is the machine
+> > architecture problem.
+> >
+> > How did you install rpy on 64bit machine?
+> >
+> > Hyunchul Kim
+> >
+> > -------------------------------------------------------------------------
+> > This SF.Net email is sponsored by the Moblin Your Move Developer's
+> challenge
+> > Build the coolest Linux based applications with Moblin SDK & win great
+> prizes
+> > Grand prize is a trip for two to an Open Source event anywhere in the
+> world
+> > http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> > _______________________________________________ rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> -------------------------------------------------------------------------
+> This SF.Net email is sponsored by the Moblin Your Move Developer's
+> challenge
+> Build the coolest Linux based applications with Moblin SDK & win great
+> prizes
+> Grand prize is a trip for two to an Open Source event anywhere in the world
+> http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: error.log
+Type: application/octet-stream
+Size: 50324 bytes
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From etuka at tesco.net  Wed Sep  3 11:55:15 2008
+From: etuka at tesco.net (Etuka Onono)
+Date: Wed, 03 Sep 2008 12:55:15 +0100
+Subject: Re: [Rpy] RPy Compile Error on OS X 10.5 with Python 2.5.1 R
+In-Reply-To: <mailman.1036327.1220434823.5026.rpy-list@lists.sourceforge.net>
+References: <mailman.1036327.1220434823.5026.rpy-list@lists.sourceforge.net>
+Message-ID: <52F27CE6-31CC-4F1A-9A97-039A1D1CF1E6@tesco.net>
+
+That's better, thanks very much.
+
+It is a little strange that the compile messages don't point out  
+missing headers.
+
+Etuka
+
+On 3 Sep 2008, at 10:40, rpy-list-request at lists.sourceforge.net wrote:
+>
+> Date: Tue, 02 Sep 2008 21:36:14 -0700
+> From: "Nicholas Lewin-Koh" <nikko at hailmail.net>
+> Subject: Re: [Rpy] RPy Compile Error on OS X 10.5 with Python 2.5.1 R
+> 	2.7.2
+> To: "RPy help,  support and design discussion list"
+> 	<rpy-list at lists.sourceforge.net>, rpy-list at lists.sourceforge.net
+> Message-ID: <1220416574.22117.1271871189 at webmail.messagingengine.com>
+> Content-Type: text/plain; charset="ISO-8859-1"
+>
+> Hi,
+> Try using the svn version, rpy2-2.0.0a3 is missing headers.
+>
+> Nicholas
+> On Wed, 3 Sep 2008 01:59:07 +0100, "Etuka Onono" <etuka at tesco.net>  
+> said:
+>> Hello,
+>>
+>> I have the following compile error when trying to build rpy2-2.0.0a3.
+>>>>>
+>> building 'rpy2.rinterface.rinterface' extension
+>> gcc -fno-strict-aliasing -Wno-long-double -no-cpp-precomp -mno-fused-
+>> madd -fno-common -dynamic -DNDEBUG -g -Os -Wall -Wstrict-prototypes -
+>> DMACOSX -I/usr/include/ffi -DENABLE_DTRACE -arch i386 -arch ppc - 
+>> pipe -
+>> g -DR_INTERFACE_PTRS=1 -DCSTACK_DEFNS=1 -DRIF_HAS_RSIGHAND=1 -I/
+>> Library/Frameworks/R.framework/Resources/include -Irpy/rinterface -I/
+>> System/Library/Frameworks/Python.framework/Versions/2.5/include/
+>> python2.5 -c rpy/rinterface/array.c -o build/temp.macosx-10.5- 
+>> i386-2.5/
+>> rpy/rinterface/array.o
+>> rpy/rinterface/array.c:103: error: syntax error before  
+>> &#8216;*&#8217; token
+>> rpy/rinterface/array.c:104: warning: function declaration  
+>> isn&#8217;t a
+>> prototype
+>> rpy/rinterface/array.c: In function &#8216;array_struct_get&#8217;:
+>> rpy/rinterface/array.c:105: warning: implicit declaration of function
+>> &#8216;RPY_SEXP&#8217;
+>> rpy/rinterface/array.c:105: error: &#8216;self&#8217; undeclared  
+>> (first use in
+>> this function)
+>> rpy/rinterface/array.c:105: error: (Each undeclared identifier is
+>> reported only once
+>> rpy/rinterface/array.c:105: error: for each function it appears in.)
+>> rpy/rinterface/array.c:105: warning: initialization makes pointer  
+>> from
+>> integer without a cast
+>> rpy/rinterface/array.c:103: error: syntax error before  
+>> &#8216;*&#8217; token
+>> rpy/rinterface/array.c:104: warning: function declaration  
+>> isn&#8217;t a
+>> prototype
+>> rpy/rinterface/array.c: In function &#8216;array_struct_get&#8217;:
+>> rpy/rinterface/array.c:105: warning: implicit declaration of function
+>> &#8216;RPY_SEXP&#8217;
+>> rpy/rinterface/array.c:105: error: &#8216;self&#8217; undeclared  
+>> (first use in
+>> this function)
+>> rpy/rinterface/array.c:105: error: (Each undeclared identifier is
+>> reported only once
+>> rpy/rinterface/array.c:105: error: for each function it appears in.)
+>> rpy/rinterface/array.c:105: warning: initialization makes pointer  
+>> from
+>> integer without a cast
+>> lipo: can't open input file: /var/folders/S0/S0L2IJNaGdqPs3a4cwhVck++
+>> +TI/-Tmp-//ccOoqfmp.out (No such file or directory)
+>> <<<
+>>
+>> Any help to sort this out would be appreciated.
+>
+>
+>
+> ------------------------------
+>
+> Message: 3
+> Date: Wed, 03 Sep 2008 07:28:54 +0000
+> From: lgautier at users.sourceforge.net
+> Subject: [Rpy] SF.net SVN: rpy:[649] branches/rpy_nextgen
+> To: rpy-list at lists.sf.net
+> Message-ID: <E1KamnO-0006mQ-52 at d5vjzd1.ch3.sourceforge.com>
+> Content-Type: text/plain; charset=UTF-8
+>
+> Revision: 649
+>          http://rpy.svn.sourceforge.net/rpy/?rev=649&view=rev
+> Author:   lgautier
+> Date:     2008-09-03 07:28:53 +0000 (Wed, 03 Sep 2008)
+>
+> Log Message:
+> -----------
+> tentative fix for the external (non-R) blas or lapack libraries
+> (someone to test ?)
+>
+> Modified Paths:
+> --------------
+>    branches/rpy_nextgen/NEWS
+>    branches/rpy_nextgen/setup.py
+>
+> Modified: branches/rpy_nextgen/NEWS
+> ===================================================================
+> --- branches/rpy_nextgen/NEWS	2008-09-02 17:48:47 UTC (rev 648)
+> +++ branches/rpy_nextgen/NEWS	2008-09-03 07:28:53 UTC (rev 649)
+> @@ -31,9 +31,11 @@
+>
+> - proper reference counting when handling, and  
+> deleting, :attr:`Sexp.__sexp__` generated CObjects
+>
+> -- get properly the include directories (no matter where they are)  
+> #bug report and fix adapted from Robert Nuske
+> +- setup.py: get properly the include directories (no matter where  
+> they are) #bug report and fix adapted from Robert Nuske
+>
+> +- setup.py: link to external lapack or blas library when relevant
+>
+> +
+> Release 2.0.0a3
+> ===============
+>
+>
+> Modified: branches/rpy_nextgen/setup.py
+> ===================================================================
+> --- branches/rpy_nextgen/setup.py	2008-09-02 17:48:47 UTC (rev 648)
+> +++ branches/rpy_nextgen/setup.py	2008-09-03 07:28:53 UTC (rev 649)
+> @@ -113,7 +113,7 @@
+>              os.path.join('rpy', 'rinterface', 'rinterface.c')],
+>             include_dirs = include_dirs +
+>                             [os.path.join('rpy', 'rinterface'),],
+> -            libraries = ['R', 'Rlapack', 'Rblas'],
+> +            libraries = ['R', ],
+>             library_dirs = r_libs,
+>             define_macros = define_macros,
+>             runtime_library_dirs = r_libs,
+>
+>
+> This was sent by the SourceForge.net collaborative development  
+> platform, the world's largest Open Source development site.
+>
+>
+>
+> ------------------------------
+>
+> Message: 4
+> Date: Wed, 3 Sep 2008 09:49:04 +0200
+> From: Robert Nuske <rnuske at gwdg.de>
+> Subject: Re: [Rpy] problem installing rpy2
+> To: laurent <lgautier at gmail.com>, rpy-list at lists.sourceforge.net
+> Message-ID: <200809030949.05084.rnuske at gwdg.de>
+> Content-Type: text/plain;  charset="utf-8"
+>
+> Hi laurent,
+>
+> I just opend my mail-program to write you that I had to
+> delete 'Rlapack', 'Rblas' to make the setup.py finally work, when I  
+> saw the
+> note about your change in svn.
+>
+> I checked out revision 649.
+> And yes, I can confirm it works now ;-)
+>
+> I was wondering about line 107 in setup.py
+> include_dirs = [x.lstrip('-I') for x in include_dirs]
+> is there a reason to keep duplicate information about the path to  
+> the include
+> dir? Or could there resonably be more than one include dir?
+>
+> cheers,
+>  robert
+>
+>>>>> I found them here:
+>>>>> /usr/share/R/include/Rdefines.h
+>>>>> /usr/share/R/include/Rinternals.h
+>>>>> /usr/share/R/include/R.h
+>>>>
+>>>> I may have seen that one problem mentioned earlier to the list.
+>>>
+>>> me to, but can't find it now
+>>>
+>>>> The location of R's include files is seemingly a bit too exotic  
+>>>> for the
+>>>> disutils script.
+>>>
+>>> they were placed there by the debian package
+>>>
+>>>> The setup.py script expects them to be in ${RHOME}/include
+>>>> (RHOME being the outcome of running 'R RHOME').
+>>>
+>>> by googeling R_INCLUDE_DIR I found that it is not recommended to  
+>>> rely on
+>>> ${RHOME}/include
+>>>
+>>> eg.
+>>> http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t
+>>> -reflect-new-file-locations-tp3175446p3175720.html
+>>>
+>>>> There is currently no other way around that than either
+>>>> - edit setup.py
+>>>> - copy or link the headers.
+>>>
+>>> one way to get the include dirs
+>>> R CMD echo $R_INCLUDE_DIR
+>>>
+>>> but the recommed way of finding the include dirs seems to be:
+>>> R CMD config --cppflags
+>>>
+>>> on my system this returns
+>>> -I/usr/share/R/include -I/usr/share/R/include
+>>>
+>>> but I can't use it with get_rconfig, since get_rconfig checks for - 
+>>> l/-L
+>>> and raises an ecxecption otherwise, more or less
+>>
+>> get_rconfig is very picky before returning anything (that makes it
+>> return generally useful error reports when failing).
+>> Now it nows about '^-I'.
+>>
+>>> If I hardcode the include dir in setup.py it finds the headers,  
+>>> but stops
+>>> with:
+>>>
+>>> ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+>>> running install
+>>> running build
+>>> running build_py
+>>> running build_ext
+>>> building 'rpy2.rinterface.rinterface' extension
+>>> gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions
+>>> build/temp.linux-i686-2.5/rpy/rinterface/array.o
+>>> build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o
+>>> build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/ 
+>>> lib
+>>> -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules  
+>>> -lR
+>>> -lRlapack -lRblas -o
+>>> build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/ 
+>>> R/lib
+>>> -lR -llapack -lblas /usr/bin/ld: cannot find -lRlapack
+>>
+>> Is this still happening with the last fix committed to SVN ?
+>>
+>>
+>>
+>>
+>>
+>> L.
+>>
+>>> collect2: ld returned 1 exit status
+>>> error: command 'gcc' failed with exit status 1
+>>>
+>>>
+>>> cheers,
+>>>  robert
+>
+>
+>
+> -- 
+>   Robert Nuske
+>   Department of Ecoinformatics,
+>   Biometrics & Forest Growth
+>
+>   Buesgenweg 4
+>   37077 Goettingen
+>   GERMANY
+>
+>   Phone: +49-551-39-22362
+>   Fax  : +49-551-39-3465
+>
+>
+>
+> ------------------------------
+>
+> Message: 5
+> Date: Wed, 03 Sep 2008 10:14:28 +0200
+> From: laurent <lgautier at gmail.com>
+> Subject: Re: [Rpy] problem installing rpy2
+> To: rnuske at gwdg.de
+> Cc: rpy-list at lists.sourceforge.net
+> Message-ID: <1220429668.6784.8.camel@hot-spring>
+> Content-Type: text/plain
+>
+> On Wed, 2008-09-03 at 09:49 +0200, Robert Nuske wrote:
+>> Hi laurent,
+>>
+>> I just opend my mail-program to write you that I had to
+>> delete 'Rlapack', 'Rblas' to make the setup.py finally work, when I  
+>> saw the
+>> note about your change in svn.
+>>
+>> I checked out revision 649.
+>> And yes, I can confirm it works now ;-)
+>>
+>> I was wondering about line 107 in setup.py
+>> include_dirs = [x.lstrip('-I') for x in include_dirs]
+>> is there a reason to keep duplicate information about the path to  
+>> the include
+>> dir? Or could there resonably be more than one include dir?
+>
+> R CMD config --cppflags returned two paths here (twice the same,
+> now that you point it out).
+> I went for the safest and make sure all are included.
+>
+>> cheers,
+>>  robert
+>>
+>>>>>> I found them here:
+>>>>>> /usr/share/R/include/Rdefines.h
+>>>>>> /usr/share/R/include/Rinternals.h
+>>>>>> /usr/share/R/include/R.h
+>>>>>
+>>>>> I may have seen that one problem mentioned earlier to the list.
+>>>>
+>>>> me to, but can't find it now
+>>>>
+>>>>> The location of R's include files is seemingly a bit too exotic  
+>>>>> for the
+>>>>> disutils script.
+>>>>
+>>>> they were placed there by the debian package
+>>>>
+>>>>> The setup.py script expects them to be in ${RHOME}/include
+>>>>> (RHOME being the outcome of running 'R RHOME').
+>>>>
+>>>> by googeling R_INCLUDE_DIR I found that it is not recommended to  
+>>>> rely on
+>>>> ${RHOME}/include
+>>>>
+>>>> eg.
+>>>> http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t
+>>>> -reflect-new-file-locations-tp3175446p3175720.html
+>>>>
+>>>>> There is currently no other way around that than either
+>>>>> - edit setup.py
+>>>>> - copy or link the headers.
+>>>>
+>>>> one way to get the include dirs
+>>>> R CMD echo $R_INCLUDE_DIR
+>>>>
+>>>> but the recommed way of finding the include dirs seems to be:
+>>>> R CMD config --cppflags
+>>>>
+>>>> on my system this returns
+>>>> -I/usr/share/R/include -I/usr/share/R/include
+>>>>
+>>>> but I can't use it with get_rconfig, since get_rconfig checks for  
+>>>> -l/-L
+>>>> and raises an ecxecption otherwise, more or less
+>>>
+>>> get_rconfig is very picky before returning anything (that makes it
+>>> return generally useful error reports when failing).
+>>> Now it nows about '^-I'.
+>>>
+>>>> If I hardcode the include dir in setup.py it finds the headers,  
+>>>> but stops
+>>>> with:
+>>>>
+>>>> ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+>>>> running install
+>>>> running build
+>>>> running build_py
+>>>> running build_ext
+>>>> building 'rpy2.rinterface.rinterface' extension
+>>>> gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions
+>>>> build/temp.linux-i686-2.5/rpy/rinterface/array.o
+>>>> build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o
+>>>> build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/ 
+>>>> R/lib
+>>>> -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/ 
+>>>> modules -lR
+>>>> -lRlapack -lRblas -o
+>>>> build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/ 
+>>>> R/lib
+>>>> -lR -llapack -lblas /usr/bin/ld: cannot find -lRlapack
+>>>
+>>> Is this still happening with the last fix committed to SVN ?
+>>>
+>>>
+>>>
+>>>
+>>>
+>>> L.
+>>>
+>>>> collect2: ld returned 1 exit status
+>>>> error: command 'gcc' failed with exit status 1
+>>>>
+>>>>
+>>>> cheers,
+>>>>  robert
+>>
+>>
+>>
+>
+>
+>
+>
+> ------------------------------
+>
+> Message: 6
+> Date: Wed, 03 Sep 2008 11:40:13 +0200
+> From: laurent <lgautier at gmail.com>
+> Subject: Re: [Rpy] How to install rpy on 64bit machine?
+> To: Hyunchul Kim <sundol at sfc.keio.ac.jp>
+> Cc: "RPy help,	support and design discussion list"
+> 	<rpy-list at lists.sourceforge.net>
+> Message-ID: <1220434813.12939.11.camel@hot-spring>
+> Content-Type: text/plain
+>
+> Checking what is the first error message seems to be helpful.
+> (headers for Python appear to be missing)
+>
+> On Wed, 2008-09-03 at 18:35 +0900, Hyunchul Kim wrote:
+>> In file included from src/rpymodule2070.c:51:
+>> src/RPy.h:56:20: error: Python.h: No such file or directory
+>> In file included from src/RPy.h:57,
+>>                 from src/rpymodule2070.c:51:
+>
+>
+>
+>
+> ------------------------------
+>
+> -------------------------------------------------------------------------
+> This SF.Net email is sponsored by the Moblin Your Move Developer's  
+> challenge
+> Build the coolest Linux based applications with Moblin SDK & win  
+> great prizes
+> Grand prize is a trip for two to an Open Source event anywhere in  
+> the world
+> http://moblin-contest.org/redirect.php?banner_id=100&url=/
+>
+> ------------------------------
+>
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> End of rpy-list Digest, Vol 28, Issue 4
+> ***************************************
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at users.sourceforge.net  Thu Sep  4 13:41:56 2008
+From: lgautier at users.sourceforge.net
+Date: Thu, 04 Sep 2008 13:41:56 +0000
+Subject: [Rpy] SF.net SVN: rpy:[650] branches/rpy_nextgen
+Message-ID: <E1KbF5w-0002lA-6s@bj8yhf1.ch3.sourceforge.com>
+
+Revision: 650
+          http://rpy.svn.sourceforge.net/rpy/?rev=650&view=rev
+Author:   lgautier
+Date:     2008-09-04 13:41:55 +0000 (Thu, 04 Sep 2008)
+
+Log Message:
+-----------
+Added MANIFEST.in
+
+Modified Paths:
+--------------
+    branches/rpy_nextgen/NEWS
+
+Added Paths:
+-----------
+    branches/rpy_nextgen/MANIFEST.in
+
+Added: branches/rpy_nextgen/MANIFEST.in
+===================================================================
+--- branches/rpy_nextgen/MANIFEST.in	                        (rev 0)
++++ branches/rpy_nextgen/MANIFEST.in	2008-09-04 13:41:55 UTC (rev 650)
+@@ -0,0 +1,17 @@
++global-include debian* README
++global-exclude *patch* *diff* .svn
++
++include NEWS README
++include rpy/rinterface/rinterface.h
++include rpy/rinterface/rinterface.c
++include rpy/rinterface/array.c
++include rpy/rinterface/array.h
++include rpy/rinterface/r_utils.c
++include rpy/rinterface/r_utils.h
++
++include debian/*
++
++prune debian/.svn
++prune CVS
++prune dist
++prune doc
+
+Modified: branches/rpy_nextgen/NEWS
+===================================================================
+--- branches/rpy_nextgen/NEWS	2008-09-03 07:28:53 UTC (rev 649)
++++ branches/rpy_nextgen/NEWS	2008-09-04 13:41:55 UTC (rev 650)
+@@ -35,7 +35,9 @@
+ 
+ - setup.py: link to external lapack or blas library when relevant
+ 
++- added a MANIFEST.in ensuring that headers get included in the source distribution
+ 
++
+ Release 2.0.0a3
+ ===============
+ 
+@@ -206,4 +208,4 @@
+ Release 1.0a0
+ =============
+ 
+-- first public release
+\ No newline at end of file
++- first public release
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Thu Sep  4 17:11:47 2008
+From: lgautier at gmail.com (laurent)
+Date: Thu, 04 Sep 2008 19:11:47 +0200
+Subject: Re: [Rpy] problem installing rpy2
+In-Reply-To: <1220375346.19127.1271770223@webmail.messagingengine.com>
+References: <200809021021.24217.rnuske@gwdg.de> <200809021105.57676.rnuske@gwdg.de> <1220360944.13981.37.camel@hot-spring> <200809021826.59978.rnuske@gwdg.de> <1220374601.16683.1271766683@webmail.messagingengine.com> <1220375346.19127.1271770223@webmail.messagingengine.com>
+Message-ID: <1220548307.19823.1.camel@hot-spring>
+
+Just for reference (since running at this stage running
+the SVN version is a bit better).
+
+I updated rpy2-2.0a3 tarball to include the headers.
+
+The fix to built source distributions is also in SVN.
+
+Thanks for reporting that files were missing,
+
+
+L.
+
+
+
+
+
+On Tue, 2008-09-02 at 10:09 -0700, Nicholas Lewin-Koh wrote:
+> Hi,
+> Silly me! 
+> I just checked svn, and I was using the rpy-2.0a3 tar ball.
+> All the .h files are missing in rpy/rinterfaces.
+> 
+> Nicholas
+> 
+> On Tue, 02 Sep 2008 09:56:41 -0700, "Nicholas Lewin-Koh"
+> <nikko at hailmail.net> said:
+> > Hi,
+> > I had the similar problems with on ubuntu. When I set RHOME manually,
+> > export RHOME=/usr/local/lib64/R
+> > I got problems with finding one of the headers, specifically
+> > in rpy/interface/array.c
+> > changing 
+> > #include "rinterface.h"
+> > to include #include <Rinterface.h>
+> > 
+> > got around my first errors but I am noit sure that this is the header
+> > that is meant?
+> > the next error is a pointer error
+> > 
+> > PyObject* 
+> > array_struct_get(PySexpObject *self)
+> > 
+> > which should be ok, so Rinterface.h is the wrong header.
+> > Of course i am at work and I was doing this on my home computer.
+> > 
+> > Is setup.py supposed to create rinterface.h?
+> > 
+> > Nicholas
+> > 
+> > I noticed in 
+> > On Tue, 2 Sep 2008 18:26:59 +0200, "Robert Nuske" <rnuske at gwdg.de> said:
+> > > Hi laurent,
+> > > 
+> > > 
+> > > > > I found them here:
+> > > > > /usr/share/R/include/Rdefines.h
+> > > > > /usr/share/R/include/Rinternals.h
+> > > > > /usr/share/R/include/R.h
+> > > >
+> > > > I may have seen that one problem mentioned earlier to the list.
+> > > me to, but can't find it now 
+> > > 
+> > > > The location of R's include files is seemingly a bit too exotic for the
+> > > > disutils script.
+> > > they were placed there by the debian package
+> > > 
+> > > > The setup.py script expects them to be in ${RHOME}/include
+> > > > (RHOME being the outcome of running 'R RHOME').
+> > > 
+> > > by googeling R_INCLUDE_DIR I found that it is not recommended to rely on 
+> > > ${RHOME}/include
+> > > 
+> > > eg.
+> > > http://www.nabble.com/Bug-354775%3A-r-base-core%3A-R-CMD-config-doesn%27t-reflect-new-file-locations-tp3175446p3175720.html
+> > > 
+> > > 
+> > > > There is currently no other way around that than either
+> > > > - edit setup.py
+> > > > - copy or link the headers.
+> > > 
+> > > one way to get the include dirs
+> > > R CMD echo $R_INCLUDE_DIR
+> > > 
+> > > but the recommed way of finding the include dirs seems to be:
+> > > R CMD config --cppflags 
+> > > 
+> > > on my system this returns 
+> > > -I/usr/share/R/include -I/usr/share/R/include
+> > > 
+> > > but I can't use it with get_rconfig, since get_rconfig checks for -l/-L
+> > > and 
+> > > raises an ecxecption otherwise, more or less
+> > > 
+> > > 
+> > > If I hardcode the include dir in setup.py it finds the headers, but stops 
+> > > with:
+> > > 
+> > > ...@...:/usr/local/src/rpy_nextgen$ python setup.py install
+> > > running install
+> > > running build
+> > > running build_py
+> > > running build_ext
+> > > building 'rpy2.rinterface.rinterface' extension
+> > > gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions 
+> > > build/temp.linux-i686-2.5/rpy/rinterface/array.o 
+> > > build/temp.linux-i686-2.5/rpy/rinterface/r_utils.o 
+> > > build/temp.linux-i686-2.5/rpy/rinterface/rinterface.o -L/usr/lib/R/lib
+> > > -L/usr/lib/R/modules -Wl,-R/usr/lib/R/lib -Wl,-R/usr/lib/R/modules -lR
+> > > -lRlapack -lRblas -o 
+> > > build/lib.linux-i686-2.5/rpy2/rinterface/rinterface.so -L/usr/lib/R/lib
+> > > -lR -llapack -lblas
+> > > /usr/bin/ld: cannot find -lRlapack
+> > > collect2: ld returned 1 exit status
+> > > error: command 'gcc' failed with exit status 1
+> > > 
+> > > 
+> > > cheers,
+> > >   robert
+> > > 
+> > > -------------------------------------------------------------------------
+> > > This SF.Net email is sponsored by the Moblin Your Move Developer's
+> > > challenge
+> > > Build the coolest Linux based applications with Moblin SDK & win great
+> > > prizes
+> > > Grand prize is a trip for two to an Open Source event anywhere in the
+> > > world
+> > > http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> > > _______________________________________________
+> > > rpy-list mailing list
+> > > rpy-list at lists.sourceforge.net
+> > > https://lists.sourceforge.net/lists/listinfo/rpy-list
+> > 
+> > -------------------------------------------------------------------------
+> > This SF.Net email is sponsored by the Moblin Your Move Developer's
+> > challenge
+> > Build the coolest Linux based applications with Moblin SDK & win great
+> > prizes
+> > Grand prize is a trip for two to an Open Source event anywhere in the
+> > world
+> > http://moblin-contest.org/redirect.php?banner_id=100&url=/
+> > _______________________________________________
+> > rpy-list mailing list
+> > rpy-list at lists.sourceforge.net
+> > https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From noreply at sourceforge.net  Fri Sep  5 15:50:50 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 05 Sep 2008 15:50:50 +0000
+Subject: [Rpy] [ rpy-Support Requests-2095242 ] Again RPy on Freebsd
+Message-ID: <E1KbdaE-0003v1-3Q@d45xhf1.ch3.sourceforge.com>
+
+Support Requests item #2095242, was opened at 2008-09-05 17:50
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=2095242&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Install Problem (example)
+Group: None
+Status: Open
+Priority: 5
+Private: No
+Submitted By: dawe (daweonline)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Again RPy on Freebsd
+
+Initial Comment:
+Hi all, I've installed R 2.7.1 on FreeBSD 6.3.
+After that I've installed rpy1.0.3 with python 2.5.
+
+I have this error and it seems I'm not the only one.
+I don't ask for a ready solution, although it would be great, I just want somebody to help me to figure out what this error means:
+
+
+>>> from rpy import *
+
+ *** caught segfault ***
+address 0x54d8, cause 'unknown'
+
+Traceback:
+ 1: .Call("R_initMethodDispatch", as.environment(where), PACKAGE = "methods")
+ 2: initMethodDispatch(where)
+ 3: ..First.lib(libname, pkgName, env)
+ 4: fun(...)
+ 5: doTryCatch(return(expr), name, parentenv, handler)
+ 6: tryCatchOne(expr, names, parentenv, handlers[[1]])
+ 7: tryCatchList(expr, classes, parentenv, handlers)
+ 8: tryCatch(expr, error = function(e) {    call <- conditionCall(e)    if (!is.null(call)) {        if (identical(call[[1]], quote(doTryCatch)))             call <- sys.call(-4)        dcall <- deparse(call)[1]        prefix <- paste("Error in", dcall, ": ")        LONG <- 75        msg <- conditionMessage(e)        sm <- strsplit(msg, "\n")[[1]]        if (14 + nchar(dcall, type = "w") + nchar(sm[1], type = "w") >             LONG)             prefix <- paste(prefix, "\n  ", sep = "")    }    else prefix <- "Error : "    msg <- paste(prefix, conditionMessage(e), "\n", sep = "")    .Internal(seterrmessage(msg[1]))    if (!silent && identical(getOption("show.error.messages"),         TRUE)) {        cat(msg, file = stderr())        .Internal(printDeferredWarnings())    }    invisible(struc
+ ture(msg, class = "try-error"))})
+ 9: try({    fun(...)    NULL})
+10: runHook(".onLoad", package, env, package.lib, package)
+11: loadNamespace(package, c(which.lib.loc, lib.loc), keep.source = keep.source)
+12: doTryCatch(return(expr), name, parentenv, handler)
+13: tryCatchOne(expr, names, parentenv, handlers[[1]])
+14: tryCatchList(expr, classes, parentenv, handlers)
+15: tryCatch(expr, error = function(e) {    call <- conditionCall(e)    if (!is.null(call)) {        if (identical(call[[1]], quote(doTryCatch)))             call <- sys.call(-4)        dcall <- deparse(call)[1]        prefix <- paste("Error in", dcall, ": ")        LONG <- 75        msg <- conditionMessage(e)        sm <- strsplit(msg, "\n")[[1]]        if (14 + nchar(dcall, type = "w") + nchar(sm[1], type = "w") >             LONG)             prefix <- paste(prefix, "\n  ", sep = "")    }    else prefix <- "Error : "    msg <- paste(prefix, conditionMessage(e), "\n", sep = "")    .Internal(seterrmessage(msg[1]))    if (!silent && identical(getOption("show.error.messages"),         TRUE)) {        cat(msg, file = stderr())        .Internal(printDeferredWarnings())    }    invisible(struc
+ ture(msg, class = "try-error"))})
+16: try({    ns <- loadNamespace(package, c(which.lib.loc, lib.loc), keep.source = keep.source)    dataPath <- file.path(which.lib.loc, package, "data")    env <- attachNamespace(ns, pos = pos, dataPath = dataPath)})
+17: library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,     warn.conflicts = warn.conflicts, keep.source = keep.source,     version = version)
+18: require("methods", quietly = TRUE, warn.conflicts = FALSE, character.only = TRUE,     save = FALSE)
+19: .OptRequireMethods()
+
+Possible actions:
+1: abort (with core dump, if enabled)
+2: normal R exit
+3: exit R without saving workspace
+4: exit R saving workspace
+Selection: 2
+
+
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453022&aid=2095242&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From davide.cittaro at ifom-ieo-campus.it  Fri Sep  5 15:53:48 2008
+From: davide.cittaro at ifom-ieo-campus.it (Davide Cittaro)
+Date: Fri, 05 Sep 2008 17:53:48 +0200
+Subject: [Rpy] Again rpy and Freebsd
+Message-ID: <A71044BD-E000-449E-BFFB-C1CCAE8933FB@ifom-ieo-campus.it>
+
+Hi all, I've posted in the bug tracker too. BTW:
+Hi all, I've installed R 2.7.1 on FreeBSD 6.3.
+After that I've installed rpy1.0.3 with python 2.5.
+
+I have this error and it seems I'm not the only one.
+I don't ask for a ready solution, although it would be great, I just  
+want somebody to help me to figure out what this error means, I may  
+try to fix it:
+
+
+ >>> from rpy import *
+
+  *** caught segfault ***
+address 0x54d8, cause 'unknown'
+
+Traceback:
+  1: .Call("R_initMethodDispatch", as.environment(where), PACKAGE =  
+"methods")
+  2: initMethodDispatch(where)
+  3: ..First.lib(libname, pkgName, env)
+  4: fun(...)
+  5: doTryCatch(return(expr), name, parentenv, handler)
+  6: tryCatchOne(expr, names, parentenv, handlers[[1]])
+  7: tryCatchList(expr, classes, parentenv, handlers)
+  8: tryCatch(expr, error = function(e) {    call <-  
+conditionCall(e)    if (!is.null(call)) {        if  
+(identical(call[[1]], quote(doTryCatch)))             call <-  
+sys.call(-4)        dcall <- deparse(call)[1]        prefix <-  
+paste("Error in", dcall, ": ")        LONG <- 75        msg <-  
+conditionMessage(e)        sm <- strsplit(msg, "\n")[[1]]        if  
+(14 + nchar(dcall, type = "w") + nchar(sm[1], type = "w")  
+ >             LONG)             prefix <- paste(prefix, "\n  ", sep =  
+"")    }    else prefix <- "Error : "    msg <- paste(prefix,  
+conditionMessage(e), "\n", sep =  
+"")    .Internal(seterrmessage(msg[1]))    if (!silent &&  
+identical(getOption("show.error.messages"),         TRUE))  
+{        cat(msg, file =  
+stderr())        .Internal(printDeferredWarnings())    }     
+invisible(structure(msg, class = "try-error"))})
+  9: try({    fun(...)    NULL})
+10: runHook(".onLoad", package, env, package.lib, package)
+11: loadNamespace(package, c(which.lib.loc, lib.loc), keep.source =  
+keep.source)
+12: doTryCatch(return(expr), name, parentenv, handler)
+13: tryCatchOne(expr, names, parentenv, handlers[[1]])
+14: tryCatchList(expr, classes, parentenv, handlers)
+15: tryCatch(expr, error = function(e) {    call <-  
+conditionCall(e)    if (!is.null(call)) {        if  
+(identical(call[[1]], quote(doTryCatch)))             call <-  
+sys.call(-4)        dcall <- deparse(call)[1]        prefix <-  
+paste("Error in", dcall, ": ")        LONG <- 75        msg <-  
+conditionMessage(e)        sm <- strsplit(msg, "\n")[[1]]        if  
+(14 + nchar(dcall, type = "w") + nchar(sm[1], type = "w")  
+ >             LONG)             prefix <- paste(prefix, "\n  ", sep =  
+"")    }    else prefix <- "Error : "    msg <- paste(prefix,  
+conditionMessage(e), "\n", sep =  
+"")    .Internal(seterrmessage(msg[1]))    if (!silent &&  
+identical(getOption("show.error.messages"),         TRUE))  
+{        cat(msg, file =  
+stderr())        .Internal(printDeferredWarnings())    }     
+invisible(structure(msg, class = "try-error"))})
+16: try({    ns <- loadNamespace(package, c(which.lib.loc, lib.loc),  
+keep.source = keep.source)    dataPath <- file.path(which.lib.loc,  
+package, "data")    env <- attachNamespace(ns, pos = pos, dataPath =  
+dataPath)})
+17: library(package, lib.loc = lib.loc, character.only = TRUE,  
+logical.return = TRUE,     warn.conflicts = warn.conflicts,  
+keep.source = keep.source,     version = version)
+18: require("methods", quietly = TRUE, warn.conflicts = FALSE,  
+character.only = TRUE,     save = FALSE)
+19: .OptRequireMethods()
+
+Possible actions:
+1: abort (with core dump, if enabled)
+2: normal R exit
+3: exit R without saving workspace
+4: exit R saving workspace
+Selection: 2
+
+
+
+/*
+Davide Cittaro
+
+Cogentech - Consortium for Genomic Technologies
+via adamello, 16
+20139 Milano
+Italy
+
+tel.: +39(02)574303007
+e-mail: davide.cittaro at ifom-ieo-campus.it
+*/
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From davide.cittaro at ifom-ieo-campus.it  Fri Sep  5 20:07:16 2008
+From: davide.cittaro at ifom-ieo-campus.it (Davide Cittaro)
+Date: Fri, 05 Sep 2008 22:07:16 +0200
+Subject: Re: [Rpy] Again rpy and Freebsd
+In-Reply-To: <A71044BD-E000-449E-BFFB-C1CCAE8933FB@ifom-ieo-campus.it>
+References: <A71044BD-E000-449E-BFFB-C1CCAE8933FB@ifom-ieo-campus.it>
+Message-ID: <AB1628BC-8E5A-4280-B603-22B0A49DE077@ifom-ieo-campus.it>
+
+Hi all,
+I would like to add that rpy2 seems to work but:
+
+ >>> from rpy2.rpy_classic import *
+Segmentation fault: 11 (core dumped)
+
+The problem is that I have so much code in rpy <2 that it would be  
+impossible to maintain it... (much of it is galaxy based...)
+
+d
+
+On Sep 5, 2008, at 5:53 PM, Davide Cittaro wrote:
+
+> Hi all, I've posted in the bug tracker too. BTW:
+> Hi all, I've installed R 2.7.1 on FreeBSD 6.3. After that I've  
+> installed rpy1.0.3 with python 2.5. I have this error and it seems  
+> I'm not the only one. I don't ask for a ready solution, although it  
+> would be great, I just want somebody to help me to figure out what  
+> this error means, I may try to fix it: >>> from rpy import *  ***  
+> caught segfault *** address 0x54d8, cause 'unknown' Traceback:  
+> 1: .Call("R_initMethodDispatch", as.environment(where), PACKAGE =  
+> "methods") 2: initMethodDispatch(where) 3: ..First.lib(libname,  
+> pkgName, env) 4: fun(...) 5: doTryCatch(return(expr), name,  
+> parentenv, handler) 6: tryCatchOne(expr, names, parentenv,  
+> handlers[[1]]) 7: tryCatchList(expr, classes, parentenv, handlers)  
+> 8: tryCatch(expr, error = function(e) {    call <-  
+> conditionCall(e)    if (!is.null(call)) {        if  
+> (identical(call[[1]], quote(doTryCatch)))             call <-  
+> sys.call(-4)        dcall <- deparse(call)[1]        prefix <-  
+> paste("Error in", dcall, ": ")        LONG <- 75        msg <-  
+> conditionMessage(e)        sm <- strsplit(msg, "\n")[[1]]        if  
+> (14 + nchar(dcall, type = "w") + nchar(sm[1], type = "w")  
+> >             LONG)             prefix <- paste(prefix, "\n  ", sep  
+> = "")    }    else prefix <- "Error : "    msg <- paste(prefix,  
+> conditionMessage(e), "\n", sep =  
+> "")    .Internal(seterrmessage(msg[1]))    if (!silent &&  
+> identical(getOption("show.error.messages"),         TRUE))  
+> {        cat(msg, file =  
+> stderr())        .Internal(printDeferredWarnings())    }     
+> invisible(structure(msg, class = "try-error"))}) 9:  
+> try({    fun(...)    NULL}) 10: runHook(".onLoad", package, env,  
+> package.lib, package) 11: loadNamespace(package, c(which.lib.loc,  
+> lib.loc), keep.source = keep.source) 12: doTryCatch(return(expr),  
+> name, parentenv, handler) 13: tryCatchOne(expr, names, parentenv,  
+> handlers[[1]]) 14: tryCatchList(expr, classes, parentenv, handlers)  
+> 15: tryCatch(expr, error = function(e) {    call <-  
+> conditionCall(e)    if (!is.null(call)) {        if  
+> (identical(call[[1]], quote(doTryCatch)))             call <-  
+> sys.call(-4)        dcall <- deparse(call)[1]        prefix <-  
+> paste("Error in", dcall, ": ")        LONG <- 75        msg <-  
+> conditionMessage(e)        sm <- strsplit(msg, "\n")[[1]]        if  
+> (14 + nchar(dcall, type = "w") + nchar(sm[1], type = "w")  
+> >             LONG)             prefix <- paste(prefix, "\n  ", sep  
+> = "")    }    else prefix <- "Error : "    msg <- paste(prefix,  
+> conditionMessage(e), "\n", sep =  
+> "")    .Internal(seterrmessage(msg[1]))    if (!silent &&  
+> identical(getOption("show.error.messages"),         TRUE))  
+> {        cat(msg, file =  
+> stderr())        .Internal(printDeferredWarnings())    }     
+> invisible(structure(msg, class = "try-error"))}) 16: try({    ns <-  
+> loadNamespace(package, c(which.lib.loc, lib.loc), keep.source =  
+> keep.source)    dataPath <- file.path(which.lib.loc, package,  
+> "data")    env <- attachNamespace(ns, pos = pos, dataPath =  
+> dataPath)}) 17: library(package, lib.loc = lib.loc, character.only =  
+> TRUE, logical.return = TRUE,     warn.conflicts = warn.conflicts,  
+> keep.source = keep.source,     version = version) 18:  
+> require("methods", quietly = TRUE, warn.conflicts = FALSE,  
+> character.only = TRUE,     save = FALSE) 19: .OptRequireMethods()  
+> Possible actions: 1: abort (with core dump, if enabled) 2: normal R  
+> exit 3: exit R without saving workspace 4: exit R saving workspace  
+> Selection: 2
+>
+>
+> /*
+> Davide Cittaro
+>
+> Cogentech - Consortium for Genomic Technologies
+> via adamello, 16
+> 20139 Milano
+> Italy
+>
+> tel.: +39(02)574303007
+> e-mail: davide.cittaro at ifom-ieo-campus.it
+> */
+>
+>
+>
+> -------------------------------------------------------------------------
+> This SF.Net email is sponsored by the Moblin Your Move Developer's  
+> challenge
+> Build the coolest Linux based applications with Moblin SDK & win  
+> great prizes
+> Grand prize is a trip for two to an Open Source event anywhere in  
+> the world
+> http://moblin-contest.org/redirect.php?banner_id=100&url=/_______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From davide.cittaro at ifom-ieo-campus.it  Fri Sep  5 20:22:48 2008
+From: davide.cittaro at ifom-ieo-campus.it (Davide Cittaro)
+Date: Fri, 05 Sep 2008 22:22:48 +0200
+Subject: Re: [Rpy] Again rpy and Freebsd
+In-Reply-To: <AB1628BC-8E5A-4280-B603-22B0A49DE077@ifom-ieo-campus.it>
+References: <A71044BD-E000-449E-BFFB-C1CCAE8933FB@ifom-ieo-campus.it> <AB1628BC-8E5A-4280-B603-22B0A49DE077@ifom-ieo-campus.it>
+Message-ID: <F9CFEE6A-FCFF-4BB5-9C27-C4FCBAE7ADA4@ifom-ieo-campus.it>
+
+
+On Sep 5, 2008, at 10:07 PM, Davide Cittaro wrote:
+
+> Hi all,
+> I would like to add that rpy2 seems to work but:
+
+Sorry... it doesn't. It crashes as I import rpy2.robjects
+
+d
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From davide.cittaro at ifom-ieo-campus.it  Fri Sep  5 20:34:44 2008
+From: davide.cittaro at ifom-ieo-campus.it (Davide Cittaro)
+Date: Fri, 05 Sep 2008 22:34:44 +0200
+Subject: Re: [Rpy] Again rpy and Freebsd [SOLVED]
+In-Reply-To: <F9CFEE6A-FCFF-4BB5-9C27-C4FCBAE7ADA4@ifom-ieo-campus.it>
+References: <A71044BD-E000-449E-BFFB-C1CCAE8933FB@ifom-ieo-campus.it> <AB1628BC-8E5A-4280-B603-22B0A49DE077@ifom-ieo-campus.it> <F9CFEE6A-FCFF-4BB5-9C27-C4FCBAE7ADA4@ifom-ieo-campus.it>
+Message-ID: <6B150ADD-7448-4B5C-877F-115A5BB7A549@ifom-ieo-campus.it>
+
+I think you can put this info in your wiki...
+When installing with freebsd port
+1- libRlapack.so is not created
+2- libR*.so are put in /usr/local/lib
+
+I will try to talk with FreeBSD people, meanwhile, one should install  
+R manually, should not install libR*.so in /usr/local/lib and, I think  
+it would help, should run
+
+/sbin/ldconfig -m /usr/local/lib/R/lib
+
+now rpy (1.0.3) works fine.
+
+d
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at users.sourceforge.net  Sun Sep  7 10:51:28 2008
+From: lgautier at users.sourceforge.net
+Date: Sun, 07 Sep 2008 10:51:28 +0000
+Subject: [Rpy] SF.net SVN: rpy:[651] branches/rpy_nextgen
+Message-ID: <E1KcHrc-0005Sz-JS@d5vjzd1.ch3.sourceforge.com>
+
+Revision: 651
+          http://rpy.svn.sourceforge.net/rpy/?rev=651&view=rev
+Author:   lgautier
+Date:     2008-09-07 10:51:28 +0000 (Sun, 07 Sep 2008)
+
+Log Message:
+-----------
+- rinterface.str_typeint() was causing segfault when called with 
+99
+
+- (tentative) fix for subsetting LANGSXP objects
+
+Modified Paths:
+--------------
+    branches/rpy_nextgen/NEWS
+    branches/rpy_nextgen/rpy/rinterface/rinterface.c
+    branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py
+
+Modified: branches/rpy_nextgen/NEWS
+===================================================================
+--- branches/rpy_nextgen/NEWS	2008-09-04 13:41:55 UTC (rev 650)
++++ branches/rpy_nextgen/NEWS	2008-09-07 10:51:28 UTC (rev 651)
+@@ -37,7 +37,11 @@
+ 
+ - added a MANIFEST.in ensuring that headers get included in the source distribution
+ 
++- :func:`rinterface.str_typeint` was causing segfault when called with 99
+ 
++- fixed subsetting for LANGSXP objects
++
++
+ Release 2.0.0a3
+ ===============
+ 
+
+Modified: branches/rpy_nextgen/rpy/rinterface/rinterface.c
+===================================================================
+--- branches/rpy_nextgen/rpy/rinterface/rinterface.c	2008-09-04 13:41:55 UTC (rev 650)
++++ branches/rpy_nextgen/rpy/rinterface/rinterface.c	2008-09-07 10:51:28 UTC (rev 651)
+@@ -683,7 +683,7 @@
+  return PyBool_FromLong(same);
+ }
+ PyDoc_STRVAR(Sexp_rsame_doc,
+-	     "Are the two object representing the same underlying R object.");
++	     "Is the given object representing the same underlying R object as the instance.");
+ 
+ 
+ static PyMethodDef Sexp_methods[] = {
+@@ -1449,6 +1449,7 @@
+       break;
+     case LANGSXP:
+       tmp = nthcdr(*sexp, i_R);
++      sexp_item = allocVector(LANGSXP, 1);
+       SETCAR(sexp_item, CAR(tmp));
+       SET_TAG(sexp_item, TAG(tmp));
+       res = (PyObject *)newPySexpObject(sexp_item);
+@@ -2352,7 +2353,7 @@
+ 
+   const char *sexp_type = validSexpType[sexp_i];
+ 
+-  if ((sexp_i < 0) || (sexp_i > maxValidSexpType) || (! sexp_type)) {
++  if ((sexp_i < 0) || (sexp_i >= maxValidSexpType) || (! sexp_type)) {
+ 
+     PyErr_Format(PyExc_LookupError, "'%i' is not a valid SEXP value.", sexp_i);
+     return NULL;
+
+Modified: branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py
+===================================================================
+--- branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py	2008-09-04 13:41:55 UTC (rev 650)
++++ branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py	2008-09-07 10:51:28 UTC (rev 651)
+@@ -38,7 +38,10 @@
+         t = rinterface.baseNameSpaceEnv['pi']
+         self.assertEquals('REALSXP', rinterface.str_typeint(t.typeof))
+ 
++    def testStr_typeint_invalid(self):
++        self.assertRaises(LookupError, rinterface.str_typeint, 99)
+ 
++
+ class ObjectDispatchTestCase(unittest.TestCase):
+     def testObjectDispatchLang(self):
+         formula = rinterface.globalEnv.get('formula')
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From oliphant.travis at ieee.org  Wed Sep 10 04:39:26 2008
+From: oliphant.travis at ieee.org (Travis Oliphant)
+Date: Tue, 09 Sep 2008 23:39:26 -0500
+Subject: NumPy arrays that use memory allocated from other libraries or tools
+Message-ID: <ga7j1u$416$1@ger.gmane.org>
+
+
+I wanted to point anybody interested to a blog post that describes a 
+useful pattern for having a NumPy array that points to the memory 
+created by a different memory manager than the standard one used by 
+NumPy.   The pattern  shows how to create a NumPy array that points to 
+previously allocated memory and then shows how to construct an object 
+that allows the correct deallocator to be called when the NumPy array is 
+freed.
+
+This may be useful if you are wrapping code that has it's own memory 
+management scheme.   Comments and feedback is welcome.
+
+The post is
+
+http://blog.enthought.com/?p=62
+
+
+Best regards,
+
+-Travis Oliphant
+
+--
+http://mail.python.org/mailman/listinfo/python-list
+
+From lgautier at users.sourceforge.net  Thu Sep 11 07:05:55 2008
+From: lgautier at users.sourceforge.net
+Date: Thu, 11 Sep 2008 07:05:55 +0000
+Subject: [Rpy] SF.net SVN: rpy:[652] branches/rpy_nextgen/rpy/rinterface/tests/ test_SexpVector.py
+Message-ID: <E1KdgFX-00009Z-IL@dn4whf1.ch3.sourceforge.com>
+
+Revision: 652
+          http://rpy.svn.sourceforge.net/rpy/?rev=652&view=rev
+Author:   lgautier
+Date:     2008-09-11 07:05:51 +0000 (Thu, 11 Sep 2008)
+
+Log Message:
+-----------
+broke down long lines (code layout)
+
+Modified Paths:
+--------------
+    branches/rpy_nextgen/rpy/rinterface/tests/test_SexpVector.py
+
+Modified: branches/rpy_nextgen/rpy/rinterface/tests/test_SexpVector.py
+===================================================================
+--- branches/rpy_nextgen/rpy/rinterface/tests/test_SexpVector.py	2008-09-07 10:51:28 UTC (rev 651)
++++ branches/rpy_nextgen/rpy/rinterface/tests/test_SexpVector.py	2008-09-11 07:05:51 UTC (rev 652)
+@@ -123,7 +123,8 @@
+     def testGetItem(self):
+         letters_R = ri.globalEnv.get("letters")
+         self.assertTrue(isinstance(letters_R, ri.SexpVector))
+-        letters = (('a', 0), ('b', 1), ('c', 2), ('x', 23), ('y', 24), ('z', 25))
++        letters = (('a', 0), ('b', 1), ('c', 2), 
++                   ('x', 23), ('y', 24), ('z', 25))
+         for l, i in letters:
+             self.assertTrue(letters_R[i] == l)
+         
+@@ -215,7 +216,8 @@
+ 
+     def testAssignItemComplex(self):
+         c_R = ri.globalEnv.get("c")
+-        myVec = c_R(ri.SexpVector([1.0+2.0j, 2.0+2.0j, 3.0+2.0j, 4.0+2.0j, 5.0+2.0j], 
++        myVec = c_R(ri.SexpVector([1.0+2.0j, 2.0+2.0j, 3.0+2.0j, 
++                                   4.0+2.0j, 5.0+2.0j], 
+                                           ri.CPLXSXP))
+         myVec[0] = ri.SexpVector([100.0+200.0j, ], ri.CPLXSXP)
+         self.assertTrue(floatEqual(myVec[0].real, 100.0))
+@@ -242,7 +244,8 @@
+         
+     def testAssignItemString(self):
+         letters_R = ri.SexpVector("abcdefghij", ri.STRSXP)
+-        self.assertRaises(ValueError, letters_R.__setitem__, 0, ri.SexpVector([1, ], 
++        self.assertRaises(ValueError, letters_R.__setitem__, 0, 
++                          ri.SexpVector([1, ], 
+                                                                                       ri.INTSXP))
+ 
+         letters_R[0] = ri.SexpVector(["z", ], ri.STRSXP)
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at users.sourceforge.net  Thu Sep 11 07:08:56 2008
+From: lgautier at users.sourceforge.net
+Date: Thu, 11 Sep 2008 07:08:56 +0000
+Subject: [Rpy] SF.net SVN: rpy:[653] branches/rpy_nextgen
+Message-ID: <E1KdgIS-0000FH-Pe@dn4whf1.ch3.sourceforge.com>
+
+Revision: 653
+          http://rpy.svn.sourceforge.net/rpy/?rev=653&view=rev
+Author:   lgautier
+Date:     2008-09-11 07:08:55 +0000 (Thu, 11 Sep 2008)
+
+Log Message:
+-----------
+initOptions is now initoptions.
+
+get_initoptions and setinitoptions were added and are the way
+to play with the options used to initialize the embedded R.
+
+Modified Paths:
+--------------
+    branches/rpy_nextgen/NEWS
+    branches/rpy_nextgen/doc/source/rinterface.rst
+    branches/rpy_nextgen/rpy/rinterface/rinterface.c
+    branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py
+
+Modified: branches/rpy_nextgen/NEWS
+===================================================================
+--- branches/rpy_nextgen/NEWS	2008-09-11 07:05:51 UTC (rev 652)
++++ branches/rpy_nextgen/NEWS	2008-09-11 07:08:55 UTC (rev 653)
+@@ -10,7 +10,10 @@
+ 
+ - defined `names` as a property for :class:`RVector`
+ 
++:mod:`rpy2.rinterface`:
+ 
++- added functions :func:`get_initoptions` and :func:`set_initoptions`.
++
+ Changes
+ -------
+ 
+@@ -22,6 +25,9 @@
+ 
+ - :func:`sexpTypeEmbeddedR` is now called :func:`str_typeint`.
+ 
++- :attr:`initOptions` is now called :attr:`initoptions`. Changes of options can only be done through :func:`set_initoptions`.
++
++
+ Bugs fixed
+ ----------
+ 
+
+Modified: branches/rpy_nextgen/doc/source/rinterface.rst
+===================================================================
+--- branches/rpy_nextgen/doc/source/rinterface.rst	2008-09-11 07:05:51 UTC (rev 652)
++++ branches/rpy_nextgen/doc/source/rinterface.rst	2008-09-11 07:08:55 UTC (rev 653)
+@@ -44,9 +44,13 @@
+ To avoid unpredictable results when using the embedded R, 
+ subsequent calls to :func:`initr` will not have any effect.
+ 
+-Parameters for the initialization are in the module variable
+-`initOptions`.
++The functions :func:`get_initoptions` and :func:`set_initoptions`
++can be used to modify the options.
++Default parameters for the initialization are otherwise
++in the module variable `initoptions`.
+ 
++
++
+ .. index::
+    single: initialize R_HOME
+ 
+
+Modified: branches/rpy_nextgen/rpy/rinterface/rinterface.c
+===================================================================
+--- branches/rpy_nextgen/rpy/rinterface/rinterface.c	2008-09-11 07:05:51 UTC (rev 652)
++++ branches/rpy_nextgen/rpy/rinterface/rinterface.c	2008-09-11 07:08:55 UTC (rev 653)
+@@ -81,7 +81,7 @@
+ 
+ 
+ 
+-/* A sequence that holds options to initialize R */
++/* A tuple that holds options to initialize R */
+ static PyObject *initOptions;
+ 
+ /* Helper variables to quickly resolve SEXP types.
+@@ -306,6 +306,39 @@
+ 
+ 
+ /* --- Initialize and terminate an embedded R --- */
++static PyObject* EmbeddedR_getinitoptions(PyObject *self) 
++{
++  return initOptions;
++}
++PyDoc_STRVAR(EmbeddedR_get_initoptions_doc,
++	     "\
++Get the options used to initialize R.\
++");
++
++static PyObject* EmbeddedR_setinitoptions(PyObject *self, PyObject *tuple) 
++{
++
++  if (embeddedR_status & RPY_R_INITIALIZED) {
++    PyErr_Format(PyExc_RuntimeError, 
++		 "Options cannot be set once R has been initialized.");
++    return NULL;
++  }
++
++  int istuple = PyTuple_Check(tuple);
++  if (! istuple) {
++    PyErr_Format(PyExc_ValueError, "Parameter should be a tuple.");
++    return NULL;
++  }
++  Py_DECREF(initOptions);
++  Py_INCREF(tuple);
++  initOptions = tuple;
++  return Py_None;
++}
++PyDoc_STRVAR(EmbeddedR_set_initoptions_doc,
++	     "\
++Set the options used to initialize R.\
++");
++
+ static PyObject* EmbeddedR_init(PyObject *self) 
+ {
+ 
+@@ -323,7 +356,7 @@
+   PyObject *opt_string;
+   Py_ssize_t ii;
+   for (ii = 0; ii < n_args; ii++) {
+-    opt_string = PyList_GetItem(initOptions, ii);
++    opt_string = PyTuple_GetItem(initOptions, ii);
+     options[ii] = PyString_AsString(opt_string);
+   }
+ 
+@@ -2367,6 +2400,12 @@
+ /* --- List of functions defined in the module --- */
+ 
+ static PyMethodDef EmbeddedR_methods[] = {
++  {"get_initoptions",     (PyCFunction)EmbeddedR_getinitoptions,   
++   METH_NOARGS,
++   EmbeddedR_get_initoptions_doc},
++  {"set_initoptions",     (PyCFunction)EmbeddedR_setinitoptions,   
++   METH_O,
++   EmbeddedR_set_initoptions_doc},
+   {"initr",     (PyCFunction)EmbeddedR_init,   METH_NOARGS,
+    EmbeddedR_init_doc},
+   {"endr",	(PyCFunction)EmbeddedR_end,    METH_O,
+@@ -2528,25 +2567,28 @@
+     return;
+   d = PyModule_GetDict(m);
+ 
+-  initOptions = PyList_New(4);
++  initOptions = PyTuple_New(4);
++
++  /* Add an extra ref. It should remain impossible to delete it */
+   PYASSERT_ZERO(
+-		PyList_SetItem(initOptions, 0, 
+-			       PyString_FromString("rpy2"))
++		PyTuple_SetItem(initOptions, 0, 
++				PyString_FromString("rpy2"))
+ 		);
+   PYASSERT_ZERO(
+-		PyList_SetItem(initOptions, 1, 
+-			       PyString_FromString("--quiet"))
++		PyTuple_SetItem(initOptions, 1, 
++				PyString_FromString("--quiet"))
+ 		);
+   PYASSERT_ZERO(
+-		PyList_SetItem(initOptions, 2, 
+-			       PyString_FromString("--vanilla"))
++		PyTuple_SetItem(initOptions, 2,
++				PyString_FromString("--vanilla"))
+ 		);
+   PYASSERT_ZERO(
+-		PyList_SetItem(initOptions, 3, 
+-			       PyString_FromString("--no-save"))
++		PyTuple_SetItem(initOptions, 3, 
++				PyString_FromString("--no-save"))
+ 		);
+-  PyModule_AddObject(m, "initOptions", initOptions);
+ 
++  PyModule_AddObject(m, "initoptions", initOptions);
++  Py_INCREF(initOptions);
+ 
+   PyModule_AddObject(m, "Sexp", (PyObject *)&Sexp_Type);
+   PyModule_AddObject(m, "SexpClosure", (PyObject *)&ClosureSexp_Type);
+
+Modified: branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py
+===================================================================
+--- branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py	2008-09-11 07:05:51 UTC (rev 652)
++++ branches/rpy_nextgen/rpy/rinterface/tests/test_EmbeddedR.py	2008-09-11 07:08:55 UTC (rev 653)
+@@ -1,4 +1,5 @@
+ import unittest
++import itertools
+ import rpy2.rinterface as rinterface
+ 
+ rinterface.initr()
+@@ -41,6 +42,16 @@
+     def testStr_typeint_invalid(self):
+         self.assertRaises(LookupError, rinterface.str_typeint, 99)
+ 
++    def testGet_initoptions(self):
++        options = rinterface.get_initoptions()
++        self.assertEquals(len(rinterface.initoptions),
++                          len(options))
++        for o1, o2 in itertools.izip(rinterface.initoptions, options):
++            self.assertEquals(o1, o2)
++        
++    def testSet_initoptions(self):
++        self.assertRaises(RuntimeError, rinterface.set_initoptions, 
++                          ('aa', '--verbose', '--no-save'))
+ 
+ class ObjectDispatchTestCase(unittest.TestCase):
+     def testObjectDispatchLang(self):
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From lgautier at gmail.com  Fri Sep 12 14:00:08 2008
+From: lgautier at gmail.com (laurent)
+Date: Fri, 12 Sep 2008 16:00:08 +0200
+Subject: [Rpy] rpy2 - beta [not yet]
+Message-ID: <1221228008.12816.22.camel@hot-spring>
+
+Hi,
+
+I am getting a little busier than anticipated, and I have to postpone
+the release of the beta. From my current agenda, this should not happen
+before 3-4 weeks.
+
+The implementation is almost complete, and I'd encourage people trying
+out the version in SVN.
+Once the beta is out, that will only be fixing the last unit tests not
+passing (nothing critical at the moment), and the release should follow
+shortly after.
+Reporting bugs now is helpful, but I'd also like to have feedback on
+potential design issues and on use cases currently difficult to
+implement.
+
+Thanks,
+
+
+L. 
+
+
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From noreply at sourceforge.net  Mon Sep 15 21:53:14 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 15 Sep 2008 21:53:14 +0000
+Subject: [Rpy] [ rpy-Bugs-2112971 ] Patch for Bug# 2062627
+Message-ID: <E1KfM0Q-0005au-8g@d55xhf1.ch3.sourceforge.com>
+
+Bugs item #2112971, was opened at 2008-09-15 14:53
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=2112971&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Source
+Group: None
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Mark  Janikas (mark_janikas)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Patch for Bug# 2062627
+
+Initial Comment:
+Allows RPy to be run "in process" and not fail on the second call due to a reinitialize of the R() module.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=2112971&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From noreply at sourceforge.net  Mon Sep 15 22:08:45 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Mon, 15 Sep 2008 22:08:45 +0000
+Subject: [Rpy] [ rpy-Bugs-2062627 ] R cannot initialize more than once in process
+Message-ID: <E1KfMFR-0004GT-Vs@565xhf1.ch3.sourceforge.com>
+
+Bugs item #2062627, was opened at 2008-08-20 09:01
+Message generated for change (Comment added) made by mark_janikas
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=2062627&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Source
+Group: rpy
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: R cannot initialize more than once in process
+
+Initial Comment:
+Hello,
+
+I am currently working with a software package (ArcGIS) that runs Python In Process.  There has been a call from our users to be able to integrate R functionality.  Our Out of Proc version allows us to call rpy over and over again because it is essentially re-initializing the R() instance on each run.  But when we switch it over to the In Proc version we get the following error message: 
+
+Traceback (most recent call last):
+  File "<string>", line 29, in <module>
+  File "<string>", line 8, in testPoly2Line
+  File "C:\Python25\lib\site-packages\rpy.py", line 346, in <module>    r = R()
+  File "C:\Python25\lib\site-packages\rpy.py", line 286, in __init__    _rpy.r_init(HAS_NUMERIC);
+RuntimeError: Only one R object may be instantiated per session
+
+The problem can be explained by the following set of issues: 1) We embed Python in our application for use as a scripting engine, 2) Each time a Python script is run in the application, it is from a new Python session (i.e. a brand new set of locals and globals) but in the same process, 3) When importing the Python R libraries, it binds the RPy .DLL into process, 4) In Python Rs startup, there is a static integer in _rpy.r_init used as a flag that determines if R has already been loaded. The rest of the function initializes numeric if sent the flag to do so, and throws a RuntimeError if R was initialized before. Since the library is still resident in memory even after the Python session goes away, this stays set to 1. Looking at the C implementation of the r_init function, this seems unnec
+ essary and there have been no ill effects from patching the Python to ignore the error. After a cursory read over the Python, this appears to be a piece of legacy that isnt necessary anymore
+  as it does not affect anything else.
+
+We have a hack that allows us to run it In Proc and we wanted to know if it is appropriate: (On Line ~ 286 of rpy.py)
+
+       try:
+               _rpy.r_init(HAS_NUMERIC)
+       except RuntimeError, e:
+              pass
+       _rpy.set_mode(NO_DEFAULT)
+
+
+
+So in our case, RPythons refusal to instantiate another instance of the R() object by throwing a RuntimeError is considered a bug, because the binary library is already initialized and resident in memory, its related Python locals just went away and need to be allowed to reset. Ignoring the error is idea, but warning instead of throwing is, at the very least, preferable. Ideally the code in C would more resemble this:
+
+static PyObject *
+r_init(PyObject *self, PyObject *args)
+{
+  static int first=1;
+  int i;
+  
+  if (!PyArg_ParseTuple(args, "i:r_init", &i))
+    return NULL;
+  use_numeric = i;
+
+  
+  if(first==1)
+    {
+      #ifdef WITH_NUMERIC
+          if(use_numeric)
+          init_numeric();
+      #endif
+
+      first=0;
+    }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+Thanks so much ahead of time.  Best wishes,
+
+MJ
+
+Mark Janikas
+Product Engineer
+ESRI, Geoprocessing
+380 New York St.
+Redlands, CA 92373
+909-793-2853 (2563)
+mjanikas at esri.com
+
+
+
+
+----------------------------------------------------------------------
+
+Comment By: Mark  Janikas (mark_janikas)
+Date: 2008-09-15 15:08
+
+Message:
+Just found the same error in RPy2.
+
+<type 'exceptions.RuntimeError'>: R can only be initialized once.
+
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=2062627&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From noreply at sourceforge.net  Fri Sep 19 06:35:24 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 19 Sep 2008 06:35:24 +0000
+Subject: [Rpy] [ rpy-Bugs-2062627 ] R cannot initialize more than once in process
+Message-ID: <E1KgZaO-0002mz-GM@665xhf1.ch3.sourceforge.com>
+
+Bugs item #2062627, was opened at 2008-08-20 18:01
+Message generated for change (Comment added) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=2062627&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: Source
+Group: rpy
+Status: Open
+>Resolution: Postponed
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: R cannot initialize more than once in process
+
+Initial Comment:
+Hello,
+
+I am currently working with a software package (ArcGIS) that runs Python “In Process”.  There has been a call from our users to be able to integrate R functionality.  Our “Out of Proc” version allows us to call rpy over and over again because it is essentially re-initializing the R() instance on each run.  But when we switch it over to the “In Proc” version we get the following error message: 
+
+Traceback (most recent call last):
+  File "<string>", line 29, in <module>
+  File "<string>", line 8, in testPoly2Line
+  File "C:\Python25\lib\site-packages\rpy.py", line 346, in <module>    r = R()
+  File "C:\Python25\lib\site-packages\rpy.py", line 286, in __init__    _rpy.r_init(HAS_NUMERIC);
+RuntimeError: Only one R object may be instantiated per session
+
+The problem can be explained by the following set of issues: 1) We embed Python in our application for use as a scripting engine, 2) Each time a Python script is run in the application, it is from a new Python session (i.e. a brand new set of locals and globals) but in the same process, 3) When importing the Python R libraries, it binds the RPy .DLL into process, 4) In Python R�s startup, there is a static integer in _rpy.r_init used as a flag that determines if R has already been loaded. The rest of the function initializes numeric if sent the flag to do so, and throws a RuntimeError if R was initialized before. Since the library is still resident in memory even after the Python session goes away, this stays set to 1. Looking at the C implementation of the r_init function, this seems unnecessary and there have been no ill effects from patching the Python to ignore the error. After a cursory read over the Python, this appears to be a piece of legacy that isn�t necessary anymore as it does not affect anything else.
+
+We have a hack that allows us to run it In Proc and we wanted to know if it is appropriate: (On Line ~ 286 of rpy.py)
+
+       try:
+               _rpy.r_init(HAS_NUMERIC)
+       except RuntimeError, e:
+              pass
+       _rpy.set_mode(NO_DEFAULT)
+
+
+
+So in our case, RPython�s refusal to instantiate another instance of the R() object by throwing a RuntimeError is considered a bug, because the binary library is already initialized and resident in memory, its related Python locals just went away and need to be allowed to reset. Ignoring the error is idea, but warning instead of throwing is, at the very least, preferable. Ideally the code in C would more resemble this:
+
+static PyObject *
+r_init(PyObject *self, PyObject *args)
+{
+  static int first=1;
+  int i;
+  
+  if (!PyArg_ParseTuple(args, "i:r_init", &i))
+    return NULL;
+  use_numeric = i;
+
+  
+  if(first==1)
+    {
+      #ifdef WITH_NUMERIC
+          if(use_numeric)
+          init_numeric();
+      #endif
+
+      first=0;
+    }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+Thanks so much ahead of time.  Best wishes,
+
+MJ
+
+Mark Janikas
+Product Engineer
+ESRI, Geoprocessing
+380 New York St.
+Redlands, CA 92373
+909-793-2853 (2563)
+mjanikas at esri.com
+
+
+
+
+----------------------------------------------------------------------
+
+>Comment By: lgautier (lgautier)
+Date: 2008-09-19 08:35
+
+Message:
+
+Could provide version numbers for the version you tried ?
+It was fixed for rpy2 few weeks ago.
+
+>>> import rpy2.rinterface as ri
+>>> ri.initr()
+0
+>>> ri.initr()
+0
+>>> 
+
+
+----------------------------------------------------------------------
+
+Comment By: Mark  Janikas (mark_janikas)
+Date: 2008-09-16 00:08
+
+Message:
+Just found the same error in RPy2.
+
+<type 'exceptions.RuntimeError'>: R can only be initialized once.
+
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=2062627&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From noreply at sourceforge.net  Fri Sep 19 06:48:35 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 19 Sep 2008 06:48:35 +0000
+Subject: [Rpy] [ rpy-Bugs-1956434 ] rpy 1.0~rc1segfault with bioconductor packages
+Message-ID: <E1KgZn9-00085k-2y@b55xhf1.ch3.sourceforge.com>
+
+Bugs item #1956434, was opened at 2008-05-02 22:42
+Message generated for change (Comment added) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1956434&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+Status: Open
+>Resolution: Fixed
+Priority: 5
+Private: No
+Submitted By: Faheem Mitha (fmitha)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: rpy 1.0~rc1segfault with bioconductor packages 
+
+Initial Comment:
+Hi,
+
+I'm getting a segfault with rpy, 1.0~rc1-2 on Debian etch, with the CRAN backport of 2.6.2.
+                                                                  Faheem.
+
+**************************************************************************
+Debian package info.
+**************************************************************************
+||/ Name                            Version Description
++++-===============================-===============================-==============================================================================
+ii  python-rpy                      1.0~rc1-2                       Python interface to the GNU R language and environment
+ii  r-base-core                     2.6.2-1~etchcran.1              GNU R core of statistical computing language and environment
+
+****************************************************************************
+Script to reproduce
+****************************************************************************
+from rpy import r
+
+r.library("affy")
+r.library("hu6800cdf")
+fnames = [u'AD8.CEL', u'L01.CEL', u'L02.CEL', u'L04.CEL', u'L05.CEL', u'L06.CEL']
+celdat = r.ReadAffy(filenames = fnames, celfile_path = 'data')
+
+
+*****************************************************************
+Run output
+****************************************************************
+faheem@etch:/tmp$ python rpy_bug.py
+RHOME= /usr/lib64/R
+RVERSION= 2.6.2
+RVER= 2062
+RUSER= /home/faheem
+Loading Rpy version 2062 .. Done.
+Creating the R object 'r' ..  Done
+Loading required package: Biobase
+Loading required package: tools
+
+Welcome to Bioconductor
+
+  Vignettes contain introductory material. To view, type
+  'openVignette()'. To cite Bioconductor, see
+  'citation("Biobase")' and for packages 'citation(pkgname)'.
+
+Loading required package: affyio
+Loading required package: preprocessCore
+Error: segfault from C stack overflow
+Segmentation fault
+
+****************************************************************
+R package info obtained from sessionInfo.
+****************************************************************
+> sessionInfo()
+R version 2.6.2 (2008-02-08)
+x86_64-pc-linux-gnu
+
+locale:
+LC_CTYPE=en_US.UTF-8;LC_NUMERIC=C;LC_TIME=en_US.UTF-8;LC_COLLATE=en_US.UTF-8;LC_MONETARY=en_US.UTF-8;LC_MESSAGES=en_US.UTF-8;LC_PAPER=en_US.UTF-8;L
+C_NAME=C;LC_ADDRESS=C;LC_TELEPHONE=C;LC_MEASUREMENT=en_US.UTF-8;LC_IDENTIFICATION=C
+
+attached base packages:
+[1] tools     stats     graphics  grDevices utils     datasets  methods
+[8] base
+
+other attached packages:
+[1] hu6800cdf_2.0.0      affy_1.16.0          preprocessCore_1.0.0
+[4] affyio_1.6.1         Biobase_1.16.3
+
+loaded via a namespace (and not attached):
+[1] rcompgen_0.1-17
+
+
+
+----------------------------------------------------------------------
+
+>Comment By: lgautier (lgautier)
+Date: 2008-09-19 08:48
+
+Message:
+Seems to be working with rpy2 and R-2.7:
+
+import rpy2.robjects as ro
+ro.r.library("affy")
+
+cel = ro.r["read.affybatch"]("GSM177882.CEL.gz")
+
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1956434&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From noreply at sourceforge.net  Fri Sep 19 06:48:52 2008
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Fri, 19 Sep 2008 06:48:52 +0000
+Subject: [Rpy] [ rpy-Bugs-1956434 ] rpy 1.0~rc1segfault with bioconductor packages
+Message-ID: <E1KgZnQ-0007iu-7y@h45xhf1.ch3.sourceforge.com>
+
+Bugs item #1956434, was opened at 2008-05-02 22:42
+Message generated for change (Settings changed) made by lgautier
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1956434&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: None
+>Status: Closed
+Resolution: Fixed
+Priority: 5
+Private: No
+Submitted By: Faheem Mitha (fmitha)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: rpy 1.0~rc1segfault with bioconductor packages 
+
+Initial Comment:
+Hi,
+
+I'm getting a segfault with rpy, 1.0~rc1-2 on Debian etch, with the CRAN backport of 2.6.2.
+                                                                  Faheem.
+
+**************************************************************************
+Debian package info.
+**************************************************************************
+||/ Name                            Version Description
++++-===============================-===============================-==============================================================================
+ii  python-rpy                      1.0~rc1-2                       Python interface to the GNU R language and environment
+ii  r-base-core                     2.6.2-1~etchcran.1              GNU R core of statistical computing language and environment
+
+****************************************************************************
+Script to reproduce
+****************************************************************************
+from rpy import r
+
+r.library("affy")
+r.library("hu6800cdf")
+fnames = [u'AD8.CEL', u'L01.CEL', u'L02.CEL', u'L04.CEL', u'L05.CEL', u'L06.CEL']
+celdat = r.ReadAffy(filenames = fnames, celfile_path = 'data')
+
+
+*****************************************************************
+Run output
+****************************************************************
+faheem@etch:/tmp$ python rpy_bug.py
+RHOME= /usr/lib64/R
+RVERSION= 2.6.2
+RVER= 2062
+RUSER= /home/faheem
+Loading Rpy version 2062 .. Done.
+Creating the R object 'r' ..  Done
+Loading required package: Biobase
+Loading required package: tools
+
+Welcome to Bioconductor
+
+  Vignettes contain introductory material. To view, type
+  'openVignette()'. To cite Bioconductor, see
+  'citation("Biobase")' and for packages 'citation(pkgname)'.
+
+Loading required package: affyio
+Loading required package: preprocessCore
+Error: segfault from C stack overflow
+Segmentation fault
+
+****************************************************************
+R package info obtained from sessionInfo.
+****************************************************************
+> sessionInfo()
+R version 2.6.2 (2008-02-08)
+x86_64-pc-linux-gnu
+
+locale:
+LC_CTYPE=en_US.UTF-8;LC_NUMERIC=C;LC_TIME=en_US.UTF-8;LC_COLLATE=en_US.UTF-8;LC_MONETARY=en_US.UTF-8;LC_MESSAGES=en_US.UTF-8;LC_PAPER=en_US.UTF-8;L
+C_NAME=C;LC_ADDRESS=C;LC_TELEPHONE=C;LC_MEASUREMENT=en_US.UTF-8;LC_IDENTIFICATION=C
+
+attached base packages:
+[1] tools     stats     graphics  grDevices utils     datasets  methods
+[8] base
+
+other attached packages:
+[1] hu6800cdf_2.0.0      affy_1.16.0          preprocessCore_1.0.0
+[4] affyio_1.6.1         Biobase_1.16.3
+
+loaded via a namespace (and not attached):
+[1] rcompgen_0.1-17
+
+
+
+----------------------------------------------------------------------
+
+Comment By: lgautier (lgautier)
+Date: 2008-09-19 08:48
+
+Message:
+Seems to be working with rpy2 and R-2.7:
+
+import rpy2.robjects as ro
+ro.r.library("affy")
+
+cel = ro.r["read.affybatch"]("GSM177882.CEL.gz")
+
+
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1956434&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+From vickie.backus at montana.edu  Mon Sep 29 18:05:47 2008
+From: vickie.backus at montana.edu (Vickie Backus)
+Date: Mon, 29 Sep 2008 12:05:47 -0600
+Subject: [Rpy] problems using step with Rpy
+Message-ID: <18853.3006039963$1222711646@news.gmane.org>
+
+Hello,
+
+ 
+
+I need some help. I'm fitting some data to a general linear model and
+everything works find in R, but when I try to write a Python script and use
+RPy to interface with R, it doesn't work.
+
+ 
+
+Here is my command lines in R;
+
+ 
+
+> library(foreign)
+
+> library(stats)
+
+> dat <- read.dbf("D:/rTesting/myDataFile.dbf", as.is=FALSE)
+
+> glm.test2 <- glm(CIAR ~ ROADDIST + TRAILDIST + ELEV  + COSASP + SINASP +
+SOLRAD + BURN + TREE +  BAND3 + BAND5 + BAND7,
+family=binomial(link="logit"), data = dat, na.action=na.exclude,
+control=glm.control(maxit=50))
+
+> step2 <-step(glm.test2, steps=500)
+
+ 
+
+Here's what I'm doing in my Python Script;
+
+import rpy
+
+from rpy import r
+
+ 
+
+r.library("foreign")
+
+r.library("stats")
+
+ 
+
+dat = r.read_dbf("D:/rTesting/myDataFile.dbf")          #FIXME:  can't get
+as_is =" FALSE" to work
+
+r.attach(dat)
+
+ 
+
+fam = r.binomial(link='logit')
+
+#print fam
+
+ 
+
+#cntrl = r.glm_control(maxit=50)         #FIXME: Can't get this to work -
+separately like this or directly in the cmd below
+
+#print cntrl
+
+ 
+
+glm_eqn = r.glm(r("CIAR ~ ROADDIST + TRAILDIST + ELEV +  COSASP + SINASP +
+SOLRAD + BURN + TREE + BAND1 +  BAND3  + BAND5 + BAND7"), data=dat,
+family=fam, na_action="na.exclude")
+
+    
+
+part2 = r.step(glm_eqn, steps=500)
+
+ 
+
+The r.glm works fine, but I get an error with r.step.   Here's the error
+message;
+
+ 
+
+Traceback (most recent call last):
+
+  File "D:\pythonScripts\testScript4rpy.py", line 81, in <module>
+
+    part2 = r.step(glm_eqn, steps=500)
+
+RPy_RException: Error in UseMethod("extractAIC") : no applicable method for
+"extractAIC"
+
+ 
+
+I've tried defining an extractAIC object, but that doesn't seem to work
+either.
+
+ 
+
+I would be most appreciative of any suggestions. Notice also my 'FIXME'
+comments, also. These omissions don't seem to effect anything, but I don't
+understand why they won't work in my Python script, when the work in R.
+
+
+Thank you in advance - Vickie
+
+-------------- next part --------------
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+-------------- next part --------------
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From rpy-list at maubp.freeserve.co.uk  Tue Sep 30 08:24:25 2008
+From: rpy-list at maubp.freeserve.co.uk (Peter)
+Date: Tue, 30 Sep 2008 09:24:25 +0100
+Subject: Re: [Rpy] problems using step with Rpy
+In-Reply-To: <3237038693396690857@unknownmsgid>
+References: <AckiXf+4fxl3e5RzRHC4UwmKJH6DSQ==> <3237038693396690857@unknownmsgid>
+Message-ID: <320fb6e00809300124p6f77394ex434340833b0dc1f@mail.gmail.com>
+
+On Mon, Sep 29, 2008 at 7:05 PM, Vickie Backus
+<vickie.backus at montana.edu> wrote:
+> Hello,
+>
+> I need some help. I'm fitting some data to a general linear model and
+> everything works find in R, but when I try to write a Python script and use
+> RPy to interface with R, it doesn't work.
+>
+> Here is my command lines in R;
+>
+>> library(foreign)
+>> library(stats)
+>> dat <- read.dbf("D:/rTesting/myDataFile.dbf", as.is=FALSE)
+>> glm.test2 <- glm(CIAR ~ ROADDIST + TRAILDIST + ELEV  + COSASP + SINASP +
+>> SOLRAD + BURN + TREE +  BAND3 + BAND5 + BAND7,
+>> family=binomial(link="logit"), data = dat, na.action=na.exclude,
+>> control=glm.control(maxit=50))
+>> step2 <-step(glm.test2, steps=500)
+
+OK, I understand what you are trying to do here.  Note that while
+"dat" is a simple matrix/array like object which rpy should be able to
+convert into python without loss of information, the GLM object will
+by default get turned into a simplified dictionary structure.  You
+will almost certainly need to turn off rpy's object conversion to
+preserve the GLM object (and probably the family object) as is, so
+that you can pass this to the step function successfully.
+
+> Here's what I'm doing in my Python Script;
+>
+> import rpy
+> from rpy import r
+
+Why are you doing two style imports?  Anyway, try adding the following
+near the start of your code:
+rpy.set_default_mode(rpy.NO_CONVERSION)
+
+This should fix your original problem (and maybe the glm.control issue too).
+
+If after the complicated bits you want to get the answers out as python objects,
+rpy.set_default_mode(rpy.BASIC_CONVERSION)
+
+The rpy documentation goes into more depth.
+
+> ...
+> r.library("foreign")
+> r.library("stats")
+> dat = r.read_dbf("D:/rTesting/myDataFile.dbf")
+> #FIXME:  can't get as_is =" FALSE" to work
+
+In python, FALSE isn't defined as python uses False instead.  Try:
+
+dat = r.read_dbf("D:/rTesting/myDataFile.dbf", as_is=False)
+
+Peter
+
+-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
+Build the coolest Linux based applications with Moblin SDK & win great prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&url=/
+

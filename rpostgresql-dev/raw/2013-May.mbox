@@ -1,0 +1,116 @@
+From jadopendnssec-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu May 23 14:43:07 2013
+From: jadopendnssec-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (John Dickinson)
+Date: Thu, 23 May 2013 07:43:07 -0700
+Subject: Re: Passing bound arguments into a query
+In-Reply-To: <5D825078-D131-4A47-80FD-1B1DA21484DB@staff.kanazawa-u.ac.jp>
+References: <97c1671d-e007-4e54-8ce5-68df3e9f8333@dh10g2000vbb.googlegroups.com> <C5BE5BED-C85A-4B81-A448-187BF56F2CFF@gmail.com> <74a7c706-349b-431e-9872-0f41486f4b74@k17g2000yqp.googlegroups.com> <503E50EB.80505@joeconway.com> <b70ec491-2b24-4ec5-83cc-72f54031dcc3@s2g2000vbj.googlegroups.com> <5D825078-D131-4A47-80FD-1B1DA21484DB@staff.kanazawa-u.ac.jp>
+Message-ID: <fc05a88a-1138-488d-99e5-5657eed16429@googlegroups.com>
+
+You can use prepared statements like this:
+
+> library(RPostgreSQL)
+Loading required package: DBI
+> dbdrv <- dbDriver("PostgreSQL")
+> dbcon <- try(dbConnect(dbdrv, dbname="dbname", port=5432))
+> sql <- "prepare myselect (text) AS SELECT * from data d where d.name=$1 
+and d.starttime=$2;"
+> res <- dbSendQuery(dbcon, sql)
+> res1 <- dbSendQuery(dbcon,"execute myselect('myname",'2013-05-01 
+00:04:00+00');")
+> data <- fetch(res1, n=-1)
+
+HTH
+John
+
+
+On Wednesday, August 29, 2012 11:27:54 PM UTC, Tomoaki wrote:
+>
+> Hi, 
+>
+> Prepared statement is not yet implemented in RPostgreSQL. 
+> It is just not yet implemented due to insufficient time 
+> and a patch to support is welcome. 
+>
+> For proper quoting you might call postgresqlEscapeStrings(), 
+> which is a wrapper of a libpq function, PQescapeStringConn(). 
+> This will do the conversion that will be right under given the 
+> connection. "Proper" quoting is arguably complex if you 
+> want to handle the encodings right. 
+> If the problem is injection, this is perhaps sufficient. 
+> Unfortunately this is not portable among different databases 
+> under DBI, but if you implement prepared statement specifically 
+> for PostgreSQL, it is not portable among databases either. 
+> If you need prepared statement for higher performance, 
+> implementing the adapter is necessary. 
+> For this purpose, we need something like statement handle, and 
+> the interface needs to be designed to support the concept. 
+>
+> On 2012/08/30, at 2:53, Ryan Hughes wrote: 
+>
+> > Isn't that a postgresql function?  I'd have to get the string from R 
+> > into postgres in order for postgres to quote it.  But I'd have to 
+> > quote the string before I'd be able to send it to postgres. 
+> > 
+> > res <- dbSendQuery(paste("select quote_literal(", value, sep='"')) 
+> > 
+> > that's not going to work if value contains 
+> >  hello'there 
+> > 
+> > because postgres will see the string as 
+> >  select quote_literal('hello'there') 
+> > 
+> > which is a syntax error. 
+> > 
+> > Every database library that I've seen, other than R's DBI interface, 
+> > has some ability to do bind-variables, where you put a placeholder in 
+> > the query string and then separately pass an array of arguments to be 
+> > properly quoted and substituted into the query. 
+> > 
+> > For example, libpq has PQexecParams. 
+> > 
+> > However, just because DBI doesn't support this style of working 
+> > doesn't mean the RPostgreSQL can't support it.  ROracle allows you to 
+> > use bind queries by passing a "data" parameter to dbSendQuery. 
+> > 
+> > Is this omission here the result of the fact that R's developers are 
+> > statisticians writing programs for themselves, rather than software 
+> > developers that have to code defensively and check input from 
+> > untrusted users?  True, my program's input will only be coming from 
+> > trusted users, but that doesn't mean that I'm comfortable opening the 
+> > floodgates for sql injection attacks. 
+> > 
+> > --Ryan 
+> > 
+> > On Aug 29, 1:27 pm, Joe Conway <m...-INIzPrqqOK3qlBn2x/YWAg at public.gmane.org> wrote: 
+> >> On 08/29/2012 10:24 AM, Ryan Hughes wrote: 
+> >> 
+> >>> On Aug 29, 12:55 pm, Ian Gow <iand...-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote: 
+> >>>> Something like this? 
+> >>>> sql <- paste("SELECT * FROM table WHERE param=", value, sep="") 
+> >>>> res <- dbSendQuery(con, sql) 
+> >> 
+> >>> That doesn't quote the value.  If value contains 
+> >>>   '; DELETE FROM table; -- 
+> >> 
+> >>> then you lose all your data. 
+> >> 
+> >> See quote_literal()
+> http://www.postgresql.org/docs/9.1/interactive/functions-string.html 
+> >> 
+> >> HTH, 
+> >> 
+> >> Joe 
+> >> 
+> >> -- 
+> >> Joe Conway 
+> >> credativ LLC:http://www.credativ.us 
+> >> Linux, PostgreSQL, and general Open Source 
+> >> Training, Service, Consulting, & 24x7 Support 
+>
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+

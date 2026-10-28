@@ -1,0 +1,340 @@
+From james.david.smith-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 14 13:17:50 2014
+From: james.david.smith-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (James David Smith)
+Date: Tue, 14 Oct 2014 14:17:50 +0100
+Subject: Use file as SQL?
+Message-ID: <CAMu32ACpqXfJA5G3Rn1+=DnvV_kxb9WXf6+SSqKb06=2ZPEfng@mail.gmail.com>
+
+Hi there,
+
+A quick question. I've been using RPostgreSQL for a while now and I think
+it's great. But I wondered if it was possible to do something like this?
+
+result <- dbGetQuery(con, 'myquery.sql')
+
+What I mean by this, is instead of writing the SQL statement, can R fetch
+the SQL code from out of a file instead? I ask this because I typically do
+my SQL development using PgAdminIII, which I then save, and then copy and
+paste the SQL code into an R script. This would save me some time if I
+could just reference the SQL code itself.
+
+Thanks
+
+James
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From seanpor-HInyCGIudOg at public.gmane.org  Tue Oct 14 13:23:24 2014
+From: seanpor-HInyCGIudOg at public.gmane.org (Sean O'Riordain)
+Date: Tue, 14 Oct 2014 14:23:24 +0100
+Subject: Re: Use file as SQL?
+In-Reply-To: <CAMu32ACpqXfJA5G3Rn1+=DnvV_kxb9WXf6+SSqKb06=2ZPEfng@mail.gmail.com>
+References: <CAMu32ACpqXfJA5G3Rn1+=DnvV_kxb9WXf6+SSqKb06=2ZPEfng@mail.gmail.com>
+Message-ID: <CA+MmmT+A1Vgt4hGo55p0PPiiUv5-zBJqRmDvAibSL=WiDMidyQ@mail.gmail.com>
+
+Hi James,
+I might be missing something, but you should be able to just do:
+
+result <- dbGetQuery(con, readLines('myquery.sql'))
+
+Kind regards,
+Sean
+
+
+On 14 October 2014 14:17, James David Smith <james.david.smith-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+wrote:
+
+> Hi there,
+>
+> A quick question. I've been using RPostgreSQL for a while now and I think
+> it's great. But I wondered if it was possible to do something like this?
+>
+> result <- dbGetQuery(con, 'myquery.sql')
+>
+> What I mean by this, is instead of writing the SQL statement, can R fetch
+> the SQL code from out of a file instead? I ask this because I typically do
+> my SQL development using PgAdminIII, which I then save, and then copy and
+> paste the SQL code into an R script. This would save me some time if I
+> could just reference the SQL code itself.
+>
+> Thanks
+>
+> James
+>
+>  --
+> You received this message because you are subscribed to the Google Groups
+> "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an
+> email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/d/optout.
+>
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From iandgow-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct 14 16:24:54 2014
+From: iandgow-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Ian Gow)
+Date: Tue, 14 Oct 2014 12:24:54 -0400
+Subject: Re: Use file as SQL?
+In-Reply-To: <CAMu32ACpqXfJA5G3Rn1+=DnvV_kxb9WXf6+SSqKb06=2ZPEfng@mail.gmail.com>
+References: <CAMu32ACpqXfJA5G3Rn1+=DnvV_kxb9WXf6+SSqKb06=2ZPEfng@mail.gmail.com>
+Message-ID: <96E0C799-FBBF-4F1C-9553-E4B2972575B8@gmail.com>
+
+James:
+
+I find myself doing something quite similar to what you describe and I find myself using functions like this for that purpose:
+
+runSQL <- function(sql_file) {
+    library(RPostgreSQL)
+    pg <- dbConnect(PostgreSQL())
+    sql <- paste(readLines(sql_file), collapse="\n")
+    rs <- dbGetQuery(pg, sql)
+    dbDisconnect(pg)
+}
+
+This function does not return data, but it would be easy to tweak such that it does (though make sure to disconnect within the function if you are running the function many times).
+
+One nice aspect of this is that escaping of backslashes, etc., happens seamlessly (at least for my use cases).
+
+-Ian
+
+On Oct 14, 2014, at 9:17 AM, James David Smith <james.david.smith-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> Hi there,
+> 
+> A quick question. I've been using RPostgreSQL for a while now and I think it's great. But I wondered if it was possible to do something like this?
+> 
+> result <- dbGetQuery(con, 'myquery.sql')
+> 
+> What I mean by this, is instead of writing the SQL statement, can R fetch the SQL code from out of a file instead? I ask this because I typically do my SQL development using PgAdminIII, which I then save, and then copy and paste the SQL code into an R script. This would save me some time if I could just reference the SQL code itself.
+> 
+> Thanks
+> 
+> James
+> 
+> 
+> -- 
+> You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+> For more options, visit https://groups.google.com/d/optout.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From richierocks-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Oct 19 14:38:50 2014
+From: richierocks-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Richard Cotton)
+Date: Sun, 19 Oct 2014 07:38:50 -0700
+Subject: How to write to tables with an auto-incrementing primary key?
+Message-ID: <0d4c6fc5-3b7b-40b7-ad9c-2402de08cef1@googlegroups.com>
+
+I want to write to a table in a PostgreSQL database that has a BIGSERIAL 
+auto-incrementing primary key.  Rather than creating key values in R and 
+passing them to PostgreSQL, I want PostgreSQL to handle that itself.
+
+This problem is cross-posted from Stack Overflow 
+<http://stackoverflow.com/q/26449666/134830> where you can find code to 
+reproduce the issue.  A comment 
+<https://stackoverflow.com/questions/26449666/how-do-i-write-data-from-r-to-postgresql-tables-with-an-autoincrementing-primary/26451425#comment41542326_26449666> 
+there pointed me to this group.
+
+An older post 
+<https://groups.google.com/d/msg/rpostgresql-dev/hIilIO_MtYk/rRW3zWtnoK8J> 
+on this group contains a patch to make postgresqlWriteTable only write 
+columns that exist in the data frame.  The thread got rather long and 
+confused, and while it was implied that the patch had been committed, it 
+doesn't seem to have made it into mainline RPostgreSQL.  The thread also 
+hinted that there may be better ways deal with this, but they weren't 
+explicitly mentioned.
+
+I believe that the ability to let PostgreSQL handle auto-incrementing 
+primary keys (and the more general feature of only copying some columns of 
+a table from R to the database) is very useful.  Is my enhanced version of 
+the original path worthy of inclusion into RPostgreSQL, or is there a 
+better way of doing things?  Either way, I think that this issue is 
+important enough to revisit.
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From richierocks-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Oct 20 07:39:10 2014
+From: richierocks-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Richard Cotton)
+Date: Mon, 20 Oct 2014 00:39:10 -0700
+Subject: Re: How to write to tables with an auto-incrementing primary key?
+In-Reply-To: <0d4c6fc5-3b7b-40b7-ad9c-2402de08cef1@googlegroups.com>
+References: <0d4c6fc5-3b7b-40b7-ad9c-2402de08cef1@googlegroups.com>
+Message-ID: <604597e7-3d37-4f50-b27f-507071125354@googlegroups.com>
+
+I was sent a private response to the problem hinting that it may be 
+solvable by passing SQL NULL for that column.  I'm not sure how to do this 
+though.  For the example of a table, "foo" defined as:
+
+
+CREATE TABLE foo(
+  "Id" bigserial PRIMARY KEY,
+  "SomeData" text NOT NULL);
+
+
+and an R data frame
+
+
+dfr <- data.frame(SomeData = letters)
+
+
+I figure I ought to be able to pass a field.types argument to dbWriteTable 
+and have it passed to postgresqlWriteTable 
+<http://www.inside-r.org/packages/cran/rpostgresql/docs/postgresqlWriteTable>.  
+I tried
+
+dbWriteTable(conn, "foo", dfr, append = TRUE, row.names = FALSE, 
+field.types = list(Id = *NULL*, SomeData = "text"))
+dbWriteTable(conn, "foo", dfr, append = TRUE, row.names = FALSE, 
+field.types = list(Id = *"NULL"*, SomeData = "text"))
+dbWriteTable(conn, "foo", dfr, append = TRUE, row.names = FALSE, 
+field.types = list(Id = *RPostgreSQL:::.PostgreSQL.NA.string*, SomeData = 
+"text"))
+
+none of which worked.  That is, each time I got the error message:
+
+Error in postgresqlgetResult(new.con) : 
+  RS-DBI driver: (could not Retrieve the result : ERROR:  invalid input syntax for integer: "a"
+CONTEXT:  COPY foo, line 1, column Id: "a"
+
+Is passing a null column a viable possibility?  If so, how do I do that?
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From jamesaallsopp-gM/Ye1E23mwN+BqQ9rBEUg at public.gmane.org  Wed Oct 22 10:10:22 2014
+From: jamesaallsopp-gM/Ye1E23mwN+BqQ9rBEUg at public.gmane.org (James Allsopp)
+Date: Wed, 22 Oct 2014 03:10:22 -0700
+Subject: Wondering how to use the data from a results set
+Message-ID: <e39e065f-1a72-4739-bf5d-c22a371cf0b7@googlegroups.com>
+
+Hi,
+Thanks for this library! I'm following the instructions and can get to my 
+results set, but then I can't work out how to convert this into a 
+data.frame I can use. Using fetch I can display the results.
+Do you have any ideas on how to do this? 
+Thanks
+James
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+
+From zach.mayer-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Oct 30 22:22:35 2014
+From: zach.mayer-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Zach)
+Date: Thu, 30 Oct 2014 22:22:35 +0000
+Subject: Postgres errors getting printed twice
+Message-ID: <loom.20141030T223545-55@post.gmane.org>
+
+Hello,
+
+I'm running into an error where all postgres error messages are returned 
+twice: once in a manner that bypasses all R I/O, and once as an R warning. 
+I am posting to this list because I am curious if anyone else has encountered 
+this kind of error, and if so, how might I solve it?
+
+I've tested the below code on:
+  mac (Platform: x86_64-apple-darwin13.1.0 (64-bit))
+redhat server (Platform: x86_64-redhat-linux-gnu (64-bit))
+ubuntu server (Platform: x86_64-pc-linux-gnu (64-bit)). 
+All of them with R 3.1.1,  RPostgreSQL_0.4, and DBI_0.3.1. 
+
+All 3 platforms generate the exact same result.  I do not have access to a 
+windows machine, but as soon as I figure out how to login to a windows EC2 
+instance I will test it there as well.
+
+I connect to my database as follows:
+library('RPostgreSQL')
+con <- dbConnect(PostgreSQL(),
+                 user='me',
+                 password='noonewilleverbelieveyou',
+                 host='myserver',
+                 dbname='mydb',
+                 port = '42')
+
+After connecting, I run a query that generates an error:
+dbGetQuery(con, 'bogus query;')
+
+I get the following output:
+Error in postgresqlExecStatement(conn, statement, ...) : 
+RS-DBI driver: (could not Retrieve the result : 
+                ERROR:  syntax error at or near "bogus"
+                LINE 1: bogus query;
+                ^
+)
+NULL
+Warning message:
+  In postgresqlQuickSQL(conn, statement, ...) :
+  Could not create executebogus query;
+
+There are 2 errors in this result:
+"Error in postgresqlExecStatement(conn, statement, ...) : " 
+"Warning message". 
+
+While I can suppress the warning with suppressWarnings(), nothing I do 
+can suppress the error.  Furthermore, it doesn't actually seem to affect 
+the R process at all.  As far as I can tell, R is not even aware that this
+error has occurred and been printed to the console.
+
+For example the following code should:
+1. Suppress all errors
+2. Suppress all warnings
+3. Suppress all messages
+4. Divert all output to '/dev/null'
+capture.output(
+suppressMessages(
+suppressWarnings(
+tryCatch(
+dbGetQuery(con, 'bogus query;'), error=function(e) return(NULL)
+)
+)
+), file='/dev/null')
+
+And yet, this code still prints out the error message:
+Error in postgresqlExecStatement(conn, statement, ...) : 
+RS-DBI driver: 
+(could not Retrieve the result : ERROR:  syntax error at or near "bogus"
+LINE 1: bogus query;
+^
+)
+
+Is there something about postgres I don't understand?  I'm running on this 
+on 3 different platforms, with 3 different postgres drivers, and getting 
+the exact same result on each machine.  Has anyone else encountered issues 
+with superfluous messagesfrom postgress, and if so, how do you squash them?
+
+Thank you for your help— this has been driving me nuts.  I'd be happy to 
+provide any additional information you request.  If you'd like to reproduce 
+the error:
+startup a new ubunutu amazon EC2 instance 
+apt-get install postgresql-dev 
+apt-get install r 
+install.packages('RPostgreSQL')
+connect to your database
+run a bogus query.
+
+Thanks again.
+
+-Zach
+
+
+
+
+-- 
+You received this message because you are subscribed to the Google Groups "RPostgreSQL Development and Discussion List" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to rpostgresql-dev+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0 at public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
+

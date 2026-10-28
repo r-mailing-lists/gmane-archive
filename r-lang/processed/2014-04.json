@@ -1,0 +1,881 @@
+{
+  "list": "r-lang",
+  "description": "",
+  "month": "2014-04",
+  "messages": [
+    {
+      "id": "msg-e69f25fc09df",
+      "message_id": "<87k3b6z6cy.fsf@posteo.de>",
+      "from_name": "Titus von der Malsburg",
+      "from_email_hash": "85a743faf30f0677c3514960cbb00270a5066c25bd6c12b0e5d2501b3333c859",
+      "date": "2014-04-03T17:10:37Z",
+      "subject": "Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "I have eyetracking data from an experiment in which 45 participants read\na longer text.  There was a manipulation at the beginning of the text\nand the participants either read the original version of the text or the\nmanipulated version.  Measurements were made in 40 regions of interest\nthat occurred later in the text.  The regions consisted of two to five\nwords.  So we have a between-subjects design and every participant\ncontributed 40 measurements for either condition A or condition B.\n\nCondition was coded using contr.sdif(2), i.e., as -0.5 and 0.5. The\nmeasure of interest is total reading time (trt).  Log-transforming the\nreading times produced beautifully normally distributed residuals.\n\nThrough a series of likelihood-ratio tests, I arrived at this model:\n\n  log(trt) ~ 1 + item.length + (1 | subj) + (cond | item)\n\nwhere item.length is the length of the region in characters centered on\nzero and scaled to unit variance.\n\nThe fixed effect of condition was not significant according to the\nlikelihood-ratio test but the random slopes were.  This is plausible\nbecause the manipulation is expected to have a different impact on the\nvarious regions; some regions may be read faster in the manipulated\nversion and some slower.\n\nThis is the summary of the model:\n\n  Linear mixed model fit by maximum likelihood  ['lmerMod']\n  Formula: log(tt) ~ 1 + Region.length + (1 | subj) + (cond | item)\n     Data: d\n  \n       AIC      BIC   logLik deviance df.resid \n    2361.8   2400.2  -1173.9   2347.8     1780 \n  \n  Scaled residuals: \n      Min      1Q  Median      3Q     Max \n  -3.8627 -0.6263 -0.0081  0.6288  3.5806 \n  \n  Random effects:\n   Groups   Name           Variance Std.Dev. Corr \n   subj     (Intercept)    0.078967 0.2810        \n   item     (Intercept)    0.063726 0.2524        \n            condB-A        0.008118 0.0901   -0.59\n   Residual                0.189555 0.4354        \n  Number of obs: 1787, groups: subj, 45; item, 40\n  \n  Fixed effects:\n                Estimate Std. Error t value\n  (Intercept)    6.45069    0.05858  110.11\n  Region.length  0.15927    0.03893    4.09\n  \n  Correlation of Fixed Effects:\n              (Intr)\n  Regin.lngth 0.002\n\nHaving established that the manipulation had a different impact on the\nvarious regions, I was interested in seeing how the individual regions\nwere affected.  Perhaps foolishly, I thought that I could simply inspect\nthe dotplot of the random effects:\n\n  dotplot(ranef(mer, postVar=T))\n\nHere's the plot: http://users.ox.ac.uk/~sjoh3968/R/dotplot.png\n\nWhile this plot shows a lot of action in the intercepts (some regions\nwere read considerably slower or faster than could be expected based on\ntheir length) none of the individual random slopes was significantly\ndifferent from zero except perhaps that for item 25.\n\nI'm a bit puzzled by that because the likelihood-ratio test provided\nstrong support for having these random slopes in the model.  For that\nreason, I expected to see more slopes that are significantly different\nfrom zero.  But as things stand I do not even see the expected rate of\nfalse alarms in the dotplot.\n\nMy questions:\n\n- Do I misunderstand something here?\n\n- What's the proper way to find out which regions were significantly\n  slowed down and which were speeded up by the manipulation?\n\nTo address the second question, I tried a model that had item (sum\ncontrast) and the interaction of item with condition as fixed\neffects.  Likelihood-ratio tests suggested that both factors should be\nin the model.\n\n  log(trt) ~ item * cond + (1|subj)\n\nThe summary of this model is at the end of this email.\n\nIn this model, three interactions of item and condition were significant\n(items 23, 35, 40).  Interestingly, these three items don't look\nconspicuous in the dotplot.  So this exercise unfortunately only added\nto my confusion.\n\nThanks in advance for your suggestions.\n\n  Titus\n\n\n\n  Linear mixed model fit by maximum likelihood  ['lmerMod']\n  Formula: log(tt) ~ item * cond + (1 | subj)\n     Data: d\n  \n       AIC      BIC   logLik deviance df.resid \n    2311.5   2761.5  -1073.7   2147.5     1705 \n  \n  Scaled residuals: \n      Min      1Q  Median      3Q     Max \n  -3.8821 -0.6375 -0.0172  0.6402  3.5181 \n  \n  Random effects:\n   Groups   Name        Variance Std.Dev.\n   subj     (Intercept) 0.07732  0.2781  \n   Residual             0.18107  0.4255  \n  Number of obs: 1787, groups: subj, 45\n  \n  Fixed effects:\n                 Estimate Std. Error t value\n  (Intercept)     6.92778    0.07580   91.40\n  item2          -0.09968    0.08973   -1.11\n  item3          -0.69521    0.09024   -7.70\n  item4          -0.54653    0.09029   -6.05\n  item5          -0.64580    0.08973   -7.20\n  item6          -0.97031    0.09029  -10.75\n  item7          -0.58442    0.08973   -6.51\n  item8          -0.47393    0.08973   -5.28\n  item9          -0.63300    0.08973   -7.05\n  item10         -0.66822    0.08973   -7.45\n  item11         -0.45895    0.08973   -5.11\n  item12         -0.82386    0.09029   -9.12\n  item13         -0.05979    0.08973   -0.67\n  item14         -0.21521    0.08973   -2.40\n  item15         -0.38548    0.08973   -4.30\n  item16         -0.05204    0.08973   -0.58\n  item17          0.02707    0.08973    0.30\n  item18         -0.58561    0.08973   -6.53\n  item19         -0.67088    0.09024   -7.43\n  item20         -0.65725    0.08973   -7.32\n  item21         -0.82779    0.09079   -9.12\n  item22         -0.01609    0.08973   -0.18\n  item23         -0.69240    0.08973   -7.72\n  item24         -0.72076    0.09024   -7.99\n  item25         -1.18346    0.09029  -13.11\n  item26         -0.40633    0.08973   -4.53\n  item27          0.29774    0.08973    3.32\n  item28         -0.54638    0.08973   -6.09\n  item29         -0.40471    0.08973   -4.51\n  item30         -1.01018    0.09079  -11.13\n  item31         -0.22745    0.09024   -2.52\n  item32         -0.50937    0.08973   -5.68\n  item33         -0.41883    0.08973   -4.67\n  item34         -0.37041    0.08973   -4.13\n  item35         -0.27538    0.08973   -3.07\n  item36         -0.06910    0.08973   -0.77\n  item37         -0.71859    0.08973   -8.01\n  item38         -0.77471    0.08973   -8.63\n  item39         -0.37623    0.09024   -4.17\n  item40         -0.79180    0.08973   -8.82\n  condB-A        -0.03665    0.15159   -0.24\n  item2:condB-A   0.21595    0.17946    1.20\n  item3:condB-A  -0.02540    0.18048   -0.14\n  item4:condB-A   0.26856    0.18058    1.49\n  item5:condB-A   0.10936    0.17946    0.61\n  item6:condB-A   0.12858    0.18058    0.71\n  item7:condB-A  -0.06066    0.17946   -0.34\n  item8:condB-A   0.18173    0.17946    1.01\n  item9:condB-A   0.01036    0.17946    0.06\n  item10:condB-A  0.06748    0.17946    0.38\n  item11:condB-A -0.21589    0.17946   -1.20\n  item12:condB-A  0.29605    0.18058    1.64\n  item13:condB-A -0.03878    0.17946   -0.22\n  item14:condB-A -0.09393    0.17946   -0.52\n  item15:condB-A -0.08954    0.17946   -0.50\n  item16:condB-A  0.07551    0.17946    0.42\n  item17:condB-A  0.04650    0.17946    0.26\n  item18:condB-A  0.13694    0.17946    0.76\n  item19:condB-A  0.08740    0.18048    0.48\n  item20:condB-A -0.03577    0.17946   -0.20\n  item21:condB-A  0.31060    0.18159    1.71\n  item22:condB-A -0.08494    0.17946   -0.47\n  item23:condB-A  0.41837    0.17946    2.33\n  item24:condB-A  0.08108    0.18048    0.45\n  item25:condB-A  0.31598    0.18058    1.75\n  item26:condB-A -0.09289    0.17946   -0.52\n  item27:condB-A  0.02541    0.17946    0.14\n  item28:condB-A -0.04806    0.17946   -0.27\n  item29:condB-A  0.04336    0.17946    0.24\n  item30:condB-A  0.19097    0.18159    1.05\n  item31:condB-A  0.15455    0.18048    0.86\n  item32:condB-A  0.26954    0.17946    1.50\n  item33:condB-A  0.07763    0.17946    0.43\n  item34:condB-A  0.17493    0.17946    0.97\n  item35:condB-A  0.36112    0.17946    2.01\n  item36:condB-A -0.21705    0.17946   -1.21\n  item37:condB-A  0.10128    0.17946    0.56\n  item38:condB-A  0.25708    0.17946    1.43\n  item39:condB-A  0.20449    0.18048    1.13\n  item40:condB-A  0.36386    0.17946    2.03\n  \n  Correlation matrix not shown by default, as p = 80 > 20.\n  Use print(...., correlation=TRUE)  or\n\t vcov(....)\t if you need it\n\n\n-- \nDr Titus von der Malsburg\nUniversity of Oxford\nhttp://users.ox.ac.uk/~sjoh3968/",
+      "body_snippet": "I have eyetracking data from an experiment in which 45 participants read\na longer text.  There was a manipulation at the beginning of the text\nand the participants either read the original version of ",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 0,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-974cc47c7b67",
+      "message_id": "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+      "from_name": "Levy, Roger",
+      "from_email_hash": "4205c8244bc61714fbca6363348963c89e1be6e80edebb04ab2fd612bbd92858",
+      "date": "2014-04-03T17:32:31Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<87k3b6z6cy.fsf@posteo.de>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>"
+      ],
+      "body_plain": "Hi Titus,\n\nOn Apr 3, 2014, at 10:10 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n\n> \n> I have eyetracking data from an experiment in which 45 participants read\n> a longer text.  There was a manipulation at the beginning of the text\n> and the participants either read the original version of the text or the\n> manipulated version.  Measurements were made in 40 regions of interest\n> that occurred later in the text.  The regions consisted of two to five\n> words.  So we have a between-subjects design and every participant\n> contributed 40 measurements for either condition A or condition B.\n> \n> Condition was coded using contr.sdif(2), i.e., as -0.5 and 0.5. The\n> measure of interest is total reading time (trt).  Log-transforming the\n> reading times produced beautifully normally distributed residuals.\n> \n> Through a series of likelihood-ratio tests, I arrived at this model:\n> \n>  log(trt) ~ 1 + item.length + (1 | subj) + (cond | item)\n> \n> where item.length is the length of the region in characters centered on\n> zero and scaled to unit variance.\n> \n> The fixed effect of condition was not significant according to the\n> likelihood-ratio test but the random slopes were.  This is plausible\n> because the manipulation is expected to have a different impact on the\n> various regions; some regions may be read faster in the manipulated\n> version and some slower.\n> \n> This is the summary of the model:\n> \n>  Linear mixed model fit by maximum likelihood  ['lmerMod']\n>  Formula: log(tt) ~ 1 + Region.length + (1 | subj) + (cond | item)\n>     Data: d\n> \n>       AIC      BIC   logLik deviance df.resid \n>    2361.8   2400.2  -1173.9   2347.8     1780 \n> \n>  Scaled residuals: \n>      Min      1Q  Median      3Q     Max \n>  -3.8627 -0.6263 -0.0081  0.6288  3.5806 \n> \n>  Random effects:\n>   Groups   Name           Variance Std.Dev. Corr \n>   subj     (Intercept)    0.078967 0.2810        \n>   item     (Intercept)    0.063726 0.2524        \n>            condB-A        0.008118 0.0901   -0.59\n>   Residual                0.189555 0.4354        \n>  Number of obs: 1787, groups: subj, 45; item, 40\n> \n>  Fixed effects:\n>                Estimate Std. Error t value\n>  (Intercept)    6.45069    0.05858  110.11\n>  Region.length  0.15927    0.03893    4.09\n> \n>  Correlation of Fixed Effects:\n>              (Intr)\n>  Regin.lngth 0.002\n> \n> Having established that the manipulation had a different impact on the\n> various regions, I was interested in seeing how the individual regions\n> were affected.  Perhaps foolishly, I thought that I could simply inspect\n> the dotplot of the random effects:\n> \n>  dotplot(ranef(mer, postVar=T))\n> \n> Here's the plot: http://users.ox.ac.uk/~sjoh3968/R/dotplot.png\n> \n> While this plot shows a lot of action in the intercepts (some regions\n> were read considerably slower or faster than could be expected based on\n> their length) none of the individual random slopes was significantly\n> different from zero except perhaps that for item 25.\n> \n> I'm a bit puzzled by that because the likelihood-ratio test provided\n> strong support for having these random slopes in the model.  For that\n> reason, I expected to see more slopes that are significantly different\n> from zero.  But as things stand I do not even see the expected rate of\n> false alarms in the dotplot.\n> \n> My questions:\n> \n> - Do I misunderstand something here?\n\nI don’t think you misunderstand anything.  My interpretation would be as follows: in aggregate, there is ample evidence in your dataset that there is variation across items in the effect of condition, but you don’t have enough data on any individual item to conclude securely that *that particular item’s sensitivity* is significantly different from the group average in one direction or the other.\n\n> - What's the proper way to find out which regions were significantly\n>  slowed down and which were speeded up by the manipulation?\n\nSorry, did you mean regions or items? I’m assuming below that you meant items...\n\n> \n> To address the second question, I tried a model that had item (sum\n> contrast) and the interaction of item with condition as fixed\n> effects.  Likelihood-ratio tests suggested that both factors should be\n> in the model.\n> \n>  log(trt) ~ item * cond + (1|subj)\n> \n> The summary of this model is at the end of this email.\n> \n> In this model, three interactions of item and condition were significant\n> (items 23, 35, 40).  Interestingly, these three items don't look\n> conspicuous in the dotplot.  So this exercise unfortunately only added\n> to my confusion.\n\nIt looks like you are using treatment coding for item, which renders the interpretation of your coefficients for this model a bit different than those in your dot plot.  How do things look when you use sum coding for item?\n\nOne last thing — I would recommend that you double-check all your analyses using lme4.0.  People have been reporting odd and contradictory results with the newest version of lme4, especially when using the default optimizer.\n\nBest and I hope this helps!\n\nRoger\n\n> \n> Thanks in advance for your suggestions.\n> \n>  Titus\n> \n> \n> \n>  Linear mixed model fit by maximum likelihood  ['lmerMod']\n>  Formula: log(tt) ~ item * cond + (1 | subj)\n>     Data: d\n> \n>       AIC      BIC   logLik deviance df.resid \n>    2311.5   2761.5  -1073.7   2147.5     1705 \n> \n>  Scaled residuals: \n>      Min      1Q  Median      3Q     Max \n>  -3.8821 -0.6375 -0.0172  0.6402  3.5181 \n> \n>  Random effects:\n>   Groups   Name        Variance Std.Dev.\n>   subj     (Intercept) 0.07732  0.2781  \n>   Residual             0.18107  0.4255  \n>  Number of obs: 1787, groups: subj, 45\n> \n>  Fixed effects:\n>                 Estimate Std. Error t value\n>  (Intercept)     6.92778    0.07580   91.40\n>  item2          -0.09968    0.08973   -1.11\n>  item3          -0.69521    0.09024   -7.70\n>  item4          -0.54653    0.09029   -6.05\n>  item5          -0.64580    0.08973   -7.20\n>  item6          -0.97031    0.09029  -10.75\n>  item7          -0.58442    0.08973   -6.51\n>  item8          -0.47393    0.08973   -5.28\n>  item9          -0.63300    0.08973   -7.05\n>  item10         -0.66822    0.08973   -7.45\n>  item11         -0.45895    0.08973   -5.11\n>  item12         -0.82386    0.09029   -9.12\n>  item13         -0.05979    0.08973   -0.67\n>  item14         -0.21521    0.08973   -2.40\n>  item15         -0.38548    0.08973   -4.30\n>  item16         -0.05204    0.08973   -0.58\n>  item17          0.02707    0.08973    0.30\n>  item18         -0.58561    0.08973   -6.53\n>  item19         -0.67088    0.09024   -7.43\n>  item20         -0.65725    0.08973   -7.32\n>  item21         -0.82779    0.09079   -9.12\n>  item22         -0.01609    0.08973   -0.18\n>  item23         -0.69240    0.08973   -7.72\n>  item24         -0.72076    0.09024   -7.99\n>  item25         -1.18346    0.09029  -13.11\n>  item26         -0.40633    0.08973   -4.53\n>  item27          0.29774    0.08973    3.32\n>  item28         -0.54638    0.08973   -6.09\n>  item29         -0.40471    0.08973   -4.51\n>  item30         -1.01018    0.09079  -11.13\n>  item31         -0.22745    0.09024   -2.52\n>  item32         -0.50937    0.08973   -5.68\n>  item33         -0.41883    0.08973   -4.67\n>  item34         -0.37041    0.08973   -4.13\n>  item35         -0.27538    0.08973   -3.07\n>  item36         -0.06910    0.08973   -0.77\n>  item37         -0.71859    0.08973   -8.01\n>  item38         -0.77471    0.08973   -8.63\n>  item39         -0.37623    0.09024   -4.17\n>  item40         -0.79180    0.08973   -8.82\n>  condB-A        -0.03665    0.15159   -0.24\n>  item2:condB-A   0.21595    0.17946    1.20\n>  item3:condB-A  -0.02540    0.18048   -0.14\n>  item4:condB-A   0.26856    0.18058    1.49\n>  item5:condB-A   0.10936    0.17946    0.61\n>  item6:condB-A   0.12858    0.18058    0.71\n>  item7:condB-A  -0.06066    0.17946   -0.34\n>  item8:condB-A   0.18173    0.17946    1.01\n>  item9:condB-A   0.01036    0.17946    0.06\n>  item10:condB-A  0.06748    0.17946    0.38\n>  item11:condB-A -0.21589    0.17946   -1.20\n>  item12:condB-A  0.29605    0.18058    1.64\n>  item13:condB-A -0.03878    0.17946   -0.22\n>  item14:condB-A -0.09393    0.17946   -0.52\n>  item15:condB-A -0.08954    0.17946   -0.50\n>  item16:condB-A  0.07551    0.17946    0.42\n>  item17:condB-A  0.04650    0.17946    0.26\n>  item18:condB-A  0.13694    0.17946    0.76\n>  item19:condB-A  0.08740    0.18048    0.48\n>  item20:condB-A -0.03577    0.17946   -0.20\n>  item21:condB-A  0.31060    0.18159    1.71\n>  item22:condB-A -0.08494    0.17946   -0.47\n>  item23:condB-A  0.41837    0.17946    2.33\n>  item24:condB-A  0.08108    0.18048    0.45\n>  item25:condB-A  0.31598    0.18058    1.75\n>  item26:condB-A -0.09289    0.17946   -0.52\n>  item27:condB-A  0.02541    0.17946    0.14\n>  item28:condB-A -0.04806    0.17946   -0.27\n>  item29:condB-A  0.04336    0.17946    0.24\n>  item30:condB-A  0.19097    0.18159    1.05\n>  item31:condB-A  0.15455    0.18048    0.86\n>  item32:condB-A  0.26954    0.17946    1.50\n>  item33:condB-A  0.07763    0.17946    0.43\n>  item34:condB-A  0.17493    0.17946    0.97\n>  item35:condB-A  0.36112    0.17946    2.01\n>  item36:condB-A -0.21705    0.17946   -1.21\n>  item37:condB-A  0.10128    0.17946    0.56\n>  item38:condB-A  0.25708    0.17946    1.43\n>  item39:condB-A  0.20449    0.18048    1.13\n>  item40:condB-A  0.36386    0.17946    2.03\n> \n>  Correlation matrix not shown by default, as p = 80 > 20.\n>  Use print(...., correlation=TRUE)  or\n> \t vcov(....)\t if you need it\n> \n> \n> -- \n> Dr Titus von der Malsburg\n> University of Oxford\n> http://users.ox.ac.uk/~sjoh3968/\n>",
+      "body_snippet": "Hi Titus,\n\nOn Apr 3, 2014, at 10:10 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n\n> \n> I have eyetracking data from an experiment in which 45 participants re",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 1,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-7889a7d306b6",
+      "message_id": "<87ha6az2mp.fsf@posteo.de>",
+      "from_name": "Titus von der Malsburg",
+      "from_email_hash": "85a743faf30f0677c3514960cbb00270a5066c25bd6c12b0e5d2501b3333c859",
+      "date": "2014-04-03T18:31:10Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<C3F09511-EB55-4009-B94B-3826ACEAB6C2-XkckGZ689+c@public.gmane.org>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>"
+      ],
+      "body_plain": "Hi Roger!\n\nOn 2014-04-03 Thu 18:32, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n> My interpretation would be as follows: in aggregate, there is ample\n> evidence in your dataset that there is variation across items in the\n> effect of condition, but you don’t have enough data on any individual\n> item to conclude securely that *that particular item’s sensitivity* is\n> significantly different from the group average in one direction or the\n> other.\n\nHm, that's what I was afraid of.\n\n>> - What's the proper way to find out which regions were significantly\n>>  slowed down and which were speeded up by the manipulation?\n>\n> Sorry, did you mean regions or items? I’m assuming below that you\n> meant items...\n\nRegions and items are the same thing here because the participants read\nonly one text and the regions within the text act like the items in a\nmore typical reading experiment.\n\n> It looks like you are using treatment coding for item, which renders\n> the interpretation of your coefficients for this model a bit different\n> than those in your dot plot.  How do things look when you use sum\n> coding for item?\n\nGood catch!  I intended to use contr.sum but due to a typo I ended up\nusing the default contrast.  The summary for the model using the sum\ncontrast is at the bottom of this mail.  Obviously, the results look\ndifferent from the results that I got when using the treatment contrast\nbut they are still inconsistent with the dotplot.  In the dotplot, I\nfind a positive slope for item 25 and a borderline significant negative\nslope for item 36.  In the model using item as a fixed effect, I find\nsignificant negative effects for items 11 and 36 and positive effects\nfor items 35 and 23.\n\nIt seems that the fixed-effects model is more consistent with the\ndescriptive stats:\n\n  > with(d, tapply(trt, list(item, cond), mean, na.rm=T))\n             A         B\n  1  1165.3636 1128.5652\n  2   992.5455 1144.6087\n  3   602.1818  583.0909\n  4   613.9048  719.3913\n  5   599.8182  646.8696\n  6   406.9048  489.2174\n  7   620.0000  589.0435\n  8   644.5000  763.8696\n  9   576.3182  631.8696\n  10  596.3182  600.7826\n  11  806.8182  660.3913 * signf. in fixef-mode\n  12  442.9524  552.4783\n  13 1084.0000 1008.9130\n  14  994.4091  878.1739\n  15  898.4545  797.3913\n  16 1037.9545 1113.6087\n  17 1186.4545 1162.0435\n  18  608.6818  786.2174\n  19  582.6818  647.2727\n  20  617.4545  618.2609\n  21  434.7727  642.8095\n  22 1179.8182 1031.2609\n  23  528.2727  721.2609 * signf. in fixef-mode\n  24  571.5455  600.5909\n  25  319.6190  386.0435 * signf. in dotplot\n  26  851.6364  713.3913\n  27 1528.5909 1486.6957\n  28  720.3182  603.8261\n  29  726.9091  773.9565\n  30  381.8095  452.8636\n  31  846.6818  976.2273\n  32  634.2273  878.5652\n  33  740.1818  748.4348\n  34  713.7727  879.3913\n  35  720.8182 1052.8696 * signf. in fixef-mode\n  36 1216.5909  921.2174 * signf. in fixef-mode and dotplot\n  37  594.8636  588.9565\n  38  459.5909  624.8261\n  39  690.1818  885.2727\n  40  449.6818  628.0870\n\n> One last thing — I would recommend that you double-check all your\n> analyses using lme4.0.  People have been reporting odd and\n> contradictory results with the newest version of lme4, especially when\n> using the default optimizer.\n\nI reran the models using the bobyqa and optimx (method=\"nlminb\") and got the same results.\n\n  Titus\n\n\nSummary of model using sum-coded items as fixed effect:\n\n  Linear mixed model fit by maximum likelihood  ['lmerMod']\n  Formula: log(trt) ~ item * cond + (1 | subj)\n     Data: d\n  Control: lmerControl(optimizer = \"bobyqa\")\n  \n       AIC      BIC   logLik deviance df.resid \n    2311.5   2761.5  -1073.7   2147.5     1705 \n  \n  Scaled residuals: \n      Min      1Q  Median      3Q     Max \n  -3.8821 -0.6375 -0.0172  0.6402  3.5181 \n  \n  Random effects:\n   Groups   Name        Variance Std.Dev.\n   subj     (Intercept) 0.07732  0.2781  \n   Residual             0.18107  0.4255  \n  Number of obs: 1787, groups: subj, 45\n  \n  Fixed effects:\n                 Estimate Std. Error t value\n  (Intercept)    6.446746   0.042668  151.09\n  item1          0.481033   0.062657    7.68\n  item2          0.381353   0.062657    6.09\n  item3          0.214172   0.063347   -3.38\n  item4          0.065494   0.063414   -1.03\n  item5          0.164766   0.062657   -2.63\n  item6          0.489277   0.063414   -7.72\n  item7          0.103389   0.062657   -1.65\n  item8          0.007107   0.062657    0.11\n  item9          0.151968   0.062657   -2.43\n  item10         0.187189   0.062657   -2.99\n  item11         0.022083   0.062657    0.35\n  item12         0.342824   0.063414   -5.41\n  item13         0.421248   0.062657    6.72\n  item14         0.265824   0.062657    4.24\n  item15         0.095553   0.062657    1.53\n  item16         0.428998   0.062657    6.85\n  item17         0.508100   0.062657    8.11\n  item18         0.104577   0.062657   -1.67\n  item19         0.189842   0.063348   -3.00\n  item20         0.176217   0.062657   -2.81\n  item21         0.346756   0.064095   -5.41\n  item22         0.464940   0.062657    7.42\n  item23         0.211371   0.062657   -3.37\n  item24         0.239727   0.063348   -3.78\n  item25         0.702424   0.063414  -11.08\n  item26         0.074705   0.062657    1.19\n  item27         0.778773   0.062657   12.43\n  item28         0.065349   0.062657   -1.04\n  item29         0.076321   0.062657    1.22\n  item30         0.529148   0.064096   -8.26\n  item31         0.253587   0.063347    4.00\n  item32         0.028338   0.062657   -0.45\n  item33         0.062202   0.062657    0.99\n  item34         0.110623   0.062657    1.77\n  item35         0.205651   0.062657    3.28\n  item36         0.411933   0.062657    6.57\n  item37         0.237561   0.062657   -3.79\n  item38         0.293674   0.062657   -4.69\n  item39         0.104801   0.063348    1.65\n  condB-A         0.062645   0.085337    0.73\n  item1:condB-A  -0.099294   0.125314   -0.79\n  item2:condB-A   0.116658   0.125314    0.93\n  item3:condB-A  -0.124696   0.126694   -0.98\n  item4:condB-A   0.169267   0.126827    1.33\n  item5:condB-A   0.010062   0.125314    0.08\n  item6:condB-A   0.029288   0.126827    0.23\n  item7:condB-A  -0.159953   0.125314   -1.28\n  item8:condB-A   0.082437   0.125314    0.66\n  item9:condB-A  -0.088934   0.125314   -0.71\n  item10:condB-A -0.031815   0.125314   -0.25\n  item11:condB-A -0.315189   0.125314   -2.52\n  item12:condB-A  0.196759   0.126827    1.55\n  item13:condB-A -0.138070   0.125314   -1.10\n  item14:condB-A -0.193227   0.125314   -1.54\n  item15:condB-A -0.188834   0.125314   -1.51\n  item16:condB-A -0.023788   0.125314   -0.19\n  item17:condB-A -0.052790   0.125314   -0.42\n  item18:condB-A  0.037642   0.125314    0.30\n  item19:condB-A -0.011895   0.126697   -0.09\n  item20:condB-A -0.135061   0.125314   -1.08\n  item21:condB-A  0.211311   0.128191    1.65\n  item22:condB-A -0.184232   0.125314   -1.47\n  item23:condB-A  0.319074   0.125314    2.55\n  item24:condB-A -0.018217   0.126697   -0.14\n  item25:condB-A  0.216689   0.126827    1.71\n  item26:condB-A -0.192187   0.125314   -1.53\n  item27:condB-A -0.073881   0.125314   -0.59\n  item28:condB-A -0.147357   0.125314   -1.18\n  item29:condB-A -0.055930   0.125314   -0.45\n  item30:condB-A  0.091677   0.128193    0.72\n  item31:condB-A  0.055254   0.126694    0.44\n  item32:condB-A  0.170249   0.125314    1.36\n  item33:condB-A -0.021665   0.125314   -0.17\n  item34:condB-A  0.075640   0.125314    0.60\n  item35:condB-A  0.261821   0.125314    2.09\n  item36:condB-A -0.316347   0.125314   -2.52\n  item37:condB-A  0.001981   0.125314    0.02\n  item38:condB-A  0.157791   0.125314    1.26\n  item39:condB-A  0.105193   0.126697    0.83\n  \n  Correlation matrix not shown by default, as p = 80 > 20.\n  Use print(...., correlation=TRUE)  or\n\t vcov(....)\t if you need it",
+      "body_snippet": "Hi Roger!\n\nOn 2014-04-03 Thu 18:32, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n> My interpretation would be as follows: in aggregate, there is ample\n> evidence in your dataset that the",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 2,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-afafce6a1a8e",
+      "message_id": "<CAD=2-0fJzUobmdY7ahoae-4mH-J1WkEh7P1hwB3gE+=LJJbcHQ@mail.gmail.com>",
+      "from_name": "Ray Becker",
+      "from_email_hash": "a816e5a910dc988e4931728428e4fff16be2cd1b489a8a5da9274f28c380d0d0",
+      "date": "2014-04-03T18:43:18Z",
+      "subject": "lmer sliding contrasts",
+      "subject_clean": "lmer sliding contrasts",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi everyone,\n\nI have a problem with my sliding contrasts, and need some help. The means\nof the descriptive statistics and t-values from the contrasts are not\nadding up. For example, I have run the omnibus lmer and found a significant\n3-way interaction (WMGroup x number x response location), t(30) = 2.89; p <\n0.05. My DV is response time, my IVs are high- vs. low-working memory, the\ngrammatical number of the subject noun phrase (singular vs. plural), and\nleft vs. right response location). After the omnibus lmer, I did sliding\ncontrasts to test the simple main effects between left vs. right responses\n(labeled 'corans' below). First, I code my contrasts into one variable,\n'cond':\n\ntme3wcorx$cond <- ifelse(tme3wcorx$WMGroup == 'LOW' & tme3wcorx$sing_plur\n== 'p' & tme3wcorx$corans == 8, 100,\nifelse(tme3wcorx$WMGroup == 'LOW' & tme3wcorx$sing_plur == 'p' &\ntme3wcorx$corans == 7, 101,\nifelse(tme3wcorx$WMGroup == 'LOW' & tme3wcorx$sing_plur == 's' &\ntme3wcorx$corans == 8, 102,\nifelse(tme3wcorx$WMGroup == 'LOW' & tme3wcorx$sing_plur == 's' &\ntme3wcorx$corans == 7, 103,\nifelse(tme3wcorx$WMGroup == 'HIGH' & tme3wcorx$sing_plur == 'p' &\ntme3wcorx$corans == 8, 104,\nifelse(tme3wcorx$WMGroup == 'HIGH' & tme3wcorx$sing_plur == 'p' &\ntme3wcorx$corans == 7, 105,\nifelse(tme3wcorx$WMGroup == 'HIGH' & tme3wcorx$sing_plur == 's' &\ntme3wcorx$corans == 8, 106,\nifelse(tme3wcorx$WMGroup == 'HIGH' & tme3wcorx$sing_plur == 's' &\ntme3wcorx$corans == 7, 107, NA))))))))\n\nThen I scale and apply the contrast codes:\ntme3wcorx$condcent <- scale(tme3wcorx$cond)\ntme3wcorx$condcentf <- factor(tme3wcorx$condcent)\nc.sliding <- contr.sdif(8)\ncontrasts(tme3wcorx$condcentf) <- c.sliding\n\nLastly, I run the lmer with the coded variable now called 'condcentf' with\nthe other fixed effect 'TenseCent' (verb tense) as a covariate by using a\n'+' instead of '*' as I did in the omnibus lmer. I don't think that\nmatters, but maybe someone might find fault with this approach.\ntme3RESPCONTRASTS.lmer1 <- lmer(Resptime ~ condcentf + TenseCent\n + (1|RECORDING_SESSION_LABEL) + (1|Stimnum), data=tme3wcorx)\n\nThe two significant differences I find are both for plural-subject noun\nphrase sentences.\nIn the low-WM group, participants are reliably faster when the response is\non the right (M = 3409; SD = 624) compared to the left (M = 3410; SD = 642;\nt(30) = -3.20)\n\nIn the high-WM group, participants are reliably faster when the response is\non the right (M = 3071; SD = 718) compared to the left (M = 3132; SD = 722;\nt(30) = 4.36)\n\nI haven't calculated p-values yet, but consider any t-value over +/-2\nsignificant at the 0.05 level. The problem, as you can see, is not only do\nthe first set of means only differ by < 1ms, but the difference is in the\nsame direction as the other set of means. So the t-values should not be\nnegative and positive, but the same sign.\n\nPlease let me know if you can see what I am doing wrong with my sliding\ncontrasts. Other comments on problems with how I am doing this analysis are\nalso welcome. Thank you in advance.\n\nBest,\n-Ray",
+      "body_snippet": "Hi everyone,\n\nI have a problem with my sliding contrasts, and need some help. The means\nof the descriptive statistics and t-values from the contrasts are not\nadding up. For example, I have run the omn",
+      "thread_id": "thread-afafce6a1a8e",
+      "thread_depth": 0,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-f6daa5148aee",
+      "message_id": "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+      "from_name": "T. Florian Jaeger",
+      "from_email_hash": "e0dbaab50e0a9a97f666ad9c219794f212534b23c4d266fbf64e3c73ce72f722",
+      "date": "2014-04-04T04:10:31Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<87ha6az2mp.fsf@posteo.de>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>"
+      ],
+      "body_plain": "Hi Titus,\n\njust a quick comment in reply to:\n\n\nOn Thu, Apr 3, 2014 at 2:31 PM, Titus von der Malsburg\n<malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org>wrote:\n>\n> It seems that the fixed-effects model is more consistent with the\n> descriptive stats:\n>\n\nI would be careful making anything out of this. The BLUP estimates of the\nrandom effects (and, I assume, their distribution) are affected by\nshrinkage, which is often a desirable (conservative) feature, although it\nwill make differences appear smaller. So, it's not surprising that the\nfixed effect model mirrors the empirical means more closely. That doesn't\nmean though that it's the better model to draw conclusion from (about those\ndifferences).\n\nFlorian\n\n\n>\n>   > with(d, tapply(trt, list(item, cond), mean, na.rm=T))\n>              A         B\n>   1  1165.3636 1128.5652\n>   2   992.5455 1144.6087\n>   3   602.1818  583.0909\n>   4   613.9048  719.3913\n>   5   599.8182  646.8696\n>   6   406.9048  489.2174\n>   7   620.0000  589.0435\n>   8   644.5000  763.8696\n>   9   576.3182  631.8696\n>   10  596.3182  600.7826\n>   11  806.8182  660.3913 * signf. in fixef-mode\n>   12  442.9524  552.4783\n>   13 1084.0000 1008.9130\n>   14  994.4091  878.1739\n>   15  898.4545  797.3913\n>   16 1037.9545 1113.6087\n>   17 1186.4545 1162.0435\n>   18  608.6818  786.2174\n>   19  582.6818  647.2727\n>   20  617.4545  618.2609\n>   21  434.7727  642.8095\n>   22 1179.8182 1031.2609\n>   23  528.2727  721.2609 * signf. in fixef-mode\n>   24  571.5455  600.5909\n>   25  319.6190  386.0435 * signf. in dotplot\n>   26  851.6364  713.3913\n>   27 1528.5909 1486.6957\n>   28  720.3182  603.8261\n>   29  726.9091  773.9565\n>   30  381.8095  452.8636\n>   31  846.6818  976.2273\n>   32  634.2273  878.5652\n>   33  740.1818  748.4348\n>   34  713.7727  879.3913\n>   35  720.8182 1052.8696 * signf. in fixef-mode\n>   36 1216.5909  921.2174 * signf. in fixef-mode and dotplot\n>   37  594.8636  588.9565\n>   38  459.5909  624.8261\n>   39  690.1818  885.2727\n>   40  449.6818  628.0870\n>\n> > One last thing -- I would recommend that you double-check all your\n> > analyses using lme4.0.  People have been reporting odd and\n> > contradictory results with the newest version of lme4, especially when\n> > using the default optimizer.\n>\n> I reran the models using the bobyqa and optimx (method=\"nlminb\") and got\n> the same results.\n>\n>   Titus\n>\n>\n> Summary of model using sum-coded items as fixed effect:\n>\n>   Linear mixed model fit by maximum likelihood  ['lmerMod']\n>   Formula: log(trt) ~ item * cond + (1 | subj)\n>      Data: d\n>   Control: lmerControl(optimizer = \"bobyqa\")\n>\n>        AIC      BIC   logLik deviance df.resid\n>     2311.5   2761.5  -1073.7   2147.5     1705\n>\n>   Scaled residuals:\n>       Min      1Q  Median      3Q     Max\n>   -3.8821 -0.6375 -0.0172  0.6402  3.5181\n>\n>   Random effects:\n>    Groups   Name        Variance Std.Dev.\n>    subj     (Intercept) 0.07732  0.2781\n>    Residual             0.18107  0.4255\n>   Number of obs: 1787, groups: subj, 45\n>\n>   Fixed effects:\n>                  Estimate Std. Error t value\n>   (Intercept)    6.446746   0.042668  151.09\n>   item1          0.481033   0.062657    7.68\n>   item2          0.381353   0.062657    6.09\n>   item3          0.214172   0.063347   -3.38\n>   item4          0.065494   0.063414   -1.03\n>   item5          0.164766   0.062657   -2.63\n>   item6          0.489277   0.063414   -7.72\n>   item7          0.103389   0.062657   -1.65\n>   item8          0.007107   0.062657    0.11\n>   item9          0.151968   0.062657   -2.43\n>   item10         0.187189   0.062657   -2.99\n>   item11         0.022083   0.062657    0.35\n>   item12         0.342824   0.063414   -5.41\n>   item13         0.421248   0.062657    6.72\n>   item14         0.265824   0.062657    4.24\n>   item15         0.095553   0.062657    1.53\n>   item16         0.428998   0.062657    6.85\n>   item17         0.508100   0.062657    8.11\n>   item18         0.104577   0.062657   -1.67\n>   item19         0.189842   0.063348   -3.00\n>   item20         0.176217   0.062657   -2.81\n>   item21         0.346756   0.064095   -5.41\n>   item22         0.464940   0.062657    7.42\n>   item23         0.211371   0.062657   -3.37\n>   item24         0.239727   0.063348   -3.78\n>   item25         0.702424   0.063414  -11.08\n>   item26         0.074705   0.062657    1.19\n>   item27         0.778773   0.062657   12.43\n>   item28         0.065349   0.062657   -1.04\n>   item29         0.076321   0.062657    1.22\n>   item30         0.529148   0.064096   -8.26\n>   item31         0.253587   0.063347    4.00\n>   item32         0.028338   0.062657   -0.45\n>   item33         0.062202   0.062657    0.99\n>   item34         0.110623   0.062657    1.77\n>   item35         0.205651   0.062657    3.28\n>   item36         0.411933   0.062657    6.57\n>   item37         0.237561   0.062657   -3.79\n>   item38         0.293674   0.062657   -4.69\n>   item39         0.104801   0.063348    1.65\n>   condB-A         0.062645   0.085337    0.73\n>   item1:condB-A  -0.099294   0.125314   -0.79\n>   item2:condB-A   0.116658   0.125314    0.93\n>   item3:condB-A  -0.124696   0.126694   -0.98\n>   item4:condB-A   0.169267   0.126827    1.33\n>   item5:condB-A   0.010062   0.125314    0.08\n>   item6:condB-A   0.029288   0.126827    0.23\n>   item7:condB-A  -0.159953   0.125314   -1.28\n>   item8:condB-A   0.082437   0.125314    0.66\n>   item9:condB-A  -0.088934   0.125314   -0.71\n>   item10:condB-A -0.031815   0.125314   -0.25\n>   item11:condB-A -0.315189   0.125314   -2.52\n>   item12:condB-A  0.196759   0.126827    1.55\n>   item13:condB-A -0.138070   0.125314   -1.10\n>   item14:condB-A -0.193227   0.125314   -1.54\n>   item15:condB-A -0.188834   0.125314   -1.51\n>   item16:condB-A -0.023788   0.125314   -0.19\n>   item17:condB-A -0.052790   0.125314   -0.42\n>   item18:condB-A  0.037642   0.125314    0.30\n>   item19:condB-A -0.011895   0.126697   -0.09\n>   item20:condB-A -0.135061   0.125314   -1.08\n>   item21:condB-A  0.211311   0.128191    1.65\n>   item22:condB-A -0.184232   0.125314   -1.47\n>   item23:condB-A  0.319074   0.125314    2.55\n>   item24:condB-A -0.018217   0.126697   -0.14\n>   item25:condB-A  0.216689   0.126827    1.71\n>   item26:condB-A -0.192187   0.125314   -1.53\n>   item27:condB-A -0.073881   0.125314   -0.59\n>   item28:condB-A -0.147357   0.125314   -1.18\n>   item29:condB-A -0.055930   0.125314   -0.45\n>   item30:condB-A  0.091677   0.128193    0.72\n>   item31:condB-A  0.055254   0.126694    0.44\n>   item32:condB-A  0.170249   0.125314    1.36\n>   item33:condB-A -0.021665   0.125314   -0.17\n>   item34:condB-A  0.075640   0.125314    0.60\n>   item35:condB-A  0.261821   0.125314    2.09\n>   item36:condB-A -0.316347   0.125314   -2.52\n>   item37:condB-A  0.001981   0.125314    0.02\n>   item38:condB-A  0.157791   0.125314    1.26\n>   item39:condB-A  0.105193   0.126697    0.83\n>\n>   Correlation matrix not shown by default, as p = 80 > 20.\n>   Use print(...., correlation=TRUE)  or\n>          vcov(....)      if you need it\n>\n>",
+      "body_snippet": "Hi Titus,\n\njust a quick comment in reply to:\n\n\nOn Thu, Apr 3, 2014 at 2:31 PM, Titus von der Malsburg\n<malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org>wrote:\n>\n> It seems that the fixed-effects mo",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 3,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-c81e8ed1c4c8",
+      "message_id": "<87ppkxxgt3.fsf@posteo.de>",
+      "from_name": "Titus von der Malsburg",
+      "from_email_hash": "85a743faf30f0677c3514960cbb00270a5066c25bd6c12b0e5d2501b3333c859",
+      "date": "2014-04-04T15:20:08Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>"
+      ],
+      "body_plain": "On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:\n> I would be careful making anything out of this. The BLUP estimates of the\n> random effects (and, I assume, their distribution) are affected by\n> shrinkage, which is often a desirable (conservative) feature, although it\n> will make differences appear smaller. So, it's not surprising that the\n> fixed effect model mirrors the empirical means more closely. That doesn't\n> mean though that it's the better model to draw conclusion from (about those\n> differences).\n\nFlorian, your comment is spot on.  Here is a plot showing the effect of\nshrinkage in my data set:\n\n    http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n\nUnfilled circles show the empirical mean reading times and differences\nbetween conditions, one circle for each item.  The dots show the BLUP\nestimates for each item.\n\nThe difference is fairly dramatic.  I assumed that shrinkage would pull\nall data points to the mean with the same force (I have the same amount\nof data for all items).  If that were the case, the ordering of items\nwould be preserved.  However, shrinkage affects the individual items in\nquite different ways, and some items are even pushed away from the\noverall means (1, 5, 7, 8, 9, 10, 13, 14, 35) effectively expanding a\nsubset of the estimates instead of shrinking them.\n\nI must say that I find it hard to swallow that two seemingly valid ways\nto analyze the data (item as random effect or fixed effect) yield\nresults that are so different.\n\nAnother observation: in the BLUP estimates, the correlation of\nintercepts and slopes seems to be much higher than in the raw data.  The\ncorrelation of the estimated random intercepts and slopes is -0.86. (The\nsummary of the model reports -0.62.)  The correlation of the empirical\nitem means and differences is only -0.4.  Why does lmer believe in such\na high correlation?\n\n  Titus",
+      "body_snippet": "On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:\n> I would be careful making anything out of this. The BLUP estimates of the\n> random effe",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 4,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-0ae3602a9ba4",
+      "message_id": "<CA+tkQ_PkyTBKh1EnN5BYoo5gj5MDXgdfykKA90b5bEmk8oLA5g@mail.gmail.com>",
+      "from_name": "Scott Jackson",
+      "from_email_hash": "6b252fdb0db23e4eec8f5c20586b9c7cdef284cab7e6983d44116cbeffba0a3b",
+      "date": "2014-04-04T15:48:32Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<87ppkxxgt3.fsf@posteo.de>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>"
+      ],
+      "body_plain": "One small point to add about the shrinkage: you should see more shrinkage\nfor items with less data.  This is also a desired result (usually), since\nitems/subjects with relatively little data tend to have more extreme\nresults than they should. For example, think of a case where an item has\nonly two observations and both are \"correct\" when measuring accuracy. That\nitem would end up with an infinite logit accuracy, so a LOT of shrinkage is\na good thing!  Not sure if different amounts of data are driving where\nyou're seeing the most shrinkage in your data, but it's something to look\nfor.\n\nThe more general point is that lmer is estimating just the variance of the\nrandom effect (i.e., how much item-level variance there seems to be), and\nthe BLUPs represent an attempt to characterize how the items fall within\nthis estimated variance -- they are not individually \"estimated\" from the\ndata in the same sense as the other parameters in the model.  If the \"true\"\neffects of the individual items are distributed not at all normally, then\nyou could also see a kind of misfit between the empirical estimates/means\nand the BLUPs (which are virtually guaranteed to be distributed normally,\nAFAIK).\n\nIn any case, to the extent that you have a lot of data on each item,\nsimilar amounts of data on each item, and to the extent that their effects\n*are* distributed fairly normally, the BLUPs and empirical estimates will\nbe relatively close to each other.  If this is not the situation, things\ncan differ quite a lot between the empirical estimates and the BLUPs, but\nthis is typically a good thing, in terms of how we usually want to\ninterpret item effects.  If, when thinking about the design of your\nitems/regions, you have reason to believe that they should *not* show a\nnormal distribution of effects (maybe you believe there are two distinct\n\"types\" of items/effect, or something), then you may need to resort to a\nmore flexible Bayesian estimation procedure, where you can specify the\nexpected (aka prior) distribution of the random effects to be something\nother than normal.\n\nI have nothing insightful to say about the intercept/slope correlations :-)\n\nbest,\n-scott\n\n\n\n\nOn Fri, Apr 4, 2014 at 11:20 AM, Titus von der Malsburg\n<malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org>wrote:\n\n>\n> On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>\n> wrote:\n> > I would be careful making anything out of this. The BLUP estimates of the\n> > random effects (and, I assume, their distribution) are affected by\n> > shrinkage, which is often a desirable (conservative) feature, although it\n> > will make differences appear smaller. So, it's not surprising that the\n> > fixed effect model mirrors the empirical means more closely. That doesn't\n> > mean though that it's the better model to draw conclusion from (about\n> those\n> > differences).\n>\n> Florian, your comment is spot on.  Here is a plot showing the effect of\n> shrinkage in my data set:\n>\n>     http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n>\n> Unfilled circles show the empirical mean reading times and differences\n> between conditions, one circle for each item.  The dots show the BLUP\n> estimates for each item.\n>\n> The difference is fairly dramatic.  I assumed that shrinkage would pull\n> all data points to the mean with the same force (I have the same amount\n> of data for all items).  If that were the case, the ordering of items\n> would be preserved.  However, shrinkage affects the individual items in\n> quite different ways, and some items are even pushed away from the\n> overall means (1, 5, 7, 8, 9, 10, 13, 14, 35) effectively expanding a\n> subset of the estimates instead of shrinking them.\n>\n> I must say that I find it hard to swallow that two seemingly valid ways\n> to analyze the data (item as random effect or fixed effect) yield\n> results that are so different.\n>\n> Another observation: in the BLUP estimates, the correlation of\n> intercepts and slopes seems to be much higher than in the raw data.  The\n> correlation of the estimated random intercepts and slopes is -0.86. (The\n> summary of the model reports -0.62.)  The correlation of the empirical\n> item means and differences is only -0.4.  Why does lmer believe in such\n> a high correlation?\n>\n>   Titus\n>",
+      "body_snippet": "One small point to add about the shrinkage: you should see more shrinkage\nfor items with less data.  This is also a desired result (usually), since\nitems/subjects with relatively little data tend to h",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 5,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-be6d1399f3f5",
+      "message_id": "<C41E2962-E4A5-49D5-907D-4CABCC6C07FE@gmail.com>",
+      "from_name": "Daniel Ezra Johnson",
+      "from_email_hash": "e0ce0e06311aa33bbb09ab2b566aafb09c10671e175e62af62b907fa1f916b0a",
+      "date": "2014-04-04T15:54:58Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<CA+tkQ_PkyTBKh1EnN5BYoo5gj5MDXgdfykKA90b5bEmk8oLA5g@mail.gmail.com>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<CA+tkQ_PkyTBKh1EnN5BYoo5gj5MDXgdfykKA90b5bEmk8oLA5g@mail.gmail.com>"
+      ],
+      "body_plain": "Just to add: the BLUPs are not guaranteed to come out normally distributed at all. They generally parallel the normality or non-normality of the underlying data. Normally distributed random effects are an assumption of the mixed model, but not one that the software enforces. \n\nAs far as I have seen. \n\nDan\n\n> On 4 Apr 2014, at 16:48, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n> \n> One small point to add about the shrinkage: you should see more shrinkage for items with less data.  This is also a desired result (usually), since items/subjects with relatively little data tend to have more extreme results than they should. For example, think of a case where an item has only two observations and both are \"correct\" when measuring accuracy. That item would end up with an infinite logit accuracy, so a LOT of shrinkage is a good thing!  Not sure if different amounts of data are driving where you're seeing the most shrinkage in your data, but it's something to look for.\n> \n> The more general point is that lmer is estimating just the variance of the random effect (i.e., how much item-level variance there seems to be), and the BLUPs represent an attempt to characterize how the items fall within this estimated variance -- they are not individually \"estimated\" from the data in the same sense as the other parameters in the model.  If the \"true\" effects of the individual items are distributed not at all normally, then you could also see a kind of misfit between the empirical estimates/means and the BLUPs (which are virtually guaranteed to be distributed normally, AFAIK).\n> \n> In any case, to the extent that you have a lot of data on each item, similar amounts of data on each item, and to the extent that their effects *are* distributed fairly normally, the BLUPs and empirical estimates will be relatively close to each other.  If this is not the situation, things can differ quite a lot between the empirical estimates and the BLUPs, but this is typically a good thing, in terms of how we usually want to interpret item effects.  If, when thinking about the design of your items/regions, you have reason to believe that they should *not* show a normal distribution of effects (maybe you believe there are two distinct \"types\" of items/effect, or something), then you may need to resort to a more flexible Bayesian estimation procedure, where you can specify the expected (aka prior) distribution of the random effects to be something other than normal.\n> \n> I have nothing insightful to say about the intercept/slope correlations :-)\n> \n> best,\n> -scott\n> \n> \n> \n> \n>> On Fri, Apr 4, 2014 at 11:20 AM, Titus von der Malsburg <malsburg at posteo.de> wrote:\n>> \n>> On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:\n>> > I would be careful making anything out of this. The BLUP estimates of the\n>> > random effects (and, I assume, their distribution) are affected by\n>> > shrinkage, which is often a desirable (conservative) feature, although it\n>> > will make differences appear smaller. So, it's not surprising that the\n>> > fixed effect model mirrors the empirical means more closely. That doesn't\n>> > mean though that it's the better model to draw conclusion from (about those\n>> > differences).\n>> \n>> Florian, your comment is spot on.  Here is a plot showing the effect of\n>> shrinkage in my data set:\n>> \n>>     http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n>> \n>> Unfilled circles show the empirical mean reading times and differences\n>> between conditions, one circle for each item.  The dots show the BLUP\n>> estimates for each item.\n>> \n>> The difference is fairly dramatic.  I assumed that shrinkage would pull\n>> all data points to the mean with the same force (I have the same amount\n>> of data for all items).  If that were the case, the ordering of items\n>> would be preserved.  However, shrinkage affects the individual items in\n>> quite different ways, and some items are even pushed away from the\n>> overall means (1, 5, 7, 8, 9, 10, 13, 14, 35) effectively expanding a\n>> subset of the estimates instead of shrinking them.\n>> \n>> I must say that I find it hard to swallow that two seemingly valid ways\n>> to analyze the data (item as random effect or fixed effect) yield\n>> results that are so different.\n>> \n>> Another observation: in the BLUP estimates, the correlation of\n>> intercepts and slopes seems to be much higher than in the raw data.  The\n>> correlation of the estimated random intercepts and slopes is -0.86. (The\n>> summary of the model reports -0.62.)  The correlation of the empirical\n>> item means and differences is only -0.4.  Why does lmer believe in such\n>> a high correlation?\n>> \n>>   Titus\n>",
+      "body_snippet": "Just to add: the BLUPs are not guaranteed to come out normally distributed at all. They generally parallel the normality or non-normality of the underlying data. Normally distributed random effects ar",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 6,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-77249a0033d0",
+      "message_id": "<CA+tkQ_PoRDtbZ=CLegd1tMAceHGt0eAbXd3pbUWO1eBkqd9BRw@mail.gmail.com>",
+      "from_name": "Scott Jackson",
+      "from_email_hash": "6b252fdb0db23e4eec8f5c20586b9c7cdef284cab7e6983d44116cbeffba0a3b",
+      "date": "2014-04-04T16:03:59Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<C41E2962-E4A5-49D5-907D-4CABCC6C07FE@gmail.com>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<CA+tkQ_PkyTBKh1EnN5BYoo5gj5MDXgdfykKA90b5bEmk8oLA5g@mail.gmail.com>",
+        "<C41E2962-E4A5-49D5-907D-4CABCC6C07FE@gmail.com>"
+      ],
+      "body_plain": "Right, my mistake for stating that too strongly. So how I understand it is\nthat the BLUPs are (often fairly strongly) shrunk towards being normally\ndistributed, but that doesn't mean they're exactly normally distributed.\n The variance of the BLUPs is usually not numerically equivalent to the\nestimated variance of the random effect, either, I believe for the same\nreasons.\n\nDoes that jive with your understanding, Dan?\n\n-scott\n\n\nOn Fri, Apr 4, 2014 at 11:54 AM, Daniel Ezra Johnson <\ndanielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n\n> Just to add: the BLUPs are not guaranteed to come out normally distributed\n> at all. They generally parallel the normality or non-normality of the\n> underlying data. Normally distributed random effects are an assumption of\n> the mixed model, but not one that the software enforces.\n>\n> As far as I have seen.\n>\n> Dan\n>\n> On 4 Apr 2014, at 16:48, Scott Jackson <scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n>\n> One small point to add about the shrinkage: you should see more shrinkage\n> for items with less data.  This is also a desired result (usually), since\n> items/subjects with relatively little data tend to have more extreme\n> results than they should. For example, think of a case where an item has\n> only two observations and both are \"correct\" when measuring accuracy. That\n> item would end up with an infinite logit accuracy, so a LOT of shrinkage is\n> a good thing!  Not sure if different amounts of data are driving where\n> you're seeing the most shrinkage in your data, but it's something to look\n> for.\n>\n> The more general point is that lmer is estimating just the variance of the\n> random effect (i.e., how much item-level variance there seems to be), and\n> the BLUPs represent an attempt to characterize how the items fall within\n> this estimated variance -- they are not individually \"estimated\" from the\n> data in the same sense as the other parameters in the model.  If the \"true\"\n> effects of the individual items are distributed not at all normally, then\n> you could also see a kind of misfit between the empirical estimates/means\n> and the BLUPs (which are virtually guaranteed to be distributed normally,\n> AFAIK).\n>\n> In any case, to the extent that you have a lot of data on each item,\n> similar amounts of data on each item, and to the extent that their effects\n> *are* distributed fairly normally, the BLUPs and empirical estimates will\n> be relatively close to each other.  If this is not the situation, things\n> can differ quite a lot between the empirical estimates and the BLUPs, but\n> this is typically a good thing, in terms of how we usually want to\n> interpret item effects.  If, when thinking about the design of your\n> items/regions, you have reason to believe that they should *not* show a\n> normal distribution of effects (maybe you believe there are two distinct\n> \"types\" of items/effect, or something), then you may need to resort to a\n> more flexible Bayesian estimation procedure, where you can specify the\n> expected (aka prior) distribution of the random effects to be something\n> other than normal.\n>\n> I have nothing insightful to say about the intercept/slope correlations :-)\n>\n> best,\n> -scott\n>\n>\n>\n>\n> On Fri, Apr 4, 2014 at 11:20 AM, Titus von der Malsburg <\n> malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>\n>>\n>> On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>\n>> wrote:\n>> > I would be careful making anything out of this. The BLUP estimates of\n>> the\n>> > random effects (and, I assume, their distribution) are affected by\n>> > shrinkage, which is often a desirable (conservative) feature, although\n>> it\n>> > will make differences appear smaller. So, it's not surprising that the\n>> > fixed effect model mirrors the empirical means more closely. That\n>> doesn't\n>> > mean though that it's the better model to draw conclusion from (about\n>> those\n>> > differences).\n>>\n>> Florian, your comment is spot on.  Here is a plot showing the effect of\n>> shrinkage in my data set:\n>>\n>>     http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n>>\n>> Unfilled circles show the empirical mean reading times and differences\n>> between conditions, one circle for each item.  The dots show the BLUP\n>> estimates for each item.\n>>\n>> The difference is fairly dramatic.  I assumed that shrinkage would pull\n>> all data points to the mean with the same force (I have the same amount\n>> of data for all items).  If that were the case, the ordering of items\n>> would be preserved.  However, shrinkage affects the individual items in\n>> quite different ways, and some items are even pushed away from the\n>> overall means (1, 5, 7, 8, 9, 10, 13, 14, 35) effectively expanding a\n>> subset of the estimates instead of shrinking them.\n>>\n>> I must say that I find it hard to swallow that two seemingly valid ways\n>> to analyze the data (item as random effect or fixed effect) yield\n>> results that are so different.\n>>\n>> Another observation: in the BLUP estimates, the correlation of\n>> intercepts and slopes seems to be much higher than in the raw data.  The\n>> correlation of the estimated random intercepts and slopes is -0.86. (The\n>> summary of the model reports -0.62.)  The correlation of the empirical\n>> item means and differences is only -0.4.  Why does lmer believe in such\n>> a high correlation?\n>>\n>>   Titus\n>>\n>\n>",
+      "body_snippet": "Right, my mistake for stating that too strongly. So how I understand it is\nthat the BLUPs are (often fairly strongly) shrunk towards being normally\ndistributed, but that doesn't mean they're exactly n",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 7,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-65c4f91e19ec",
+      "message_id": "<CAABSvoXXPLOSH6GPHNJXZpHGtGyD8tVXsS+PcjuspN8Wn_7dKg@mail.gmail.com>",
+      "from_name": "Daniel Ezra Johnson",
+      "from_email_hash": "e0ce0e06311aa33bbb09ab2b566aafb09c10671e175e62af62b907fa1f916b0a",
+      "date": "2014-04-04T16:28:37Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<CA+tkQ_PoRDtbZ=CLegd1tMAceHGt0eAbXd3pbUWO1eBkqd9BRw@mail.gmail.com>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<CA+tkQ_PkyTBKh1EnN5BYoo5gj5MDXgdfykKA90b5bEmk8oLA5g@mail.gmail.com>",
+        "<C41E2962-E4A5-49D5-907D-4CABCC6C07FE@gmail.com>",
+        "<CA+tkQ_PoRDtbZ=CLegd1tMAceHGt0eAbXd3pbUWO1eBkqd9BRw@mail.gmail.com>"
+      ],
+      "body_plain": "as far as i can tell, it doesn't shrink them towards a normal distribution.\nfor example, I tried a simulation where the underlying \"subjects\" were\nuniformly distributed in their effect - their effects were 1:100 - and the\nBLUPs came out in almost exactly that same uniform distribution.\n\ndan",
+      "body_snippet": "as far as i can tell, it doesn't shrink them towards a normal distribution.\nfor example, I tried a simulation where the underlying \"subjects\" were\nuniformly distributed in their effect - their effects",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 8,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-6548a10ca4ab",
+      "message_id": "<CAABSvoX+yY2V6ZKk_9S_sp7HLqSxHSqUyC143f9+etNL96-uGQ@mail.gmail.com>",
+      "from_name": "Daniel Ezra Johnson",
+      "from_email_hash": "e0ce0e06311aa33bbb09ab2b566aafb09c10671e175e62af62b907fa1f916b0a",
+      "date": "2014-04-04T16:38:55Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<CAABSvoXXPLOSH6GPHNJXZpHGtGyD8tVXsS+PcjuspN8Wn_7dKg@mail.gmail.com>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<CA+tkQ_PkyTBKh1EnN5BYoo5gj5MDXgdfykKA90b5bEmk8oLA5g@mail.gmail.com>",
+        "<C41E2962-E4A5-49D5-907D-4CABCC6C07FE@gmail.com>",
+        "<CA+tkQ_PoRDtbZ=CLegd1tMAceHGt0eAbXd3pbUWO1eBkqd9BRw@mail.gmail.com>",
+        "<CAABSvoXXPLOSH6GPHNJXZpHGtGyD8tVXsS+PcjuspN8Wn_7dKg@mail.gmail.com>"
+      ],
+      "body_plain": "but maybe if there's a lot less data, it does do it?\n\n\nOn Fri, Apr 4, 2014 at 5:28 PM, Daniel Ezra Johnson <\ndanielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n\n> as far as i can tell, it doesn't shrink them towards a normal\n> distribution. for example, I tried a simulation where the underlying\n> \"subjects\" were uniformly distributed in their effect - their effects were\n> 1:100 - and the BLUPs came out in almost exactly that same uniform\n> distribution.\n>\n> dan\n>\n>\n>",
+      "body_snippet": "but maybe if there's a lot less data, it does do it?\n\n\nOn Fri, Apr 4, 2014 at 5:28 PM, Daniel Ezra Johnson <\ndanielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n\n> as far as i can tel",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 9,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-5302eaff4411",
+      "message_id": "<533EE2CA.4040606@gmail.com>",
+      "from_name": "Zhenguang Cai",
+      "from_email_hash": "757d9c8955a600d914d5e3b42bfb524bed502682117ae8a6645d959a1262db78",
+      "date": "2014-04-04T16:50:18Z",
+      "subject": "aov in R",
+      "subject_clean": "aov in R",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi,\n\nI keep having radically different results for LME (especially when\nrandom slopes are included, due to Barr et al. 2013) between different\nversions of R (and supposedly different lme4 packages) (I wonder anyone\nelse encounter similar problems), so I am turning back to the good old\nANOVA.\n\nI had a repeated measure design, with Perspective as two-level\nwithin-subject factor (Agent vs. Recipient). So I ran an ANOVA analysis\nin R, using\n\naov(Average~Perspective+Error(Subject/Perspective), MT2F1)\n\nand the following are the results\n\n***********************\nError: Subject\nDf Sum Sq Mean Sq F value Pr(>F)\nResiduals 22 3.176 0.1444\n\nError: Subject:Perspective\nDf Sum Sq Mean Sq F value Pr(>F)\nPerspective 1 1.1414 1.1414 37.08 3.96e-06 ***\nResiduals 22 0.6772 0.0308\n---\nSignif. codes: 0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1\n*************************\n\nHowever, I found the F-value was much larger than the F-value (37.08) I\nobserved in SPSS (5.92) (using the same data set). I wonder whether I\nused a wrong formula.\n\nAlso, I want to include a covariate \"Pnum\". I wonder the following is\nthe correct formula:\n\naov(Average~(Perspective+Pnum)+Error(Subject/Perspective), MT2F1)\n\nThanks,\n\nZhenguang Cai\n\n-- \nZhenguang Cai\n\nDepartment of Cogntive, Perceptual and Brain Sciences\nUniversity College London\n\nhttps://sites.google.com/site/zhenguangcai/\n\n-------------- next part --------------\nPerspective\tSubject\tAverage\tPnum\tAverage2\nA\t2\t6.8125\t6.8125\t538.875\nA\t3\t6.625\t6.625\t540.125\nA\t4\t6.125\t6.125\t539.8125\nA\t5\t6.4375\t6.4375\t541.9375\nA\t6\t6.2\t6.2\t549.8\nA\t7\t6\t6\t536.9333333\nA\t8\t6.625\t6.625\t539.75\nA\t9\t6.5625\t6.5625\t538.6875\nA\t10\t6.125\t6.125\t539.125\nA\t11\t6.5\t6.5\t538.875\nA\t12\t6.266666667\t6.266666667\t539.9333333\nA\t13\t6.8\t6.8\t540.8666667\nA\t14\t6.125\t6.125\t538.25\nA\t15\t6.0625\t6.0625\t538.875\nA\t16\t6.214285714\t6.214285714\t538.9285714\nA\t17\t6.333333333\t6.333333333\t541.0666667\nA\t18\t6.066666667\t6.066666667\t538.1333333\nA\t19\t6.375\t6.375\t538.25\nA\t20\t6.6875\t6.6875\t538.1875\nA\t21\t6.6875\t6.6875\t539.0625\nA\t22\t6.125\t6.125\t523.6875\nA\t23\t7.6\t7.6\t535.8\nA\t24\t6.5625\t6.5625\t536.6875\nP\t2\t6.1875\t6.1875\t540.625\nP\t3\t6.333333333\t6.333333333\t540.6\nP\t4\t6.3125\t6.3125\t536.4375\nP\t5\t6.133333333\t6.133333333\t541.0666667\nP\t6\t5.933333333\t5.933333333\t553\nP\t7\t6\t6\t538.0625\nP\t8\t6.1875\t6.1875\t538.75\nP\t9\t5.933333333\t5.933333333\t538.9333333\nP\t10\t6\t6\t538.1333333\nP\t11\t6.1875\t6.1875\t538.75\nP\t12\t6.0625\t6.0625\t540.125\nP\t13\t6\t6\t542.6666667\nP\t14\t6\t6\t539.9333333\nP\t15\t6\t6\t538\nP\t16\t6.090909091\t6.090909091\t537.6363636\nP\t17\t5.933333333\t5.933333333\t541.8666667\nP\t18\t6\t6\t536.6666667\nP\t19\t6.0625\t6.0625\t538.5\nP\t20\t6.125\t6.125\t537.3125\nP\t21\t6.266666667\t6.266666667\t539.9333333\nP\t22\t6\t6\t530.9375\nP\t23\t6.923076923\t6.923076923\t535.2307692\nP\t24\t6\t6\t536.1875",
+      "body_snippet": "Hi,\n\nI keep having radically different results for LME (especially when\nrandom slopes are included, due to Barr et al. 2013) between different\nversions of R (and supposedly different lme4 packages) (I",
+      "thread_id": "thread-5302eaff4411",
+      "thread_depth": 0,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-6fd81e0e8543",
+      "message_id": "<CA+tkQ_N-ye7ka4TcMW9_69rLPWqAZz26S0EU6piVp-fVHaxdWw@mail.gmail.com>",
+      "from_name": "Scott Jackson",
+      "from_email_hash": "6b252fdb0db23e4eec8f5c20586b9c7cdef284cab7e6983d44116cbeffba0a3b",
+      "date": "2014-04-04T17:05:53Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<CAABSvoX+yY2V6ZKk_9S_sp7HLqSxHSqUyC143f9+etNL96-uGQ@mail.gmail.com>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<CA+tkQ_PkyTBKh1EnN5BYoo5gj5MDXgdfykKA90b5bEmk8oLA5g@mail.gmail.com>",
+        "<C41E2962-E4A5-49D5-907D-4CABCC6C07FE@gmail.com>",
+        "<CA+tkQ_PoRDtbZ=CLegd1tMAceHGt0eAbXd3pbUWO1eBkqd9BRw@mail.gmail.com>",
+        "<CAABSvoXXPLOSH6GPHNJXZpHGtGyD8tVXsS+PcjuspN8Wn_7dKg@mail.gmail.com>",
+        "<CAABSvoX+yY2V6ZKk_9S_sp7HLqSxHSqUyC143f9+etNL96-uGQ@mail.gmail.com>"
+      ],
+      "body_plain": "Hmm, this is an interesting discussion!  I think something like a weird,\nasymmetrical bimodal distribution would be more informative as a test case.\n A nearly-uniform distribution could also be estimated as similar to a\nnormal with a very large SD.  The technical definition of a BLUP is that\nit's the conditional mean/mode (which are the same in a linear mem), which\nI understand to be conditional on the data.  The way I understand that is\nthat it's a bit like reverse-engineering the subject/item effect given the\ndata, random effect estimate (which is a Gaussian), and the other\nparameters (fixed effects, etc.).  But my math isn't good enough for this\ndefinition to clarify my intuitions much, so I think simulating a few cases\nis a good idea.  But from everything I've seen, the amount of data plays a\nmajor role, definitely.\n\n\nOn Fri, Apr 4, 2014 at 12:38 PM, Daniel Ezra Johnson <\ndanielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n\n> but maybe if there's a lot less data, it does do it?\n>\n>\n> On Fri, Apr 4, 2014 at 5:28 PM, Daniel Ezra Johnson <\n> danielezrajohnson-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n>\n>> as far as i can tell, it doesn't shrink them towards a normal\n>> distribution. for example, I tried a simulation where the underlying\n>> \"subjects\" were uniformly distributed in their effect - their effects were\n>> 1:100 - and the BLUPs came out in almost exactly that same uniform\n>> distribution.\n>>\n>> dan\n>>\n>>\n>>\n>",
+      "body_snippet": "Hmm, this is an interesting discussion!  I think something like a weird,\nasymmetrical bimodal distribution would be more informative as a test case.\n A nearly-uniform distribution could also be estima",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 10,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-cd9623b12f14",
+      "message_id": "<CAG2Vd7gLwG7URazvCyW5WgWmFTiO1SuQbBTpVFuxe-U-PanaJg@mail.gmail.com>",
+      "from_name": "T. Florian Jaeger",
+      "from_email_hash": "e0dbaab50e0a9a97f666ad9c219794f212534b23c4d266fbf64e3c73ce72f722",
+      "date": "2014-04-04T18:40:30Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<87ppkxxgt3.fsf@posteo.de>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>"
+      ],
+      "body_plain": "Hi Titus,\n\nshrinkage has larger effects on cells with\n\na) means further away from the predicted marginal mean\nb) fewer cells counts.\n\nA good paper to see that is Kliegl et al 2010. I also have some\ndemonstration of this effect in my lmer intro slides (see a recent blog\npost on the HLP lab blog). Note that you might see deviation away from the\nmarginal mean, because of correlations between the grouping identity (e.g.,\nitem) and other fixed effects in the model. I don't recall whether you had\nother fixed effects predictors in your model? If so, that could also be the\nreason for estimates of the random effect correlations.\n\nAs far as I know shrinkage does not enforce / bias towards normality of\nBLUPs.\n\nI hope of this is helpful.\n\nflorian\n\n\nOn Fri, Apr 4, 2014 at 11:20 AM, Titus von der Malsburg\n<malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org>wrote:\n\n>\n> On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>\n> wrote:\n> > I would be careful making anything out of this. The BLUP estimates of the\n> > random effects (and, I assume, their distribution) are affected by\n> > shrinkage, which is often a desirable (conservative) feature, although it\n> > will make differences appear smaller. So, it's not surprising that the\n> > fixed effect model mirrors the empirical means more closely. That doesn't\n> > mean though that it's the better model to draw conclusion from (about\n> those\n> > differences).\n>\n> Florian, your comment is spot on.  Here is a plot showing the effect of\n> shrinkage in my data set:\n>\n>     http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n>\n> Unfilled circles show the empirical mean reading times and differences\n> between conditions, one circle for each item.  The dots show the BLUP\n> estimates for each item.\n>\n> The difference is fairly dramatic.  I assumed that shrinkage would pull\n> all data points to the mean with the same force (I have the same amount\n> of data for all items).  If that were the case, the ordering of items\n> would be preserved.  However, shrinkage affects the individual items in\n> quite different ways, and some items are even pushed away from the\n> overall means (1, 5, 7, 8, 9, 10, 13, 14, 35) effectively expanding a\n> subset of the estimates instead of shrinking them.\n>\n> I must say that I find it hard to swallow that two seemingly valid ways\n> to analyze the data (item as random effect or fixed effect) yield\n> results that are so different.\n>\n> Another observation: in the BLUP estimates, the correlation of\n> intercepts and slopes seems to be much higher than in the raw data.  The\n> correlation of the estimated random intercepts and slopes is -0.86. (The\n> summary of the model reports -0.62.)  The correlation of the empirical\n> item means and differences is only -0.4.  Why does lmer believe in such\n> a high correlation?\n>\n>   Titus\n>",
+      "body_snippet": "Hi Titus,\n\nshrinkage has larger effects on cells with\n\na) means further away from the predicted marginal mean\nb) fewer cells counts.\n\nA good paper to see that is Kliegl et al 2010. I also have some\nde",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 5,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-ebdbfffe0468",
+      "message_id": "<CAG2Vd7ivtrOvRy1EJ9mRGr9kKKcqLU9bmYORLm3neM33w-RHvw@mail.gmail.com>",
+      "from_name": "T. Florian Jaeger",
+      "from_email_hash": "e0dbaab50e0a9a97f666ad9c219794f212534b23c4d266fbf64e3c73ce72f722",
+      "date": "2014-04-04T19:21:41Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<CAG2Vd7gLwG7URazvCyW5WgWmFTiO1SuQbBTpVFuxe-U-PanaJg@mail.gmail.com>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<CAG2Vd7gLwG7URazvCyW5WgWmFTiO1SuQbBTpVFuxe-U-PanaJg@mail.gmail.com>"
+      ],
+      "body_plain": "and to follow-up on my email, which immediately raised some questions ;),\nhere's what I meant when I said that \"as far as i know, shrinkage does not\nenforce / bias towards normality of blups\":\n\nshrinkage itself depends on the (estimated) marginal and by-grouping level\n(e.g., by-item) means and variances. These variance (estimates) are derived\nunder the assumption of normality. But the shrinkage itself makes no\nreference to normality. to simplify somewhat, shrinkage means that we\ndescribe the posterior estimates of the by-grouping level means (e.g., the\nby-item means) are described as a weighted sum of the marginal (overall)\nmean and the by-grouping level mean. the weights of each of these\ncomponents depends (in the simplest case) on the relation between the\nresidual variance and the between-grouping level variance AND the amount of\ndata available for that grouping level.\n\nsee\n\nKliegl, R., Masson, M. E. J., & Richter, E. M. (2010). A linear mixed model\nanalysis of masked repetition priming. Visual Cognition, 18(5), 655-681.\ndoi:10.1080/13506280902986058\n\nfootnote 3\n\nfor further details.\n\nFlorian\n\n\nOn Fri, Apr 4, 2014 at 2:40 PM, T. Florian Jaeger\n<tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>wrote:\n\n> Hi Titus,\n>\n> shrinkage has larger effects on cells with\n>\n> a) means further away from the predicted marginal mean\n> b) fewer cells counts.\n>\n> A good paper to see that is Kliegl et al 2010. I also have some\n> demonstration of this effect in my lmer intro slides (see a recent blog\n> post on the HLP lab blog). Note that you might see deviation away from the\n> marginal mean, because of correlations between the grouping identity (e.g.,\n> item) and other fixed effects in the model. I don't recall whether you had\n> other fixed effects predictors in your model? If so, that could also be the\n> reason for estimates of the random effect correlations.\n>\n> As far as I know shrinkage does not enforce / bias towards normality of\n> BLUPs.\n>\n> I hope of this is helpful.\n>\n> florian\n>\n>\n> On Fri, Apr 4, 2014 at 11:20 AM, Titus von der Malsburg <\n> malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>\n>>\n>> On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>\n>> wrote:\n>> > I would be careful making anything out of this. The BLUP estimates of\n>> the\n>> > random effects (and, I assume, their distribution) are affected by\n>> > shrinkage, which is often a desirable (conservative) feature, although\n>> it\n>> > will make differences appear smaller. So, it's not surprising that the\n>> > fixed effect model mirrors the empirical means more closely. That\n>> doesn't\n>> > mean though that it's the better model to draw conclusion from (about\n>> those\n>> > differences).\n>>\n>> Florian, your comment is spot on.  Here is a plot showing the effect of\n>> shrinkage in my data set:\n>>\n>>     http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n>>\n>> Unfilled circles show the empirical mean reading times and differences\n>> between conditions, one circle for each item.  The dots show the BLUP\n>> estimates for each item.\n>>\n>> The difference is fairly dramatic.  I assumed that shrinkage would pull\n>> all data points to the mean with the same force (I have the same amount\n>> of data for all items).  If that were the case, the ordering of items\n>> would be preserved.  However, shrinkage affects the individual items in\n>> quite different ways, and some items are even pushed away from the\n>> overall means (1, 5, 7, 8, 9, 10, 13, 14, 35) effectively expanding a\n>> subset of the estimates instead of shrinking them.\n>>\n>> I must say that I find it hard to swallow that two seemingly valid ways\n>> to analyze the data (item as random effect or fixed effect) yield\n>> results that are so different.\n>>\n>> Another observation: in the BLUP estimates, the correlation of\n>> intercepts and slopes seems to be much higher than in the raw data.  The\n>> correlation of the estimated random intercepts and slopes is -0.86. (The\n>> summary of the model reports -0.62.)  The correlation of the empirical\n>> item means and differences is only -0.4.  Why does lmer believe in such\n>> a high correlation?\n>>\n>>   Titus\n>>\n>\n>",
+      "body_snippet": "and to follow-up on my email, which immediately raised some questions ;),\nhere's what I meant when I said that \"as far as i know, shrinkage does not\nenforce / bias towards normality of blups\":\n\nshrink",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 6,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-35448efc7f88",
+      "message_id": "<CA+tkQ_MYfeoyOC9VgK2=rwMpLOa-Y_S9s7g1ykxjyiST8ZSL_g@mail.gmail.com>",
+      "from_name": "Scott Jackson",
+      "from_email_hash": "6b252fdb0db23e4eec8f5c20586b9c7cdef284cab7e6983d44116cbeffba0a3b",
+      "date": "2014-04-04T19:45:27Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<CAG2Vd7ivtrOvRy1EJ9mRGr9kKKcqLU9bmYORLm3neM33w-RHvw@mail.gmail.com>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<CAG2Vd7gLwG7URazvCyW5WgWmFTiO1SuQbBTpVFuxe-U-PanaJg@mail.gmail.com>",
+        "<CAG2Vd7ivtrOvRy1EJ9mRGr9kKKcqLU9bmYORLm3neM33w-RHvw@mail.gmail.com>"
+      ],
+      "body_plain": "Glad my mistaken intuitions have lead to such excellent clarifications :-)\n\nOffline, Dan and I played a bit with some simulations, and saw empirical\nconfirmation of the great quote from Kliegl et al. that Florian gave. To\nput it yet another way, if the residual variance is low in comparison to\nthe random effect variance, there is not much shrinkage at all.  And to\nclarify my mistaken claim earlier, normality only comes into play because\n(a) the random effect estimation assumes that the random effects are\nnormally distributed, and (b) residual variance is usually (hopefully)\nnormal.  But this does not at all enforce normality on the BLUPs.  If they\nare all shrunk massively (perhaps because of large residual variance), they\nwill end up looking pretty normal, but this is a byproduct of shrinking\ntowards the marginal mean, which will be more dominated by the residual\nvariance than the grouping level variance, not because of any other\npressure towards normality.\n\nDan put it to me even more intuitively: if there is enough relative\ncertainty in the random effects (i.e., with low residual variance), then\nthe BLUPs will be pretty close to the empirical estimates.\n\nIt's always good to see questions that help clarify misunderstandings that\nI didn't realize I had! thanks!\n-scott\n\n\n\n\nOn Fri, Apr 4, 2014 at 3:21 PM, T. Florian Jaeger\n<tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>wrote:\n\n> and to follow-up on my email, which immediately raised some questions ;),\n> here's what I meant when I said that \"as far as i know, shrinkage does not\n> enforce / bias towards normality of blups\":\n>\n> shrinkage itself depends on the (estimated) marginal and by-grouping level\n> (e.g., by-item) means and variances. These variance (estimates) are derived\n> under the assumption of normality. But the shrinkage itself makes no\n> reference to normality. to simplify somewhat, shrinkage means that we\n> describe the posterior estimates of the by-grouping level means (e.g., the\n> by-item means) are described as a weighted sum of the marginal (overall)\n> mean and the by-grouping level mean. the weights of each of these\n> components depends (in the simplest case) on the relation between the\n> residual variance and the between-grouping level variance AND the amount of\n> data available for that grouping level.\n>\n> see\n>\n> Kliegl, R., Masson, M. E. J., & Richter, E. M. (2010). A linear mixed\n> model analysis of masked repetition priming. Visual Cognition, 18(5),\n> 655-681. doi:10.1080/13506280902986058\n>\n> footnote 3\n>\n> for further details.\n>\n> Florian\n>\n>\n> On Fri, Apr 4, 2014 at 2:40 PM, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org\n> > wrote:\n>\n>> Hi Titus,\n>>\n>> shrinkage has larger effects on cells with\n>>\n>> a) means further away from the predicted marginal mean\n>> b) fewer cells counts.\n>>\n>> A good paper to see that is Kliegl et al 2010. I also have some\n>> demonstration of this effect in my lmer intro slides (see a recent blog\n>> post on the HLP lab blog). Note that you might see deviation away from the\n>> marginal mean, because of correlations between the grouping identity (e.g.,\n>> item) and other fixed effects in the model. I don't recall whether you had\n>> other fixed effects predictors in your model? If so, that could also be the\n>> reason for estimates of the random effect correlations.\n>>\n>> As far as I know shrinkage does not enforce / bias towards normality of\n>> BLUPs.\n>>\n>> I hope of this is helpful.\n>>\n>> florian\n>>\n>>\n>> On Fri, Apr 4, 2014 at 11:20 AM, Titus von der Malsburg <\n>> malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>>\n>>>\n>>> On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>\n>>> wrote:\n>>> > I would be careful making anything out of this. The BLUP estimates of\n>>> the\n>>> > random effects (and, I assume, their distribution) are affected by\n>>> > shrinkage, which is often a desirable (conservative) feature, although\n>>> it\n>>> > will make differences appear smaller. So, it's not surprising that the\n>>> > fixed effect model mirrors the empirical means more closely. That\n>>> doesn't\n>>> > mean though that it's the better model to draw conclusion from (about\n>>> those\n>>> > differences).\n>>>\n>>> Florian, your comment is spot on.  Here is a plot showing the effect of\n>>> shrinkage in my data set:\n>>>\n>>>     http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n>>>\n>>> Unfilled circles show the empirical mean reading times and differences\n>>> between conditions, one circle for each item.  The dots show the BLUP\n>>> estimates for each item.\n>>>\n>>> The difference is fairly dramatic.  I assumed that shrinkage would pull\n>>> all data points to the mean with the same force (I have the same amount\n>>> of data for all items).  If that were the case, the ordering of items\n>>> would be preserved.  However, shrinkage affects the individual items in\n>>> quite different ways, and some items are even pushed away from the\n>>> overall means (1, 5, 7, 8, 9, 10, 13, 14, 35) effectively expanding a\n>>> subset of the estimates instead of shrinking them.\n>>>\n>>> I must say that I find it hard to swallow that two seemingly valid ways\n>>> to analyze the data (item as random effect or fixed effect) yield\n>>> results that are so different.\n>>>\n>>> Another observation: in the BLUP estimates, the correlation of\n>>> intercepts and slopes seems to be much higher than in the raw data.  The\n>>> correlation of the estimated random intercepts and slopes is -0.86. (The\n>>> summary of the model reports -0.62.)  The correlation of the empirical\n>>> item means and differences is only -0.4.  Why does lmer believe in such\n>>> a high correlation?\n>>>\n>>>   Titus\n>>>\n>>\n>>\n>",
+      "body_snippet": "Glad my mistaken intuitions have lead to such excellent clarifications :-)\n\nOffline, Dan and I played a bit with some simulations, and saw empirical\nconfirmation of the great quote from Kliegl et al. ",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 7,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-ba07b9193473",
+      "message_id": "<1396641808.3090.7.camel@zeca>",
+      "from_name": "João Veríssimo",
+      "from_email_hash": "b0840085ff4bc2aed73737b18823a807703d63360452f79816ba5bf99fee89aa",
+      "date": "2014-04-04T20:03:28Z",
+      "subject": "Re: aov in R",
+      "subject_clean": "aov in R",
+      "in_reply_to": "<533EE2CA.4040606@gmail.com>",
+      "references": [
+        "<533EE2CA.4040606@gmail.com>"
+      ],
+      "body_plain": "Hi Zhenguang,\n\nYour aov() command seems right to me.\nI haven't tried this in SPSS, but in R, I get the same F-value (37.08),\neither using t.test(), aov(), or ezANOVA(); see code below.\n\nMaybe check your SPSS analysis to see what's going on there?\n\nBest,\nJoão\n\n## Import data\nMT2F1 <- read.table(\"./MT2-F1.txt\", header=T)\nstr(MT2F1)\n## Convert Subject to factor\nMT2F1$Subject <- as.factor(MT2F1$Subject)\n\n## Paired t-test\n(myttest <- t.test(MT2F1$Average~MT2F1$Perspective, paired=T))\nmyttest$statistic[[1]]^2\n\n## Repeated-measures ANOVA (with aov())\nsummary(aov(Average~Perspective+Error(Subject/Perspective), MT2F1))\n\n## Repeated-measures ANOVA (with ezANOVA())\nlibrary(ez)\nezANOVA(\n  data = MT2F1\n  , dv = Average\n  , wid = Subject\n  , within = Perspective\n)\n\nOn Fri, 2014-04-04 at 17:50 +0100, Zhenguang Cai wrote:\n> Hi,\n> \n> I keep having radically different results for LME (especially when\n> random slopes are included, due to Barr et al. 2013) between different\n> versions of R (and supposedly different lme4 packages)  (I wonder\n> anyone else encounter similar problems), so I am turning back to the\n> good old ANOVA.\n> \n> I had a repeated measure design, with Perspective as  two-level\n> within-subject factor (Agent vs. Recipient). So I ran an ANOVA\n> analysis in R, using\n> \n> aov(Average~Perspective+Error(Subject/Perspective), MT2F1)\n> \n> and the following are the results\n> \n> ***********************\n> Error: Subject\n>           Df Sum Sq Mean Sq F value Pr(>F)\n> Residuals 22  3.176  0.1444               \n> \n> Error: Subject:Perspective\n>             Df Sum Sq Mean Sq F value   Pr(>F)    \n> Perspective  1 1.1414  1.1414   37.08 3.96e-06 ***\n> Residuals   22 0.6772  0.0308                     \n> ---\n> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1\n> *************************\n> \n> However, I found the F-value was much larger than the F-value (37.08)\n> I observed in SPSS (5.92) (using the same data set). I wonder whether\n> I used a wrong formula.\n> \n> Also, I want to include a covariate \"Pnum\". I wonder the following is\n> the correct formula:\n> \n> aov(Average~(Perspective+Pnum)+Error(Subject/Perspective), MT2F1)\n> \n> Thanks,\n> \n> Zhenguang Cai\n> \n> -- \n> Zhenguang Cai\n> \n> Department of Cogntive, Perceptual and Brain Sciences\n> University College London\n> \n> https://sites.google.com/site/zhenguangcai/",
+      "body_snippet": "Hi Zhenguang,\n\nYour aov() command seems right to me.\nI haven't tried this in SPSS, but in R, I get the same F-value (37.08),\neither using t.test(), aov(), or ezANOVA(); see code below.\n\nMaybe check yo",
+      "thread_id": "thread-5302eaff4411",
+      "thread_depth": 1,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-9c321a9aeb31",
+      "message_id": "<CAG2Vd7gCv5QoV9zLGSuzwP1bFuD868eTBPCJHpWxiv2jp5f56g@mail.gmail.com>",
+      "from_name": "T. Florian Jaeger",
+      "from_email_hash": "e0dbaab50e0a9a97f666ad9c219794f212534b23c4d266fbf64e3c73ce72f722",
+      "date": "2014-04-04T20:40:38Z",
+      "subject": "Re: aov in R",
+      "subject_clean": "aov in R",
+      "in_reply_to": "<1396641808.3090.7.camel@zeca>",
+      "references": [
+        "<533EE2CA.4040606@gmail.com>",
+        "<1396641808.3090.7.camel@zeca>"
+      ],
+      "body_plain": "This post by Klinton Bicknell might also be useful:\n\nhttp://hlplab.wordpress.com/2014/03/17/old-and-new-lme4/\n\nOn Fri, Apr 4, 2014 at 4:03 PM, João Veríssimo <jl.verissimo-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:\n\n> Hi Zhenguang,\n>\n> Your aov() command seems right to me.\n> I haven't tried this in SPSS, but in R, I get the same F-value (37.08),\n> either using t.test(), aov(), or ezANOVA(); see code below.\n>\n> Maybe check your SPSS analysis to see what's going on there?\n>\n> Best,\n> João\n>\n> ## Import data\n> MT2F1 <- read.table(\"./MT2-F1.txt\", header=T)\n> str(MT2F1)\n> ## Convert Subject to factor\n> MT2F1$Subject <- as.factor(MT2F1$Subject)\n>\n> ## Paired t-test\n> (myttest <- t.test(MT2F1$Average~MT2F1$Perspective, paired=T))\n> myttest$statistic[[1]]^2\n>\n> ## Repeated-measures ANOVA (with aov())\n> summary(aov(Average~Perspective+Error(Subject/Perspective), MT2F1))\n>\n> ## Repeated-measures ANOVA (with ezANOVA())\n> library(ez)\n> ezANOVA(\n>   data = MT2F1\n>   , dv = Average\n>   , wid = Subject\n>   , within = Perspective\n> )\n>\n> On Fri, 2014-04-04 at 17:50 +0100, Zhenguang Cai wrote:\n> > Hi,\n> >\n> > I keep having radically different results for LME (especially when\n> > random slopes are included, due to Barr et al. 2013) between different\n> > versions of R (and supposedly different lme4 packages)  (I wonder\n> > anyone else encounter similar problems), so I am turning back to the\n> > good old ANOVA.\n> >\n> > I had a repeated measure design, with Perspective as  two-level\n> > within-subject factor (Agent vs. Recipient). So I ran an ANOVA\n> > analysis in R, using\n> >\n> > aov(Average~Perspective+Error(Subject/Perspective), MT2F1)\n> >\n> > and the following are the results\n> >\n> > ***********************\n> > Error: Subject\n> >           Df Sum Sq Mean Sq F value Pr(>F)\n> > Residuals 22  3.176  0.1444\n> >\n> > Error: Subject:Perspective\n> >             Df Sum Sq Mean Sq F value   Pr(>F)\n> > Perspective  1 1.1414  1.1414   37.08 3.96e-06 ***\n> > Residuals   22 0.6772  0.0308\n> > ---\n> > Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n> > *************************\n> >\n> > However, I found the F-value was much larger than the F-value (37.08)\n> > I observed in SPSS (5.92) (using the same data set). I wonder whether\n> > I used a wrong formula.\n> >\n> > Also, I want to include a covariate \"Pnum\". I wonder the following is\n> > the correct formula:\n> >\n> > aov(Average~(Perspective+Pnum)+Error(Subject/Perspective), MT2F1)\n> >\n> > Thanks,\n> >\n> > Zhenguang Cai\n> >\n> > --\n> > Zhenguang Cai\n> >\n> > Department of Cogntive, Perceptual and Brain Sciences\n> > University College London\n> >\n> > https://sites.google.com/site/zhenguangcai/\n>\n>\n>",
+      "body_snippet": "This post by Klinton Bicknell might also be useful:\n\nhttp://hlplab.wordpress.com/2014/03/17/old-and-new-lme4/\n\nOn Fri, Apr 4, 2014 at 4:03 PM, João Veríssimo <jl.verissimo-Re5JQEeQqe8AvxtiuMwx3w at pu",
+      "thread_id": "thread-5302eaff4411",
+      "thread_depth": 2,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-eba0f06da776",
+      "message_id": "<A637798B-13E7-4A25-9BE4-806C131A6264@ucsd.edu>",
+      "from_name": "Levy, Roger",
+      "from_email_hash": "4205c8244bc61714fbca6363348963c89e1be6e80edebb04ab2fd612bbd92858",
+      "date": "2014-04-04T20:48:00Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<87ppkxxgt3.fsf@posteo.de>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>"
+      ],
+      "body_plain": "Well, this thread has gotten really rich and interesting!  \n\nOn Apr 4, 2014, at 8:20 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n\n> \n> On 2014-04-04 Fri 05:10, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:\n>> I would be careful making anything out of this. The BLUP estimates of the\n>> random effects (and, I assume, their distribution) are affected by\n>> shrinkage, which is often a desirable (conservative) feature, although it\n>> will make differences appear smaller. So, it's not surprising that the\n>> fixed effect model mirrors the empirical means more closely. That doesn't\n>> mean though that it's the better model to draw conclusion from (about those\n>> differences).\n> \n> Florian, your comment is spot on.  Here is a plot showing the effect of\n> shrinkage in my data set:\n> \n>    http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n> \n> Unfilled circles show the empirical mean reading times and differences\n> between conditions, one circle for each item.  The dots show the BLUP\n> estimates for each item.\n\nJust a comment: yes, the effect of shrinkage should be larger for points farther away from the means (both mean intercept and mean slope) when # observations in the cell is constant (which I believe is pretty much the case for you). But this graph looks a bit off — I don’t like the number of lines that cross 0.0 on the y axis.  Are you sure you’re not doing something subtle that makes the comparison not apples-to-apples, like taking means before log-transforming in computing the empirical means?\n\nRoger\n\n> The difference is fairly dramatic.  I assumed that shrinkage would pull\n> all data points to the mean with the same force (I have the same amount\n> of data for all items).  If that were the case, the ordering of items\n> would be preserved.  However, shrinkage affects the individual items in\n> quite different ways, and some items are even pushed away from the\n> overall means (1, 5, 7, 8, 9, 10, 13, 14, 35) effectively expanding a\n> subset of the estimates instead of shrinking them.\n> \n> I must say that I find it hard to swallow that two seemingly valid ways\n> to analyze the data (item as random effect or fixed effect) yield\n> results that are so different.\n> \n> Another observation: in the BLUP estimates, the correlation of\n> intercepts and slopes seems to be much higher than in the raw data.  The\n> correlation of the estimated random intercepts and slopes is -0.86. (The\n> summary of the model reports -0.62.)  The correlation of the empirical\n> item means and differences is only -0.4.  Why does lmer believe in such\n> a high correlation?\n> \n>  Titus",
+      "body_snippet": "Well, this thread has gotten really rich and interesting!  \n\nOn Apr 4, 2014, at 8:20 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n\n> \n> On 2014-04-04 Fri 05:",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 5,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-a4ed502556a4",
+      "message_id": "<CAG2Vd7iPO21pzXFqErRGock7FHnNpsUPz7G5PNuHb4vN23t9Kw@mail.gmail.com>",
+      "from_name": "T. Florian Jaeger",
+      "from_email_hash": "e0dbaab50e0a9a97f666ad9c219794f212534b23c4d266fbf64e3c73ce72f722",
+      "date": "2014-04-05T14:58:04Z",
+      "subject": "Re: lmer sliding contrasts",
+      "subject_clean": "lmer sliding contrasts",
+      "in_reply_to": "<CAD=2-0ezY1Fe5D-Ygn4e=zMYx9w0DUVZkg8DVmqBRRj0Pfd6jw@mail.gmail.com>",
+      "references": [
+        "<CAD=2-0fJzUobmdY7ahoae-4mH-J1WkEh7P1hwB3gE+=LJJbcHQ@mail.gmail.com>",
+        "<CAG2Vd7g0Y-uJ2rFnBqxBqNMMZhsmPhX_TsarfB9dB-Lr=atPMg@mail.gmail.com>",
+        "<CAD=2-0ezY1Fe5D-Ygn4e=zMYx9w0DUVZkg8DVmqBRRj0Pfd6jw@mail.gmail.com>"
+      ],
+      "body_plain": "Just contrast code all three IVs.\n\ncontrast(a) =contr.sum(2)\nEtc\n\nThen --collinearity w the covariate aside-- the main effect in the model\nfor left vs right tells you what you want to know.\n\na * b* c + covariate.\n\nThat's under the assumption that your data is balanced.\n\nIf you also want to know whether the simple effects of left right are\nsignificant for all four cells defined  by the other two factors, do\n\na * b * c - a + covariate.\n\nAssuming \"a\" is left to right\n\nHth?\n\nF\nOn Apr 5, 2014 1:45 AM, \"Ray Becker\" <raybecker-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n\n> Hi Florian,\n>\n> I am trying to do follow-up test of a significant 3-way interaction, but\n> still control for the a fourth variable as a covariate. That is the\n> difference between using the + instead of a *, correct? Maybe I should\n> include the interaction just to be safe.\n>\n> With the sliding contrasts, I am mainly looking for differences between\n> left and right responses, which means the difference between pairs 1-2,\n> 3-4, 5-6, and 7-8. So, I am not really testing an ordering hypothesis, but\n> just doing four paired contrasts.\n>\n> I have tried subsetting my data into the two conditions where my sliding\n> contrast showed an effect. I made one dataset with only plural-subject NP\n> sentences and high-WM participants, and one with low-WM participants. Then\n> I did an lmer with only response location as a fixed effect, and found\n> almost the same values for the t-tests as the lmer with the full dataset\n> using sliding contrasts. It seems less likely that I am looking at the\n> wrong t-test for a pair of means, and maybe something wrong with my data.\n>\n> Thanks for replying.\n>\n> Best,\n> -Ray\n>\n>\n> On Sat, Apr 5, 2014 at 4:22 AM, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org\n> > wrote:\n>\n>> Hi Ray,\n>>\n>> I'm having trouble following the details of your message. perhaps you\n>> could elaborate. when you said you used + instead of * that, of course,\n>> might matter. one is the interaction (*), the other is two main effects.\n>>\n>> I also don't follow the sliding effects coding. are you testing a\n>> ordering hypothesis?\n>>\n>> F\n>>\n>>\n>> On Thursday, April 3, 2014, Ray Becker <raybecker-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n>>\n>>> Hi everyone,\n>>>\n>>> I have a problem with my sliding contrasts, and need some help. The\n>>> means of the descriptive statistics and t-values from the contrasts are not\n>>> adding up. For example, I have run the omnibus lmer and found a significant\n>>> 3-way interaction (WMGroup x number x response location), t(30) = 2.89; p <\n>>> 0.05. My DV is response time, my IVs are high- vs. low-working memory, the\n>>> grammatical number of the subject noun phrase (singular vs. plural), and\n>>> left vs. right response location). After the omnibus lmer, I did sliding\n>>> contrasts to test the simple main effects between left vs. right responses\n>>> (labeled 'corans' below). First, I code my contrasts into one variable,\n>>> 'cond':\n>>>\n>>> tme3wcorx$cond <- ifelse(tme3wcorx$WMGroup == 'LOW' &\n>>> tme3wcorx$sing_plur == 'p' & tme3wcorx$corans == 8, 100,\n>>> ifelse(tme3wcorx$WMGroup == 'LOW' & tme3wcorx$sing_plur == 'p' &\n>>> tme3wcorx$corans == 7, 101,\n>>> ifelse(tme3wcorx$WMGroup == 'LOW' & tme3wcorx$sing_plur == 's' &\n>>> tme3wcorx$corans == 8, 102,\n>>> ifelse(tme3wcorx$WMGroup == 'LOW' & tme3wcorx$sing_plur == 's' &\n>>> tme3wcorx$corans == 7, 103,\n>>> ifelse(tme3wcorx$WMGroup == 'HIGH' & tme3wcorx$sing_plur == 'p' &\n>>> tme3wcorx$corans == 8, 104,\n>>> ifelse(tme3wcorx$WMGroup == 'HIGH' & tme3wcorx$sing_plur == 'p' &\n>>> tme3wcorx$corans == 7, 105,\n>>> ifelse(tme3wcorx$WMGroup == 'HIGH' & tme3wcorx$sing_plur == 's' &\n>>> tme3wcorx$corans == 8, 106,\n>>> ifelse(tme3wcorx$WMGroup == 'HIGH' & tme3wcorx$sing_plur == 's' &\n>>> tme3wcorx$corans == 7, 107, NA))))))))\n>>>\n>>> Then I scale and apply the contrast codes:\n>>> tme3wcorx$condcent <- scale(tme3wcorx$cond)\n>>> tme3wcorx$condcentf <- factor(tme3wcorx$condcent)\n>>> c.sliding <- contr.sdif(8)\n>>> contrasts(tme3wcorx$condcentf) <- c.sliding\n>>>\n>>> Lastly, I run the lmer with the coded variable now called 'condcentf'\n>>> with the other fixed effect 'TenseCent' (verb tense) as a covariate by\n>>> using a '+' instead of '*' as I did in the omnibus lmer.\n>>>\n>>>\n>>>\n>>>\n>>> I don't think that matters, but maybe someone might find fault with this\n>>> approach.\n>>> tme3RESPCONTRASTS.lmer1 <- lmer(Resptime ~ condcentf + TenseCent\n>>>  + (1|RECORDING_SESSION_LABEL) + (1|Stimnum), data=tme3wcorx)\n>>>\n>>> The two significant differences I find are both for plural-subject noun\n>>> phrase sentences.\n>>> In the low-WM group, participants are reliably faster when the response\n>>> is on the right (M = 3409; SD = 624) compared to the left (M = 3410; SD =\n>>> 642; t(30) = -3.20)\n>>>\n>>> In the high-WM group, participants are reliably faster when the response\n>>> is on the right (M = 3071; SD = 718) compared to the left (M = 3132; SD =\n>>> 722; t(30) = 4.36)\n>>>\n>>> I haven't calculated p-values yet, but consider any t-value over +/-2\n>>> significant at the 0.05 level. The problem, as you can see, is not only do\n>>> the first set of means only differ by < 1ms, but the difference is in the\n>>> same direction as the other set of means. So the t-values should not be\n>>> negative and positive, but the same sign.\n>>>\n>>> Please let me know if you can see what I am doing wrong with my sliding\n>>> contrasts. Other comments on problems with how I am doing this analysis are\n>>> also welcome. Thank you in advance.\n>>>\n>>> Best,\n>>> -Ray\n>>>\n>>\n>>\n>> --\n>> Sent from Gmail Mobile\n>>\n>\n>",
+      "body_snippet": "Just contrast code all three IVs.\n\ncontrast(a) =contr.sum(2)\nEtc\n\nThen --collinearity w the covariate aside-- the main effect in the model\nfor left vs right tells you what you want to know.\n\na * b* c ",
+      "thread_id": "thread-a4ed502556a4",
+      "thread_depth": 0,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-08f623ddee2f",
+      "message_id": "<87ob0d5g8a.fsf@posteo.de>",
+      "from_name": "Titus von der Malsburg",
+      "from_email_hash": "85a743faf30f0677c3514960cbb00270a5066c25bd6c12b0e5d2501b3333c859",
+      "date": "2014-04-07T15:09:09Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<A637798B-13E7-4A25-9BE4-806C131A6264-XkckGZ689+c@public.gmane.org>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<A637798B-13E7-4A25-9BE4-806C131A6264@ucsd.edu>"
+      ],
+      "body_plain": "On 2014-04-04 Fri 21:48, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n> On Apr 4, 2014, at 8:20 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>> Here is a plot showing the effect of\n>> shrinkage in my data set:\n>> \n>>    http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n>\n> [...] But this graph looks a bit off — I don’t like the number of\n> lines that cross 0.0 on the y axis.  Are you sure you’re not doing\n> something subtle that makes the comparison not apples-to-apples, like\n> taking means before log-transforming in computing the empirical means?\n\nHi Roger,\n\nI took a shortcut when calculating the intercepts and slopes for the\nrandom effects model.  By doing that I was indeed missing a part of\nthe action.  Here's a new plot that I generated using lme4's predict\nfunction (code at the bottom of this mail):\n\n    http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage2.png\n\nThis looks much more consistent with the characterization of the BLUPs\nas weighted averages.  (The data points are vertically not centered on\nzero because the predict function also added in the main effect of\ncondition, 0.06224.)\n\nTo remind you of the original question: I wanted to know which items are\nread significantly faster or slower in the manipulated condition.  Based\non the BLUPs, these are items 25 and 36.  (According to the model that\nuses item as a fixed effect these are 11, 23, 35, 36.)  Florian\nexplained why I should trust the BLUP estimates.  While I understand the\nlogic, I hesitate the believe in the BLUP results: The reason why 25\ncomes out as significant is that lmer believes in a very high\ncorrelation of random intercepts and slopes (-0.62 according to the\nsummary, -0.86 in the BLUP estimates, but only -0.4 in the data).  For\nthis reason items 25 and 36 (which have rather extreme intercepts) are\nshrunken much less than items 11 and 23 (which have average\nintercepts).  So whether the conclusions from the BLUPs hold up depends\non whether the correlation between intercepts and slopes is really as\nhigh as lmer thinks it is.  Without understanding how exactly lmer\nderives these correlations I have some doubts, in part because from\nexperience I know that lmer tends to overestimate these correlations\nparticularly with sparse data.  Bottom line: It seems I can trust\nneither the BLUP estimates nor the fixed-effect model.\n\n  Titus\n\n# Compiling item-level data:\n\n# Descriptive stats:\nx <- with(d, tapply(log(tt), list(item, cond), mean, na.rm=T))\nitems <- data.frame(item=1:40,\n                    sample.mean=with(d, tapply(log(tt), item, mean, na.rm=T)),\n                    sample.difference=x[,2] - x[,1])\n\n# Results random effects model:\ntt <- lmer(log(tt) ~ cond * Region.length + (1|subj) + (cond|item), d)\nptt <- predict(tt)\nd$ptt[as.integer(names(ptt))] <- ptt\nitems$random.intercept <- with(d, tapply(ptt, item, mean, na.rm=T))\nx                      <- with(d, tapply(ptt, list(item, cond), mean, na.rm=T))\nitems$random.slope    <- x[,2] - x[,1]\n\nwith(items,\n     plot(sample.mean, sample.difference,\n          main=\"Effect of shrinkage on random intercepts and slopes for items\",\n          xlab=\"mean reading time\",\n          ylab=\"difference between conditions\"))\n\nfor (i in 1:39) {\n  with(items, arrows(sample.mean[i], sample.difference[i],\n                     random.intercept[i], random.slope[i],\n                     length=0.1, col=\"darkgrey\"))\n}\nwith(items, points(random.intercept, random.slope, pch=20))\nwith(items, text(sample.mean+0.05, sample.difference, labels=1:39))\ngrid()\n# \"zero\"-line at the level of the fixed effect of condition:\nabline(fixef(tt)[2], 0)",
+      "body_snippet": "On 2014-04-04 Fri 21:48, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n> On Apr 4, 2014, at 8:20 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>>",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 6,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-67693264aa12",
+      "message_id": "<5192319A-9043-4009-8BB5-1F08ED504971@ucsd.edu>",
+      "from_name": "Levy, Roger",
+      "from_email_hash": "4205c8244bc61714fbca6363348963c89e1be6e80edebb04ab2fd612bbd92858",
+      "date": "2014-04-07T22:16:18Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<87ob0d5g8a.fsf@posteo.de>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<A637798B-13E7-4A25-9BE4-806C131A6264@ucsd.edu>",
+        "<87ob0d5g8a.fsf@posteo.de>"
+      ],
+      "body_plain": "On Apr 7, 2014, at 8:09 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n\n> \n> On 2014-04-04 Fri 21:48, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n>> On Apr 4, 2014, at 8:20 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>>> Here is a plot showing the effect of\n>>> shrinkage in my data set:\n>>> \n>>>   http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage.png\n>> \n>> [...] But this graph looks a bit off — I don’t like the number of\n>> lines that cross 0.0 on the y axis.  Are you sure you’re not doing\n>> something subtle that makes the comparison not apples-to-apples, like\n>> taking means before log-transforming in computing the empirical means?\n> \n> Hi Roger,\n> \n> I took a shortcut when calculating the intercepts and slopes for the\n> random effects model.  By doing that I was indeed missing a part of\n> the action.  Here's a new plot that I generated using lme4's predict\n> function (code at the bottom of this mail):\n> \n>    http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage2.png\n> \n> This looks much more consistent with the characterization of the BLUPs\n> as weighted averages.  (The data points are vertically not centered on\n> zero because the predict function also added in the main effect of\n> condition, 0.06224.)\n\nThanks Titus — as you point out, this looks much more consistent.  (And as I’m sure you’re thinking, the fact that shrinkage is not toward 0.0 on the y axis is because of the large negative correlation between the intercept and the slope in the fitted model.) Though I’m still surprised that there’s so much more shrinkage in the y direction than in the x direction, despite the fact that the random slope standard deviation is so much smaller than that of the random intercept.\n\n> \n> To remind you of the original question: I wanted to know which items are\n> read significantly faster or slower in the manipulated condition.  Based\n> on the BLUPs, these are items 25 and 36.  \n\nSo, hold on: are you interested in (i) for which items can you conclude with (1-p)% confidence that the total effect of the manipulation is significantly non-zero in a particular direction [item-average slope + item-specific slope], or (ii) for which items can you conclude that their idiosyncratic sensitivity to the manipulation, above and beyond the population-average sensitivity, is significantly non-zero in a particular direction [only item-specific slope]?  My impression is that the inferences you’re drawing from both your fixed-effect and random-effect models are addressing question (ii), but your statement above makes it sound like you’re interested in (i).\n\n> (According to the model that\n> uses item as a fixed effect these are 11, 23, 35, 36.)  Florian\n> explained why I should trust the BLUP estimates.  While I understand the\n> logic, I hesitate the believe in the BLUP results: The reason why 25\n> comes out as significant is that lmer believes in a very high\n> correlation of random intercepts and slopes (-0.62 according to the\n> summary, -0.86 in the BLUP estimates, but only -0.4 in the data).  For\n> this reason items 25 and 36 (which have rather extreme intercepts) are\n> shrunken much less than items 11 and 23 (which have average\n> intercepts).  So whether the conclusions from the BLUPs hold up depends\n> on whether the correlation between intercepts and slopes is really as\n> high as lmer thinks it is.  Without understanding how exactly lmer\n> derives these correlations I have some doubts, in part because from\n> experience I know that lmer tends to overestimate these correlations\n> particularly with sparse data.  Bottom line: It seems I can trust\n> neither the BLUP estimates nor the fixed-effect model.\n\nYour concern about the correlation coefficient in the random-effects covariance matrix seems reasonable to me.  I don’t know how the new lme4’s ranef() function extracts confidence intervals, but if it does so conditional on the point estimate of the random-effects covariance matrix, then the standard caveat applies that this kind of approach fails to take into account uncertainty in that covariance matrix.  For this reason you might want to consider Bayesian inferential methods.  My textbook-in-progress has some examples of how you can set these up in JAGS, I think Shravan has pedagogical materials now that show how to do this in Stan, and there are R packages that may be useful for this more directly (e.g., MCMCglmm).  That way you can inspect the posterior on the correlation parameter.\n\nI would note, though, that a substantial negative correlation is evident in the empirical means on your latest plot, so the negative correlation is not unreasonable.\n\nRegarding the fixed-effect vs. random-effect approach question: I agree with Florian that the random-effects approach is preferable in this case.  Let’s put the question this way: when inferring the slope for a given item i, do you want the distributional information that can be gleaned from all the OTHER items besides i to inform your inferences about i?  If so, then you want to use the random-effects approach.  If not, why not?  The issues at stake can get rather subtle, but I think that the weight of the argument will probably support the random-effects approach.\n\nBest\n\nRoger\n\n\n>  Titus\n> \n> # Compiling item-level data:\n> \n> # Descriptive stats:\n> x <- with(d, tapply(log(tt), list(item, cond), mean, na.rm=T))\n> items <- data.frame(item=1:40,\n>                    sample.mean=with(d, tapply(log(tt), item, mean, na.rm=T)),\n>                    sample.difference=x[,2] - x[,1])\n> \n> # Results random effects model:\n> tt <- lmer(log(tt) ~ cond * Region.length + (1|subj) + (cond|item), d)\n> ptt <- predict(tt)\n> d$ptt[as.integer(names(ptt))] <- ptt\n> items$random.intercept <- with(d, tapply(ptt, item, mean, na.rm=T))\n> x                      <- with(d, tapply(ptt, list(item, cond), mean, na.rm=T))\n> items$random.slope    <- x[,2] - x[,1]\n> \n> with(items,\n>     plot(sample.mean, sample.difference,\n>          main=\"Effect of shrinkage on random intercepts and slopes for items\",\n>          xlab=\"mean reading time\",\n>          ylab=\"difference between conditions\"))\n> \n> for (i in 1:39) {\n>  with(items, arrows(sample.mean[i], sample.difference[i],\n>                     random.intercept[i], random.slope[i],\n>                     length=0.1, col=\"darkgrey\"))\n> }\n> with(items, points(random.intercept, random.slope, pch=20))\n> with(items, text(sample.mean+0.05, sample.difference, labels=1:39))\n> grid()\n> # \"zero\"-line at the level of the fixed effect of condition:\n> abline(fixef(tt)[2], 0)",
+      "body_snippet": "On Apr 7, 2014, at 8:09 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n\n> \n> On 2014-04-04 Fri 21:48, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 7,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-ed0478e18bd4",
+      "message_id": "<8761mkayt8.fsf@posteo.de>",
+      "from_name": "Titus von der Malsburg",
+      "from_email_hash": "85a743faf30f0677c3514960cbb00270a5066c25bd6c12b0e5d2501b3333c859",
+      "date": "2014-04-08T10:41:07Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<5192319A-9043-4009-8BB5-1F08ED504971-XkckGZ689+c@public.gmane.org>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<A637798B-13E7-4A25-9BE4-806C131A6264@ucsd.edu>",
+        "<87ob0d5g8a.fsf@posteo.de>",
+        "<5192319A-9043-4009-8BB5-1F08ED504971@ucsd.edu>"
+      ],
+      "body_plain": "On 2014-04-07 Mon 23:16, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n> On Apr 7, 2014, at 8:09 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>>\n>>    http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage2.png\n> \n> [...] Though I’m still surprised that there’s so much more shrinkage\n> in the y direction than in the x direction, despite the fact that the\n> random slope standard deviation is so much smaller than that of the\n> random intercept.\n\nCould this be due to the manipulation being between-subject?\n\n>> To remind you of the original question: I wanted to know which items are\n>> read significantly faster or slower in the manipulated condition.  Based\n>> on the BLUPs, these are items 25 and 36.  \n>\n> So, hold on: are you interested in (i) for which items can you\n> conclude with (1-p)% confidence that the total effect of the\n> manipulation is significantly non-zero in a particular direction\n> [item-average slope + item-specific slope], or (ii) for which items\n> can you conclude that their idiosyncratic sensitivity to the\n> manipulation, above and beyond the population-average sensitivity, is\n> significantly non-zero in a particular direction [only item-specific\n> slope]?\n\nSince there is no significant main effect of the manipulation, (i) and\n(ii) are the same.  Think of the experiment as a corpus study with an\nexperimental manipulation.  This manipulation speeds up some items and\nslows down others.  Overall there is no slow-down or speed-up.\n\n> Your concern about the correlation coefficient in the random-effects\n> covariance matrix seems reasonable to me.  I don’t know how the new\n> lme4’s ranef() function extracts confidence intervals, but if it does\n> so conditional on the point estimate of the random-effects covariance\n> matrix, then the standard caveat applies that this kind of approach\n> fails to take into account uncertainty in that covariance matrix.  For\n> this reason you might want to consider Bayesian inferential\n> methods.  My textbook-in-progress has some examples of how you can set\n> these up in JAGS, I think Shravan has pedagogical materials now that\n> show how to do this in Stan, and there are R packages that may be\n> useful for this more directly (e.g., MCMCglmm).  That way you can\n> inspect the posterior on the correlation parameter.\n\nThat sounds like they way to go.  (Well, actually I should collect more\ndata but that's unfortunately not easily possible in this project.)  So\nit's finally time to learn JAGS or Stan.  At least I can called it\n\"work\" now instead of procrastination.\n\nThank you all for your responses.  I learned something.\n\n  Titus",
+      "body_snippet": "On 2014-04-07 Mon 23:16, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n> On Apr 7, 2014, at 8:09 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>>",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 8,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-48fe7b36abcf",
+      "message_id": "<2D71C327-E32A-4A3B-821A-5F897A0AD701@ucsd.edu>",
+      "from_name": "Levy, Roger",
+      "from_email_hash": "4205c8244bc61714fbca6363348963c89e1be6e80edebb04ab2fd612bbd92858",
+      "date": "2014-04-08T16:58:53Z",
+      "subject": "Re: Investigating random slope variance",
+      "subject_clean": "Investigating random slope variance",
+      "in_reply_to": "<8761mkayt8.fsf@posteo.de>",
+      "references": [
+        "<87k3b6z6cy.fsf@posteo.de>",
+        "<C3F09511-EB55-4009-B94B-3826ACEAB6C2@ucsd.edu>",
+        "<87ha6az2mp.fsf@posteo.de>",
+        "<CAG2Vd7hthq=Cwy_wAmsK1UpckNuPkLwUof1CWxvbcZkXMcMrQQ@mail.gmail.com>",
+        "<87ppkxxgt3.fsf@posteo.de>",
+        "<A637798B-13E7-4A25-9BE4-806C131A6264@ucsd.edu>",
+        "<87ob0d5g8a.fsf@posteo.de>",
+        "<5192319A-9043-4009-8BB5-1F08ED504971@ucsd.edu>",
+        "<8761mkayt8.fsf@posteo.de>"
+      ],
+      "body_plain": "On Apr 8, 2014, at 3:41 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n\n> \n> On 2014-04-07 Mon 23:16, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:\n>> On Apr 7, 2014, at 8:09 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n>>> \n>>>   http://users.ox.ac.uk/~sjoh3968/R/effect_of_shrinkage2.png\n>> \n>> [...] Though I’m still surprised that there’s so much more shrinkage\n>> in the y direction than in the x direction, despite the fact that the\n>> random slope standard deviation is so much smaller than that of the\n>> random intercept.\n\nCorrection: I just had this backwards in my head.  There’s more shrinkage in the y direction precisely *because* the random-slope standard deviation is so much smaller than the random-intercept standard deviation.\n\n> Could this be due to the manipulation being between-subject?\n\nNot obvious to me that this would have an effect, but I think that the puzzle solved itself.\n\n>>> To remind you of the original question: I wanted to know which items are\n>>> read significantly faster or slower in the manipulated condition.  Based\n>>> on the BLUPs, these are items 25 and 36.  \n>> \n>> So, hold on: are you interested in (i) for which items can you\n>> conclude with (1-p)% confidence that the total effect of the\n>> manipulation is significantly non-zero in a particular direction\n>> [item-average slope + item-specific slope], or (ii) for which items\n>> can you conclude that their idiosyncratic sensitivity to the\n>> manipulation, above and beyond the population-average sensitivity, is\n>> significantly non-zero in a particular direction [only item-specific\n>> slope]?\n> \n> Since there is no significant main effect of the manipulation, (i) and\n> (ii) are the same.  Think of the experiment as a corpus study with an\n> experimental manipulation.  This manipulation speeds up some items and\n> slows down others.  Overall there is no slow-down or speed-up.\n\nAh, this is a good point, I’d forgotten that you’d taken the fixed effect out of your mixed-effects model!\n\nBut the the item-average effect of the manipulation is still in your fixed-effects model.  You might want to reparameterize that as\n\n  log(tt) ~ item / cond + (1 | subj)\n\nfor full comparability.\n\n>> Your concern about the correlation coefficient in the random-effects\n>> covariance matrix seems reasonable to me.  I don’t know how the new\n>> lme4’s ranef() function extracts confidence intervals, but if it does\n>> so conditional on the point estimate of the random-effects covariance\n>> matrix, then the standard caveat applies that this kind of approach\n>> fails to take into account uncertainty in that covariance matrix.  For\n>> this reason you might want to consider Bayesian inferential\n>> methods.  My textbook-in-progress has some examples of how you can set\n>> these up in JAGS, I think Shravan has pedagogical materials now that\n>> show how to do this in Stan, and there are R packages that may be\n>> useful for this more directly (e.g., MCMCglmm).  That way you can\n>> inspect the posterior on the correlation parameter.\n> \n> That sounds like they way to go.  (Well, actually I should collect more\n> data but that's unfortunately not easily possible in this project.)  So\n> it's finally time to learn JAGS or Stan.  At least I can called it\n> \"work\" now instead of procrastination.\n> \n> Thank you all for your responses.  I learned something.\n\nGlad to hear this!\n\nBest\n\nRoger",
+      "body_snippet": "On Apr 8, 2014, at 3:41 AM, Titus von der Malsburg <malsburg-1KBjaw7Xf1+zQB+pC5nmwQ at public.gmane.org> wrote:\n\n> \n> On 2014-04-07 Mon 23:16, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote",
+      "thread_id": "thread-e69f25fc09df",
+      "thread_depth": 9,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-2d52ed687462",
+      "message_id": "<1397414450.6757.37.camel@Joao>",
+      "from_name": "João Veríssimo",
+      "from_email_hash": "b0840085ff4bc2aed73737b18823a807703d63360452f79816ba5bf99fee89aa",
+      "date": "2014-04-13T18:40:50Z",
+      "subject": "weights in empirical logit analyses",
+      "subject_clean": "weights in empirical logit analyses",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear all,\n\nI'm conducting an analysis in which responses fall into one of three\npossible categories and the main predictors are between-item.\n\nI've followed this post here (by Jaeger: http://is.gd/3VHHmx ), where it\nis considered \"an acceptable solution\" to conduct analyses \"over\nempirical logit transformed proportions (when cases are weighted\ninversely to the variance of the cell mean)\".\n\n(I could have used (mixed-effects) logistic regression, but bear with\nme... I'm interested in how far this type of analysis can be taken)\n\nSo, for each item, I have first transformed proportions of responses\ninto empirical logits and computed the appropriate case weights\n(according to the formulas in Barr, 2008) and then analysed these with\nlinear methods (linear regression, anovas, t-tests).\n\nWhen performing between-item analyses, it is straightforward to conduct\nthe weighting of the cases, by simply passing them as an argument to\nlm() or aov().\n\nHowever...\n\n1. How can cases be weighted appropriately in repeated measures\nanalyses? (for example, comparing average proportions, across items, for\ntwo different subject groups)\n\nI have considered using aov(), but the help explicitly says \"Weights can\nbe specified by a weights argument, but should not be used with an Error\nterm\".\n\n2. How can different weights be considered in multivariate regression?\n\nI have fitted three regressions, using a one-vs-rest analysis (i.e.,\nthree lm() models for each of the three categories of responses), but a\nreviewer suggested a multinomial analysis.\n\nIn order to obtain the multivariate statistics, I have used\nlm(cbind(R1.logit, R2.logit, R3.logit) ~ ... ) and then Anova().\nBut can (or should?) the 3 weight vectors be considered??\n\n3. Should regression assumptions regarding residuals (normality, etc.)\nbe applied to resid(lm(...)) or to the *weighted* residuals?\n\nThank you for your help!\nJoão",
+      "body_snippet": "Dear all,\n\nI'm conducting an analysis in which responses fall into one of three\npossible categories and the main predictors are between-item.\n\nI've followed this post here (by Jaeger: http://is.gd/3VH",
+      "thread_id": "thread-2d52ed687462",
+      "thread_depth": 0,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-d3e1252e1e10",
+      "message_id": "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+      "from_name": "Hofmeister, Philip",
+      "from_email_hash": "f5705bb4f81d6ed8951b66eb5dc186306c2c28287579fc42139974114c839af9",
+      "date": "2014-04-15T17:52:39Z",
+      "subject": "swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "this is probably more appropriate for a general R listserv, but i'm more likely to get an answer i can decipher here. apologies also for what is likely a simple fix, but i can't seem to find the right term or syntax to get this to work without writing ugly code.\n\ni want to swap values in a vector, e.g. \n\nx <- c(1, 2, 3)\n[1] 1 2 3\n\nand get back \n\n1 3 2 \n\ni can do this by saving the 2nd or 3rd element of the vector elsewhere, replacing one of the vector elements (x[3] <- x[2]), and then restoring the stored value, but that seems wasteful. surely there is a function like swap() or  std::swap(a, b), but i can't seem to find anything. anyone have any ideas? \n\nph",
+      "body_snippet": "this is probably more appropriate for a general R listserv, but i'm more likely to get an answer i can decipher here. apologies also for what is likely a simple fix, but i can't seem to find the right",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 0,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-15a295e7d964",
+      "message_id": "<1397585127.14329.2.camel@Joao>",
+      "from_name": "João Veríssimo",
+      "from_email_hash": "b0840085ff4bc2aed73737b18823a807703d63360452f79816ba5bf99fee89aa",
+      "date": "2014-04-15T18:05:27Z",
+      "subject": "Re: swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+      "references": [
+        "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>"
+      ],
+      "body_plain": "Perhaps rev() can help?\n\nMaybe something like:\n\nx <- c(\"a\", \"b\", \"c\")\nc(x[1], rev(x[2:3]))\n\nJoão\nOn Tue, 2014-04-15 at 17:52 +0000, Hofmeister, Philip wrote:\n> this is probably more appropriate for a general R listserv, but i'm more likely to get an answer i can decipher here. apologies also for what is likely a simple fix, but i can't seem to find the right term or syntax to get this to work without writing ugly code.\n> \n> i want to swap values in a vector, e.g. \n> \n> x <- c(1, 2, 3)\n> [1] 1 2 3\n> \n> and get back \n> \n> 1 3 2 \n> \n> i can do this by saving the 2nd or 3rd element of the vector elsewhere, replacing one of the vector elements (x[3] <- x[2]), and then restoring the stored value, but that seems wasteful. surely there is a function like swap() or  std::swap(a, b), but i can't seem to find anything. anyone have any ideas? \n> \n> ph\n> \n> \n>",
+      "body_snippet": "Perhaps rev() can help?\n\nMaybe something like:\n\nx <- c(\"a\", \"b\", \"c\")\nc(x[1], rev(x[2:3]))\n\nJoão\nOn Tue, 2014-04-15 at 17:52 +0000, Hofmeister, Philip wrote:\n> this is probably more appropriate for a ",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 1,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-67754df2b0f3",
+      "message_id": "<A6DE71D711B50940B932A5BDDA70C799D88E1CCE@mbx0-node0.essex.ac.uk>",
+      "from_name": "Hofmeister, Philip",
+      "from_email_hash": "f5705bb4f81d6ed8951b66eb5dc186306c2c28287579fc42139974114c839af9",
+      "date": "2014-04-15T18:12:39Z",
+      "subject": "Re: swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": "<1397585127.14329.2.camel@Joao>",
+      "references": [
+        "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+        "<1397585127.14329.2.camel@Joao>"
+      ],
+      "body_plain": "Thanks, guys! I now have, uh, 4 workable solutions. I love how R gives you 18 different ways of doing the same thing . . . \n\nOn Apr 15, 2014, at 7:05 PM, João Veríssimo wrote:\n\n> Perhaps rev() can help?\n> \n> Maybe something like:\n> \n> x <- c(\"a\", \"b\", \"c\")\n> c(x[1], rev(x[2:3]))\n> \n> João\n> On Tue, 2014-04-15 at 17:52 +0000, Hofmeister, Philip wrote:\n>> this is probably more appropriate for a general R listserv, but i'm more likely to get an answer i can decipher here. apologies also for what is likely a simple fix, but i can't seem to find the right term or syntax to get this to work without writing ugly code.\n>> \n>> i want to swap values in a vector, e.g. \n>> \n>> x <- c(1, 2, 3)\n>> [1] 1 2 3\n>> \n>> and get back \n>> \n>> 1 3 2 \n>> \n>> i can do this by saving the 2nd or 3rd element of the vector elsewhere, replacing one of the vector elements (x[3] <- x[2]), and then restoring the stored value, but that seems wasteful. surely there is a function like swap() or  std::swap(a, b), but i can't seem to find anything. anyone have any ideas? \n>> \n>> ph\n>> \n>> \n>> \n> \n>",
+      "body_snippet": "Thanks, guys! I now have, uh, 4 workable solutions. I love how R gives you 18 different ways of doing the same thing . . . \n\nOn Apr 15, 2014, at 7:05 PM, João Veríssimo wrote:\n\n> Perhaps rev() can hel",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 2,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-caa11efe6079",
+      "message_id": "<CA+tkQ_PVh2wQKqNpgpoYThAFsbd+8W2R6iLdUT9HzMNGkn3cng@mail.gmail.com>",
+      "from_name": "Scott Jackson",
+      "from_email_hash": "6b252fdb0db23e4eec8f5c20586b9c7cdef284cab7e6983d44116cbeffba0a3b",
+      "date": "2014-04-15T18:22:55Z",
+      "subject": "Re: swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": "<1397585127.14329.2.camel@Joao>",
+      "references": [
+        "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+        "<1397585127.14329.2.camel@Joao>"
+      ],
+      "body_plain": "I think just writing a quick function would be the way to go here.  Would\nthis do what you want?\n\nswap <- function(x, a, b) {\n  out <- x\n  out[a] <- x[b]\n  out[b] <- x[a]\n  out\n}\n\ny <- 1:10\nswap(y, 2, 8)\n\n [1]  1  8  3  4  5  6  7  2  9 10\n\n-scott\n\n\nOn Tue, Apr 15, 2014 at 2:05 PM, João Veríssimo <jl.verissimo at gmail.com>wrote:\n\n> Perhaps rev() can help?\n>\n> Maybe something like:\n>\n> x <- c(\"a\", \"b\", \"c\")\n> c(x[1], rev(x[2:3]))\n>\n> João\n> On Tue, 2014-04-15 at 17:52 +0000, Hofmeister, Philip wrote:\n> > this is probably more appropriate for a general R listserv, but i'm more\n> likely to get an answer i can decipher here. apologies also for what is\n> likely a simple fix, but i can't seem to find the right term or syntax to\n> get this to work without writing ugly code.\n> >\n> > i want to swap values in a vector, e.g.\n> >\n> > x <- c(1, 2, 3)\n> > [1] 1 2 3\n> >\n> > and get back\n> >\n> > 1 3 2\n> >\n> > i can do this by saving the 2nd or 3rd element of the vector elsewhere,\n> replacing one of the vector elements (x[3] <- x[2]), and then restoring the\n> stored value, but that seems wasteful. surely there is a function like\n> swap() or  std::swap(a, b), but i can't seem to find anything. anyone have\n> any ideas?\n> >\n> > ph\n> >\n> >\n> >\n>\n>\n>",
+      "body_snippet": "I think just writing a quick function would be the way to go here.  Would\nthis do what you want?\n\nswap <- function(x, a, b) {\n  out <- x\n  out[a] <- x[b]\n  out[b] <- x[a]\n  out\n}\n\ny <- 1:10\nswap(y, 2,",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 2,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-174b34c849b6",
+      "message_id": "<14566a6bab0.27a4.977da8f081299ea799bbe427b091c952@ed.ac.uk>",
+      "from_name": "Martin Corley",
+      "from_email_hash": "85a0bca4399b34b7434a881b0516b555379ff7fe5d12492513b16cbe79fc15a5",
+      "date": "2014-04-15T18:29:35Z",
+      "subject": "Re: swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+      "references": [
+        "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>"
+      ],
+      "body_plain": "Direct assignment should do it:\n\nx[c(2,3)] <- x[c(3,2)]\n\n--MC\n-- \nMartin Corley\n\n\n\n\nOn 15 April 2014 18:55:57 \"Hofmeister, Philip\" <phofme-u5kTQ1pR2sj10XsdtD+oqA at public.gmane.org> wrote:\n\n> this is probably more appropriate for a general R listserv, but i'm more \n> likely to get an answer i can decipher here. apologies also for what is \n> likely a simple fix, but i can't seem to find the right term or syntax to \n> get this to work without writing ugly code.\n>\n> i want to swap values in a vector, e.g.\n> x <- c(1, 2, 3)\n> [1] 1 2 3\n>\n> and get back\n> 1 3 2\n> i can do this by saving the 2nd or 3rd element of the vector elsewhere, \n> replacing one of the vector elements (x[3] <- x[2]), and then restoring the \n> stored value, but that seems wasteful. surely there is a function like \n> swap() or  std::swap(a, b), but i can't seem to find anything. anyone have \n> any ideas?\n> ph\n>\n>\n>\n>\n\n\n\nThe University of Edinburgh is a charitable body, registered in\nScotland, with registration number SC005336.",
+      "body_snippet": "Direct assignment should do it:\n\nx[c(2,3)] <- x[c(3,2)]\n\n--MC\n-- \nMartin Corley\n\n\n\n\nOn 15 April 2014 18:55:57 \"Hofmeister, Philip\" <phofme-u5kTQ1pR2sj10XsdtD+oqA at public.gmane.org> wrote:\n\n> this is",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 1,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-b1f5086787d4",
+      "message_id": "<8A8D1B32-F2A6-4F15-86AD-995CE15C2102@utoronto.ca>",
+      "from_name": "Ewan Dunbar",
+      "from_email_hash": "255c086b80e7553a7250816f8e41e258300d742666211e213f042bbccd41d3f2",
+      "date": "2014-04-15T18:44:01Z",
+      "subject": "Re: swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+      "references": [
+        "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>"
+      ],
+      "body_plain": "hi philip -\nreordering elements of vectors can be done easily in R using indexing:\n\n# vector with elements 6 and 3 swapped\nx <- c(10, 12, 24, 42, 15, 17)\n[1] 10 12 24 42 15 17\nx <- x[c(1:2, 6, 4:5, 3)]\n[1] 10 12 17 42 15 24\n\nor, to be a bit more transparent about it:\n\n# swap values in positions m and n\nif (n < length(x)) {\n\tnew_order <- c(1:(m-1), n, (m+1):(n-1), m, (n+1):length(x))\n} else {\n\tnew_order <- c(1:(m-1), n, (m+1):(n-1), m)\n}\nx <- x[new_order]\n\nhth -e\n\nLe 15 avr. 2014 à 19:52, Hofmeister, Philip <phofme-u5kTQ1pR2sj10XsdtD+oqA at public.gmane.org> a écrit :\n\n> this is probably more appropriate for a general R listserv, but i'm more likely to get an answer i can decipher here. apologies also for what is likely a simple fix, but i can't seem to find the right term or syntax to get this to work without writing ugly code.\n> \n> i want to swap values in a vector, e.g. \n> \n> x <- c(1, 2, 3)\n> [1] 1 2 3\n> \n> and get back \n> \n> 1 3 2 \n> \n> i can do this by saving the 2nd or 3rd element of the vector elsewhere, replacing one of the vector elements (x[3] <- x[2]), and then restoring the stored value, but that seems wasteful. surely there is a function like swap() or  std::swap(a, b), but i can't seem to find anything. anyone have any ideas? \n> \n> ph\n> \n> \n>",
+      "body_snippet": "hi philip -\nreordering elements of vectors can be done easily in R using indexing:\n\n# vector with elements 6 and 3 swapped\nx <- c(10, 12, 24, 42, 15, 17)\n[1] 10 12 24 42 15 17\nx <- x[c(1:2, 6, 4:5, 3)",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 1,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-0bb436742363",
+      "message_id": "<CA+WbeuOc_kzV_2PSvsHVDDpzSt2zL_fORmrffcwCoSVGDQ+PqA@mail.gmail.com>",
+      "from_name": "Michael Shvartsman",
+      "from_email_hash": "f3507a7dff5b135fa7f43d2bc04dabe621e7e2c6e5bb86fb45f029e7e2bf86ee",
+      "date": "2014-04-15T18:45:02Z",
+      "subject": "Re: swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": "<1397585127.14329.2.camel@Joao>",
+      "references": [
+        "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+        "<1397585127.14329.2.camel@Joao>"
+      ],
+      "body_plain": "Are you looking for a clever one-liner for clarity or are you looking to\navoid copying for memory and performance reasons? In the former case,\nswap() in Kmisc provides what you want.\n\nlibrary(Kmisc)\n\nx <- 1:10\nx\nx <- swap(x, c(2,3), c(3,2))\nx\nx <- swap(x, c(2,10), c(10,2))\nx\n\nIn the latter case, your best bet is to compile R with\n--enable-memory-profiling (OSX R does this by default) and use tracemem()\nand Rprofmem().\n\n    Hope this helps!\n\n        Mike.\n\n\nOn Tue, Apr 15, 2014 at 2:05 PM, João Veríssimo <jl.verissimo-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:\n\n> Perhaps rev() can help?\n>\n> Maybe something like:\n>\n> x <- c(\"a\", \"b\", \"c\")\n> c(x[1], rev(x[2:3]))\n>\n> João\n> On Tue, 2014-04-15 at 17:52 +0000, Hofmeister, Philip wrote:\n> > this is probably more appropriate for a general R listserv, but i'm more\n> likely to get an answer i can decipher here. apologies also for what is\n> likely a simple fix, but i can't seem to find the right term or syntax to\n> get this to work without writing ugly code.\n> >\n> > i want to swap values in a vector, e.g.\n> >\n> > x <- c(1, 2, 3)\n> > [1] 1 2 3\n> >\n> > and get back\n> >\n> > 1 3 2\n> >\n> > i can do this by saving the 2nd or 3rd element of the vector elsewhere,\n> replacing one of the vector elements (x[3] <- x[2]), and then restoring the\n> stored value, but that seems wasteful. surely there is a function like\n> swap() or  std::swap(a, b), but i can't seem to find anything. anyone have\n> any ideas?\n> >\n> > ph\n> >\n> >\n> >\n>\n>\n>",
+      "body_snippet": "Are you looking for a clever one-liner for clarity or are you looking to\navoid copying for memory and performance reasons? In the former case,\nswap() in Kmisc provides what you want.\n\nlibrary(Kmisc)\n\n",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 2,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-c8320a4c2254",
+      "message_id": "<8AC96A43-A049-4470-B9C1-FCDE4B1073AF@utoronto.ca>",
+      "from_name": "Ewan Dunbar",
+      "from_email_hash": "255c086b80e7553a7250816f8e41e258300d742666211e213f042bbccd41d3f2",
+      "date": "2014-04-15T20:27:05Z",
+      "subject": "Re: swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": "<CA+WbeuOc_kzV_2PSvsHVDDpzSt2zL_fORmrffcwCoSVGDQ+PqA@mail.gmail.com>",
+      "references": [
+        "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+        "<1397585127.14329.2.camel@Joao>",
+        "<CA+WbeuOc_kzV_2PSvsHVDDpzSt2zL_fORmrffcwCoSVGDQ+PqA@mail.gmail.com>"
+      ],
+      "body_plain": "to be clear, swap() from Kmisc specifies the swappees not by index but by contents:\n\n\tlibrary(Kmisc)\n\tx <- 11:20\n\tx <- swap(x, c(2,4), c(4,2))\n\t# not the desired answer - nothing happened because 2 and 4 weren’t in the vector\n\t[1] 11 12 13 14 15 16 17 18 19 20\n\tx <- swap(x, c(12,14), c(14,12))\n\t# probably wanted this\n\t[1] 11 14 13 12 15 16 17 18 19 20\n\nfwiw, I personally would use mc’s version (x[c(2,4)] <- x[c(4,2)]) but what’s most clear depends on your audience, which includes but is never limited to you. wrapping in a function with a meaningful name does not hurt. as long as you let me take back what I suggested before :) - it has clunkiness of exactly the kind that indexing on the left hand side is there to avoid. -e\n\n\nLe 15 avr. 2014 à 20:45, Michael Shvartsman <mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org> a écrit :\n\n> Are you looking for a clever one-liner for clarity or are you looking to avoid copying for memory and performance reasons? In the former case, swap() in Kmisc provides what you want. \n> \n> library(Kmisc)\n> \n> x <- 1:10\n> x\n> x <- swap(x, c(2,3), c(3,2))\n> x\n> x <- swap(x, c(2,10), c(10,2))\n> x\n> \n> In the latter case, your best bet is to compile R with --enable-memory-profiling (OSX R does this by default) and use tracemem() and Rprofmem(). \n> \n>     Hope this helps! \n> \n>         Mike.\n> \n> \n> On Tue, Apr 15, 2014 at 2:05 PM, João Veríssimo <jl.verissimo-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:\n> Perhaps rev() can help?\n> \n> Maybe something like:\n> \n> x <- c(\"a\", \"b\", \"c\")\n> c(x[1], rev(x[2:3]))\n> \n> João\n> On Tue, 2014-04-15 at 17:52 +0000, Hofmeister, Philip wrote:\n> > this is probably more appropriate for a general R listserv, but i'm more likely to get an answer i can decipher here. apologies also for what is likely a simple fix, but i can't seem to find the right term or syntax to get this to work without writing ugly code.\n> >\n> > i want to swap values in a vector, e.g.\n> >\n> > x <- c(1, 2, 3)\n> > [1] 1 2 3\n> >\n> > and get back\n> >\n> > 1 3 2\n> >\n> > i can do this by saving the 2nd or 3rd element of the vector elsewhere, replacing one of the vector elements (x[3] <- x[2]), and then restoring the stored value, but that seems wasteful. surely there is a function like swap() or  std::swap(a, b), but i can't seem to find anything. anyone have any ideas?\n> >\n> > ph\n> >\n> >\n> >\n> \n> \n>",
+      "body_snippet": "to be clear, swap() from Kmisc specifies the swappees not by index but by contents:\n\n\tlibrary(Kmisc)\n\tx <- 11:20\n\tx <- swap(x, c(2,4), c(4,2))\n\t# not the desired answer - nothing happened because 2 an",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 3,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-cdbd805654ae",
+      "message_id": "<534DAA6F.10701@umich.edu>",
+      "from_name": "Michael Shvartsman",
+      "from_email_hash": "f3507a7dff5b135fa7f43d2bc04dabe621e7e2c6e5bb86fb45f029e7e2bf86ee",
+      "date": "2014-04-15T21:53:51Z",
+      "subject": "Re: swapping values without temporary storage",
+      "subject_clean": "swapping values without temporary storage",
+      "in_reply_to": "<8AC96A43-A049-4470-B9C1-FCDE4B1073AF@utoronto.ca>",
+      "references": [
+        "<A6DE71D711B50940B932A5BDDA70C799D88E1BEB@mbx0-node0.essex.ac.uk>",
+        "<1397585127.14329.2.camel@Joao>",
+        "<CA+WbeuOc_kzV_2PSvsHVDDpzSt2zL_fORmrffcwCoSVGDQ+PqA@mail.gmail.com>",
+        "<8AC96A43-A049-4470-B9C1-FCDE4B1073AF@utoronto.ca>"
+      ],
+      "body_plain": "D'oh, you're right. Thanks, Ewan -- and sorry, everyone else. Agreed \nthat Martin's version is cleanest.\n> Ewan Dunbar <mailto:ewan.dunbar-cmaem7PIVQRvgyatUqoQW7Dks+cytr/Z at public.gmane.org>\n> April 15, 2014 4:27 PM\n> to be clear, swap() from Kmisc specifies the swappees not by index but \n> by contents:\n>\n> library(Kmisc)\n> x <- 11:20\n> x <- swap(x, c(2,4), c(4,2))\n> # not the desired answer - nothing happened because 2 and 4 weren't in \n> the vector\n> [1] 11 12 13 14 15 16 17 18 19 20\n> x <- swap(x, c(12,14), c(14,12))\n> # probably wanted this\n> [1] 11 14 13 12 15 16 17 18 19 20\n>\n> fwiw, I personally would use mc's version (x[c(2,4)] <- x[c(4,2)]) but \n> what's most clear depends on your audience, which includes but is \n> never limited to you. wrapping in a function with a meaningful name \n> does not hurt. as long as you let me take back what I suggested before \n> :) - it has clunkiness of exactly the kind that indexing on the left \n> hand side is there to avoid. -e\n>\n>\n>\n>\n> Michael Shvartsman <mailto:mshvarts-63aXycvo3TyHXe+LvDLADg at public.gmane.org>\n> April 15, 2014 2:45 PM\n> Are you looking for a clever one-liner for clarity or are you looking \n> to avoid copying for memory and performance reasons? In the former \n> case, swap() in Kmisc provides what you want.\n>\n> library(Kmisc)\n>\n> x <- 1:10\n> x\n> x <- swap(x, c(2,3), c(3,2))\n> x\n> x <- swap(x, c(2,10), c(10,2))\n> x\n>\n> In the latter case, your best bet is to compile R with \n> --enable-memory-profiling (OSX R does this by default) and use \n> tracemem() and Rprofmem().\n>\n>     Hope this helps!\n>\n>         Mike.\n>\n>\n>\n> João Veríssimo <mailto:jl.verissimo-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>\n> April 15, 2014 2:05 PM\n> Perhaps rev() can help?\n>\n> Maybe something like:\n>\n> x <- c(\"a\", \"b\", \"c\")\n> c(x[1], rev(x[2:3]))\n>\n> João\n>\n>\n> Hofmeister, Philip <mailto:phofme-u5kTQ1pR2sj10XsdtD+oqA at public.gmane.org>\n> April 15, 2014 1:52 PM\n> this is probably more appropriate for a general R listserv, but i'm \n> more likely to get an answer i can decipher here. apologies also for \n> what is likely a simple fix, but i can't seem to find the right term \n> or syntax to get this to work without writing ugly code.\n>\n> i want to swap values in a vector, e.g.\n>\n> x <- c(1, 2, 3)\n> [1] 1 2 3\n>\n> and get back\n>\n> 1 3 2\n>\n> i can do this by saving the 2nd or 3rd element of the vector \n> elsewhere, replacing one of the vector elements (x[3] <- x[2]), and \n> then restoring the stored value, but that seems wasteful. surely there \n> is a function like swap() or std::swap(a, b), but i can't seem to find \n> anything. anyone have any ideas?\n>\n> ph\n>\n>\n>\n\n-------------- next part --------------\nA non-text attachment was scrubbed...\nName: compose-unknown-contact.jpg\nType: image/jpeg\nSize: 770 bytes",
+      "body_snippet": "D'oh, you're right. Thanks, Ewan -- and sorry, everyone else. Agreed \nthat Martin's version is cleanest.\n> Ewan Dunbar <mailto:ewan.dunbar-cmaem7PIVQRvgyatUqoQW7Dks+cytr/Z at public.gmane.org>\n> April",
+      "thread_id": "thread-d3e1252e1e10",
+      "thread_depth": 4,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-47a67e6e0bf6",
+      "message_id": "<DUB127-W92576720F97614C36DDD44DF5D0@phx.gbl>",
+      "from_name": "linda",
+      "from_email_hash": "444ba6bc5c2048b3fd565aef117ba197375464a2787fb02e9406f52156fcff99",
+      "date": "2014-04-18T07:29:42Z",
+      "subject": "lmer-random slopes with unique items across conditions",
+      "subject_clean": "lmer-random slopes with unique items across conditions",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear members of the ling-r-lang-L mailinglist,\n\n          \n\n        at the moment I am changing\n              the lmer-analyses on my eye tracking data, and I facing\n              one major problem. I hope you can help me by answering\n              this questions.\n\n              \n\n              I conducted an eye tracking study in which children read\n              an very easy (below grade level) and a more difficult text\n              (above grade level). The design is presented below.\n\n              \n\n              Grade --- Below\n              - Above \n\n              -----------------------------\n\n              Grade 3---Text A- Text B\n\n              Grade 5----Text B- Text C\n\n            \n\n            All words within the text\n            were included in the analyses. Word frequency, word length,\n            Working Memory capacity, decoding skills and reading\n            comprehension were included as fixed effects. Since the\n            children in the different grades did not read the same texts\n            (only text B was presented to all participants), the words\n            (items) were not identical across conditions. Hence, it is\n            difficult to include item as a random variable and I first\n            ran an analyses based on data that was aggregated by subject\n            and included only subject as a random variable. \n\n            Off course, the problem of making a Type I error inherently\n            increases. \n\n            \n\n            I figured that, in order to included item as a random\n            variable, I could make unique variable numbers across texts.\n            This would, I assume, explain variance of random effects\n            caused by a specific word/item, but not explain random\n            slopes across conditions (as itemnr is unqiue across\n            conditions). One major question is, that am not sure how\n            lmer estimates the random slopes now. There are a lot of\n            missings for each participants (about 152 items are missing\n            for each participant) since measurements are only available\n            for two out of three texts for each participant. Is lmer\n            able to estimate random slopes when have missing values. And\n            is it a good idea to include item as a random variable here,\n            or is it better to continue working on the aggregated data?\n\n        \n    -- \n\n        Kind regards,\n\n      \n      \n\n        Linda de Leeuw",
+      "body_snippet": "Dear members of the ling-r-lang-L mailinglist,\n\n          \n\n        at the moment I am changing\n              the lmer-analyses on my eye tracking data, and I facing\n              one major problem. I",
+      "thread_id": "thread-47a67e6e0bf6",
+      "thread_depth": 0,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-09dceb60c3b0",
+      "message_id": "<CA+tkQ_OC3RNz2=-1PV37JN-+grUn+LDwRO_ouhsYiwbfAwkwYw@mail.gmail.com>",
+      "from_name": "Scott Jackson",
+      "from_email_hash": "6b252fdb0db23e4eec8f5c20586b9c7cdef284cab7e6983d44116cbeffba0a3b",
+      "date": "2014-04-18T11:58:53Z",
+      "subject": "Re: lmer-random slopes with unique items across conditions",
+      "subject_clean": "lmer-random slopes with unique items across conditions",
+      "in_reply_to": "<DUB127-W92576720F97614C36DDD44DF5D0-MsuGFMq8XAE@public.gmane.org>",
+      "references": [
+        "<DUB127-W92576720F97614C36DDD44DF5D0@phx.gbl>"
+      ],
+      "body_plain": "Dear Linda,\n\nI would definitely include item as a random (intercept) effect.  There are\na few ways to code it, but probably the easiest is just to re-code your\nitem variable to be A1, A2..., B1, B2... so that each unique item has a\nunique label.\n\nOne way to think about it is that the data from different people in your\nexperiment is inherently more similar because people are seeing the same\nitems (or some of the same items). Thus, it should be helpful to model the\nvariance due to those common items, when the goal is to generalize results\nbeyond this set of items. That's the point of having the random effect. The\nfact that the design is unbalanced (in terms of some people seeing more\nitems in common than other people) is not necessarily a problem.  However,\ngiven that your Text B items are in two different conditions, between\nsubjects, you may want to look carefully at the random effect estimates for\nthose items, just to make sure they aren't creating some other weird\neffects in your data.  With eyetracking data, I think it's probably fine,\nbut I dunno, maybe some words are treated radically differently by 5th\ngraders compared to 3rd graders, in a way that would make it difficult to\nestimate the item random effect.  There will also be more data for these\nitems, so they will be driving the estimation of the random effect (and any\nrelated shrinkage) more than the Text A and C items.  Again, I don't think\nthis is necessarily problematic, but it wouldn't hurt to take a careful\nlook at things as you go.\n\nI'm not entirely sure what you mean by missing data.  At one level, there\nis planned missingness in the sense that the A and C text items are only\nseen by half the participants.  That should be okay.  Missingness on top of\nthat is something you may need to think more about.  Are there other\npatterns of missingness in your data?\n\nbest,\n-scott\n\n\n\nOn Fri, Apr 18, 2014 at 3:29 AM, linda <lindacharlotte-PkbjNfxxIARBDgjK7y7TUQ at public.gmane.org> wrote:\n\n>  Dear members of the ling-r-lang-L mailinglist,\n>\n> at the moment I am changing the lmer-analyses on my eye tracking data, and\n> I facing one major problem. I hope you can help me by answering this\n> questions.\n>\n> I conducted an eye tracking study in which children read an very easy\n> (below grade level) and a more difficult text (above grade level). The\n> design is presented below.\n>\n> Grade --- Below - Above\n> -----------------------------\n> Grade 3---Text A- Text B\n> Grade 5----Text B- Text C\n>\n> All words within the text were included in the analyses. Word frequency,\n> word length, Working Memory capacity, decoding skills and reading\n> comprehension were included as fixed effects. Since the children in the\n> different grades did not read the same texts (only text B was presented to\n> all participants), the words (items) were not identical across conditions.\n> Hence, it is difficult to include item as a random variable and I first ran\n> an analyses based on data that was aggregated by subject and included only\n> subject as a random variable.\n> Off course, the problem of making a Type I error inherently increases.\n>\n> I figured that, in order to included item as a random variable, I could\n> make unique variable numbers across texts. This would, I assume, explain\n> variance of random effects caused by a specific word/item, but not explain\n> random slopes across conditions (as itemnr is unqiue across conditions).\n> One major question is, that am not sure how lmer estimates the random\n> slopes now. There are a lot of missings for each participants (about 152\n> items are missing for each participant) since measurements are only\n> available for two out of three texts for each participant. Is lmer able to\n> estimate random slopes when have missing values. And is it a good idea to\n> include item as a random variable here, or is it better to continue working\n> on the aggregated data?\n>  --\n> Kind regards,\n>\n> Linda de Leeuw\n>\n>",
+      "body_snippet": "Dear Linda,\n\nI would definitely include item as a random (intercept) effect.  There are\na few ways to code it, but probably the easiest is just to re-code your\nitem variable to be A1, A2..., B1, B2...",
+      "thread_id": "thread-47a67e6e0bf6",
+      "thread_depth": 1,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-1e52c24ee424",
+      "message_id": "<CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com>",
+      "from_name": "Yingying Tan",
+      "from_email_hash": "e7ed4488e159b8836a3f199e1fb5d06524b01d043de157eab63753eb4b7ec15a",
+      "date": "2014-04-22T22:47:44Z",
+      "subject": "Problem of running lmer on Mac OS 10.9 Mavericks",
+      "subject_clean": "Problem of running lmer on Mac OS 10.9 Mavericks",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Hi all\n\nI accidentally upgraded my Mac's OS to Mavericks (!) today. Then I was\nforced to upgraded R (R 3.1.0 GUI 1.64 Mavericks build), as well as Rstudio\n(RStudio-0.98.501).\n\nThen I installed several packages as usual:\ninstall.packages (c(\"rpart\", \"chron\", \"Hmisc\", \"Design\", \"Matrix\", \"lme4\",\n\"coda\", \"e1071\", \"zipfR\", \"ape\", \"languageR\"))\n\nThen I run the following command:\nlibrary (LanguageR)\n\nBut the commend \"library(languageR)\" seemed not working appropriately.\nNothing happened after running this commend, although there is no error\nmessage. However, when I tried to call the lmer function, the error message\nsaid \"Error: could not find function \"lmer\". \"\n\nI got the error message as \"One or more of the packages that will be\nupdated by this installation are currently loaded. Restarting R prior to\nupdating these packages is strongly recommended. RStudio can restart R and\nthen automatically continue the installation after restarting (all work and\ndata will be preserved during the restart). Do you want to restart R prior\nto installing?\" I clicked \"Yes\". But this one come out repeatedly...\n\nI tried to check each function (e.g. library (lme4)). The lmer function\nseems work, but the output is wrong.\n\nI am not very familiar with R-language. I am wondering if anyone have met\nthis problem before and find a solution to it? Thanks a lot!\n\nBest,\nYingying",
+      "body_snippet": "Hi all\n\nI accidentally upgraded my Mac's OS to Mavericks (!) today. Then I was\nforced to upgraded R (R 3.1.0 GUI 1.64 Mavericks build), as well as Rstudio\n(RStudio-0.98.501).\n\nThen I installed several",
+      "thread_id": "thread-1e52c24ee424",
+      "thread_depth": 0,
+      "month": "2014-04"
+    },
+    {
+      "id": "msg-9f90eef536e9",
+      "message_id": "<67D909CD-542C-4733-9442-C1481CC6110B@ucsd.edu>",
+      "from_name": "Levy, Roger",
+      "from_email_hash": "4205c8244bc61714fbca6363348963c89e1be6e80edebb04ab2fd612bbd92858",
+      "date": "2014-04-24T00:09:43Z",
+      "subject": "Re: Problem of running lmer on Mac OS 10.9 Mavericks",
+      "subject_clean": "Problem of running lmer on Mac OS 10.9 Mavericks",
+      "in_reply_to": "<CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com>",
+      "references": [
+        "<CAMLCjkyBXu+Rm6wC+pMwssPqjKuaE9NnYUHFP9xoKN9oNtNx2g@mail.gmail.com>"
+      ],
+      "body_plain": "Hi Yingying,\n\nThis question is probably more appropriate for R-SIG-Mac (r-sig-mac at r-project.org<mailto:r-sig-mac-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org>).  And you’ll need to provide more precise details on the input you used and the output you got.\n\nBest & good luck,\n\nRoger\n\n\n\nOn Apr 22, 2014, at 3:47 PM, Yingying Tan <tyy3737-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org<mailto:tyy3737 at gmail.com>> wrote:\n\nHi all\n\nI accidentally upgraded my Mac's OS to Mavericks (!) today. Then I was forced to upgraded R (R 3.1.0 GUI 1.64 Mavericks build), as well as Rstudio (RStudio-0.98.501).\n\nThen I installed several packages as usual:\ninstall.packages (c(\"rpart\", \"chron\", \"Hmisc\", \"Design\", \"Matrix\", \"lme4\", \"coda\", \"e1071\", \"zipfR\", \"ape\", \"languageR\"))\n\nThen I run the following command:\nlibrary (LanguageR)\n\nBut the commend \"library(languageR)\" seemed not working appropriately. Nothing happened after running this commend, although there is no error message. However, when I tried to call the lmer function, the error message said \"Error: could not find function \"lmer\". \"\n\nI got the error message as \"One or more of the packages that will be updated by this installation are currently loaded. Restarting R prior to updating these packages is strongly recommended. RStudio can restart R and then automatically continue the installation after restarting (all work and data will be preserved during the restart). Do you want to restart R prior to installing?\" I clicked \"Yes\". But this one come out repeatedly...\n\nI tried to check each function (e.g. library (lme4)). The lmer function seems work, but the output is wrong.\n\nI am not very familiar with R-language. I am wondering if anyone have met this problem before and find a solution to it? Thanks a lot!\n\nBest,\nYingying",
+      "body_snippet": "Hi Yingying,\n\nThis question is probably more appropriate for R-SIG-Mac (r-sig-mac at r-project.org<mailto:r-sig-mac-0bNBQ1PAWB4BXFe83j6qeQ at public.gmane.org>).  And you’ll need to provide more preci",
+      "thread_id": "thread-1e52c24ee424",
+      "thread_depth": 1,
+      "month": "2014-04"
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-e69f25fc09df",
+      "subject": "Investigating random slope variance",
+      "message_count": 19,
+      "participants": [
+        "Daniel Ezra Johnson",
+        "Levy, Roger",
+        "Scott Jackson",
+        "T. Florian Jaeger",
+        "Titus von der Malsburg"
+      ],
+      "started": "2014-04-03T17:10:37Z",
+      "last_reply": "2014-04-08T16:58:53Z",
+      "root_message_id": "msg-e69f25fc09df"
+    },
+    {
+      "id": "thread-afafce6a1a8e",
+      "subject": "lmer sliding contrasts",
+      "message_count": 1,
+      "participants": [
+        "Ray Becker"
+      ],
+      "started": "2014-04-03T18:43:18Z",
+      "last_reply": "2014-04-03T18:43:18Z",
+      "root_message_id": "msg-afafce6a1a8e"
+    },
+    {
+      "id": "thread-5302eaff4411",
+      "subject": "aov in R",
+      "message_count": 3,
+      "participants": [
+        "João Veríssimo",
+        "T. Florian Jaeger",
+        "Zhenguang Cai"
+      ],
+      "started": "2014-04-04T16:50:18Z",
+      "last_reply": "2014-04-04T20:40:38Z",
+      "root_message_id": "msg-5302eaff4411"
+    },
+    {
+      "id": "thread-a4ed502556a4",
+      "subject": "lmer sliding contrasts",
+      "message_count": 1,
+      "participants": [
+        "T. Florian Jaeger"
+      ],
+      "started": "2014-04-05T14:58:04Z",
+      "last_reply": "2014-04-05T14:58:04Z",
+      "root_message_id": "msg-a4ed502556a4"
+    },
+    {
+      "id": "thread-2d52ed687462",
+      "subject": "weights in empirical logit analyses",
+      "message_count": 1,
+      "participants": [
+        "João Veríssimo"
+      ],
+      "started": "2014-04-13T18:40:50Z",
+      "last_reply": "2014-04-13T18:40:50Z",
+      "root_message_id": "msg-2d52ed687462"
+    },
+    {
+      "id": "thread-d3e1252e1e10",
+      "subject": "swapping values without temporary storage",
+      "message_count": 9,
+      "participants": [
+        "Ewan Dunbar",
+        "Hofmeister, Philip",
+        "João Veríssimo",
+        "Martin Corley",
+        "Michael Shvartsman",
+        "Scott Jackson"
+      ],
+      "started": "2014-04-15T17:52:39Z",
+      "last_reply": "2014-04-15T21:53:51Z",
+      "root_message_id": "msg-d3e1252e1e10"
+    },
+    {
+      "id": "thread-47a67e6e0bf6",
+      "subject": "lmer-random slopes with unique items across conditions",
+      "message_count": 2,
+      "participants": [
+        "Scott Jackson",
+        "linda"
+      ],
+      "started": "2014-04-18T07:29:42Z",
+      "last_reply": "2014-04-18T11:58:53Z",
+      "root_message_id": "msg-47a67e6e0bf6"
+    },
+    {
+      "id": "thread-1e52c24ee424",
+      "subject": "Problem of running lmer on Mac OS 10.9 Mavericks",
+      "message_count": 2,
+      "participants": [
+        "Levy, Roger",
+        "Yingying Tan"
+      ],
+      "started": "2014-04-22T22:47:44Z",
+      "last_reply": "2014-04-24T00:09:43Z",
+      "root_message_id": "msg-1e52c24ee424"
+    }
+  ]
+}

@@ -1,0 +1,1628 @@
+From maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org  Tue Jan  3 23:48:53 2012
+From: maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org (Francois Maurice)
+Date: Tue, 03 Jan 2012 15:48:53 -0800
+Subject: Problem with sim() when trying to use polynomial time in the random part within Zelig()
+In-Reply-To: <1325354477.81761.YahooMailNeo@web114610.mail.gq1.yahoo.com>
+References: <1325354477.81761.YahooMailNeo@web114610.mail.gq1.yahoo.com>
+Message-ID: <1325634533.61540.YahooMailNeo@web114608.mail.gq1.yahoo.com>
+
+Hi,
+ 
+The sim() fonction gives me the following message :
+ 
+Error in .local(object, ...) : Code not written yet
+ 
+The sim() object is not produce.
+ 
+I'm trying to evaluate a causal effect in a longitudinal study with a mixed model after mathing with MatchIt(). Here's the code :
+ 
+z.nearest <- zelig(outcome ~ treat + T + T2 + T3 + tag(1 + T + T2 | ID.factor), data=matched.nearest.long, model="ls.mixed")x.nearest.0 <- setx(z.nearest, fn=NULL, CINTER2G=0)
+x.nearest.1 <- setx(z.nearest, fn=NULL, CINTER2G=1)
+s.nearest <- sim(z.nearest, x=x.nearest.0, x1=x.nearest.1)
+ 
+I'm using polynomial time with a random part. There is no problem when the random part is only made of one term like this:
+ 
+z.nearest <- zelig(outcome ~ treat + T + T2 + T3 + tag(T | ID.factor), data=matched.nearest.long, model="ls.mixed")
+ 
+I posted a problem this last summer about polynomial time, but at that time the problem was within Zelig itself. Zelig was not able to cope with polynomial time, but that problem seems resolved. Maybe the problem with sim() has a link with that one.
+ 
+Thanks,
+ 
+Françcois Maurice
+
+-------------- next part --------------
+
+
+From plesciac-/Zw1syy4LHg at public.gmane.org  Wed Jan  4 08:44:30 2012
+From: plesciac-/Zw1syy4LHg at public.gmane.org (Carolina Plescia)
+Date: Wed, 04 Jan 2012 09:44:30 +0100
+Subject: speed up 'sim' in Zelig when using ei.RxC
+Message-ID: <CAHWqGwJxWTNUyzjCBkSdQiOKK+yeNcXkeERiQxMgyiFPnmeQtA@mail.gmail.com>
+
+Dear all,
+
+
+
+I am using the model "ei.RxC" in Zelig, but unfortunately when I add
+covariates the “sim" function slows down terribly (more than 4 days for
+20-30 simulations [n=20]). My intuition was to profile the sim function to
+find out which sub-function is the bottleneck using:
+
+
+
+Rprof("profilesim.out")
+
+out<--sim(...)
+
+summaryRprof("profilesim.out")
+
+
+
+Unfortunately I get the following error:
+
+
+
+summaryRprof("profilesim.out")
+
+Error in FUN(X[[556L]], ...) : subscript out of bounds
+
+
+
+Might it be that the resulting matrix is just too big to be printed by R?
+
+(The profilesim.out is nearly 70MB...)
+
+
+
+When I use the Rprof with the demo code in Zelig it looks like it is
+spending a lot of time in optim.
+
+
+
+data(Weimar)
+
+z.out2 <- zelig(cbind(Nazi, Government, Communists, FarRight, Other) ~
+
+        shareunemployed + shareblue + sharewhite + shareself +
+
+        sharedomestic, covar = ~ shareprotestants, model = "ei.RxC", data =
+Weimar)
+
+x.out2 <- setx(z.out2)
+
+Rprof("simcall")
+
+s.out2 <- sim(z.out2, num = 10)
+
+Rprof(NULL)
+
+summaryRprof("simcall")
+
+$by.self
+
+                     self.time self.pct total.time total.pct
+
+"apply"                  104.76    36.51     173.52     60.47
+
+"fn"                      54.54    19.01     285.48     99.48
+
+"matrix"                  10.42     3.63      25.00      8.71
+
+"unlist"                  10.10     3.52      25.30      8.82
+
+"exp"                      9.74     3.39       9.74      3.39
+
+"as.vector"                9.28     3.23      14.40      5.02
+
+"FUN"                      8.94     3.12       9.06      3.16
+
+"lapply"                   8.66     3.02      15.34      5.35
+
+"aperm"                    6.84     2.38       6.84      2.38
+
+"match.fun"                5.80     2.02       6.34      2.21
+
+"sum"                      5.24     1.83       5.24      1.83
+
+"%*%"                      4.34     1.51       4.34      1.51
+
+"array"                    3.80     1.32       4.90      1.71
+
+"+"                        3.72     1.30       3.72      1.30
+
+"-"                        3.70     1.29       3.70      1.29
+
+"*"                        3.54     1.23       3.54      1.23
+
+"/"                        2.76     0.96       2.76      0.96
+
+"!"                        2.70     0.94       2.70      0.94
+
+"vector"                   2.60     0.91       2.60      0.91
+
+"prod"                     2.52     0.88       2.52      0.88
+
+"=="                       2.44     0.85       2.44      0.85
+
+"^"                        2.34     0.82       2.34      0.82
+
+"any"                      2.22     0.77       2.22      0.77
+
+"!="                       2.20     0.77       2.20      0.77
+
+"is.vector"                2.18     0.76       2.18      0.76
+
+"is.null"                  1.64     0.57       1.64      0.57
+
+"length"                   1.52     0.53       1.52      0.53
+
+"dim<-"                    1.36     0.47       1.36      0.47
+
+"<"                        0.90     0.31       0.90      0.31
+
+":"                        0.86     0.30       0.86      0.30
+
+"is.object"                0.72     0.25       0.72      0.25
+
+"is.function"              0.54     0.19       0.54      0.19
+
+"<Anonymous>"              0.42     0.15     285.90     99.63
+
+"strsplit"                 0.40     0.14       0.40      0.14
+
+"("                        0.34     0.12       0.34      0.12
+
+"dim"                      0.34     0.12       0.34      0.12
+
+"is.character"             0.34     0.12       0.34      0.12
+
+"is.recursive"             0.32     0.11       0.32      0.11
+
+"dimnames"                 0.30     0.10       0.30      0.10
+
+"names<-"                  0.28     0.10       0.28      0.10
+
+"optim"                    0.24     0.08     286.14     99.71
+
+"names"                    0.22     0.08       0.22      0.08
+
+"seq_len"                  0.22     0.08       0.22      0.08
+
+"as.integer"               0.12     0.04       0.12      0.04
+
+">"                        0.10     0.03       0.10      0.03
+
+"readLines"                0.08     0.03       0.08      0.03
+
+"unique.default"           0.06     0.02       0.10      0.03
+
+"is.finite"                0.06     0.02       0.06      0.02
+
+"inherits"                 0.04     0.01       0.04      0.01
+
+"is.numeric"               0.04     0.01       0.04      0.01
+
+".Call"                    0.02     0.01       0.02      0.01
+
+"is.list"                  0.02     0.01       0.02      0.01
+
+"match"                    0.02     0.01       0.02      0.01
+
+"model.frame.default"      0.02     0.01       0.02      0.01
+
+"rownames"                 0.02     0.01       0.02      0.01
+
+"structure"                0.02     0.01       0.02      0.01
+
+
+
+$by.total
+
+                      total.time total.pct self.time self.pct
+
+"sim"                      286.28     99.76      0.00     0.00
+
+"sim.eiRxC"                286.28     99.76      0.00     0.00
+
+"boot"                     286.24     99.75      0.00     0.00
+
+"callparamseiestim"        286.24     99.75      0.00     0.00
+
+"eval"                     286.24     99.75      0.00     0.00
+
+"statistic"                286.24     99.75      0.00     0.00
+
+"zelig"                    286.24     99.75      0.00     0.00
+
+"zelig.default"            286.24     99.75      0.00     0.00
+
+"paramsei.estim"           286.18     99.73      0.00     0.00
+
+"optim"                    286.14     99.71      0.24     0.08
+
+"<Anonymous>"              285.90     99.63      0.42     0.15
+
+"fn"                       285.48     99.48     54.54    19.01
+
+"apply"                    173.52     60.47    104.76    36.51
+
+"unlist"                    25.30      8.82     10.10     3.52
+
+"matrix"                    25.00      8.71     10.42     3.63
+
+"lapply"                    15.34      5.35      8.66     3.02
+
+"as.vector"                 14.40      5.02      9.28     3.23
+
+"exp"                        9.74      3.39      9.74     3.39
+
+"FUN"                        9.06      3.16      8.94     3.12
+
+"aperm"                      6.84      2.38      6.84     2.38
+
+"match.fun"                  6.34      2.21      5.80     2.02
+
+"sum"                        5.24      1.83      5.24     1.83
+
+"array"                      4.90      1.71      3.80     1.32
+
+"%*%"                        4.34      1.51      4.34     1.51
+
+"+"                          3.72      1.30      3.72     1.30
+
+"-"                          3.70      1.29      3.70     1.29
+
+"*"                          3.54      1.23      3.54     1.23
+
+"/"                          2.76      0.96      2.76     0.96
+
+"!"                          2.70      0.94      2.70     0.94
+
+"vector"                     2.60      0.91      2.60     0.91
+
+"prod"                       2.52      0.88      2.52     0.88
+
+"=="                         2.44      0.85      2.44     0.85
+
+"^"                          2.34      0.82      2.34     0.82
+
+"any"                        2.22      0.77      2.22     0.77
+
+"!="                         2.20      0.77      2.20     0.77
+
+"is.vector"                  2.18      0.76      2.18     0.76
+
+"is.null"                    1.64      0.57      1.64     0.57
+
+"length"                     1.52      0.53      1.52     0.53
+
+"dim<-"                      1.36      0.47      1.36     0.47
+
+"<"                          0.90      0.31      0.90     0.31
+
+":"                          0.86      0.30      0.86     0.30
+
+"is.object"                  0.72      0.25      0.72     0.25
+
+"summaryRprof"               0.66      0.23      0.00     0.00
+
+"is.function"                0.54      0.19      0.54     0.19
+
+"strsplit"                   0.40      0.14      0.40     0.14
+
+"("                          0.34      0.12      0.34     0.12
+
+"dim"                        0.34      0.12      0.34     0.12
+
+"is.character"               0.34      0.12      0.34     0.12
+
+"is.recursive"               0.32      0.11      0.32     0.11
+
+"dimnames"                   0.30      0.10      0.30     0.10
+
+"names<-"                    0.28      0.10      0.28     0.10
+
+"names"                      0.22      0.08      0.22     0.08
+
+"seq_len"                    0.22      0.08      0.22     0.08
+
+"as.integer"                 0.12      0.04      0.12     0.04
+
+">"                          0.10      0.03      0.10     0.03
+
+"unique.default"             0.10      0.03      0.06     0.02
+
+"readLines"                  0.08      0.03      0.08     0.03
+
+"is.finite"                  0.06      0.02      0.06     0.02
+
+"cmei"                       0.06      0.02      0.00     0.00
+
+"inherits"                   0.04      0.01      0.04     0.01
+
+"is.numeric"                 0.04      0.01      0.04     0.01
+
+"as.matrix"                  0.04      0.01      0.00     0.00
+
+"calc.fractions"             0.04      0.01      0.00     0.00
+
+"is.factor"                  0.04      0.01      0.00     0.00
+
+"qi"                         0.04      0.01      0.00     0.00
+
+"qi.eiRxC"                   0.04      0.01      0.00     0.00
+
+".Call"                      0.02      0.01      0.02     0.01
+
+"is.list"                    0.02      0.01      0.02     0.01
+
+"match"                      0.02      0.01      0.02     0.01
+
+"model.frame.default"        0.02      0.01      0.02     0.01
+
+"rownames"                   0.02      0.01      0.02     0.01
+
+"structure"                  0.02      0.01      0.02     0.01
+
+"["                          0.02      0.01      0.00     0.00
+
+"as.matrix.data.frame"       0.02      0.01      0.00     0.00
+
+"cbind"                      0.02      0.01      0.00     0.00
+
+"[.data.frame"               0.02      0.01      0.00     0.00
+
+"factor"                     0.02      0.01      0.00     0.00
+
+"mean.default"               0.02      0.01      0.00     0.00
+
+"model.frame"                0.02      0.01      0.00     0.00
+
+"sapply"                     0.02      0.01      0.00     0.00
+
+"solve"                      0.02      0.01      0.00     0.00
+
+"solve.default"              0.02      0.01      0.00     0.00
+
+"table"                      0.02      0.01      0.00     0.00
+
+"unique"                     0.02      0.01      0.00     0.00
+
+
+
+$sample.interval
+
+[1] 0.02
+
+$sampling.time
+
+[1] 286.96
+
+
+
+
+
+My questions are:
+
+
+
+1) Why do I get the following error when I profile my code?
+
+
+
+summaryRprof("profilesim.out")
+
+Error in FUN(X[[556L]], ...) : subscript out of bounds
+
+
+
+2) Can I assume from the demo example that the function that needs to be
+speeded up when I use my code is"optim"?
+
+
+
+3) If so, which is the best way to speed up the sim/optim function?
+
+
+
+I greatly appreciate any help in this regard.
+
+
+
+Thank you in advance.
+
+
+
+Best,
+
+Carolina
+
+
+
+
+
+-- 
+Carolina Plescia
+
+PhD candidate and IRCHSS Scholar
+Department of Political Science
+Trinity College Dublin
+College Green 2-3
+Dublin 2
+Email: plesciac-/Zw1syy4LHg at public.gmane.org
+
+-------------- next part --------------
+
+
+From king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org  Wed Jan  4 14:33:17 2012
+From: king-nRXb03v5zC6Vc3sceRu5cw at public.gmane.org (Gary King)
+Date: Wed, 04 Jan 2012 09:33:17 -0500
+Subject: Re: speed up 'sim' in Zelig when using ei.RxC
+In-Reply-To: <CAHWqGwJxWTNUyzjCBkSdQiOKK+yeNcXkeERiQxMgyiFPnmeQtA@mail.gmail.com>
+References: <CAHWqGwJxWTNUyzjCBkSdQiOKK+yeNcXkeERiQxMgyiFPnmeQtA@mail.gmail.com>
+Message-ID: <CANHDHZxogUM=CV5PeY2yK4MAO12qZTWk0JisT4osASPrzKZcLQ@mail.gmail.com>
+
+Carolina, I gather you have 20 observations ("n=20").  With this model, you
+have many more parameters than that.   But even if i misread your note
+about the n, odds are you're just asking too much from the data.  I'd start
+with the simplest possible model, get that to work and then complicate it
+one step at a time from there.  that way you'll be able to isolate what the
+issue is.  maybe its one of the covariates is nearly constant or correlated
+with another variable perhaps.
+
+Gary
+--
+*Gary King* - Albert J. Weatherhead III University Professor - Director,
+IQSS - Harvard University
+GKing.Harvard.edu <http://gking.harvard.edu/> - King-vbSkjhsARtCVc3sceRu5cw at public.gmane.org -
+@kinggary<http://twitter.com/kinggary>- 617-500-7570 - Asst 495-9271 -
+Fax 812-8581
+
+
+
+On Wed, Jan 4, 2012 at 3:44 AM, Carolina Plescia <plesciac-/Zw1syy4LHg at public.gmane.org> wrote:
+
+> Dear all,
+>
+>
+>
+> I am using the model "ei.RxC" in Zelig, but unfortunately when I add
+> covariates the “sim" function slows down terribly (more than 4 days for
+> 20-30 simulations [n=20]). My intuition was to profile the sim function to
+> find out which sub-function is the bottleneck using:
+>
+>
+>
+> Rprof("profilesim.out")
+>
+> out<--sim(...)
+>
+> summaryRprof("profilesim.out")
+>
+>
+>
+> Unfortunately I get the following error:
+>
+>
+>
+> summaryRprof("profilesim.out")
+>
+> Error in FUN(X[[556L]], ...) : subscript out of bounds
+>
+>
+>
+> Might it be that the resulting matrix is just too big to be printed by R?
+>
+> (The profilesim.out is nearly 70MB...)
+>
+>
+>
+> When I use the Rprof with the demo code in Zelig it looks like it is
+> spending a lot of time in optim.
+>
+>
+>
+> data(Weimar)
+>
+> z.out2 <- zelig(cbind(Nazi, Government, Communists, FarRight, Other) ~
+>
+>         shareunemployed + shareblue + sharewhite + shareself +
+>
+>         sharedomestic, covar = ~ shareprotestants, model = "ei.RxC", data
+> = Weimar)
+>
+> x.out2 <- setx(z.out2)
+>
+> Rprof("simcall")
+>
+> s.out2 <- sim(z.out2, num = 10)
+>
+> Rprof(NULL)
+>
+> summaryRprof("simcall")
+>
+> $by.self
+>
+>                      self.time self.pct total.time total.pct
+>
+> "apply"                  104.76    36.51     173.52     60.47
+>
+> "fn"                      54.54    19.01     285.48     99.48
+>
+> "matrix"                  10.42     3.63      25.00      8.71
+>
+> "unlist"                  10.10     3.52      25.30      8.82
+>
+> "exp"                      9.74     3.39       9.74      3.39
+>
+> "as.vector"                9.28     3.23      14.40      5.02
+>
+> "FUN"                      8.94     3.12       9.06      3.16
+>
+> "lapply"                   8.66     3.02      15.34      5.35
+>
+> "aperm"                    6.84     2.38       6.84      2.38
+>
+> "match.fun"                5.80     2.02       6.34      2.21
+>
+> "sum"                      5.24     1.83       5.24      1.83
+>
+> "%*%"                      4.34     1.51       4.34      1.51
+>
+> "array"                    3.80     1.32       4.90      1.71
+>
+> "+"                        3.72     1.30       3.72      1.30
+>
+> "-"                        3.70     1.29       3.70      1.29
+>
+> "*"                        3.54     1.23       3.54      1.23
+>
+> "/"                        2.76     0.96       2.76      0.96
+>
+> "!"                        2.70     0.94       2.70      0.94
+>
+> "vector"                   2.60     0.91       2.60      0.91
+>
+> "prod"                     2.52     0.88       2.52      0.88
+>
+> "=="                       2.44     0.85       2.44      0.85
+>
+> "^"                        2.34     0.82       2.34      0.82
+>
+> "any"                      2.22     0.77       2.22      0.77
+>
+> "!="                       2.20     0.77       2.20      0.77
+>
+> "is.vector"                2.18     0.76       2.18      0.76
+>
+> "is.null"                  1.64     0.57       1.64      0.57
+>
+> "length"                   1.52     0.53       1.52      0.53
+>
+> "dim<-"                    1.36     0.47       1.36      0.47
+>
+> "<"                        0.90     0.31       0.90      0.31
+>
+> ":"                        0.86     0.30       0.86      0.30
+>
+> "is.object"                0.72     0.25       0.72      0.25
+>
+> "is.function"              0.54     0.19       0.54      0.19
+>
+> "<Anonymous>"              0.42     0.15     285.90     99.63
+>
+> "strsplit"                 0.40     0.14       0.40      0.14
+>
+> "("                        0.34     0.12       0.34      0.12
+>
+> "dim"                      0.34     0.12       0.34      0.12
+>
+> "is.character"             0.34     0.12       0.34      0.12
+>
+> "is.recursive"             0.32     0.11       0.32      0.11
+>
+> "dimnames"                 0.30     0.10       0.30      0.10
+>
+> "names<-"                  0.28     0.10       0.28      0.10
+>
+> "optim"                    0.24     0.08     286.14     99.71
+>
+> "names"                    0.22     0.08       0.22      0.08
+>
+> "seq_len"                  0.22     0.08       0.22      0.08
+>
+> "as.integer"               0.12     0.04       0.12      0.04
+>
+> ">"                        0.10     0.03       0.10      0.03
+>
+> "readLines"                0.08     0.03       0.08      0.03
+>
+> "unique.default"           0.06     0.02       0.10      0.03
+>
+> "is.finite"                0.06     0.02       0.06      0.02
+>
+> "inherits"                 0.04     0.01       0.04      0.01
+>
+> "is.numeric"               0.04     0.01       0.04      0.01
+>
+> ".Call"                    0.02     0.01       0.02      0.01
+>
+> "is.list"                  0.02     0.01       0.02      0.01
+>
+> "match"                    0.02     0.01       0.02      0.01
+>
+> "model.frame.default"      0.02     0.01       0.02      0.01
+>
+> "rownames"                 0.02     0.01       0.02      0.01
+>
+> "structure"                0.02     0.01       0.02      0.01
+>
+>
+>
+> $by.total
+>
+>                       total.time total.pct self.time self.pct
+>
+> "sim"                      286.28     99.76      0.00     0.00
+>
+> "sim.eiRxC"                286.28     99.76      0.00     0.00
+>
+> "boot"                     286.24     99.75      0.00     0.00
+>
+> "callparamseiestim"        286.24     99.75      0.00     0.00
+>
+> "eval"                     286.24     99.75      0.00     0.00
+>
+> "statistic"                286.24     99.75      0.00     0.00
+>
+> "zelig"                    286.24     99.75      0.00     0.00
+>
+> "zelig.default"            286.24     99.75      0.00     0.00
+>
+> "paramsei.estim"           286.18     99.73      0.00     0.00
+>
+> "optim"                    286.14     99.71      0.24     0.08
+>
+> "<Anonymous>"              285.90     99.63      0.42     0.15
+>
+> "fn"                       285.48     99.48     54.54    19.01
+>
+> "apply"                    173.52     60.47    104.76    36.51
+>
+> "unlist"                    25.30      8.82     10.10     3.52
+>
+> "matrix"                    25.00      8.71     10.42     3.63
+>
+> "lapply"                    15.34      5.35      8.66     3.02
+>
+> "as.vector"                 14.40      5.02      9.28     3.23
+>
+> "exp"                        9.74      3.39      9.74     3.39
+>
+> "FUN"                        9.06      3.16      8.94     3.12
+>
+> "aperm"                      6.84      2.38      6.84     2.38
+>
+> "match.fun"                  6.34      2.21      5.80     2.02
+>
+> "sum"                        5.24      1.83      5.24     1.83
+>
+> "array"                      4.90      1.71      3.80     1.32
+>
+> "%*%"                        4.34      1.51      4.34     1.51
+>
+> "+"                          3.72      1.30      3.72     1.30
+>
+> "-"                          3.70      1.29      3.70     1.29
+>
+> "*"                          3.54      1.23      3.54     1.23
+>
+> "/"                          2.76      0.96      2.76     0.96
+>
+> "!"                          2.70      0.94      2.70     0.94
+>
+> "vector"                     2.60      0.91      2.60     0.91
+>
+> "prod"                       2.52      0.88      2.52     0.88
+>
+> "=="                         2.44      0.85      2.44     0.85
+>
+> "^"                          2.34      0.82      2.34     0.82
+>
+> "any"                        2.22      0.77      2.22     0.77
+>
+> "!="                         2.20      0.77      2.20     0.77
+>
+> "is.vector"                  2.18      0.76      2.18     0.76
+>
+> "is.null"                    1.64      0.57      1.64     0.57
+>
+> "length"                     1.52      0.53      1.52     0.53
+>
+> "dim<-"                      1.36      0.47      1.36     0.47
+>
+> "<"                          0.90      0.31      0.90     0.31
+>
+> ":"                          0.86      0.30      0.86     0.30
+>
+> "is.object"                  0.72      0.25      0.72     0.25
+>
+> "summaryRprof"               0.66      0.23      0.00     0.00
+>
+> "is.function"                0.54      0.19      0.54     0.19
+>
+> "strsplit"                   0.40      0.14      0.40     0.14
+>
+> "("                          0.34      0.12      0.34     0.12
+>
+> "dim"                        0.34      0.12      0.34     0.12
+>
+> "is.character"               0.34      0.12      0.34     0.12
+>
+> "is.recursive"               0.32      0.11      0.32     0.11
+>
+> "dimnames"                   0.30      0.10      0.30     0.10
+>
+> "names<-"                    0.28      0.10      0.28     0.10
+>
+> "names"                      0.22      0.08      0.22     0.08
+>
+> "seq_len"                    0.22      0.08      0.22     0.08
+>
+> "as.integer"                 0.12      0.04      0.12     0.04
+>
+> ">"                          0.10      0.03      0.10     0.03
+>
+> "unique.default"             0.10      0.03      0.06     0.02
+>
+> "readLines"                  0.08      0.03      0.08     0.03
+>
+> "is.finite"                  0.06      0.02      0.06     0.02
+>
+> "cmei"                       0.06      0.02      0.00     0.00
+>
+> "inherits"                   0.04      0.01      0.04     0.01
+>
+> "is.numeric"                 0.04      0.01      0.04     0.01
+>
+> "as.matrix"                  0.04      0.01      0.00     0.00
+>
+> "calc.fractions"             0.04      0.01      0.00     0.00
+>
+> "is.factor"                  0.04      0.01      0.00     0.00
+>
+> "qi"                         0.04      0.01      0.00     0.00
+>
+> "qi.eiRxC"                   0.04      0.01      0.00     0.00
+>
+> ".Call"                      0.02      0.01      0.02     0.01
+>
+> "is.list"                    0.02      0.01      0.02     0.01
+>
+> "match"                      0.02      0.01      0.02     0.01
+>
+> "model.frame.default"        0.02      0.01      0.02     0.01
+>
+> "rownames"                   0.02      0.01      0.02     0.01
+>
+> "structure"                  0.02      0.01      0.02     0.01
+>
+> "["                          0.02      0.01      0.00     0.00
+>
+> "as.matrix.data.frame"       0.02      0.01      0.00     0.00
+>
+> "cbind"                      0.02      0.01      0.00     0.00
+>
+> "[.data.frame"               0.02      0.01      0.00     0.00
+>
+> "factor"                     0.02      0.01      0.00     0.00
+>
+> "mean.default"               0.02      0.01      0.00     0.00
+>
+> "model.frame"                0.02      0.01      0.00     0.00
+>
+> "sapply"                     0.02      0.01      0.00     0.00
+>
+> "solve"                      0.02      0.01      0.00     0.00
+>
+> "solve.default"              0.02      0.01      0.00     0.00
+>
+> "table"                      0.02      0.01      0.00     0.00
+>
+> "unique"                     0.02      0.01      0.00     0.00
+>
+>
+>
+> $sample.interval
+>
+> [1] 0.02
+>
+> $sampling.time
+>
+> [1] 286.96
+>
+>
+>
+>
+>
+> My questions are:
+>
+>
+>
+> 1) Why do I get the following error when I profile my code?
+>
+>
+>
+> summaryRprof("profilesim.out")
+>
+> Error in FUN(X[[556L]], ...) : subscript out of bounds
+>
+>
+>
+> 2) Can I assume from the demo example that the function that needs to be
+> speeded up when I use my code is"optim"?
+>
+>
+>
+> 3) If so, which is the best way to speed up the sim/optim function?
+>
+>
+>
+> I greatly appreciate any help in this regard.
+>
+>
+>
+> Thank you in advance.
+>
+>
+>
+> Best,
+>
+> Carolina
+>
+>
+>
+>
+>
+> --
+> Carolina Plescia
+>
+> PhD candidate and IRCHSS Scholar
+> Department of Political Science
+> Trinity College Dublin
+> College Green 2-3
+> Dublin 2
+> Email: plesciac-/Zw1syy4LHg at public.gmane.org
+>
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+
+From maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org  Thu Jan  5 16:16:42 2012
+From: maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org (Francois Maurice)
+Date: Thu, 05 Jan 2012 08:16:42 -0800
+Subject: Problem with sim() when using polynomial time
+Message-ID: <1325780202.75132.YahooMailNeo@web114605.mail.gq1.yahoo.com>
+
+Hi,
+ 
+The sim() fonction gives me the following message :
+ 
+     Error in .local(object, ...) : Code not written yet
+ 
+The sim() object is not produce but the zelig() object is produce.
+ 
+I'm trying to evaluate a causal effect in a longitudinal study with a mixed model after matching with MatchIt(). Here's the code :
+ 
+z.nearest <- zelig(outcome ~ treat + T + T2 + T3 + tag(1 + T + T2 | ID.factor), data=matched.nearest.long, model="ls.mixed")
+x.nearest.0 <- setx(z.nearest, fn=NULL, treat=0)
+x.nearest.1 <- setx(z.nearest, fn=NULL, treat=1)
+s.nearest <- sim(z.nearest, x=x.nearest.0, x1=x.nearest.1)
+ 
+I'm using polynomial time with a random part. There is no problem when the random part is only made of one term like this:
+ 
+z.nearest <- zelig(outcome ~ treat + T + T2 + T3 + tag(T | ID.factor), data=matched.nearest.long, model="ls.mixed")
+ 
+I posted a problem this last summer about polynomial time, but at that time the problem was within Zelig itself. Zelig was not able to cope with polynomial time, but that problem seems resolved. Maybe the problem with sim() has a link with that one.
+ 
+Thanks,
+ 
+Françcois Maurice
+
+-------------- next part --------------
+
+
+From kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Jan 18 06:20:13 2012
+From: kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Kenji Adachi)
+Date: Wed, 18 Jan 2012 01:20:13 -0500
+Subject: sim() command error with MatchIt
+Message-ID: <CAGiTj9gn2ogpUKOprD+WfEQ7R9_KHbPXms_K=+bO6MET6xOP3Q@mail.gmail.com>
+
+Dear all,
+
+I am interested in using MatchIt for my research. (I am relatively new to
+R, too.) To make myself familiar with the command, I've tried some samples
+provided in the manual.  I believe I followed the steps as explained, but I
+always get the same error message. What I did was as follows:
+
+> library(MatchIt)
+> data(lalonde)
+> m.out <- matchit(treat ~ age + educ + black + hispan + nodegree +
+
+                    married + re74 + re75, method = "nearest", discard
+                    = "hull.control", data = lalonde)
+
+> library(Zelig)
+
+> z.out <- zelig(re78 ~ treat + age + educ + black + hispan + nodegree +
+
+                  married + re74 + re75, data = match.data(m.out),
+                  model = "ls")
+
+> x.out <- setx(z.out, treat=0)
+> x1.out <- setx(z.out, treat=1)
+
+> s.out <- sim(z.out, x = x.out, x1 = x1.out)
+
+Error in mvrnorm(num, mu = coef(object), Sigma = vcov(object)) :
+incompatible arguments
+
+
+I am using R version 2.14.1. I also updated Zelig and MatchIt for the
+latest version.
+I have completely no idea what I did wrong.  I would greatly appreciate it
+if you would tell me what to do.
+
+Best Regards,
+Kenji Adachi
+
+-------------- next part --------------
+
+
+From maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org  Wed Jan 18 13:39:13 2012
+From: maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org (Francois Maurice)
+Date: Wed, 18 Jan 2012 05:39:13 -0800
+Subject: Re : sim() command error with MatchIt
+In-Reply-To: <CAGiTj9gn2ogpUKOprD+WfEQ7R9_KHbPXms_K=+bO6MET6xOP3Q@mail.gmail.com>
+References: <CAGiTj9gn2ogpUKOprD+WfEQ7R9_KHbPXms_K=+bO6MET6xOP3Q@mail.gmail.com>
+Message-ID: <1326893953.14164.YahooMailNeo@web114602.mail.gq1.yahoo.com>
+
+Hi,
+ 
+Look at the lalonde dataset. I think that a variable in the zelig() formula is not written correctly. If I remembered well "hispan" is written "hisp" in the dataset.
+ 
+À bientôt,
+
+François Maurice, B. Sc., A. Stat.
+Candidat à la maîtrise
+Département de sociologie
+Université de Montréal
+
+
+________________________________
+De : Kenji Adachi <kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+À : zelig-boHuZhbfW+af0DUV/oxz1A at public.gmane.orgg.harvard.edu 
+Envoyé le : Mercredi 18 Janvier 2012 1h20
+Objet : [zelig] sim() command error with MatchIt
+
+
+Dear all, 
+
+I am interested in using MatchIt for my research. (I am relatively new to R, too.) To make myself familiar with the command, I've tried some samples provided in the manual.  I believe I followed the steps as explained, but I always get the same error message. What I did was as follows:
+
+> library(MatchIt)
+> data(lalonde)
+> m.out <- matchit(treat ~ age + educ + black + hispan + nodegree + 
+married + re74 + re75, method = "nearest", discard
+                    = "hull.control", data = lalonde)
+> library(Zelig)
+> z.out <- zelig(re78 ~ treat + age + educ + black + hispan + nodegree + 
+married + re74 + re75, data = match.data(m.out), 
+                  model = "ls")
+> x.out <- setx(z.out, treat=0)
+> x1.out <- setx(z.out, treat=1) 
+> s.out <- sim(z.out, x = x.out, x1 = x1.out)Error in mvrnorm(num, mu = coef(object), Sigma = vcov(object)) : 
+  incompatible arguments
+
+I am using R version 2.14.1. I also updated Zelig and MatchIt for the latest version.
+I have completely no idea what I did wrong.  I would greatly appreciate it if you would tell me what to do.  
+
+Best Regards,
+Kenji Adachi
+-
+--
+Zelig Mailing List, served by HUIT
+Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+[un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+Zelig program information: http://gking.harvard.edu/zelig/
+Zelig mailing list
+Zelig at lists.gking.harvard.edu
+https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+-------------- next part --------------
+
+
+From kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Jan 18 15:11:28 2012
+From: kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Kenji Adachi)
+Date: Wed, 18 Jan 2012 10:11:28 -0500
+Subject: Re: Re : sim() command error with MatchIt
+In-Reply-To: <CAGiTj9gn2ogpUKOprD+WfEQ7R9_KHbPXms_K=+bO6MET6xOP3Q@mail.gmail.com>
+References: <CAGiTj9gn2ogpUKOprD+WfEQ7R9_KHbPXms_K=+bO6MET6xOP3Q@mail.gmail.com>
+Message-ID: <CAGiTj9ihXpDYGzc-pGUxDXL-Be-GO1foxQ2rdKro2Wjy2rpDKA@mail.gmail.com>
+
+Hi Francois and all,
+
+Thanks for your prompt reply.
+I tried "hisp" instead of "hispan", then I got another error: "Error in
+eval(expr, envir, enclos) : object 'hisp' not found."
+
+So, I think "hispan" should be okay because I copied everything from the
+manual.
+I still need your and other Zelig users' help.  Please help!
+
+Thanks.
+Kenji
+
+
+
+On Wed, Jan 18, 2012 at 8:39 AM, Francois Maurice <
+maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org> wrote:
+
+>  Hi,
+>
+> Look at the lalonde dataset. I think that a variable in the zelig()
+> formula is not written correctly. If I remembered well "hispan" is written
+> "hisp" in the dataset.
+>
+> À bientôt,
+>
+> François Maurice, B. Sc., A. Stat.
+> Candidat à la maîtrise
+> Département de sociologie
+> Université de Montréal
+>   *De :* Kenji Adachi <kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> *À :* zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> *Envoyé le :* Mercredi 18 Janvier 2012 1h20
+> *Objet :* [zelig] sim() command error with MatchIt
+>
+> Dear all,
+>
+> I am interested in using MatchIt for my research. (I am relatively new to
+> R, too.) To make myself familiar with the command, I've tried some samples
+> provided in the manual.  I believe I followed the steps as explained, but I
+> always get the same error message. What I did was as follows:
+>
+> > library(MatchIt)
+> > data(lalonde)
+> > m.out <- matchit(treat ~ age + educ + black + hispan + nodegree +
+>
+>                     married + re74 + re75, method = "nearest", discard
+>                     = "hull.control", data = lalonde)
+>
+> > library(Zelig)
+>
+> > z.out <- zelig(re78 ~ treat + age + educ + black + hispan + nodegree +
+>
+>                   married + re74 + re75, data = match.data(m.out),
+>                   model = "ls")
+>
+> > x.out <- setx(z.out, treat=0)
+> > x1.out <- setx(z.out, treat=1)
+>
+> > s.out <- sim(z.out, x = x.out, x1 = x1.out)
+>
+> Error in mvrnorm(num, mu = coef(object), Sigma = vcov(object)) :
+> incompatible arguments
+>
+>
+> I am using R version 2.14.1. I also updated Zelig and MatchIt for the
+> latest version.
+> I have completely no idea what I did wrong.  I would greatly appreciate it
+> if you would tell me what to do.
+>
+> Best Regards,
+> Kenji Adachi
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+>
+
+-------------- next part --------------
+
+
+From c.gandrud-QBqurZHE+u5aa/9Udqfwiw at public.gmane.org  Thu Jan 19 16:08:13 2012
+From: c.gandrud-QBqurZHE+u5aa/9Udqfwiw at public.gmane.org (Christopher)
+Date: Thu, 19 Jan 2012 16:08:13 +0000
+Subject: ReLogit and Clusters
+Message-ID: <loom.20120119T170107-420@post.gmane.org>
+
+I'm trying to find a way to 
+have country clusters in a relogit analysis. 
+
+I have country-year data 
+and the countries are grouped 
+by a numeric id variable "cid". 
+
+I've tried including a list 
+of options for robust such that my model is:
+
+M1 <- zelig(violence ~ dem_age, 
+model = "relogit", tau = 88/5480, 
+data = data, 
+robust = list(
+method = 
+"vcovHAC", 
+order.by = ~data$cid, 
+adjust = TRUE
+))
+
+However why I run "summary(M1)" I get an error:
+
+Error in meatHAC
+(x, order.by = order.by, prewhite = prewhite, weights = weights,  : 
+  subscript out of bounds
+
+Any thoughts on what is going on?
+ReLogit for zelig would be really useful if it could incorporate clusters. 
+
+Thanks
+Christopher
+
+From maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org  Sat Jan 21 22:04:45 2012
+From: maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org (Francois Maurice)
+Date: Sat, 21 Jan 2012 14:04:45 -0800
+Subject: Re : Re : sim() command error with MatchIt
+In-Reply-To: <CAGiTj9ihXpDYGzc-pGUxDXL-Be-GO1foxQ2rdKro2Wjy2rpDKA@mail.gmail.com>
+References: <CAGiTj9gn2ogpUKOprD+WfEQ7R9_KHbPXms_K=+bO6MET6xOP3Q@mail.gmail.com> <CAGiTj9ihXpDYGzc-pGUxDXL-Be-GO1foxQ2rdKro2Wjy2rpDKA@mail.gmail.com>
+Message-ID: <1327183485.47886.YahooMailNeo@web114614.mail.gq1.yahoo.com>
+
+Hi Kenji,
+ 
+There is a problem with the followint option in MatchIt :
+ 
+discard = "hull.control"
+ 
+If you run MatchIt without this option, there is no more problem. Maybe it's a bug or maybe you have to specify something ! I don't know. I think that a developer can be more helpful.
+
+François Maurice, B. Sc., A. Stat.
+ Candidat à la maîtrise 
+Département de sociologie
+ Université de Montréal
+
+
+________________________________
+De : Kenji Adachi <kenji.adachi.2010 at gmail.com>
+À : Francois Maurice <maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org> 
+Cc : "zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org> 
+Envoyé le : Mercredi 18 Janvier 2012 10h11
+Objet : Re: Re : [zelig] sim() command error with MatchIt
+
+
+Hi Francois and all,
+
+Thanks for your prompt reply.  
+I tried "hisp" instead of "hispan", then I got another error: "Error in eval(expr, envir, enclos) : object 'hisp' not found."
+
+So, I think "hispan" should be okay because I copied everything from the manual.
+I still need your and other Zelig users' help.  Please help!
+
+Thanks.
+Kenji
+
+
+ 
+On Wed, Jan 18, 2012 at 8:39 AM, Francois Maurice <maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org> wrote:
+
+Hi,
+> 
+>Look at the lalonde dataset. I think that a variable in the zelig() formula is not written correctly. If I remembered well "hispan" is written "hisp" in the dataset.
+> 
+>À bientôt,
+>
+>François Maurice, B. Sc., A. Stat.
+>Candidat à la maîtrise
+>Département de sociologie
+>Université de Montréal
+>
+>De : Kenji Adachi <kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+>À : zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org 
+>Envoyé le : Mercredi 18 Janvier 2012 1h20
+>Objet : [zelig] sim() command error with MatchIt
+>
+>
+>Dear all, 
+>
+>
+>I am interested in using MatchIt for my research. (I am relatively new to R, too.) To make myself familiar with the command, I've tried some samples provided in the manual.  I believe I followed the steps as explained, but I always get the same error message. What I did was as follows:
+>
+>
+>> library(MatchIt)
+>> data(lalonde)
+>> m.out <- matchit(treat ~ age + educ + black + hispan + nodegree + 
+>married + re74 + re75, method = "nearest", discard
+                    = "hull.control", data = lalonde)
+>> library(Zelig)
+>> z.out <- zelig(re78 ~ treat + age + educ + black + hispan + nodegree + 
+>married + re74 + re75, data = match.data(m.out), 
+                  model = "ls")
+>> x.out <- setx(z.out, treat=0)
+> x1.out <- setx(z.out, treat=1) 
+>> s.out <- sim(z.out, x = x.out, x1 = x1.out)Error in mvrnorm(num, mu = coef(object), Sigma = vcov(object)) : 
+  incompatible arguments
+>
+>
+>I am using R version 2.14.1. I also updated Zelig and MatchIt for the latest version.
+>I have completely no idea what I did wrong.  I would greatly appreciate it if you would tell me what to do.  
+>
+>Best Regards,
+>Kenji Adachi
+>-
+>--
+>Zelig Mailing List, served by HUIT
+>Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>[un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+>Zelig program information: http://gking.harvard.edu/zelig/
+>Zelig mailing list
+>Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+>
+
+-------------- next part --------------
+
+
+From maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org  Sun Jan 22 01:18:00 2012
+From: maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org (Francois Maurice)
+Date: Sat, 21 Jan 2012 17:18:00 -0800
+Subject: Problem with sim() when using polynomial time in Zelig
+Message-ID: <1327195080.71986.YahooMailNeo@web114608.mail.gq1.yahoo.com>
+
+Hi,
+ 
+I posted on Pastebin.com a demo code to show a problem with sim(). The title on Pastebin is "Problem with sim() when using polynomial time in Zelig".
+ 
+When I use Zelig with polynomial time in the random effect part (ls.mixed model), the following message appears:
+ 
+        Error in .local(object, ...) : Code not written yet
+ 
+There is no problem if I drop the polynomial time from the random part.
+ 
+Thanks
+
+François Maurice
+
+-------------- next part --------------
+
+
+From kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Sun Jan 22 20:56:48 2012
+From: kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Kosuke Imai)
+Date: Sun, 22 Jan 2012 15:56:48 -0500
+Subject: Re: zelig- bivariate probit model with identity link
+In-Reply-To: <1327183250.26366.YahooMailClassic@web161506.mail.bf1.yahoo.com>
+References: <1327183250.26366.YahooMailClassic@web161506.mail.bf1.yahoo.com>
+Message-ID: <24C12ED8-57CA-4525-A8D1-05F31F8ABB95@princeton.edu>
+
+Unfortunately the current version does not allow for a different link function. 
+
+Kosuke Imai
+Princeton University
+http://imai.princeton.edu
+
+Sent from my iPhone
+
+On Jan 21, 2012, at 5:00 PM, segun ogundimu <segun300l-/E1597aS9LQAvxtiuMwx3w at public.gmane.org> wrote:
+
+> Dear sir,
+> 
+> Your work on the Zelig package is higly appreciated. It has helped me alot. I'm trying to fit a bivariate probit model using zelig. I'm aware that I can using rhobit transformation on the 3rd coefficient from the fitted model. Please, how can I switch the link function to the identity link directly at the modelling stage just like the one in vglm function (family = binom2.rho(lrho = "identity").
+> 
+> Thank you for your time.
+> 
+> Kind regards
+> Segun
+
+-------------- next part --------------
+
+
+From kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Jan 22 23:42:53 2012
+From: kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Kenji Adachi)
+Date: Sun, 22 Jan 2012 18:42:53 -0500
+Subject: Re: Re : Re : sim() command error with MatchIt
+Message-ID: <CAGiTj9jBqMTxRUYU0PengZnch1Kr5=tWDDPNxTjs4otyYUg9Fw@mail.gmail.com>
+
+Hi Francois,
+
+It worked!
+Thank you, thank you, thank you!
+Kenji
+
+
+On Sat, Jan 21, 2012 at 5:04 PM, Francois Maurice <
+maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org> wrote:
+
+>  Hi Kenji,
+>
+> There is a problem with the followint option in MatchIt :
+>
+> discard = "hull.control"
+>
+> If you run MatchIt without this option, there is no more problem. Maybe
+> it's a bug or maybe you have to specify something ! I don't know. I think
+> that a developer can be more helpful.
+>
+> François Maurice, B. Sc., A. Stat.
+>  Candidat à la maîtrise
+> Département de sociologie
+>  Université de Montréal
+>   *De :* Kenji Adachi <kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> *À :* Francois Maurice <maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org>
+> *Cc :* "zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org" <zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org>
+> *Envoyé le :* Mercredi 18 Janvier 2012 10h11
+> *Objet :* Re: Re : [zelig] sim() command error with MatchIt
+>
+>  Hi Francois and all,
+>
+> Thanks for your prompt reply.
+> I tried "hisp" instead of "hispan", then I got another error: "Error in
+> eval(expr, envir, enclos) : object 'hisp' not found."
+>
+> So, I think "hispan" should be okay because I copied everything from the
+> manual.
+> I still need your and other Zelig users' help.  Please help!
+>
+> Thanks.
+> Kenji
+>
+>
+>
+> On Wed, Jan 18, 2012 at 8:39 AM, Francois Maurice <
+> maurice.francois-DaQTI0RpDDMAvxtiuMwx3w at public.gmane.org> wrote:
+>
+>  Hi,
+>
+> Look at the lalonde dataset. I think that a variable in the zelig()
+> formula is not written correctly. If I remembered well "hispan" is written
+> "hisp" in the dataset.
+>
+> À bientôt,
+>
+> François Maurice, B. Sc., A. Stat.
+> Candidat à la maîtrise
+> Département de sociologie
+> Université de Montréal
+>   *De :* Kenji Adachi <kenji.adachi.2010-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+> *À :* zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> *Envoyé le :* Mercredi 18 Janvier 2012 1h20
+> *Objet :* [zelig] sim() command error with MatchIt
+>
+> Dear all,
+>
+> I am interested in using MatchIt for my research. (I am relatively new to
+> R, too.) To make myself familiar with the command, I've tried some samples
+> provided in the manual.  I believe I followed the steps as explained, but I
+> always get the same error message. What I did was as follows:
+>
+> > library(MatchIt)
+> > data(lalonde)
+> > m.out <- matchit(treat ~ age + educ + black + hispan + nodegree +
+>
+>                     married + re74 + re75, method = "nearest", discard
+>                     = "hull.control", data = lalonde)
+>
+> > library(Zelig)
+>
+> > z.out <- zelig(re78 ~ treat + age + educ + black + hispan + nodegree +
+>
+>                   married + re74 + re75, data = match.data(m.out),
+>                   model = "ls")
+>
+> > x.out <- setx(z.out, treat=0)
+> > x1.out <- setx(z.out, treat=1)
+>
+> > s.out <- sim(z.out, x = x.out, x1 = x1.out)
+>
+> Error in mvrnorm(num, mu = coef(object), Sigma = vcov(object)) :
+> incompatible arguments
+>
+>
+> I am using R version 2.14.1. I also updated Zelig and MatchIt for the
+> latest version.
+> I have completely no idea what I did wrong.  I would greatly appreciate it
+> if you would tell me what to do.
+>
+> Best Regards,
+> Kenji Adachi
+>
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options:
+> http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+>
+>
+>
+>
+>
+
+-------------- next part --------------
+
+
+From kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org  Wed Jan 25 16:10:38 2012
+From: kimai-cTYGs6MY1n4q5t9Oc1ygMg at public.gmane.org (Kosuke Imai)
+Date: Wed, 25 Jan 2012 08:10:38 -0800
+Subject: Re: Problem with sim() when using polynomial time in Zelig
+In-Reply-To: <1327195080.71986.YahooMailNeo@web114608.mail.gq1.yahoo.com>
+References: <1327195080.71986.YahooMailNeo@web114608.mail.gq1.yahoo.com>
+Message-ID: <80A1239B-2776-4A70-AAF5-4325387146CD@Princeton.Edu>
+
+Hi Francois,
+
+  Unfortunately this means that we haven't coded it yet.
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+
+On Jan 21, 2012, at 5:18 PM, Francois Maurice wrote:
+
+> Hi,
+>  
+> I posted on Pastebin.com a demo code to show a problem with sim(). The title on Pastebin is "Problem with sim() when using polynomial time in Zelig".
+>  
+> When I use Zelig with polynomial time in the random effect part (ls.mixed model), the following message appears:
+>  
+>         Error in .local(object, ...) : Code not written yet
+>  
+> There is no problem if I drop the polynomial time from the random part.
+>  
+> Thanks
+>  
+> François Maurice
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+
+From ssabet-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sat Jan 28 22:49:29 2012
+From: ssabet-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Shahrzad Sabet)
+Date: Sat, 28 Jan 2012 17:49:29 -0500
+Subject: problem with robust = TRUE
+Message-ID: <CAJSr6TOBotVP04ZCbDfWTpzvt9bjsXtBNdH-dUWPXc8z-Dwtjg@mail.gmail.com>
+
+Hi zelig folks,
+
+I'm trying to run a set of probit regressions with robust standard errors,
+but I repeatedly get the following error message:
+
+Error in glm.control(robust = TRUE) : unused argument(s) (robust = TRUE)
+
+I can't figure out what the problem is. The sandwich package is loaded. An
+example of the code I am using is below.
+
+Many thanks,
+Shar
+
+z.out <- zelig(binary_iv ~ age + educ + income_new + gender_new + white +
+black + hispanic + union_member + dem + rep + indep + tv_foreign + ecknow +
+import_mfg, model="probit", robust = TRUE, data = data)
+
+-------------- next part --------------
+
+
+From kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Tue Jan 31 03:12:54 2012
+From: kimai-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Kosuke Imai)
+Date: Mon, 30 Jan 2012 22:12:54 -0500
+Subject: Re: Zelig setx() problem
+In-Reply-To: <CALXBOHJSr4mPgQXFMwd+H7gXtvhvcFfimu-HTLf297BpBzu9wg@mail.gmail.com>
+References: <CALXBOHJSr4mPgQXFMwd+H7gXtvhvcFfimu-HTLf297BpBzu9wg@mail.gmail.com>
+Message-ID: <0A13D84E-8D41-4657-B500-E5AD2AA9459C@princeton.edu>
+
+Try converting the variable into a factor before using it in the formula and see if the problem goes away.
+
+Best,
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+
+On Jan 30, 2012, at 10:06 PM, Andrew Boutton wrote:
+
+> Hi Professor Imai,
+> 
+> I'm having a problem with the Zelig package that I was hoping you might be able to help with.  I'm running a logit model on panel data with country fixed-effects (using as.factor(ccode) for the fixed effects).  Everything works fine until I do "setx()"; when I do that, I get the following error message: "Error in `contrasts<-`(`*tmp*`, value = contr.funs[1 + isOF[nn]]) : contrasts can be applied only to factors with 2 or more levels".  The R code is below.
+> 
+> When I run the model without "as.factor(ccode)", everything works fine, so I think it has something to do with that.  James Honaker suggested that I try installing the latest version of Zelig (3.5.3), but even after doing that, I still have the same problem.  Do you have any idea what I can do to fix this?  Thanks very much, I appreciate your help.
+> 
+> Best,
+> 
+> Andrew Boutton
+> 
+> > z.out <- zelig(fail4 ~ ln_totaidpct_1 + rivalXtotaidpc + rivalryt_1 + ln_gdpt_1 + democt_1 + numgroups + ter + rc + t + t2 + t3 + as.factor(ccode), model = "logit", +data = data)
+> > ln_totaidpct_1.range<--8:8
+> >xc.range<- setx(z.out, ln_totaidpct_1=ln_totaidpct_1.range, rivalXtotpc=ln_totaidpct_1.range, rivalryt_1=1)
+> Error in `contrasts<-`(`*tmp*`, value = contr.funs[1 + isOF[nn]]) : contrasts can be applied only to factors with 2 or more levels
+> 
+> -- 
+> Andrew Boutton
+> Graduate Assistant
+> Peace Science Society International
+> Department of Political Science
+> The Pennsylvania State University
+> 207 Pond Laboratory
+> University Park, PA 16802
+> atb171-8DAjSxpRXgY at public.gmane.org
+
+From mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org  Tue Jan 31 16:38:38 2012
+From: mowen-zvdtVsPQyYJu6/7BKvT5pw at public.gmane.org (Matt Owen)
+Date: Tue, 31 Jan 2012 11:38:38 -0500
+Subject: Re: problem with robust = TRUE
+In-Reply-To: <CAJSr6TOBotVP04ZCbDfWTpzvt9bjsXtBNdH-dUWPXc8z-Dwtjg@mail.gmail.com>
+References: <CAJSr6TOBotVP04ZCbDfWTpzvt9bjsXtBNdH-dUWPXc8z-Dwtjg@mail.gmail.com>
+Message-ID: <1315AB70-EE90-41BF-9214-18395C096E7E@iq.harvard.edu>
+
+Hi - 
+
+The current implementation of the probit model in Zelig does not appropriately run with robust standard errors. The "logit" model however should work as expected. This is a bug whicht should be fixed shortly.
+
+On Jan 28, 2012, at 5:49 PM, Shahrzad Sabet wrote:
+
+> Hi zelig folks,
+> 
+> I'm trying to run a set of probit regressions with robust standard errors, but I repeatedly get the following error message: 
+> 
+> Error in glm.control(robust = TRUE) : unused argument(s) (robust = TRUE)
+> 
+> I can't figure out what the problem is. The sandwich package is loaded. An example of the code I am using is below.
+> 
+> Many thanks,
+> Shar
+> 
+> z.out <- zelig(binary_iv ~ age + educ + income_new + gender_new + white + black + hispanic + union_member + dem + rep + indep + tv_foreign + ecknow + import_mfg, model="probit", robust = TRUE, data = data)
+> 
+> 
+> 
+> 
+> -
+> --
+> Zelig Mailing List, served by HUIT
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/mailman/listinfo/zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+> Zelig mailing list
+> Zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> https://lists.gking.harvard.edu/mailman/listinfo/zelig
+

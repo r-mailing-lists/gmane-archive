@@ -1,0 +1,55 @@
+{
+  "list": "r-lang",
+  "description": "",
+  "month": "2009-10",
+  "messages": [
+    {
+      "id": "msg-e5f1c4b15679",
+      "message_id": "<4AC4C6BA.2030700@mit.edu>",
+      "from_name": "Peter Graff",
+      "from_email_hash": "0a5a90ecb78bc95b3d26c35ff4f6dabc444a8b6ba7ebda76e6fb94c5c4e307dd",
+      "date": "2009-10-01T15:11:54Z",
+      "subject": "Contrast coded mixed models: Interactions",
+      "subject_clean": "Contrast coded mixed models: Interactions",
+      "in_reply_to": null,
+      "references": [],
+      "body_plain": "Dear R-Langs,\n\nI'm currently trying to analyze some experimental data with a contrast \ncoded mixed model. I have a 2 (levels:A,B) x 3 (levels:D,E,F) design \nwith unbalanced cell sizes. I am coding the following variables:\n\nAvB, DvE, EvF\n\nwhere sum(AvB)=0, sum(DvE)=0, sum(EvF)=0. Next I fit this model:\n\nlmer(DV~AvB*(DvE+EvF)+(1|Subj)+(1|Item))\n\nAnd here is the correlation matrix it outputs:\n\nCorrelation of Fixed Effects:\n                  (Intr)   AvB    DvE     EvF  AvB:DvE\nAvB         -0.029                            \nDvE          0.010 -0.006                     \nEvF         -0.002 -0.001  *0.488  *            \nAvB:DvE -0.003  0.015 -0.039 -0.018       \nAvB:EvF -0.001 -0.002 -0.018 -0.044  *0.488 *\n\nThe question I have is, how to get rid of the collinearity in red and \nblue and whether it's even possible. And if it's not possible, in what \nway will this affect the reliability of my result?\n\nThanks so much in advance,\n\nPeter\n\n-------------- next part --------------\n_______________________________________________\nR-lang mailing list\nR-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org\nhttp://pidgin.ucsd.edu/mailman/listinfo/r-lang",
+      "body_snippet": "Dear R-Langs,\n\nI'm currently trying to analyze some experimental data with a contrast \ncoded mixed model. I have a 2 (levels:A,B) x 3 (levels:D,E,F) design \nwith unbalanced cell sizes. I am coding the",
+      "thread_id": "thread-e5f1c4b15679",
+      "thread_depth": 0,
+      "month": "2009-10"
+    },
+    {
+      "id": "msg-0a824e447372",
+      "message_id": "<38dc9be90910011027y76572654r388269e52750a95a@mail.gmail.com>",
+      "from_name": "T. Florian Jaeger",
+      "from_email_hash": "e0dbaab50e0a9a97f666ad9c219794f212534b23c4d266fbf64e3c73ce72f722",
+      "date": "2009-10-01T17:27:04Z",
+      "subject": "Re: Contrast coded mixed models: Interactions",
+      "subject_clean": "Contrast coded mixed models: Interactions",
+      "in_reply_to": "<4AC4C6BA.2030700-3s7WtUTddSA@public.gmane.org>",
+      "references": [
+        "<4AC4C6BA.2030700@mit.edu>"
+      ],
+      "body_plain": "Hi Peter-ling,\n\ncan you say a bit more about your data? How many data points each are there\nwithin A-D, A-E, A-F, B-D, B-E, and B-F? If I had to guess I would say you\nhave either more or less data in D than in E or F (depending on how you\ncontrast coded)? Is that the way your data is unbalanced? A vs B seems\nbalanced and I would even guess that the distribution of D vs. E vs. F  is\nthe same in A and B, but the distribution of D vs. E vs. F overall is\nunbalanced?\n\nAnyway, for certain distributions of data, you will find that contrast\ncoding won't just solve the problem. If you play around with the following\nsimulation, this becomes quite apparent:\n\n====================================================\n# number of subjects\nn_s = 20\n# number of items within subjects\nn_per_s = 16\n\n# let's create an unbalanced data set of the type that I suspect you have\n# (see above)\nAvB <- as.factor(rep(c(rep(\"a\", 8), rep(\"b\", 8)), n_s))\nDvEvF <- as.factor(rep(c(\"d\",\"d\",\"d\", \"d\", \"e\", \"e\", \"f\", \"f\"), n_s * 2))\n# subjects\ns  <- sort(rep(seq(1:20), n_per_s))\n# subject effects\nrs <- rnorm(n_s,0,0.5)\n\n# clumsy way to encode fixed effects\neffect <- function(x) {\n    ifelse(x == \"a\", 2,\n     ifelse(x == \"b\", 1.2,\n      ifelse(x == \"d\", 0.5,\n       ifelse(x == \"e\", -1.5,\n        ifelse(x == \"f\", -0.3, NA)\n        )\n      )\n     )\n    )\n}\n# outcome is specified by effects of AvB and DvEvF (no interaction, but\n# feel free to add one) plus noise plus subject effects (also noise).\ny <- effect(AvB) + effect(DvEvF) + rnorm(n,0,0.2) + rs[s]\n\nlibrary(lme4)\n\n# treatment coding\ncontrasts(DvEvF) <- contr.treatment(3)\nlmer(y ~ AvB + DvEvF + (1 | s))\n\n# contrast (sum) coding\ncontrasts(DvEvF) <- contr.sum(3)\nlmer(y ~ AvB + DvEvF + (1 | s))\n\n# or with interactions:\ncontrasts(AvB) <- contr.sum(2)\ncontrasts(DvEvF) <- contr.sum(3)\nlmer(y ~ AvB * DvEvF + (1 | s))\n\n# contrast coding as used by you\n# to see that the above contrast coding does the same as\n# what you do\nDvEvF <- factor(DvEvF, levels=c(\"e\", \"d\", \"f\"))\ncontrasts(DvEvF) <- contr.sum(3)\nlmer(y ~ AvB + DvEvF + (1 | s))\n====================================================\n\nthis gives you something very similar to your pattern of fixed effect\ncorrelations. But play around with other parameters to get a feel.\n\nwhat can you do now? First, many people would consider a fixed correlation\nof < .5 to be reason for caution but not to disregard the results. In the\ncorpus work I do, I usually try to keep fixed effect correlations much\nsmaller, but I think folks find .5 acceptable, but maybe people can chime in\nand let you know whether I am off on that.\n\nany method that further reduced collinearity will require some decisions\n(e.g. what to residualize against what; PCA; or some alternative coding).\nFor example, helmert coding works quite well for the pseudo data set\nmentioned above, if you hypothesis was that e < f < d (and you resort the\nfactor levels accordingly). Fixed effect correlations would all be <0.26.\n\nHTH,\nFlorian\n\nOn Thu, Oct 1, 2009 at 11:11 AM, Peter Graff <graff-3s7WtUTddSA at public.gmane.org> wrote:\n\n>  Dear R-Langs,\n>\n> I'm currently trying to analyze some experimental data with a contrast\n> coded mixed model. I have a 2 (levels:A,B) x 3 (levels:D,E,F) design with\n> unbalanced cell sizes. I am coding the following variables:\n>\n> AvB, DvE, EvF\n>\n> where sum(AvB)=0, sum(DvE)=0, sum(EvF)=0. Next I fit this model:\n>\n> lmer(DV~AvB*(DvE+EvF)+(1|Subj)+(1|Item))\n>\n> And here is the correlation matrix it outputs:\n>\n> Correlation of Fixed Effects:\n>                   (Intr)   AvB    DvE     EvF  AvB:DvE\n> AvB         -0.029\n> DvE          0.010 -0.006\n> EvF         -0.002 -0.001  *0.488  *\n> AvB:DvE -0.003  0.015 -0.039 -0.018\n> AvB:EvF -0.001 -0.002 -0.018 -0.044  *0.488 *\n>\n> The question I have is, how to get rid of the collinearity in red and blue\n> and whether it's even possible. And if it's not possible, in what way will\n> this affect the reliability of my result?\n>\n> Thanks so much in advance,\n>\n> Peter\n>\n> _______________________________________________\n> R-lang mailing list\n> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org\n> http://pidgin.ucsd.edu/mailman/listinfo/r-lang\n>\n>\n\n-------------- next part --------------\n_______________________________________________\nR-lang mailing list\nR-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org\nhttp://pidgin.ucsd.edu/mailman/listinfo/r-lang",
+      "body_snippet": "Hi Peter-ling,\n\ncan you say a bit more about your data? How many data points each are there\nwithin A-D, A-E, A-F, B-D, B-E, and B-F? If I had to guess I would say you\nhave either more or less data in ",
+      "thread_id": "thread-e5f1c4b15679",
+      "thread_depth": 1,
+      "month": "2009-10"
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-e5f1c4b15679",
+      "subject": "Contrast coded mixed models: Interactions",
+      "message_count": 2,
+      "participants": [
+        "Peter Graff",
+        "T. Florian Jaeger"
+      ],
+      "started": "2009-10-01T15:11:54Z",
+      "last_reply": "2009-10-01T17:27:04Z",
+      "root_message_id": "msg-e5f1c4b15679"
+    }
+  ]
+}

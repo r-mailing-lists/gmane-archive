@@ -1,0 +1,410 @@
+From Rachel.Smith-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org  Sat Dec  1 00:07:20 2012
+From: Rachel.Smith-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org (Rachel Smith)
+Date: Sat, 01 Dec 2012 00:07:20 +0000
+Subject: Re: Surprising results from model comparison, when using a complex random effects structure
+In-Reply-To: <EDCDE7FA-2626-4CEE-80C6-44181D0FF24C-XkckGZ689+c@public.gmane.org>
+References: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F861@CMS03.campus.gla.ac.uk> <EDCDE7FA-2626-4CEE-80C6-44181D0FF24C@ucsd.edu>
+Message-ID: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F864@CMS03.campus.gla.ac.uk>
+
+Hi Roger
+
+Many thanks for your response.
+
+That's reassuring that the random effects structure for subjects doesn't sound unreasonable.
+
+As regards vlength, I've been thinking of this as between-targets, because each individual subject heard a given target word with only one value of vlength. However, across the whole dataset, each target did appear with both values of vlength. That is, half the subjects heard version A of the experiment, which had vlength "short" for half the targets, and "long" for the other half; the other half of the subjects heard version B, with the vlength values reversed. So, might this mean that the random effect for targets should be: (1+dialect+vlength|target)?
+
+> Is it possible that you saved an older version of spotlong12.glmm to your workspace, and then when you closed
+> and reopened R you wound up with the older version of spotlong12.glmm and your second anova() command
+> reflects that result?
+I don't think so--I didn't save anything to my workspace, and spotlong12.glmm certainly ran when I reopened R (it takes many minutes to do so, so that's not easily missed). On the other hand, it seems more likely that I made a mistake of some kind, than that my model somehow doesn't converge to a unique solution.
+
+> Whatever the case, perhaps a good guiding principle is that you should trust whichever result you can replicate from scratch.
+
+That makes sense!
+
+Thanks again,
+
+Rachel
+
+________________________________
+From: Levy, Roger [rlevy-XkckGZ689+c at public.gmane.org]
+Sent: 30 November 2012 04:04
+To: Rachel Smith
+Cc: ling-r-lang-l
+Subject: Re: [R-lang] Surprising results from model comparison, when using a complex random effects structure
+
+Hi Rachel,
+
+Your random effects structure for subjects sounds reasonable; I'm inferring that vlength is between-items, in which case the by-items structure would be fine too.  Since spotlong12.glmm has different likelihoods in the two runs of anova() you report, they must be two different fitted models.  Is it possible that you saved an older version of spotlong12.glmm to your workspace, and then when you closed and reopened R you wound up with the older version of spotlong12.glmm and your second anova() command reflects that result?  Whatever the case, perhaps a good guiding principle is that you should trust whichever result you can replicate from scratch.
+
+Best & hope this helps,
+
+Roger
+
+
+On Nov 29, 2012, at 4:19 PM PST, Rachel Smith wrote:
+
+Dear R-lang list,
+
+I'd be very grateful for any advice you can offer. My issue is that when running lmer on categorical data with a moderately complex random effects structure, and doing model comparison using likelihood ratios, I am occasionally seeing (what I think are) bizarre and unstable chisq and p values in the model comparisons, and I'd like to find out why.
+
+Apologies for the long email that follows.
+
+To give some background, I previously fitted a model to my data using only random intercepts. Then I read Barr et al (2012) and reanalysed my data in order to follow their advice with respect to keeping the random effects structure (near-)maximal. The random effects structure that I have chosen is intended to be maximal with respect to my two experimental variables of primary theoretical interest, dialect (between-subjects) and vlength (within-subjects), and also includes random slopes for a couple of control variables that I expected to show relevant variation (loglong and item, both within-subjects). But it omits some predictors in order to permit the models to converge.
+
+To estimate the fixed effects, I have followed a backwards model selection procedure using likelihood ratio model comparison. Along the way, there have been a couple of cases where the model comparison produces significant or near-significant results that I don't trust, and that seem unstable, in that they are liable to change (to something more sensible) when the identical code is re-run.
+
+Here is an example: The following two models differ only in the inclusion of the factor "version" (2 levels).
+
+spotlong11.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + version + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+
+spotlong12.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+
+(NB: "item" here refers to item number, i.e. is actually an effect of trial; "target" refers to words considered as an experimental unit, i.e. to what might normally be called items).
+
+Model comparison gave the following result:
+anova(spotlong11.glmm, spotlong12.glmm)
+#                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+#spotlong12.glmm 30 5281.2 5477.6 -2610.6
+#spotlong11.glmm 31 5279.7 5482.6 -2608.8 3.5601      1    0.05918 .
+
+This is very surprising, because in the output for spotlong11.glmm, the estimate for version is small in relation to the standard error, and far from significance:
+
+print(spotlong11.glmm, corr=FALSE)
+#Generalized linear mixed model fit by the Laplace approximation
+#Formula: spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype -      dialect:context - #dialect:vtype + loglong + item + gender +      version + (1 + vlength + loglong + item | subject) + (1 +      dialect | #target)
+#   Data: data
+#  AIC  BIC logLik deviance
+# 5280 5483  -2609     5218
+#Random effects:
+# Groups  Name         Variance   Std.Dev.  Corr
+# subject (Intercept)  1.0128e+00 1.0063593
+#         vlengthshort 4.4225e-02 0.2102972 -0.675
+#         loglong      7.4783e-02 0.2734643 -0.757  0.569
+#         item         6.0143e-05 0.0077552 -0.474  0.877  0.125
+# target  (Intercept)  1.7291e+00 1.3149512
+#         dialectL     1.3129e-01 0.3623410 -0.458
+#Number of obs: 5148, groups: subject, 78; target, 66
+#Fixed effects:
+#                                Estimate Std. Error z value Pr(>|z|)
+#(Intercept)                    -2.101415   0.497599  -4.223 2.41e-05 ***
+#dialectL                       -0.036163   0.192553  -0.188 0.851027
+#vlengthshort                    0.549224   0.181666   3.023 0.002501 **
+#contextNL                       0.062903   0.566956   0.111 0.911657
+#contextSL                       0.867398   0.553790   1.566 0.117280
+#vtypeNV                        -0.743498   0.556697  -1.336 0.181696
+#loglong                         0.874872   0.232198   3.768 0.000165 ***
+#item                            0.006777   0.001379   4.914 8.94e-07 ***
+#genderm                        -0.344050   0.177315  -1.940 0.052340 .
+#versionB                        0.091018   0.170662   0.533 0.593810
+#dialectL:vlengthshort          -0.377850   0.145280  -2.601 0.009300 **
+#vlengthshort:contextNL          0.725804   0.238603   3.042 0.002351 **
+#vlengthshort:contextSL         -0.867637   0.242693  -3.575 0.000350 ***
+#vlengthshort:vtypeNV           -0.581290   0.247543  -2.348 0.018862 *
+#contextNL:vtypeNV               1.075103   0.794058   1.354 0.175757
+#contextSL:vtypeNV              -0.505121   0.784197  -0.644 0.519494
+#vlengthshort:contextNL:vtypeNV -0.602742   0.343102  -1.757 0.078961 .
+#vlengthshort:contextSL:vtypeNV  0.824727   0.354378   2.327 0.019952 *
+
+After closing and re-opening R, and re-running the same two models and the comparison between them, I obtained the following:
+#                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+#spotlong12.glmm 30 5277.9 5474.3 -2609.0
+#spotlong11.glmm 31 5279.7 5482.6 -2608.8 0.2783      1     0.5978
+which is much more in line with the p value associated with the estimate for version in spotlong11.glmm.
+
+Can anyone shed any light on why differences like this might occur and what I should do about them? As this is the first time I've implemented a random effects structure that is at all complex, I may just have done something crazy with the random effects. But whatever is the cause, it seems to be manifesting in strange model comparison results, rather than problems with convergence.
+
+Thank you for reading! Any advice that anyone can offer will be greatly appreciated.
+
+Best wishes,
+
+Rachel Smith
+(U. of Glasgow)
+
+From rlevy-XkckGZ689+c at public.gmane.org  Sat Dec  1 01:12:54 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Sat, 01 Dec 2012 01:12:54 +0000
+Subject: Re: Surprising results from model comparison, when using a complex random effects structure
+In-Reply-To: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F864@CMS03.campus.gla.ac.uk>
+References: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F861@CMS03.campus.gla.ac.uk> <EDCDE7FA-2626-4CEE-80C6-44181D0FF24C@ucsd.edu> <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F864@CMS03.campus.gla.ac.uk>
+Message-ID: <B0078EC8-AF29-4E26-96F0-EC280D5E3A5B@ucsd.edu>
+
+
+On Nov 30, 2012, at 4:07 PM PST, Rachel Smith wrote:
+
+> Hi Roger
+>  
+> Many thanks for your response.
+>  
+> That's reassuring that the random effects structure for subjects doesn't sound unreasonable.
+>  
+> As regards vlength, I've been thinking of this as between-targets, because each individual subject heard a given target word with only one value of vlength. However, across the whole dataset, each target did appear with both values of vlength. That is, half the subjects heard version A of the experiment, which had vlength "short" for half the targets, and "long" for the other half; the other half of the subjects heard version B, with the vlength values reversed. So, might this mean that the random effect for targets should be: (1+dialect+vlength|target)?
+
+Ah, yes, then vlength is within-target.
+
+Also, I hadn't noticed this before, but Dan Johnson pointed out to me that you actually have interactions of vlength & dialect as fixed effects in your model, with each other and with other variables.  Be sure to interpret the main effects with care given that they are involved in higher-order interactions in your model.  If those interactions are of theoretical importance, then you may want to consider random slopes for them.
+
+Best
+
+Roger
+
+>  
+> > Is it possible that you saved an older version of spotlong12.glmm to your workspace, and then when you closed
+> > and reopened R you wound up with the older version of spotlong12.glmm and your second anova() command
+> > reflects that result?
+> I don't think so--I didn't save anything to my workspace, and spotlong12.glmm certainly ran when I reopened R (it takes many minutes to do so, so that's not easily missed). On the other hand, it seems more likely that I made a mistake of some kind, than that my model somehow doesn't converge to a unique solution.
+>  
+> > Whatever the case, perhaps a good guiding principle is that you should trust whichever result you can replicate from scratch.
+>  
+> That makes sense!
+>  
+> Thanks again,
+>  
+> Rachel
+>  
+> From: Levy, Roger [rlevy-XkckGZ689+c at public.gmane.org]
+> Sent: 30 November 2012 04:04
+> To: Rachel Smith
+> Cc: ling-r-lang-l
+> Subject: Re: [R-lang] Surprising results from model comparison, when using a complex random effects structure
+> 
+> Hi Rachel,
+> 
+> Your random effects structure for subjects sounds reasonable; I'm inferring that vlength is between-items, in which case the by-items structure would be fine too.  Since spotlong12.glmm has different likelihoods in the two runs of anova() you report, they must be two different fitted models.  Is it possible that you saved an older version of spotlong12.glmm to your workspace, and then when you closed and reopened R you wound up with the older version of spotlong12.glmm and your second anova() command reflects that result?  Whatever the case, perhaps a good guiding principle is that you should trust whichever result you can replicate from scratch.
+> 
+> Best & hope this helps,
+> 
+> Roger
+> 
+> 
+> On Nov 29, 2012, at 4:19 PM PST, Rachel Smith wrote:
+> 
+>> Dear R-lang list,
+>>  
+>> I'd be very grateful for any advice you can offer. My issue is that when running lmer on categorical data with a moderately complex random effects structure, and doing model comparison using likelihood ratios, I am occasionally seeing (what I think are) bizarre and unstable chisq and p values in the model comparisons, and I'd like to find out why.
+>>  
+>> Apologies for the long email that follows.
+>>  
+>> To give some background, I previously fitted a model to my data using only random intercepts. Then I read Barr et al (2012) and reanalysed my data in order to follow their advice with respect to keeping the random effects structure (near-)maximal. The random effects structure that I have chosen is intended to be maximal with respect to my two experimental variables of primary theoretical interest, dialect (between-subjects) and vlength (within-subjects), and also includes random slopes for a couple of control variables that I expected to show relevant variation (loglong and item, both within-subjects). But it omits some predictors in order to permit the models to converge.
+>>  
+>> To estimate the fixed effects, I have followed a backwards model selection procedure using likelihood ratio model comparison. Along the way, there have been a couple of cases where the model comparison produces significant or near-significant results that I don't trust, and that seem unstable, in that they are liable to change (to something more sensible) when the identical code is re-run.
+>>  
+>> Here is an example: The following two models differ only in the inclusion of the factor "version" (2 levels).
+>>  
+>> spotlong11.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + version + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+>>  
+>> spotlong12.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+>>  
+>> (NB: "item" here refers to item number, i.e. is actually an effect of trial; "target" refers to words considered as an experimental unit, i.e. to what might normally be called items).
+>>  
+>> Model comparison gave the following result:
+>> anova(spotlong11.glmm, spotlong12.glmm)
+>> #                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)  
+>> #spotlong12.glmm 30 5281.2 5477.6 -2610.6                           
+>> #spotlong11.glmm 31 5279.7 5482.6 -2608.8 3.5601      1    0.05918 .
+>>  
+>> This is very surprising, because in the output for spotlong11.glmm, the estimate for version is small in relation to the standard error, and far from significance:
+>>  
+>> print(spotlong11.glmm, corr=FALSE)
+>> #Generalized linear mixed model fit by the Laplace approximation 
+>> #Formula: spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype -      dialect:context - #dialect:vtype + loglong + item + gender +      version + (1 + vlength + loglong + item | subject) + (1 +      dialect | #target) 
+>> #   Data: data 
+>> #  AIC  BIC logLik deviance
+>> # 5280 5483  -2609     5218
+>> #Random effects:
+>> # Groups  Name         Variance   Std.Dev.  Corr                 
+>> # subject (Intercept)  1.0128e+00 1.0063593                      
+>> #         vlengthshort 4.4225e-02 0.2102972 -0.675               
+>> #         loglong      7.4783e-02 0.2734643 -0.757  0.569        
+>> #         item         6.0143e-05 0.0077552 -0.474  0.877  0.125 
+>> # target  (Intercept)  1.7291e+00 1.3149512                      
+>> #         dialectL     1.3129e-01 0.3623410 -0.458               
+>> #Number of obs: 5148, groups: subject, 78; target, 66
+>> #Fixed effects:
+>> #                                Estimate Std. Error z value Pr(>|z|)    
+>> #(Intercept)                    -2.101415   0.497599  -4.223 2.41e-05 ***
+>> #dialectL                       -0.036163   0.192553  -0.188 0.851027    
+>> #vlengthshort                    0.549224   0.181666   3.023 0.002501 ** 
+>> #contextNL                       0.062903   0.566956   0.111 0.911657    
+>> #contextSL                       0.867398   0.553790   1.566 0.117280    
+>> #vtypeNV                        -0.743498   0.556697  -1.336 0.181696    
+>> #loglong                         0.874872   0.232198   3.768 0.000165 ***
+>> #item                            0.006777   0.001379   4.914 8.94e-07 ***
+>> #genderm                        -0.344050   0.177315  -1.940 0.052340 .  
+>> #versionB                        0.091018   0.170662   0.533 0.593810    
+>> #dialectL:vlengthshort          -0.377850   0.145280  -2.601 0.009300 ** 
+>> #vlengthshort:contextNL          0.725804   0.238603   3.042 0.002351 ** 
+>> #vlengthshort:contextSL         -0.867637   0.242693  -3.575 0.000350 ***
+>> #vlengthshort:vtypeNV           -0.581290   0.247543  -2.348 0.018862 *  
+>> #contextNL:vtypeNV               1.075103   0.794058   1.354 0.175757    
+>> #contextSL:vtypeNV              -0.505121   0.784197  -0.644 0.519494    
+>> #vlengthshort:contextNL:vtypeNV -0.602742   0.343102  -1.757 0.078961 .  
+>> #vlengthshort:contextSL:vtypeNV  0.824727   0.354378   2.327 0.019952 * 
+>>  
+>> After closing and re-opening R, and re-running the same two models and the comparison between them, I obtained the following:
+>> #                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+>> #spotlong12.glmm 30 5277.9 5474.3 -2609.0                         
+>> #spotlong11.glmm 31 5279.7 5482.6 -2608.8 0.2783      1     0.5978
+>> which is much more in line with the p value associated with the estimate for version in spotlong11.glmm.
+>>  
+>> Can anyone shed any light on why differences like this might occur and what I should do about them? As this is the first time I've implemented a random effects structure that is at all complex, I may just have done something crazy with the random effects. But whatever is the cause, it seems to be manifesting in strange model comparison results, rather than problems with convergence.
+>>  
+>> Thank you for reading! Any advice that anyone can offer will be greatly appreciated.
+>>  
+>> Best wishes,
+>>  
+>> Rachel Smith
+>> (U. of Glasgow)
+> 
+>
+
+From Rachel.Smith-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org  Mon Dec  3 00:08:58 2012
+From: Rachel.Smith-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org (Rachel Smith)
+Date: Mon, 03 Dec 2012 00:08:58 +0000
+Subject: Re: Surprising results from model comparison, when using a complex random effects structure
+In-Reply-To: <B0078EC8-AF29-4E26-96F0-EC280D5E3A5B-XkckGZ689+c@public.gmane.org>
+References: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F861@CMS03.campus.gla.ac.uk> <EDCDE7FA-2626-4CEE-80C6-44181D0FF24C@ucsd.edu> <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F864@CMS03.campus.gla.ac.uk> <B0078EC8-AF29-4E26-96F0-EC280D5E3A5B@ucsd.edu>
+Message-ID: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F867@CMS03.campus.gla.ac.uk>
+
+Dear Roger
+
+Many thanks for this (and indirectly to Dan, too).
+
+> Ah, yes, then vlength is within-target.
+
+> Also, I hadn't noticed this before, but Dan Johnson pointed out to me that you actually have interactions of 
+> vlength & dialect as fixed effects in your model, with each other and with other variables.  Be sure to 
+> interpret the main effects with care given that they are involved in higher-order interactions in your model.  If 
+> those interactions are of theoretical importance, then you may want to consider random slopes for them.
+
+Yes - in fact my key prediction is of an interaction of dialect and vlength. So yes, I should include a random slope for that interaction -- presumably (1+dialect*vlength|target) ? (The corresponding random slope for subjects isn't possible, because dialect is between-subjects.)
+
+Could I ask a couple of more general (and, sorry, still quite basic) questions? 
+
+1) I'm still wrestling with how to ensure I've arrived at the best model in terms of both random and fixed effects. (As my models are taking 30 minutes+ each to run, and I have a four-way interaction in my starting model, and also have four dependent variables to analyse, I'm particularly keen to have a sensible plan before beginning.) From what I've read, I believe I should start from a full model (all main effects and interactions) for both the fixed and random effects. This won't, I think, converge, and will also contain a number of nonsignificant predictors, so I will need to simplify it, but in which order should that be done? Should I simplify the random effects structure first, one term at a time, until the model both converges and contains only justified predictors; and after that,
+  move on to simplifying the fixed effects in similar fashion? Or should I remove a given term first from the random effects, then the fixed effects, before moving on to the next term?
+
+2) Roger writes:
+> Be sure to 
+> interpret the main effects with care given that they are involved in higher-order interactions in your model.
+Yes - I usually deal with this by relevelling and refitting to ensure that I've extracted all the relevant contrasts. However, in this case, I don't think this will get me the comparisons I need with respect to vlength. Vlength interacts with dialect, but also with context and vtype (individually and together) while dialect does not interact with either context or vtype. I *think* this means that the estimates and p-values for vlength are all going to with respect to particular reference levels of context and vtype. But to interpret the dialect:vlength interaction, what I want is to pool across the levels of context and vtype, in order to establish whether the levels of vlength differ for each level of dialect. So I presume that I'll need a different type of contrast coding here?
+
+Thanks again for your help -- I clearly have a lot to learn here.
+
+Last but not least, I'll keep the list posted as to whether I get any repeats of the weird result from model comparison, which motivated my original post, once I've got the random effects structure right.
+
+Best
+
+Rachel
+
+>
+> > Is it possible that you saved an older version of spotlong12.glmm to your workspace, and then when you closed
+> > and reopened R you wound up with the older version of spotlong12.glmm and your second anova() command
+> > reflects that result?
+> I don't think so--I didn't save anything to my workspace, and spotlong12.glmm certainly ran when I reopened R (it takes many minutes to do so, so that's not easily missed). On the other hand, it seems more likely that I made a mistake of some kind, than that my model somehow doesn't converge to a unique solution.
+>
+> > Whatever the case, perhaps a good guiding principle is that you should trust whichever result you can replicate from scratch.
+>
+> That makes sense!
+>
+> Thanks again,
+>
+> Rachel
+>
+> From: Levy, Roger [rlevy-XkckGZ689+c at public.gmane.org]
+> Sent: 30 November 2012 04:04
+> To: Rachel Smith
+> Cc: ling-r-lang-l
+> Subject: Re: [R-lang] Surprising results from model comparison, when using a complex random effects structure
+>
+> Hi Rachel,
+>
+> Your random effects structure for subjects sounds reasonable; I'm inferring that vlength is between-items, in which case the by-items structure would be fine too.  Since spotlong12.glmm has different likelihoods in the two runs of anova() you report, they must be two different fitted models.  Is it possible that you saved an older version of spotlong12.glmm to your workspace, and then when you closed and reopened R you wound up with the older version of spotlong12.glmm and your second anova() command reflects that result?  Whatever the case, perhaps a good guiding principle is that you should trust whichever result you can replicate from scratch.
+>
+> Best & hope this helps,
+>
+> Roger
+>
+>
+> On Nov 29, 2012, at 4:19 PM PST, Rachel Smith wrote:
+>
+>> Dear R-lang list,
+>>
+>> I'd be very grateful for any advice you can offer. My issue is that when running lmer on categorical data with a moderately complex random effects structure, and doing model comparison using likelihood ratios, I am occasionally seeing (what I think are) bizarre and unstable chisq and p values in the model comparisons, and I'd like to find out why.
+>>
+>> Apologies for the long email that follows.
+>>
+>> To give some background, I previously fitted a model to my data using only random intercepts. Then I read Barr et al (2012) and reanalysed my data in order to follow their advice with respect to keeping the random effects structure (near-)maximal. The random effects structure that I have chosen is intended to be maximal with respect to my two experimental variables of primary theoretical interest, dialect (between-subjects) and vlength (within-subjects), and also includes random slopes for a couple of control variables that I expected to show relevant variation (loglong and item, both within-subjects). But it omits some predictors in order to permit the models to converge.
+>>
+>> To estimate the fixed effects, I have followed a backwards model selection procedure using likelihood ratio model comparison. Along the way, there have been a couple of cases where the model comparison produces significant or near-significant results that I don't trust, and that seem unstable, in that they are liable to change (to something more sensible) when the identical code is re-run.
+>>
+>> Here is an example: The following two models differ only in the inclusion of the factor "version" (2 levels).
+>>
+>> spotlong11.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + version + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+>>
+>> spotlong12.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+>>
+>> (NB: "item" here refers to item number, i.e. is actually an effect of trial; "target" refers to words considered as an experimental unit, i.e. to what might normally be called items).
+>>
+>> Model comparison gave the following result:
+>> anova(spotlong11.glmm, spotlong12.glmm)
+>> #                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+>> #spotlong12.glmm 30 5281.2 5477.6 -2610.6
+>> #spotlong11.glmm 31 5279.7 5482.6 -2608.8 3.5601      1    0.05918 .
+>>
+>> This is very surprising, because in the output for spotlong11.glmm, the estimate for version is small in relation to the standard error, and far from significance:
+>>
+>> print(spotlong11.glmm, corr=FALSE)
+>> #Generalized linear mixed model fit by the Laplace approximation
+>> #Formula: spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype -      dialect:context - #dialect:vtype + loglong + item + gender +      version + (1 + vlength + loglong + item | subject) + (1 +      dialect | #target)
+>> #   Data: data
+>> #  AIC  BIC logLik deviance
+>> # 5280 5483  -2609     5218
+>> #Random effects:
+>> # Groups  Name         Variance   Std.Dev.  Corr
+>> # subject (Intercept)  1.0128e+00 1.0063593
+>> #         vlengthshort 4.4225e-02 0.2102972 -0.675
+>> #         loglong      7.4783e-02 0.2734643 -0.757  0.569
+>> #         item         6.0143e-05 0.0077552 -0.474  0.877  0.125
+>> # target  (Intercept)  1.7291e+00 1.3149512
+>> #         dialectL     1.3129e-01 0.3623410 -0.458
+>> #Number of obs: 5148, groups: subject, 78; target, 66
+>> #Fixed effects:
+>> #                                Estimate Std. Error z value Pr(>|z|)
+>> #(Intercept)                    -2.101415   0.497599  -4.223 2.41e-05 ***
+>> #dialectL                       -0.036163   0.192553  -0.188 0.851027
+>> #vlengthshort                    0.549224   0.181666   3.023 0.002501 **
+>> #contextNL                       0.062903   0.566956   0.111 0.911657
+>> #contextSL                       0.867398   0.553790   1.566 0.117280
+>> #vtypeNV                        -0.743498   0.556697  -1.336 0.181696
+>> #loglong                         0.874872   0.232198   3.768 0.000165 ***
+>> #item                            0.006777   0.001379   4.914 8.94e-07 ***
+>> #genderm                        -0.344050   0.177315  -1.940 0.052340 .
+>> #versionB                        0.091018   0.170662   0.533 0.593810
+>> #dialectL:vlengthshort          -0.377850   0.145280  -2.601 0.009300 **
+>> #vlengthshort:contextNL          0.725804   0.238603   3.042 0.002351 **
+>> #vlengthshort:contextSL         -0.867637   0.242693  -3.575 0.000350 ***
+>> #vlengthshort:vtypeNV           -0.581290   0.247543  -2.348 0.018862 *
+>> #contextNL:vtypeNV               1.075103   0.794058   1.354 0.175757
+>> #contextSL:vtypeNV              -0.505121   0.784197  -0.644 0.519494
+>> #vlengthshort:contextNL:vtypeNV -0.602742   0.343102  -1.757 0.078961 .
+>> #vlengthshort:contextSL:vtypeNV  0.824727   0.354378   2.327 0.019952 *
+>>
+>> After closing and re-opening R, and re-running the same two models and the comparison between them, I obtained the following:
+>> #                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+>> #spotlong12.glmm 30 5277.9 5474.3 -2609.0
+>> #spotlong11.glmm 31 5279.7 5482.6 -2608.8 0.2783      1     0.5978
+>> which is much more in line with the p value associated with the estimate for version in spotlong11.glmm.
+>>
+>> Can anyone shed any light on why differences like this might occur and what I should do about them? As this is the first time I've implemented a random effects structure that is at all complex, I may just have done something crazy with the random effects. But whatever is the cause, it seems to be manifesting in strange model comparison results, rather than problems with convergence.
+>>
+>> Thank you for reading! Any advice that anyone can offer will be greatly appreciated.
+>>
+>> Best wishes,
+>>
+>> Rachel Smith
+>> (U. of Glasgow)
+>
+>
+

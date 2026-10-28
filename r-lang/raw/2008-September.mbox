@@ -1,0 +1,564 @@
+From sgwater-9iOJEv++55WFxr2TtlUqVg at public.gmane.org  Mon Sep  1 13:47:19 2008
+From: sgwater-9iOJEv++55WFxr2TtlUqVg at public.gmane.org (Sharon Goldwater)
+Date: Mon, 01 Sep 2008 14:47:19 +0100
+Subject: poly() and polynomials
+Message-ID: <7b8a41740809010647w3073213ag639ebc73bdfc738b@mail.gmail.com>
+
+I'm trying to build a mixed logit model using lmer, and I have some
+questions about poly() and the use of quadratic terms in general.  My
+understanding is that, by default, poly() creates orthogonal
+polynomials, so the coefficients are not easily interpretable.  On the
+other hand, using m ~ poly(x, raw=T) should be equivalent to m ~ x +
+xsq, where xsq is precomputed as x^2.  I have verified the second
+statement by building one model using raw poly() and another one by
+precomputing all quadratic terms, and the coefficients are indeed
+virtually identical.  Now I have a couple of questions:
+
+1.  When I try to build a model using raw=F, I get the following error:
+
+> m22 <- lmer(is_err ~ poly(pmean_sex,2)  +(1|speaker)+(1|ref), x=T,y=T,family="binomial")
+Error in x * raw^2 : non-conformable arrays
+
+but
+>  m22 <- lmer(is_err ~ poly(pmean_sex,2,raw=T) +(1|speaker)+(1|ref), x=T,y=T,family="binomial")
+works fine.
+
+Normally my model has far more predictors, but this is the only one
+that seems to cause the problem.  This doesn't seem to be a problem
+with lmer specifically, since it's reproducible using lrm and lm as
+well.  Does anyone know what this means?   I can't seem to find an
+answer in R help archives that makes any sense.  More generally,
+should I care about trying to fix it?  That is, is there a good reason
+to prefer orthogonal polynomials rather than raw ones, aside from
+reducing collinearity slightly? Since I would like to be able to
+interpret the coefficients (i.e., determine the relative importance of
+each variable as a predictor of error rates), I would tend towards
+using raw polynomials anyway.
+
+2.  I always hear people say that if you have both a linear and
+quadratic term for a particular predictor, you shouldn't get rid of
+the linear term (even if it shows up as not significant) while
+retaining the quadratic term.  In fact, if you were using poly(), it
+wouldn't even be possible to do that.  But suppose you instead
+precompute all the quadratic terms and treat them as separate
+variables.  It seems to me that retaining a quadratic term for
+variable x while deleting the linear term is essentially just
+performing a transformation on the variable, no different from taking
+the log of x as the predictor, which we do all the time for linguistic
+variables.  So is there really any reason not to do it?
+
+--AuH2O
+
+-- 
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu Sep  4 00:51:42 2008
+From: rlevy-XkckGZ689+c at public.gmane.org (Roger Levy)
+Date: Wed, 03 Sep 2008 17:51:42 -0700
+Subject: Re: poly() and polynomials
+In-Reply-To: <7b8a41740809010647w3073213ag639ebc73bdfc738b@mail.gmail.com>
+References: <7b8a41740809010647w3073213ag639ebc73bdfc738b@mail.gmail.com>
+Message-ID: <48BF311E.1060101@ucsd.edu>
+
+Hi Sharon,
+
+Sharon Goldwater wrote:
+> I'm trying to build a mixed logit model using lmer, and I have some
+> questions about poly() and the use of quadratic terms in general.  My
+> understanding is that, by default, poly() creates orthogonal
+> polynomials, so the coefficients are not easily interpretable.  On the
+> other hand, using m ~ poly(x, raw=T) should be equivalent to m ~ x +
+> xsq, where xsq is precomputed as x^2.  I have verified the second
+> statement by building one model using raw poly() and another one by
+> precomputing all quadratic terms, and the coefficients are indeed
+> virtually identical.  Now I have a couple of questions:
+> 
+> 1.  When I try to build a model using raw=F, I get the following error:
+> 
+>> m22 <- lmer(is_err ~ poly(pmean_sex,2)  +(1|speaker)+(1|ref), x=T,y=T,family="binomial")
+> Error in x * raw^2 : non-conformable arrays
+> 
+> but
+>>  m22 <- lmer(is_err ~ poly(pmean_sex,2,raw=T) +(1|speaker)+(1|ref), x=T,y=T,family="binomial")
+> works fine.
+> 
+> Normally my model has far more predictors, but this is the only one
+> that seems to cause the problem.  This doesn't seem to be a problem
+> with lmer specifically, since it's reproducible using lrm and lm as
+> well.  Does anyone know what this means?   
+
+Well, the "non-conformable arrays" error means that you're trying to
+multiply or add two arrays (e.g., two matrices) with different
+dimensions.  But that doesn't give me any clue as to why this would
+happen for you!  Sorry...
+
+> I can't seem to find an
+> answer in R help archives that makes any sense.  More generally,
+> should I care about trying to fix it?  That is, is there a good reason
+> to prefer orthogonal polynomials rather than raw ones, aside from
+> reducing collinearity slightly? Since I would like to be able to
+> interpret the coefficients (i.e., determine the relative importance of
+> each variable as a predictor of error rates), I would tend towards
+> using raw polynomials anyway.
+
+So: as long as you're using maximum likelihood, the precise polynomial
+basis functions you choose (=orthogonal or non-orthogonal) won't affect
+what model is fitted, though as you point out it will affect the
+correlations between the parameter estimates.  If you use any other
+model-fitting criterion, though, such as penalized ML or Bayesian
+methods, the basis functions will matter.  For lmer(), using REML to fit
+a model will also cause the basis functions chosen to affect the
+resulting model fit, because REML is effectively Bayesian model fitting
+with a uniform prior over the fixed effects (see Pinheiro & Bates 2000,
+pp. 75-76).
+
+As an example, you get different log-likelihoods from the orthogonal &
+raw bases in the following simulation:
+
+x <- runif(1000)
+subj <- rep(1:10,100)
+r <- rnorm(10)
+dat <- data.frame(y=2 * x + 0.5 * x * x + r[subj] +
+rnorm(1000,0,5),x=x,subj=subj)
+lmer(y ~ poly(x,2) + (1 | subj), dat)
+lmer(y ~ poly(x,2,raw=T) + (1 | subj), dat)
+
+> 
+> 2.  I always hear people say that if you have both a linear and
+> quadratic term for a particular predictor, you shouldn't get rid of
+> the linear term (even if it shows up as not significant) while
+> retaining the quadratic term.  In fact, if you were using poly(), it
+> wouldn't even be possible to do that.  But suppose you instead
+> precompute all the quadratic terms and treat them as separate
+> variables.  It seems to me that retaining a quadratic term for
+> variable x while deleting the linear term is essentially just
+> performing a transformation on the variable, no different from taking
+> the log of x as the predictor, which we do all the time for linguistic
+> variables.  So is there really any reason not to do it?
+
+Gee, that's an interesting question.  My take would be that it's
+analogous to the question of when you'd want to remove an intercept from
+a regression model.  If you have a strong theoretical reason why the
+intercept must be 0 (e.g., modeling distance traveled as a function of
+time), then your data should be fit well with a 0-intercept model, and
+you have good reason to remove the term from your regression.  But
+without a good theoretical basis for removing the intercept, you
+wouldn't want to take it out of the model even if it is "insignificantly
+different from zero".  Likewise with the lower-order terms in a
+polynomial regression.
+
+FWIW, though, spline-based methods usually tend to behave better than
+polynomial regression, especially if you're doing even mild extrapolation.
+
+Best
+
+Roger
+
+
+
+-- 
+
+Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy
+
+From sgwater-9iOJEv++55WFxr2TtlUqVg at public.gmane.org  Thu Sep  4 18:22:56 2008
+From: sgwater-9iOJEv++55WFxr2TtlUqVg at public.gmane.org (Sharon Goldwater)
+Date: Thu, 04 Sep 2008 19:22:56 +0100
+Subject: Re: poly() and polynomials
+In-Reply-To: <48BF311E.1060101-XkckGZ689+c@public.gmane.org>
+References: <7b8a41740809010647w3073213ag639ebc73bdfc738b@mail.gmail.com> <48BF311E.1060101@ucsd.edu>
+Message-ID: <7b8a41740809041122s1b54ef30l92c5d3db3e77da88@mail.gmail.com>
+
+Hi Roger,
+
+> So: as long as you're using maximum likelihood, the precise polynomial
+> basis functions you choose (=orthogonal or non-orthogonal) won't affect
+> what model is fitted, though as you point out it will affect the
+> correlations between the parameter estimates.  If you use any other
+> model-fitting criterion, though, such as penalized ML or Bayesian
+> methods, the basis functions will matter.  For lmer(), using REML to fit
+> a model will also cause the basis functions chosen to affect the
+> resulting model fit, because REML is effectively Bayesian model fitting
+> with a uniform prior over the fixed effects (see Pinheiro & Bates 2000,
+> pp. 75-76).
+>
+> As an example, you get different log-likelihoods from the orthogonal &
+> raw bases in the following simulation:
+>
+> x <- runif(1000)
+> subj <- rep(1:10,100)
+> r <- rnorm(10)
+> dat <- data.frame(y=2 * x + 0.5 * x * x + r[subj] +
+> rnorm(1000,0,5),x=x,subj=subj)
+> lmer(y ~ poly(x,2) + (1 | subj), dat)
+> lmer(y ~ poly(x,2,raw=T) + (1 | subj), dat)
+
+OK, thanks for pointing that out!  However, I don't think it applies
+in this case because according to the documentation for lmer(),
+logistic models (which is what I'm using) are always fit using
+maximum-likelihood.  (I verified this by adding method = "REML" to my
+model specification, and nothing changed.)
+
+> > 2.  I always hear people say that if you have both a linear and
+> > quadratic term for a particular predictor, you shouldn't get rid of
+> > the linear term (even if it shows up as not significant) while
+> > retaining the quadratic term.  In fact, if you were using poly(), it
+> > wouldn't even be possible to do that.  But suppose you instead
+> > precompute all the quadratic terms and treat them as separate
+> > variables.  It seems to me that retaining a quadratic term for
+> > variable x while deleting the linear term is essentially just
+> > performing a transformation on the variable, no different from taking
+> > the log of x as the predictor, which we do all the time for linguistic
+> > variables.  So is there really any reason not to do it?
+>
+> Gee, that's an interesting question.  My take would be that it's
+> analogous to the question of when you'd want to remove an intercept from
+> a regression model.  If you have a strong theoretical reason why the
+> intercept must be 0 (e.g., modeling distance traveled as a function of
+> time), then your data should be fit well with a 0-intercept model, and
+> you have good reason to remove the term from your regression.  But
+> without a good theoretical basis for removing the intercept, you
+> wouldn't want to take it out of the model even if it is "insignificantly
+> different from zero".  Likewise with the lower-order terms in a
+> polynomial regression.
+
+That seems reasonable.
+
+> FWIW, though, spline-based methods usually tend to behave better than
+> polynomial regression, especially if you're doing even mild extrapolation.
+
+Yes, it is certainly true that the quadratic fits I have make fairly
+extreme predictions for points whose values are slightly beyond those
+observed in the data.  Also using splines does seem to give a slightly
+better fit.  However, there are a couple of reasons I've been using
+polynomials rather than splines:
+
+1. I want to be able to produce plots showing the predicted effects of
+each fixed effect on the result variable.  I've been doing this by
+extracting the fixed effect coefficients from the fitted model and
+then plotting them (as in this figure:
+http://homepages.inf.ed.ac.uk/sgwater/tmp/sri_num_coeff.pdf
+where the result variable is
+whether a word was correctly recognized by a speech recognition
+system.  Variables are all centered and rescaled.)  Is there some way
+to do this type of plot if I fit using rcs()?  I don't know what the
+formula would be to make the plot using the rcs coefficients, and I
+don't know of any predict-type function for lmer...
+
+2.  The fit of this model to the data is fairly poor -- there is
+simply a large amount of randomness that isn't captured.  So
+prediction would be really bad anyway.  Mainly what I'm trying to do
+is (as implied by point 1) figure out how the factors that I'm
+examining influence the results.  So I'm more interested in
+qualitative statements like "words with extreme values of certain
+prosodic features, such as duration, jitter, and speech rate, are more
+likely to be misrecognized than words with more moderate values" than
+in worrying about exactly what how much worse it is to have a duration
+of 1 sec than .5 sec. I would be happy to use rcs() if I could figure
+out how to make the plots that allow me to make the qualitative
+statements easy to see.  Any thoughts?
+
+One more question, mostly unrelated: if I am using collin.fnc to
+compute the condition number, am I correct that I should include only
+the fixed effects when checking for collinearity? I've got a condition
+number of around 18, which I think is borderline but OK, when I
+include all the fixed effects including the (non-orthogonal) quadratic
+terms.  But it goes up to 29 if I include the speaker and word factors
+of my data (which I'm modeling as random).  That's because I also have
+a factor for corpus, which is predictable given speaker.  But I guess
+that high condition number is based on the assumption that you're
+going to try to fit separate coefficients for each speaker, which in
+fact I'm not.  So I should exclude the random effects from the
+computation, right?
+
+-- AuH2O
+
+-- 
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+From rlevy-XkckGZ689+c at public.gmane.org  Fri Sep  5 04:33:27 2008
+From: rlevy-XkckGZ689+c at public.gmane.org (Roger Levy)
+Date: Thu, 04 Sep 2008 21:33:27 -0700
+Subject: Re: poly() and polynomials
+Message-ID: <48C0B697.4050300@ucsd.edu>
+
+Sharon Goldwater wrote:
+ > Hi Roger,
+ >
+ >> So: as long as you're using maximum likelihood, the precise polynomial
+ >> basis functions you choose (=orthogonal or non-orthogonal) won't affect
+ >> what model is fitted, though as you point out it will affect the
+ >> correlations between the parameter estimates.  If you use any other
+ >> model-fitting criterion, though, such as penalized ML or Bayesian
+ >> methods, the basis functions will matter.  For lmer(), using REML to fit
+ >> a model will also cause the basis functions chosen to affect the
+ >> resulting model fit, because REML is effectively Bayesian model fitting
+ >> with a uniform prior over the fixed effects (see Pinheiro & Bates 2000,
+ >> pp. 75-76).
+ >>
+ >> As an example, you get different log-likelihoods from the orthogonal &
+ >> raw bases in the following simulation:
+ >>
+ >> x <- runif(1000)
+ >> subj <- rep(1:10,100)
+ >> r <- rnorm(10)
+ >> dat <- data.frame(y=2 * x + 0.5 * x * x + r[subj] +
+ >> rnorm(1000,0,5),x=x,subj=subj)
+ >> lmer(y ~ poly(x,2) + (1 | subj), dat)
+ >> lmer(y ~ poly(x,2,raw=T) + (1 | subj), dat)
+ >
+ > OK, thanks for pointing that out!  However, I don't think it applies
+ > in this case because according to the documentation for lmer(),
+ > logistic models (which is what I'm using) are always fit using
+ > maximum-likelihood.  (I verified this by adding method = "REML" to my
+ > model specification, and nothing changed.)
+
+Aha, good point that the situation is different for logit models in
+lmer().  Although I'm not totally clear on the upshot: according to
+Bates 2007, it seems like a Laplace approximation is used, which gets
+the conditional modes of the random effects and the approximate ML fixed
+effects. Jaeger 2007 in press (p. 10) mentions that what's being fitted
+is a penalized quasi-log-likelihood, but that's not quite my reading of
+Bates 2007.  If a penalized likelihood is being maximized, then the
+choice of basis functions could still have an effect.
+
+ >> FWIW, though, spline-based methods usually tend to behave better than
+ >> polynomial regression, especially if you're doing even mild 
+extrapolation.
+ >
+ > Yes, it is certainly true that the quadratic fits I have make fairly
+ > extreme predictions for points whose values are slightly beyond those
+ > observed in the data.  Also using splines does seem to give a slightly
+ > better fit.  However, there are a couple of reasons I've been using
+ > polynomials rather than splines:
+ >
+ > 1. I want to be able to produce plots showing the predicted effects of
+ > each fixed effect on the result variable.  I've been doing this by
+ > extracting the fixed effect coefficients from the fitted model and
+ > then plotting them (as in this figure:
+ > http://homepages.inf.ed.ac.uk/sgwater/tmp/sri_num_coeff.pdf
+ > where the result variable is
+ > whether a word was correctly recognized by a speech recognition
+ > system.  Variables are all centered and rescaled.)  Is there some way
+ > to do this type of plot if I fit using rcs()?  I don't know what the
+ > formula would be to make the plot using the rcs coefficients, and I
+ > don't know of any predict-type function for lmer...
+
+Yes, there is a way to do this.  You need to extract the spline 
+parameters from the model and then multiply the spline basis matrix with 
+it. Here's an example -- note that I can't get rcs() or ns() to work 
+inside lmer, but putting the call to rcs() on the outside works fine:
+
+
+## simulate some data
+invlogit <- function(x) exp(x) / (1 + exp(x))
+
+x <- runif(1000,-1,1)
+y <- runif(1000, 0, 1)
+subj <- rep(1:10,100)
+r <- rnorm(10)
+z <- rbinom(1000, 1, prob=invlogit(2 * x + 3 * x ^ 2  - 3 * y + r[subj]))
+
+
+## generate the spline basis matrices; here we use 8 knots
+knots <- 8
+dummy <- seq(-1,1,by=0.0025)
+dummy.rcs <- rcs(dummy, knots)
+x.rcs <- rcs(x,knots)
+
+## model
+m <- lmer(z ~ y + x.rcs + (1 | subj), family="binomial")
+
+## extract spline coefficients
+rcs.coef <- fixef(m)[3:9]
+plot(dummy, fixef(m)[1] + dummy.rcs %*% rcs.coef, 
+type="l",ylim=c(-3,10)) # note that you need to throw in the intercept
+lines(dummy, 2 * dummy + 3 * dummy * dummy, lty=2) # decent fit to the 
+true effect of x
+
+
+ >
+ > 2.  The fit of this model to the data is fairly poor -- there is
+ > simply a large amount of randomness that isn't captured.  So
+ > prediction would be really bad anyway.  Mainly what I'm trying to do
+ > is (as implied by point 1) figure out how the factors that I'm
+ > examining influence the results.  So I'm more interested in
+ > qualitative statements like "words with extreme values of certain
+ > prosodic features, such as duration, jitter, and speech rate, are more
+ > likely to be misrecognized than words with more moderate values" than
+ > in worrying about exactly what how much worse it is to have a duration
+ > of 1 sec than .5 sec. I would be happy to use rcs() if I could figure
+ > out how to make the plots that allow me to make the qualitative
+ > statements easy to see.  Any thoughts?
+
+Yeah -- does the above help?
+
+ > One more question, mostly unrelated: if I am using collin.fnc to
+ > compute the condition number, am I correct that I should include only
+ > the fixed effects when checking for collinearity? I've got a condition
+ > number of around 18, which I think is borderline but OK, when I
+ > include all the fixed effects including the (non-orthogonal) quadratic
+ > terms.  But it goes up to 29 if I include the speaker and word factors
+ > of my data (which I'm modeling as random).  That's because I also have
+ > a factor for corpus, which is predictable given speaker.  But I guess
+ > that high condition number is based on the assumption that you're
+ > going to try to fit separate coefficients for each speaker, which in
+ > fact I'm not.  So I should exclude the random effects from the
+ > computation, right?
+
+I'm going to punt on this...I don't know anything about collin.fnc...
+
+Roger
+
+-- 
+
+Roger Levy                      Email: rlevy-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy
+
+-- 
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://ling.ucsd.edu/~rlevy
+
+From slevc-OhmvVRJSr/I at public.gmane.org  Fri Sep  5 20:27:50 2008
+From: slevc-OhmvVRJSr/I at public.gmane.org (Bob Slevc)
+Date: Fri, 05 Sep 2008 15:27:50 -0500
+Subject: contrast coding
+Message-ID: <6F0EA2E7-D0BD-48AC-9A4B-5F2163D857BC@rice.edu>
+
+Hi there R-language-gurus,
+
+I have what I think is a simple question – maybe even a stupid  
+question (and there are too stupid questions) – that's related to  
+recent discussions on this list.  Imagine, if you will, that I have a  
+full-factorial design, and want to set up a set of orthogonal  
+contrasts rather than using R's default dummy coding.  For a simple  
+2x2 design, I want something like this, where contrasts 1 and 2 are  
+the main effects for A and B, and contrast 3 is the interaction:
+
+			a1	a1	a2	a2
+			b1	b2	b1	b2
+contrast1	1	1	-1	-1
+contrast2	1	-1	1	-1
+contrast3	1	-1	-1	1
+
+I haven't found any contrast function (e.g., contr.poly / contr.sum /  
+etc.) that'll automatically create a matrix for this kind of  
+contrast, but can I just specify the individual factor contrasts and  
+assume that R will just multiply them to give nice orthogonal  
+interaction contrasts?  For example, if my factors are called A and  
+B, and I say:
+
+contrasts(datafile$A) <- c(1,-1)
+contrasts(datafile$B) <- c(1,-1)
+
+and then run a model (on log(RTs) apparently):
+
+model <- lmer(log(RT) ~ A*B + (1|subj) + (1|item), data=datafile)
+
+Then am I set?  I'm a little unsure, partially because it gives me  
+slightly different results than the default dummy coding does (though  
+it does seem to be orthogonal as the correlations between fixed  
+effects are all zero...)
+
+Thanks much,
+Bob
+
+---
+L. Robert (Bob) Slevc, Ph.D.
+Rice University, Dept. of Psychology • 6100 Main Street • Houston, TX  
+77005
+http://www.ruf.rice.edu/~slevc/
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Mon Sep  8 20:54:00 2008
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Mon, 08 Sep 2008 16:54:00 -0400
+Subject: Re: contrast coding
+In-Reply-To: <6F0EA2E7-D0BD-48AC-9A4B-5F2163D857BC-OhmvVRJSr/I@public.gmane.org>
+References: <6F0EA2E7-D0BD-48AC-9A4B-5F2163D857BC@rice.edu>
+Message-ID: <38dc9be90809081354v111ef4a1i50e9a0980299faeb@mail.gmail.com>
+
+Hey Bob,
+
+yes, if you sum-code (aka contrast code) the main effects, the way you
+describe it below, you will be all set (at least for balanced data; for
+unbalanced data, you may want to center the variable). The interaction just
+multiplies the value of the two main predictors (leading to the values you
+give below), and -for balanced data- the interaction should be orthogonal to
+the main effects. The fitted coefficients will indeed differ from the
+default dummy coding (which is 0 vs. 1 coding, which is *not* centered).
+
+HTH,
+Florian
+
+On Fri, Sep 5, 2008 at 4:27 PM, Bob Slevc <slevc-OhmvVRJSr/I at public.gmane.org> wrote:
+
+> Hi there R-language-gurus,
+>
+> I have what I think is a simple question – maybe even a stupid question
+> (and there are too stupid questions) – that's related to recent discussions
+> on this list.  Imagine, if you will, that I have a full-factorial design,
+> and want to set up a set of orthogonal contrasts rather than using R's
+> default dummy coding.  For a simple 2x2 design, I want something like this,
+> where contrasts 1 and 2 are the main effects for A and B, and contrast 3 is
+> the interaction:
+>
+> a1 a1 a2 a2
+> b1 b2 b1 b2
+> contrast1 1 1 -1 -1
+> contrast2 1 -1 1 -1
+> contrast3 1 -1 -1 1
+>
+> I haven't found any contrast function (e.g., contr.poly / contr.sum / etc.)
+> that'll automatically create a matrix for this kind of contrast, but can I
+> just specify the individual factor contrasts and assume that R will just
+> multiply them to give nice orthogonal interaction contrasts?  For example,
+> if my factors are called A and B, and I say:
+>
+> contrasts(datafile$A) <- c(1,-1)
+> contrasts(datafile$B) <- c(1,-1)
+>
+> and then run a model (on log(RTs) apparently):
+>
+> model <- lmer(log(RT) ~ A*B + (1|subj) + (1|item), data=datafile)
+>
+> Then am I set?  I'm a little unsure, partially because it gives me slightly
+> different results than the default dummy coding does (though it does seem to
+> be orthogonal as the correlations between fixed effects are all zero...)
+>
+> Thanks much,
+> Bob
+>
+> ---
+> L. Robert (Bob) Slevc, Ph.D.
+> Rice University, Dept. of Psychology • 6100 Main Street • Houston, TX 77005
+> http://www.ruf.rice.edu/~slevc/ <http://www.ruf.rice.edu/%7Eslevc/>
+>
+>
+> _______________________________________________
+> R-lang mailing list
+> R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+> http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+>
+>
+
+-------------- next part --------------
+_______________________________________________
+R-lang mailing list
+R-lang-J8UlxMCpGvdVdeU8dOWy+g at public.gmane.org
+http://pidgin.ucsd.edu/mailman/listinfo/r-lang
+

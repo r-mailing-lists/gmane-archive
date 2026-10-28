@@ -1,0 +1,4520 @@
+From dtenenbaum at systemsbiology.org  Thu Jan  4 21:14:05 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Thu, 04 Jan 2007 13:14:05 -0800
+Subject: JRclient/Rserve - binding a matrix as a parameter
+Message-ID: <459D6E1D.9070403@systemsbiology.org>
+
+Hello,
+I hope this is the right list.
+
+I am using Rserve via the Java client, JRclient.
+
+I want to call an R method that takes a matrix as a parameter, and I 
+want to use the parameter binding facilities of Rconnection rather than 
+passing the matrix as a literal. How do I do that?
+
+Thanks
+
+From urbanek at research.att.com  Fri Jan  5 23:03:55 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Fri, 05 Jan 2007 18:03:55 -0500
+Subject: Re: JRclient/Rserve - binding a matrix as a parameter
+In-Reply-To: <459D6E1D.9070403@systemsbiology.org>
+References: <459D6E1D.9070403@systemsbiology.org>
+Message-ID: <2577751D-E5E3-490B-BFB6-57B22BA2CF03@research.att.com>
+
+Dan,
+
+On Jan 4, 2007, at 4:14 PM, Dan Tenenbaum wrote:
+
+> Hello,
+> I hope this is the right list.
+>
+
+Yes.
+
+
+> I am using Rserve via the Java client, JRclient.
+>
+> I want to call an R method that takes a matrix as a parameter, and  
+> I want to use the parameter binding facilities of Rconnection  
+> rather than passing the matrix as a literal. How do I do that?
+>
+
+I'm assuming that you want to create a matrix in R from data values  
+in Java without using the string representation [Rconnection doesn't  
+really have parameter binding]. This can be done in several ways, but  
+probably the most efficient one is to create an array containing all  
+the values, assign it to R and create a matrix from it, i.e.  
+something like:
+
+double d[] = { 1, 2, 3, 4, 5 , 6 };
+
+re.assign("a", d);
+re.voidEval("a<-matrix(a, 3)")
+
+The resulting variable "a" will look like this:
+
+      [,1] [,2]
+[1,]    1    4
+[2,]    2    5
+[3,]    3    6
+
+Cheers,
+Simon
+
+From dtenenbaum at systemsbiology.org  Fri Jan  5 23:09:08 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Fri, 05 Jan 2007 15:09:08 -0800
+Subject: Re: JRclient/Rserve - binding a matrix as a parameter
+In-Reply-To: <2577751D-E5E3-490B-BFB6-57B22BA2CF03@research.att.com>
+References: <459D6E1D.9070403@systemsbiology.org> <2577751D-E5E3-490B-BFB6-57B22BA2CF03@research.att.com>
+Message-ID: <459EDA94.4030303@systemsbiology.org>
+
+Simon Urbanek wrote:
+>> I am using Rserve via the Java client, JRclient.
+>>
+>> I want to call an R method that takes a matrix as a parameter, and I 
+>> want to use the parameter binding facilities of Rconnection rather 
+>> than passing the matrix as a literal. How do I do that?
+>>
+> 
+> I'm assuming that you want to create a matrix in R from data values in 
+> Java without using the string representation [Rconnection doesn't really 
+> have parameter binding]. This can be done in several ways, but probably 
+> the most efficient one is to create an array containing all the values, 
+> assign it to R and create a matrix from it, i.e. something like:
+> 
+> double d[] = { 1, 2, 3, 4, 5 , 6 };
+> 
+> re.assign("a", d);
+> re.voidEval("a<-matrix(a, 3)")
+> 
+> The resulting variable "a" will look like this:
+> 
+>      [,1] [,2]
+> [1,]    1    4
+> [2,]    2    5
+> [3,]    3    6
+> 
+> Cheers,
+> Simon
+
+
+That's what I ended up doing.
+
+Maybe I used the wrong terminology, I assumed that what the various 
+assign() methods did was parameter binding, but maybe it has another name.
+
+Anyway, since Rconnection does allow assign() for scalars and 
+one-dimensional arrays, I just wondered if there was a similar facility 
+for 2d arrays. If not, the workaround you describe will be OK.
+
+Thanks
+Dan
+
+From s.p.pears at hotmail.co.uk  Wed Jan 10 15:09:35 2007
+From: s.p.pears at hotmail.co.uk (Simon Pears)
+Date: Wed, 10 Jan 2007 15:09:35 +0000
+Subject: sharing java object reference - JRI and R Java
+Message-ID: <BAY108-F3790A18BCF162A12279888E4B20@phx.gbl>
+
+Hi,
+
+I can use a Java program with JRI to:
+1. source an R program from file
+2. extract parameters from a Java object (theObj)
+3. invoke the R program with extracted parameters
+4. from within the Java program collect the return values and update the 
+Java object (theObj)
+
+Is it possible for objects to be shared between JRI and rJava.
+For example, can I have the R program update the Java object (theObj) with 
+the results using RJava?
+How do I get the reference to the shared Java object?
+
+Regards
+
+
+Simon Pears
+
+_________________________________________________________________
+MSN Hotmail is evolving � check out the new Windows Live Mail 
+http://ideas.live.com
+
+From urbanek at research.att.com  Wed Jan 10 15:56:57 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Wed, 10 Jan 2007 10:56:57 -0500
+Subject: Re: sharing java object reference - JRI and R Java
+In-Reply-To: <BAY108-F3790A18BCF162A12279888E4B20@phx.gbl>
+References: <BAY108-F3790A18BCF162A12279888E4B20@phx.gbl>
+Message-ID: <525C7FBD-6989-4170-990F-E167C2F7CF8E@research.att.com>
+
+Simon,
+
+On Jan 10, 2007, at 10:09 AM, Simon Pears wrote:
+
+> I can use a Java program with JRI to:
+> 1. source an R program from file
+> 2. extract parameters from a Java object (theObj)
+> 3. invoke the R program with extracted parameters
+> 4. from within the Java program collect the return values and  
+> update the Java object (theObj)
+>
+
+Yes
+
+
+> Is it possible for objects to be shared between JRI and rJava.
+> For example, can I have the R program update the Java object  
+> (theObj) with the results using RJava?
+
+Yes - they are sharing the same JVM. JRI and rJava are essentially  
+one interface - each for one direction - so you can mix them as you  
+wish.
+
+
+> How do I get the reference to the shared Java object?
+>
+
+I'm not quite sure what you mean - you are dealing with one JVM, so a  
+Java object is accessible both from R and Java automatically and  
+simultaneously, there is no conversion necessary. Also note that Java  
+objects are always references, so R never creates a copy of an object  
+(the R representation may get copied, but it is always a reference to  
+the same Java object - see the concept of external references in R).
+
+Cheers,
+Simon
+
+From s.p.pears at hotmail.co.uk  Wed Jan 10 16:18:02 2007
+From: s.p.pears at hotmail.co.uk (Simon Pears)
+Date: Wed, 10 Jan 2007 16:18:02 +0000
+Subject: Re: sharing java object reference - JRI and R Java
+In-Reply-To: <525C7FBD-6989-4170-990F-E167C2F7CF8E@research.att.com>
+References: <525C7FBD-6989-4170-990F-E167C2F7CF8E@research.att.com>
+Message-ID: <BAY108-F146FE54DA5EB9CA070FD10E4B20@phx.gbl>
+
+
+Simon
+
+Thanks for replying.
+
+>I'm not quite sure what you mean - you are dealing with one JVM, so a  Java 
+>object is accessible both from R and Java automatically and  
+>simultaneously, there is no conversion necessary. Also note that Java  
+>objects are always references, so R never creates a copy of an object  (the 
+>R representation may get copied, but it is always a reference to  the same 
+>Java object - see the concept of external references in R).
+
+Ok.
+I would like to use JRI to source and execute an R program from file. The 
+input parameters are extracted from a Java object (obj) and passed to the R 
+program. The R program writes the outputs to the shared object using RJava.
+
+If I source an R program from a file how do I access the Java object from 
+within the R program using RJava.
+.jnew is redundant since it creates a reference to a newly constructred R 
+object within the R program.
+.jcall could be used from witihin the R program. From the HTML help file 
+it's signature is given as:
+
+.jcall(obj, returnSig = "V", method, ..., evalArray = TRUE,
+    evalString = TRUE, check = TRUE, interface = "RcallMethod")
+
+However, how do I retrieve the reference/pointer to obj from within the R 
+program using R Java? Do I have to use an R base library to retrieve this?
+
+Is there any example code for retrieving references to Java objects that 
+exist in the client JRI
+program that invoked R?
+
+
+Regards
+
+
+Simon
+
+>From: Simon Urbanek <urbanek at research.att.com>
+>To: Simon Pears <s.p.pears at hotmail.co.uk>
+>CC: stats-rosuda-devel at listserv.uni-augsburg.de
+>Subject: Re: [stats-rosuda-devel] sharing java object reference - JRI and R 
+>Java
+>Date: Wed, 10 Jan 2007 10:56:57 -0500
+>
+>Simon,
+>
+>On Jan 10, 2007, at 10:09 AM, Simon Pears wrote:
+>
+>>I can use a Java program with JRI to:
+>>1. source an R program from file
+>>2. extract parameters from a Java object (theObj)
+>>3. invoke the R program with extracted parameters
+>>4. from within the Java program collect the return values and  update the 
+>>Java object (theObj)
+>>
+>
+>Yes
+>
+>
+>>Is it possible for objects to be shared between JRI and rJava.
+>>For example, can I have the R program update the Java object  (theObj) 
+>>with the results using RJava?
+>
+>Yes - they are sharing the same JVM. JRI and rJava are essentially  one 
+>interface - each for one direction - so you can mix them as you  wish.
+>
+>
+>>How do I get the reference to the shared Java object?
+>>
+>
+>I'm not quite sure what you mean - you are dealing with one JVM, so a  Java 
+>object is accessible both from R and Java automatically and  
+>simultaneously, there is no conversion necessary. Also note that Java  
+>objects are always references, so R never creates a copy of an object  (the 
+>R representation may get copied, but it is always a reference to  the same 
+>Java object - see the concept of external references in R).
+>
+>Cheers,
+>Simon
+>
+>
+
+_________________________________________________________________
+MSN Hotmail is evolving � check out the new Windows Live Mail 
+http://ideas.live.com
+
+From urbanek at research.att.com  Wed Jan 10 17:28:18 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Wed, 10 Jan 2007 12:28:18 -0500
+Subject: Re: sharing java object reference - JRI and R Java
+In-Reply-To: <BAY108-F146FE54DA5EB9CA070FD10E4B20@phx.gbl>
+References: <BAY108-F146FE54DA5EB9CA070FD10E4B20@phx.gbl>
+Message-ID: <70EA8768-2446-47FE-BAF4-81E65B69D2E3@research.att.com>
+
+Simon,
+
+On Jan 10, 2007, at 11:18 AM, Simon Pears wrote:
+
+> If I source an R program from a file how do I access the Java  
+> object from within the R program using RJava.
+> .jnew is redundant since it creates a reference to a newly  
+> constructred R object within the R program.
+
+That is not quite true - it creates a new Java object (not R object!)  
+in the JVM, so you're free to use such object as your shared object  
+if you wish.
+
+
+> .jcall could be used from witihin the R program. From the HTML help  
+> file it's signature is given as:
+>
+> .jcall(obj, returnSig = "V", method, ..., evalArray = TRUE,
+>    evalString = TRUE, check = TRUE, interface = "RcallMethod")
+>
+> However, how do I retrieve the reference/pointer to obj from within  
+> the R program using R Java? Do I have to use an R base library to  
+> retrieve this?
+>
+> Is there any example code for retrieving references to Java objects  
+> that exist in the client JRI program that invoked R?
+>
+
+It really depends on your exact implementation. As stated above, you  
+can create such an object via .jnew, but there are other ways.  
+Probably the simplest way is to use a static  field:
+public class Foo {
+public static Object sharedObject;
+}
+
+o <- .jfield("Foo", "sharedObject")
+
+An alternative way is to use low-level RNI, namely rniJavaToXref:
+re.rniAssign("o", re.rniJavaToXref(o), 0);
+re.eval("o <- new('jobjRef', jobj=o)", false);
+
+However, rniJavaToXref is not public, so you'll have to make it  
+public in JRI first and for the simple application here I'd recommend  
+to not fiddle with RNI as it is really low-level.
+
+Cheers,
+Simon
+
+>
+>> From: Simon Urbanek <urbanek at research.att.com>
+>> To: Simon Pears <s.p.pears at hotmail.co.uk>
+>> CC: stats-rosuda-devel at listserv.uni-augsburg.de
+>> Subject: Re: [stats-rosuda-devel] sharing java object reference -  
+>> JRI and R Java
+>> Date: Wed, 10 Jan 2007 10:56:57 -0500
+>>
+>> Simon,
+>>
+>> On Jan 10, 2007, at 10:09 AM, Simon Pears wrote:
+>>
+>>> I can use a Java program with JRI to:
+>>> 1. source an R program from file
+>>> 2. extract parameters from a Java object (theObj)
+>>> 3. invoke the R program with extracted parameters
+>>> 4. from within the Java program collect the return values and   
+>>> update the Java object (theObj)
+>>>
+>>
+>> Yes
+>>
+>>
+>>> Is it possible for objects to be shared between JRI and rJava.
+>>> For example, can I have the R program update the Java object   
+>>> (theObj) with the results using RJava?
+>>
+>> Yes - they are sharing the same JVM. JRI and rJava are  
+>> essentially  one interface - each for one direction - so you can  
+>> mix them as you  wish.
+>>
+>>
+>>> How do I get the reference to the shared Java object?
+>>>
+>>
+>> I'm not quite sure what you mean - you are dealing with one JVM,  
+>> so a  Java object is accessible both from R and Java automatically  
+>> and  simultaneously, there is no conversion necessary. Also note  
+>> that Java  objects are always references, so R never creates a  
+>> copy of an object  (the R representation may get copied, but it is  
+>> always a reference to  the same Java object - see the concept of  
+>> external references in R).
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>
+> _________________________________________________________________
+> MSN Hotmail is evolving – check out the new Windows Live Mail  
+> http://ideas.live.com
+>
+
+From simon.urbanek at math.uni-augsburg.de  Wed Jan 10 19:34:00 2007
+From: simon.urbanek at math.uni-augsburg.de (Simon Urbanek)
+Date: Wed, 10 Jan 2007 14:34:00 -0500
+Subject: Re: sharing java object reference - JRI and R Java
+In-Reply-To: <70EA8768-2446-47FE-BAF4-81E65B69D2E3@research.att.com>
+References: <BAY108-F146FE54DA5EB9CA070FD10E4B20@phx.gbl> <70EA8768-2446-47FE-BAF4-81E65B69D2E3@research.att.com>
+Message-ID: <F6DF41FA-0D02-4E9D-BD39-0A0486BFBE8B@math.uni-augsburg.de>
+
+Simon,
+
+I have added a high-level method "createRJavaRef" to JRI 0.3-7. It  
+also supports raw REXP assigns, so you can do something like:
+
+re.assign("o", re.createRJavaRef(o));
+
+You can get the most recent development version of rJava (which  
+includes JRI) from
+http://rforge.net/rJava/
+
+Cheers,
+Simon
+
+On Jan 10, 2007, at 12:28 PM, Simon Urbanek wrote:
+
+> Simon,
+>
+> On Jan 10, 2007, at 11:18 AM, Simon Pears wrote:
+>
+>> If I source an R program from a file how do I access the Java  
+>> object from within the R program using RJava.
+>> .jnew is redundant since it creates a reference to a newly  
+>> constructred R object within the R program.
+>
+> That is not quite true - it creates a new Java object (not R  
+> object!) in the JVM, so you're free to use such object as your  
+> shared object if you wish.
+>
+>
+>> .jcall could be used from witihin the R program. From the HTML  
+>> help file it's signature is given as:
+>>
+>> .jcall(obj, returnSig = "V", method, ..., evalArray = TRUE,
+>>    evalString = TRUE, check = TRUE, interface = "RcallMethod")
+>>
+>> However, how do I retrieve the reference/pointer to obj from  
+>> within the R program using R Java? Do I have to use an R base  
+>> library to retrieve this?
+>>
+>> Is there any example code for retrieving references to Java  
+>> objects that exist in the client JRI program that invoked R?
+>>
+>
+> It really depends on your exact implementation. As stated above,  
+> you can create such an object via .jnew, but there are other ways.  
+> Probably the simplest way is to use a static  field:
+> public class Foo {
+> public static Object sharedObject;
+> }
+>
+> o <- .jfield("Foo", "sharedObject")
+>
+> An alternative way is to use low-level RNI, namely rniJavaToXref:
+> re.rniAssign("o", re.rniJavaToXref(o), 0);
+> re.eval("o <- new('jobjRef', jobj=o)", false);
+>
+> However, rniJavaToXref is not public, so you'll have to make it  
+> public in JRI first and for the simple application here I'd  
+> recommend to not fiddle with RNI as it is really low-level.
+>
+> Cheers,
+> Simon
+>
+>>
+>>> From: Simon Urbanek <urbanek at research.att.com>
+>>> To: Simon Pears <s.p.pears at hotmail.co.uk>
+>>> CC: stats-rosuda-devel at listserv.uni-augsburg.de
+>>> Subject: Re: [stats-rosuda-devel] sharing java object reference -  
+>>> JRI and R Java
+>>> Date: Wed, 10 Jan 2007 10:56:57 -0500
+>>>
+>>> Simon,
+>>>
+>>> On Jan 10, 2007, at 10:09 AM, Simon Pears wrote:
+>>>
+>>>> I can use a Java program with JRI to:
+>>>> 1. source an R program from file
+>>>> 2. extract parameters from a Java object (theObj)
+>>>> 3. invoke the R program with extracted parameters
+>>>> 4. from within the Java program collect the return values and   
+>>>> update the Java object (theObj)
+>>>>
+>>>
+>>> Yes
+>>>
+>>>
+>>>> Is it possible for objects to be shared between JRI and rJava.
+>>>> For example, can I have the R program update the Java object   
+>>>> (theObj) with the results using RJava?
+>>>
+>>> Yes - they are sharing the same JVM. JRI and rJava are  
+>>> essentially  one interface - each for one direction - so you can  
+>>> mix them as you  wish.
+>>>
+>>>
+>>>> How do I get the reference to the shared Java object?
+>>>>
+>>>
+>>> I'm not quite sure what you mean - you are dealing with one JVM,  
+>>> so a  Java object is accessible both from R and Java  
+>>> automatically and  simultaneously, there is no conversion  
+>>> necessary. Also note that Java  objects are always references, so  
+>>> R never creates a copy of an object  (the R representation may  
+>>> get copied, but it is always a reference to  the same Java object  
+>>> - see the concept of external references in R).
+>>>
+>>> Cheers,
+>>> Simon
+>>>
+>>>
+>>
+>> _________________________________________________________________
+>> MSN Hotmail is evolving – check out the new Windows Live Mail  
+>> http://ideas.live.com
+>>
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From tobias.verbeke at telenet.be  Wed Jan 10 21:58:31 2007
+From: tobias.verbeke at telenet.be (Tobias Verbeke)
+Date: Wed, 10 Jan 2007 22:58:31 +0100
+Subject: update `labels' of itext (iplots package)
+Message-ID: <45A56187.7020708@telenet.be>
+
+I would like to update a text value as a function
+of the observations selected. Here's my non-succesful
+attempt:
+
+library(reshape)
+data(tips)
+attach(tips)
+iplot(total_bill, tip)
+sum.text <- itext(x = max(total_bill), y = max(tip),
+                   labels = "sum: ", col = "marked", visible = FALSE)
+while (!is.null(ievent.wait())) {
+   if (iset.sel.changed()){
+     s <- iset.selected()
+     if (length(s) > 0){
+       seltip <- tip[s]
+       sumseltip <- paste("sum: ", as.character(sum(seltip)), sep = "")
+       iobj.opt(sum.text, labels = sumseltip, visible = TRUE)
+     }
+   }
+}
+
+The error message received after selection of some points on the plot
+is:
+
+Error in .iobj.opt.PlotText(o, ...) : unused argument(s) (labels = "sum: 
+60.05")
+
+Any suggestions ?
+
+Many thanks,
+Tobias
+
+From s.p.pears at hotmail.co.uk  Thu Jan 11 10:56:49 2007
+From: s.p.pears at hotmail.co.uk (Simon Pears)
+Date: Thu, 11 Jan 2007 10:56:49 +0000
+Subject: Re: sharing java object reference - JRI and R Java
+In-Reply-To: <F6DF41FA-0D02-4E9D-BD39-0A0486BFBE8B@math.uni-augsburg.de>
+References: <F6DF41FA-0D02-4E9D-BD39-0A0486BFBE8B@math.uni-augsburg.de>
+Message-ID: <BAY108-F25EA2728707D2D9A54EF89E4B10@phx.gbl>
+
+Simon,
+
+Ok many thanks. Will give this a try.....
+
+Regards
+
+Simon
+
+
+>From: Simon Urbanek <simon.urbanek at math.uni-augsburg.de>
+>To: Simon Urbanek <urbanek at research.att.com>
+>CC: "Simon Pears" 
+><s.p.pears at hotmail.co.uk>,stats-rosuda-devel at listserv.uni-augsburg.de
+>Subject: Re: [stats-rosuda-devel] sharing java object reference - JRI and R 
+>Java
+>Date: Wed, 10 Jan 2007 14:34:00 -0500
+>
+>Simon,
+>
+>I have added a high-level method "createRJavaRef" to JRI 0.3-7. It  also 
+>supports raw REXP assigns, so you can do something like:
+>
+>re.assign("o", re.createRJavaRef(o));
+>
+>You can get the most recent development version of rJava (which  includes 
+>JRI) from
+>http://rforge.net/rJava/
+>
+>Cheers,
+>Simon
+>
+>On Jan 10, 2007, at 12:28 PM, Simon Urbanek wrote:
+>
+>>Simon,
+>>
+>>On Jan 10, 2007, at 11:18 AM, Simon Pears wrote:
+>>
+>>>If I source an R program from a file how do I access the Java  object 
+>>>from within the R program using RJava.
+>>>.jnew is redundant since it creates a reference to a newly  constructred 
+>>>R object within the R program.
+>>
+>>That is not quite true - it creates a new Java object (not R  object!) in 
+>>the JVM, so you're free to use such object as your  shared object if you 
+>>wish.
+>>
+>>
+>>>.jcall could be used from witihin the R program. From the HTML  help file 
+>>>it's signature is given as:
+>>>
+>>>.jcall(obj, returnSig = "V", method, ..., evalArray = TRUE,
+>>>    evalString = TRUE, check = TRUE, interface = "RcallMethod")
+>>>
+>>>However, how do I retrieve the reference/pointer to obj from  within the 
+>>>R program using R Java? Do I have to use an R base  library to retrieve 
+>>>this?
+>>>
+>>>Is there any example code for retrieving references to Java  objects that 
+>>>exist in the client JRI program that invoked R?
+>>>
+>>
+>>It really depends on your exact implementation. As stated above,  you can 
+>>create such an object via .jnew, but there are other ways.  Probably the 
+>>simplest way is to use a static  field:
+>>public class Foo {
+>>public static Object sharedObject;
+>>}
+>>
+>>o <- .jfield("Foo", "sharedObject")
+>>
+>>An alternative way is to use low-level RNI, namely rniJavaToXref:
+>>re.rniAssign("o", re.rniJavaToXref(o), 0);
+>>re.eval("o <- new('jobjRef', jobj=o)", false);
+>>
+>>However, rniJavaToXref is not public, so you'll have to make it  public in 
+>>JRI first and for the simple application here I'd  recommend to not fiddle 
+>>with RNI as it is really low-level.
+>>
+>>Cheers,
+>>Simon
+>>
+>>>
+>>>>From: Simon Urbanek <urbanek at research.att.com>
+>>>>To: Simon Pears <s.p.pears at hotmail.co.uk>
+>>>>CC: stats-rosuda-devel at listserv.uni-augsburg.de
+>>>>Subject: Re: [stats-rosuda-devel] sharing java object reference -  JRI 
+>>>>and R Java
+>>>>Date: Wed, 10 Jan 2007 10:56:57 -0500
+>>>>
+>>>>Simon,
+>>>>
+>>>>On Jan 10, 2007, at 10:09 AM, Simon Pears wrote:
+>>>>
+>>>>>I can use a Java program with JRI to:
+>>>>>1. source an R program from file
+>>>>>2. extract parameters from a Java object (theObj)
+>>>>>3. invoke the R program with extracted parameters
+>>>>>4. from within the Java program collect the return values and   update 
+>>>>>the Java object (theObj)
+>>>>>
+>>>>
+>>>>Yes
+>>>>
+>>>>
+>>>>>Is it possible for objects to be shared between JRI and rJava.
+>>>>>For example, can I have the R program update the Java object   (theObj) 
+>>>>>with the results using RJava?
+>>>>
+>>>>Yes - they are sharing the same JVM. JRI and rJava are  essentially  one 
+>>>>interface - each for one direction - so you can  mix them as you  wish.
+>>>>
+>>>>
+>>>>>How do I get the reference to the shared Java object?
+>>>>>
+>>>>
+>>>>I'm not quite sure what you mean - you are dealing with one JVM,  so a  
+>>>>Java object is accessible both from R and Java  automatically and  
+>>>>simultaneously, there is no conversion  necessary. Also note that Java  
+>>>>objects are always references, so  R never creates a copy of an object  
+>>>>(the R representation may  get copied, but it is always a reference to  
+>>>>the same Java object  - see the concept of external references in R).
+>>>>
+>>>>Cheers,
+>>>>Simon
+>>>>
+>>>>
+>>>
+>>>_________________________________________________________________
+>>>MSN Hotmail is evolving � check out the new Windows Live Mail  
+>>>http://ideas.live.com
+>>>
+>>
+>>
+>>_______________________________________________
+>>stats-rosuda-devel mailing list
+>>stats-rosuda-devel at listserv.uni-augsburg.de
+>>http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+_________________________________________________________________
+Be the first to hear what's new at MSN - sign up to our free newsletters!  
+http://www.msn.co.uk/newsletters
+
+From s.p.pears at hotmail.co.uk  Thu Jan 11 11:08:30 2007
+From: s.p.pears at hotmail.co.uk (Simon Pears)
+Date: Thu, 11 Jan 2007 11:08:30 +0000
+Subject: getting the result from a sourced R file with JRI
+Message-ID: <BAY108-F15B8F49CAD63E7AF737F43E4B10@phx.gbl>
+
+Hi,
+
+I am a "newbie" to R and JRI.
+I have written a very small simple test script that I want to source and 
+invoke from JRI. The R script is as follows:
+
+#test.R script
+a<-2
+b<-1
+c<-a+b
+
+print(c)
+
+
+I am invoking this from JRI as :
+
+// j_eng is REngine
+REXP exp = j_eng.eval ("source('c:/TEMP/test.R')");
+System.out.println(exp);
+
+
+The output from this is:
+Result = RXP[unknown/19, id=187344944, o=null]
+
+
+When I do this from an R terminal I get the output [1] 3.
+How do I retrieve this result using JRI?
+
+Regards
+
+Simon
+
+_________________________________________________________________
+MSN Hotmail is evolving � check out the new Windows Live Mail 
+http://ideas.live.com
+
+From urbanek at research.att.com  Thu Jan 11 15:30:05 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Thu, 11 Jan 2007 10:30:05 -0500
+Subject: Re: update `labels' of itext (iplots package)
+In-Reply-To: <45A56187.7020708@telenet.be>
+References: <45A56187.7020708@telenet.be>
+Message-ID: <E39FCBD6-E417-4217-87C6-04A0FCA35D8D@research.att.com>
+
+Tobias,
+
+unfortunately the iobj.opt for itext is a bit inconsistent and the  
+parameter name is "txt" instead of "labels", so you should be able to  
+achieve what you desire with
+
+iobj.opt(sum.text, txt = sumseltip, visible = TRUE)
+
+Cheers
+Simon
+
+
+On Jan 10, 2007, at 4:58 PM, Tobias Verbeke wrote:
+
+> I would like to update a text value as a function
+> of the observations selected. Here's my non-succesful
+> attempt:
+>
+> library(reshape)
+> data(tips)
+> attach(tips)
+> iplot(total_bill, tip)
+> sum.text <- itext(x = max(total_bill), y = max(tip),
+>                   labels = "sum: ", col = "marked", visible = FALSE)
+> while (!is.null(ievent.wait())) {
+>   if (iset.sel.changed()){
+>     s <- iset.selected()
+>     if (length(s) > 0){
+>       seltip <- tip[s]
+>       sumseltip <- paste("sum: ", as.character(sum(seltip)), sep = "")
+>       iobj.opt(sum.text, labels = sumseltip, visible = TRUE)
+>     }
+>   }
+> }
+>
+> The error message received after selection of some points on the plot
+> is:
+>
+> Error in .iobj.opt.PlotText(o, ...) : unused argument(s) (labels =  
+> "sum: 60.05")
+>
+> Any suggestions ?
+>
+> Many thanks,
+> Tobias
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From urbanek at research.att.com  Thu Jan 11 15:50:16 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Thu, 11 Jan 2007 10:50:16 -0500
+Subject: Re: getting the result from a sourced R file with JRI
+In-Reply-To: <BAY108-F15B8F49CAD63E7AF737F43E4B10@phx.gbl>
+References: <BAY108-F15B8F49CAD63E7AF737F43E4B10@phx.gbl>
+Message-ID: <3028397A-F54F-4307-87AC-84BD08538CF3@research.att.com>
+
+Simon,
+
+On Jan 11, 2007, at 6:08 AM, Simon Pears wrote:
+
+> I am a "newbie" to R and JRI.
+> I have written a very small simple test script that I want to  
+> source and invoke from JRI. The R script is as follows:
+>
+> #test.R script
+> a<-2
+> b<-1
+> c<-a+b
+>
+> print(c)
+>
+>
+> I am invoking this from JRI as :
+>
+> // j_eng is REngine
+> REXP exp = j_eng.eval ("source('c:/TEMP/test.R')");
+> System.out.println(exp);
+>
+>
+> The output from this is:
+> Result = RXP[unknown/19, id=187344944, o=null]
+>
+>
+> When I do this from an R terminal I get the output [1] 3.
+> How do I retrieve this result using JRI?
+>
+
+First, you should understand the concepts involved here. When you are  
+using the R console (like in the terminal), it runs a REPL: read -  
+evaluate - print loop. The Rengine's eval method gives you the  
+"evaluate" part, so it doesn't use console input (read) or output  
+(print) per se. If you want to provide an interactive console, you'll  
+have to implement callbacks that handle calls from R concerning read/ 
+print - see the rtest.java example for a simple implementation of the  
+callback interface.
+
+However, in your case I suspect this is not what you really want. If  
+all you need is to run a computation in R and get the result, then  
+you want to get the raw result and not some string representation.  
+Therefore your example above may look more like:
+
+REXP exp = j_eng.eval("{a<-2; b<-1; a+b}");
+System.out.println(exp.asDouble());
+
+Clearly, you can evaluate any R expressions, so you can as well use  
+capture.output to suppress any console output and return it as a  
+string value, so you can run something like this:
+
+REXP exp = j_eng.eval("paste(capture.output({a<-2; b<-1; print(a 
++b)}),collapse='\\n')");
+System.out.println(exp.asString());
+
+This allows you to capture R on per-expression basis if desired.  
+Again, this may or may not be what you want for a given problem.  
+String representation is very inefficient for further processing. At  
+any rate it should give you an idea on what your options are.
+
+Cheers,
+Simon
+
+From james.schmitz at gmail.com  Thu Jan 11 16:46:20 2007
+From: james.schmitz at gmail.com (Jim)
+Date: Thu, 11 Jan 2007 16:46:20 +0000
+Subject: Re: export: 41: graphics,: bad variable name
+References: <3ff92a550610240246j5e376e4ck7f62e38c808d0cbd@mail.gmail.com>
+Message-ID: <loom.20070111T174137-603@post.gmane.org>
+
+No No <nono.231 <at> gmail.com> writes:
+
+> 
+> Since JGR 1.4-11 I take the following error message trying to run JGR:
+>  export: 41: graphics,: bad variable name
+> In place of graphics sometimes is another package.
+> 
+> My configuration is
+> ubuntu linux 6.10
+> R 2.4.0 compiled by me configured with --enable-R-shlib and
+> R 2.3.1 compiled by me configured with --enable-R-shlib (on another pc)
+> Sun java jdk1.5.0_07
+> Problem with JGR 1.4-11 and 1.4-12
+> 
+> If I remove .JGRprefsrc from my home dir JGR launches. But then when
+> the new .JGRprefsrc is created I get the same error.
+> 
+> For the momment I made a script removing the .JGRprefsrc before
+> launching JGR, so I made it run somehow. However, I can not save
+> preferences as workspace, and everything is saved in home dir and not
+> to the dir I work and .Rdata should be.
+> 
+> Does anybody knows what happens and how can this be solved?
+> 
+> 
+
+
+I just discovered an important clue in why this is happening.  In the
+.JGRprefscr file there is this in the XML:
+
+<entry key="DefaultPackages" value="utils, stats, rJava, methods, JGR, JavaGD,
+graphics, datasets"/>
+
+If I delete the spaces after the commas, it loads correctly.  When I exit, it
+gets saved again with the spaces back in.  I have to delete the spaces to get it
+to run again.
+
+So this looks like a bug to me.  But at least now myself and the other guy who
+originally posted this can come up with a workaround that doesn't require us to
+delete our preferences each time we start the application.
+
+From james.schmitz at gmail.com  Thu Jan 11 16:31:21 2007
+From: james.schmitz at gmail.com (Jim)
+Date: Thu, 11 Jan 2007 16:31:21 +0000
+Subject: Re: export: 41: graphics,: bad variable name
+References: <3ff92a550610240246j5e376e4ck7f62e38c808d0cbd@mail.gmail.com>
+Message-ID: <loom.20070111T172505-594@post.gmane.org>
+
+No No <nono.231 <at> gmail.com> writes:
+
+> 
+> Since JGR 1.4-11 I take the following error message trying to run JGR:
+>  export: 41: graphics,: bad variable name
+> In place of graphics sometimes is another package.
+> 
+> My configuration is
+> ubuntu linux 6.10
+> R 2.4.0 compiled by me configured with --enable-R-shlib and
+> R 2.3.1 compiled by me configured with --enable-R-shlib (on another pc)
+> Sun java jdk1.5.0_07
+> Problem with JGR 1.4-11 and 1.4-12
+> 
+> If I remove .JGRprefsrc from my home dir JGR launches. But then when
+> the new .JGRprefsrc is created I get the same error.
+> 
+> For the momment I made a script removing the .JGRprefsrc before
+> launching JGR, so I made it run somehow. However, I can not save
+> preferences as workspace, and everything is saved in home dir and not
+> to the dir I work and .Rdata should be.
+> 
+> Does anybody knows what happens and how can this be solved?
+> 
+> 
+
+I just installed R and JGR on my ubuntu machine yesterday and I am having the
+exact same problem.  I can star JGR if I delete the .JGRprefsrc file but if
+don't I get the same bad variable name error.  Is there a better way to fix this
+than deleting the file every time I start JGR?  What element in the preference
+file is tripping up the startup?  Why does JGR save a faulty preferences file?
+
+-Jim
+
+From rodri at usal.es  Thu Jan 11 12:08:30 2007
+From: rodri at usal.es (=?utf-8?q?Rodrigo_Santamar=C3=ADa_Vicente?=)
+Date: Thu, 11 Jan 2007 13:08:30 +0100
+Subject: JRI Rengine constructor problem
+Message-ID: <45A628BE.4070602@usal.es>
+
+Hi!
+I've been working with R for a few months and now i feel prepared to
+call it from Java via JRI.
+I am using:
+Windows XP
+Java JDK 1.5.0.09
+R 2.3.1
+JRI 0.2.4
+Well i managed to install JRI and i can compile and link its classes.
+Even i can run most of them and its methods (i've proven, for example
+Mutex). But when i try to run the following line:
+Rengine re=new Rengine(args, false, null);
+The program aborts with:
+Java Result: 10
+
+I can't catch any exception. I have read Rengine() could have problems
+with args=null, but i have proven with args="--save" and arg="--no-save"
+and the result is the same.
+Anyone knows what is happening?
+Thanks in advance!
+
+Rodrigo Santamaría
+University of Salamanca (Spain)
+
+From urbanek at research.att.com  Thu Jan 11 17:16:35 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Thu, 11 Jan 2007 12:16:35 -0500
+Subject: Re: JRI Rengine constructor problem
+In-Reply-To: <45A628BE.4070602@usal.es>
+References: <45A628BE.4070602@usal.es>
+Message-ID: <A1DAF305-022A-40B1-8F14-AA81AFCAEEBE@research.att.com>
+
+Rodrigo,
+
+you should first try the examples found in the "examples" directory  
+of JRI - they should run out of the box (use the run script to run  
+them). Once you get them running you can try your own code. If you  
+still have problems, please send us your exact code, otherwise we  
+can't really help you.
+
+Cheers,
+Simon
+
+On Jan 11, 2007, at 7:08 AM, Rodrigo Santamaría Vicente wrote:
+
+> Hi!
+> I've been working with R for a few months and now i feel prepared to
+> call it from Java via JRI.
+> I am using:
+> Windows XP
+> Java JDK 1.5.0.09
+> R 2.3.1
+> JRI 0.2.4
+> Well i managed to install JRI and i can compile and link its classes.
+> Even i can run most of them and its methods (i've proven, for example
+> Mutex). But when i try to run the following line:
+> Rengine re=new Rengine(args, false, null);
+> The program aborts with:
+> Java Result: 10
+>
+> I can't catch any exception. I have read Rengine() could have problems
+> with args=null, but i have proven with args="--save" and arg="--no- 
+> save"
+> and the result is the same.
+> Anyone knows what is happening?
+> Thanks in advance!
+>
+> Rodrigo Santamaría
+> University of Salamanca (Spain)
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From s.p.pears at hotmail.co.uk  Thu Jan 11 17:14:27 2007
+From: s.p.pears at hotmail.co.uk (Simon Pears)
+Date: Thu, 11 Jan 2007 17:14:27 +0000
+Subject: Re: getting the result from a sourced R file with JRI
+In-Reply-To: <3028397A-F54F-4307-87AC-84BD08538CF3@research.att.com>
+References: <3028397A-F54F-4307-87AC-84BD08538CF3@research.att.com>
+Message-ID: <BAY108-F33A0A5A9A2341AC9A57637E4B10@phx.gbl>
+
+
+Simon,
+
+Thank you for your response.
+If I wanted to extract the output from executing an R script with the source 
+command then does this mean that I would have to go down the route of 
+suppressing output and reading from the string. The final script will likely 
+have many outputs, not just a handful.
+
+Regards
+
+Simon
+
+>From: Simon Urbanek <urbanek at research.att.com>
+>To: Simon Pears <s.p.pears at hotmail.co.uk>
+>CC: stats-rosuda-devel at listserv.uni-augsburg.de
+>Subject: Re: [stats-rosuda-devel] getting the result from a sourced R file 
+>with JRI
+>Date: Thu, 11 Jan 2007 10:50:16 -0500
+>
+>Simon,
+>
+>On Jan 11, 2007, at 6:08 AM, Simon Pears wrote:
+>
+>>I am a "newbie" to R and JRI.
+>>I have written a very small simple test script that I want to  source and 
+>>invoke from JRI. The R script is as follows:
+>>
+>>#test.R script
+>>a<-2
+>>b<-1
+>>c<-a+b
+>>
+>>print(c)
+>>
+>>
+>>I am invoking this from JRI as :
+>>
+>>// j_eng is REngine
+>>REXP exp = j_eng.eval ("source('c:/TEMP/test.R')");
+>>System.out.println(exp);
+>>
+>>
+>>The output from this is:
+>>Result = RXP[unknown/19, id=187344944, o=null]
+>>
+>>
+>>When I do this from an R terminal I get the output [1] 3.
+>>How do I retrieve this result using JRI?
+>>
+>
+>First, you should understand the concepts involved here. When you are  
+>using the R console (like in the terminal), it runs a REPL: read -  
+>evaluate - print loop. The Rengine's eval method gives you the  "evaluate" 
+>part, so it doesn't use console input (read) or output  (print) per se. If 
+>you want to provide an interactive console, you'll  have to implement 
+>callbacks that handle calls from R concerning read/ print - see the 
+>rtest.java example for a simple implementation of the  callback interface.
+>
+>However, in your case I suspect this is not what you really want. If  all 
+>you need is to run a computation in R and get the result, then  you want to 
+>get the raw result and not some string representation.  Therefore your 
+>example above may look more like:
+>
+>REXP exp = j_eng.eval("{a<-2; b<-1; a+b}");
+>System.out.println(exp.asDouble());
+>
+>Clearly, you can evaluate any R expressions, so you can as well use  
+>capture.output to suppress any console output and return it as a  string 
+>value, so you can run something like this:
+>
+>REXP exp = j_eng.eval("paste(capture.output({a<-2; b<-1; print(a 
+>+b)}),collapse='\\n')");
+>System.out.println(exp.asString());
+>
+>This allows you to capture R on per-expression basis if desired.  Again, 
+>this may or may not be what you want for a given problem.  String 
+>representation is very inefficient for further processing. At  any rate it 
+>should give you an idea on what your options are.
+>
+>Cheers,
+>Simon
+>
+>
+
+_________________________________________________________________
+MSN Hotmail is evolving � check out the new Windows Live Mail 
+http://ideas.live.com
+
+From tobias.verbeke at telenet.be  Thu Jan 11 22:22:49 2007
+From: tobias.verbeke at telenet.be (Tobias Verbeke)
+Date: Thu, 11 Jan 2007 23:22:49 +0100
+Subject: ibox buglet (?) (iplots package)
+Message-ID: <45A6B8B9.8070601@telenet.be>
+
+Hi,
+
+Please find a small example below of an oddity
+in ibox when used from within Rgui on Windows.
+
+library(reshape)
+data(tips)
+attach(tips)
+ibox(x = tip, y = smoker)
+
+Then use Ctrl-R to rotate the plot.
+
+ From now on, I do not find a way anymore
+to read the continuous scale below the
+boxplots, no matter what dimensions I give
+to the plot. Can this still be achieved or
+can it be qualified as a buglet ?
+
+Many thanks,
+Tobias
+
+PS I'm on Windows XP, R 2.4.1, iplots 1.0-5
+
+From rodri at usal.es  Fri Jan 12 09:14:07 2007
+From: rodri at usal.es (=?utf-8?q?Rodrigo_Santamar=C3=ADa_Vicente?=)
+Date: Fri, 12 Jan 2007 10:14:07 +0100
+Subject: Installing JRI Problem
+Message-ID: <45A7515F.3040001@usal.es>
+
+I'm installing JRI 0.2.4 on a Windows XP with JDK1.5.0.8 and R2.3.1
+I install Murdock tools for Windows and mingw (gcc compiler 3.4.2)
+Well, i run sh configure:
+"C:\JRI>sh configure.win
+Generate Windows-specific files (src/jvm-w32) ...
+make: Entering directory `/cygdrive/c/JRI/src/win32'
+gcc -O2 -c -o findjava.o findjava.c
+gcc -s -o findjava.exe findjava.o
+make: Leaving directory `/cygdrive/c/JRI/src/win32'
+Find Java...
+  JAVA_HOME=C:/ARCHIV~1/Java/JDK15~1.0_0/bin
+  R_HOME=C:/ARCHIV~1/R/R-23~1.1/bin
+Creating Makefiles ...
+Configuration done."
+
+Configuration ends without errors but fail at locating JDK!
+I don't know where it reads JAVA_HOME but it isn't at 
+"C:/ARCHIV~1/Java/JDK15~1.0_0/bin". Both my JAVA_HOME and my install are 
+at "C:/ARCHIV~1/Java/jdk1.5.0_09/bin"
+Well, since Configuration ends without errors, i try with make:
+"C:\JRI>make
+make -C src JRI.jar
+make[1]: Entering directory `/cygdrive/c/JRI/src'
+C:/ARCHIV~1/Java/JDK15~1.0_0/bin/bin/javac -d . ../Mutex.java 
+../REXP.java ../RM
+ainLoopCallbacks.java ../Rengine.java
+make[1]: C:/ARCHIV~1/Java/JDK15~1.0_0/bin/bin/javac: Command not found
+make[1]: *** [org/rosuda/JRI/Rengine.class] Error 127
+make[1]: Leaving directory `/cygdrive/c/JRI/src'
+make: *** [src/JRI.jar] Error 2"
+
+So as expected, it does not find javac command.
+My solution to overcome this error is manually changing JAVA_HOME path 
+on src\Makefile.wconf
+Exactly, i change:
+"JAVAHOME:=C:/ARCHIV~1/Java/JDK15~1.0_0/bin
+RHOME:=C:/ARCHIV~1/R/R-23~1.1/bin"
+with
+"JAVAHOME:=C:/ARCHIV~1/Java/JDK1.5.0_09
+RHOME:=C:/ARCHIV~1/R/R-23~1.1"
+
+So i remove /bin folder duplication and correct java-home path.
+With this, make output is:
+
+"C:\JRI>make
+make -C src JRI.jar
+make[1]: Entering directory `/cygdrive/c/JRI/src'
+gcc -c -o Rengine.o Rengine.c -DWin32 -D_JNI_IMPLEMENTATION_  
+-IC:/ARCHIV~1/Java
+/JDK1.5.0_09/include -IC:/ARCHIV~1/Java/JDK1.5.0_09/include/win32 
+-IC:/ARCHIV~1/
+R/R-23~1.1/include
+gcc -c -o jri.o jri.c -DWin32 -D_JNI_IMPLEMENTATION_  
+-IC:/ARCHIV~1/Java/JDK1.5.
+0_09/include -IC:/ARCHIV~1/Java/JDK1.5.0_09/include/win32 
+-IC:/ARCHIV~1/R/R-23~1
+.1/include
+gcc -c -o Rcallbacks.o Rcallbacks.c -DWin32 -D_JNI_IMPLEMENTATION_  
+-IC:/ARCHIV~
+1/Java/JDK1.5.0_09/include -IC:/ARCHIV~1/Java/JDK1.5.0_09/include/win32 
+-IC:/ARC
+HIV~1/R/R-23~1.1/include
+gcc -c -o Rinit.o Rinit.c -DWin32 -D_JNI_IMPLEMENTATION_  
+-IC:/ARCHIV~1/R/R-23~1
+.1/include
+Rinit.c: In function `initR':
+Rinit.c:265: warning: assignment from incompatible pointer type
+gcc -c -o globals.o globals.c -DWin32 -D_JNI_IMPLEMENTATION_  
+-IC:/ARCHIV~1/Java
+/JDK1.5.0_09/include -IC:/ARCHIV~1/Java/JDK1.5.0_09/include/win32
+gcc -o jri.dll Rengine.o jri.o Rcallbacks.o Rinit.o globals.o 
+win32/libjvm.dll.a
+  -shared -Lwin32 -ljvm -LC:/ARCHIV~1/R/R-23~1.1/src/gnuwin32 
+-LC:/ARCHIV~1/R/R-
+23~1.1/bin -lR -Wl,--kill-at
+Info: resolving _R_CStackLimit by linking to __imp__R_CStackLimit 
+(auto-import)
+C:/ARCHIV~1/Java/JDK1.5.0_09/bin/javac -d . ../Mutex.java ../REXP.java 
+../RMainL
+oopCallbacks.java ../Rengine.java
+C:/ARCHIV~1/Java/JDK1.5.0_09/bin/jar fc JRI.jar org jri.dll
+make[1]: Leaving directory `/cygdrive/c/JRI/src'
+rm -f jri.dll
+cp src/jri.dll jri.dll
+C:/ARCHIV~1/Java/JDK1.5.0_09/bin/javac -classpath src/JRI.jar -d 
+examples exampl
+es/rtest.java
+Note: examples/rtest.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+C:/ARCHIV~1/Java/JDK1.5.0_09/bin/javac -classpath src/JRI.jar -d 
+examples exampl
+es/rtest2.java
+Note: examples/rtest2.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+echo "set 
+PATH=%PATH%;C:/ARCHIV~1/R/R-23~1.1\\bin;C:/ARCHIV~1/R/R-23~1.1\\lib" >
+ run.bat
+echo "C:/ARCHIV~1/Java/JDK1.5.0_09/bin/java -cp .;examples;src/JRI.jar 
+rtest \$*
+" >> run.bat"
+
+It compiles, but finally gives NoClassDefFound errors when trying 
+"run.bat rtest":
+
+"
+C:\JRI\examples>run.bat rtest
+
+C:\JRI\examples>set PATH=C:\JRI;C:\JRI\src;C:\Perl\bin\;c:\archivos de 
+programa\
+miktex 
+2.5\miktex\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\system32\wbem;C:
+\Archivos de programa\MATLAB71\bin\win32;C:\Archivos de 
+programa\QuickTime\QTSys
+tem\;C:\Archivos de programa\Java\jdk1.5.0_09\bin;C:\Archivos de 
+Programa\R\R-2.
+3.1\bin;C:\Documents and Settings\Rodrigo\Mis documentos\Tesis\R\R y 
+Java\tools\
+bin;C:\Archiv~1\R\R-2.3.1\library\rJava\jri;C:\MinGW\bin; ;C:\Archivos 
+de progra
+ma\SSH Communications Security\SSH Secure 
+Shell;C:/ARCHIV~1/R/R-2.3.1\bin;C:/ARC
+HIV~1/R/R-2.3.1\lib;C:/ARCHIV~1/R/R-2.3.1\bin;C:/ARCHIV~1/R/R-2.3.1\lib;C:/ARCHI
+V~1/R/R-23~1.1\bin;C:/ARCHIV~1/R/R-23~1.1\lib
+
+C:\JRI\examples>C:/ARCHIV~1/Java/JDK1.5.0_09/bin/java -cp 
+.;examples;src/JRI.jar
+ rtest $*
+
+Creating Rengine (with arguments)
+Exception in thread "main" java.lang.NoClassDefFoundError: 
+org/rosuda/JRI/Rengin
+e
+        at rtest.main(rtest.java:60)"
+
+Anyone knows how to solve it?
+Thanks very much in advance, and excuse the length of the message
+
+Rodrigo Santamaría
+University of Salamanca (Spain)
+
+From urbanek at research.att.com  Fri Jan 12 16:40:56 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Fri, 12 Jan 2007 11:40:56 -0500
+Subject: Re: Installing JRI Problem
+In-Reply-To: <45A7515F.3040001@usal.es>
+References: <45A7515F.3040001@usal.es>
+Message-ID: <7140AE8E-2FC4-4CD6-BE30-ED33D8D31EDB@research.att.com>
+
+Rodrigo,
+
+On Jan 12, 2007, at 4:14 AM, Rodrigo Santamaría Vicente wrote:
+
+> I'm installing JRI 0.2.4 on a Windows XP with JDK1.5.0.8 and R2.3.1
+> I install Murdock tools for Windows and mingw (gcc compiler 3.4.2)
+> Well, i run sh configure:
+> "C:\JRI>sh configure.win
+> Generate Windows-specific files (src/jvm-w32) ...
+> make: Entering directory `/cygdrive/c/JRI/src/win32'
+> gcc -O2 -c -o findjava.o findjava.c
+> gcc -s -o findjava.exe findjava.o
+> make: Leaving directory `/cygdrive/c/JRI/src/win32'
+> Find Java...
+>  JAVA_HOME=C:/ARCHIV~1/Java/JDK15~1.0_0/bin
+>  R_HOME=C:/ARCHIV~1/R/R-23~1.1/bin
+> Creating Makefiles ...
+> Configuration done."
+>
+> Configuration ends without errors but fail at locating JDK!
+> I don't know where it reads JAVA_HOME
+
+from your environment
+
+> but it isn't at "C:/ARCHIV~1/Java/JDK15~1.0_0/bin". Both my  
+> JAVA_HOME and my install are at "C:/ARCHIV~1/Java/jdk1.5.0_09/bin"
+
+This is wrong, because the "bin" directory is not a Java home. FWIW  
+both paths above are the same - Windows doesn't allow multiple dots  
+in short names, so "jdk1.5.0_09" is in fact "JDK15~1.0". You can  
+verify this with "dir /x".
+
+You should either leave JAVA_HOME alone (in which case it will get  
+detected automatically) or set it to the correct Java home (without  
+the "/bin").
+
+> Well, since Configuration ends without errors, i try with make:
+> [...]
+> make[1]: C:/ARCHIV~1/Java/JDK15~1.0_0/bin/bin/javac: Command not found
+> make[1]: *** [org/rosuda/JRI/Rengine.class] Error 127
+> make[1]: Leaving directory `/cygdrive/c/JRI/src'
+> make: *** [src/JRI.jar] Error 2"
+>
+> So as expected, it does not find javac command.
+> My solution to overcome this error is manually changing JAVA_HOME  
+> path on src\Makefile.wconf
+
+Since this JAVA_HOME is taken from your own setting, you better fix  
+that one beforehand ;).
+
+
+> [...]
+> It compiles, but finally gives NoClassDefFound errors when trying  
+> "run.bat rtest":
+>
+> "
+> C:\JRI\examples>run.bat rtest
+>
+> C:\JRI\examples>set PATH=C:\JRI;C:\JRI\src;C:\Perl\bin\;c:\archivos  
+> de programa\
+> miktex 2.5\miktex\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS 
+> \system32\wbem;C:
+> \Archivos de programa\MATLAB71\bin\win32;C:\Archivos de programa 
+> \QuickTime\QTSys
+> tem\;C:\Archivos de programa\Java\jdk1.5.0_09\bin;C:\Archivos de  
+> Programa\R\R-2.
+> 3.1\bin;C:\Documents and Settings\Rodrigo\Mis documentos\Tesis\R\R  
+> y Java\tools\
+> bin;C:\Archiv~1\R\R-2.3.1\library\rJava\jri;C:\MinGW\bin; ;C: 
+> \Archivos de progra
+> ma\SSH Communications Security\SSH Secure Shell;C:/ARCHIV~1/R/ 
+> R-2.3.1\bin;C:/ARC
+> HIV~1/R/R-2.3.1\lib;C:/ARCHIV~1/R/R-2.3.1\bin;C:/ARCHIV~1/R/R-2.3.1 
+> \lib;C:/ARCHI
+> V~1/R/R-23~1.1\bin;C:/ARCHIV~1/R/R-23~1.1\lib
+>
+> C:\JRI\examples>C:/ARCHIV~1/Java/JDK1.5.0_09/bin/java - 
+> cp .;examples;src/JRI.jar
+> rtest $*
+>
+> Creating Rengine (with arguments)
+> Exception in thread "main" java.lang.NoClassDefFoundError: org/ 
+> rosuda/JRI/Rengin
+> e
+>        at rtest.main(rtest.java:60)"
+>
+> Anyone knows how to solve it?
+
+Sure - don't mess with the run script :). As you will notice the run  
+script assumes that it is run from the directory where it was  
+created, namely the JRI directory, but you have moved it to the  
+examples directory instead. Either adjust the path to JRI.jar or use  
+the run script from the JRI directory as it was designed to be used.
+
+Cheers,
+Simon
+
+From david at davidkatzconsulting.com  Sat Jan 13 00:05:39 2007
+From: david at davidkatzconsulting.com
+Date: Fri, 12 Jan 2007 16:05:39 -0800
+Subject: How to Start JGR under windows
+Message-ID: <45A7B1D3.15552.57C05EE@david.davidkatzconsulting.com>
+
+I installed JGR on windows XP. It started up, but I don't know how to start it 
+after I reboot! Thanks for any help - I'm a Java newbie.-- 
+David Katz
+   www.davidkatzconsulting.com
+
+From david at davidkatzconsulting.com  Sat Jan 13 01:19:25 2007
+From: david at davidkatzconsulting.com
+Date: Fri, 12 Jan 2007 17:19:25 -0800
+Subject: command-line options
+Message-ID: <45A7C31D.23326.5BF915F@david.davidkatzconsulting.com>
+
+How can I provide command line options for memory allocation to R, when 
+starting R using JGR? Thanks.-- 
+David Katz
+   www.davidkatzconsulting.com
+
+From tobias.verbeke at telenet.be  Sat Jan 13 18:24:00 2007
+From: tobias.verbeke at telenet.be (Tobias Verbeke)
+Date: Sat, 13 Jan 2007 19:24:00 +0100
+Subject: the iBase concept
+Message-ID: <45A923C0.8070709@telenet.be>
+
+Dear RoSuDa devel,
+
+In ?ihammock, I read the ihammock plot
+is included in iplots to demonstrate
+`the iBase concept, which makes it very
+easy to implement new interactive plots'.
+
+I googled, read ihammock and .iplot.iHammock
+at R level, but was not yet able to have a clear
+idea of what the iBase concept stands for.
+
+Should one dive in the Java source to get to
+grips with the iBase concept or is there any
+document available that describes the concept
+in more detail ?
+
+Many thanks. iplots are addictive.
+
+Best regards,
+Tobias
+
+From tstravers at gmail.com  Tue Jan 16 05:59:57 2007
+From: tstravers at gmail.com (=?utf-8?q?Timothy_Ni=C3=B1o_Travers?=)
+Date: Tue, 16 Jan 2007 13:59:57 +0800
+Subject: JGR and iplots on fedora 64-bit
+Message-ID: <c9c8a6e50701152159l4c66003cv142379f81fed7d04@mail.gmail.com>
+
+hello,
+
+I'm trying to install JGR on a 64-bit fedora core 6 installation, using the
+R rpm (v 2.4.1) available at fedora extras. Can't load JGR after
+installation, mainly because loading iplots gives the following error:
+
+Exception in thread "main" java.lang.UnsatisfiedLinkError: Can't load
+library: /lib64/xawt/libmawt.so
+        at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1650)
+        at java.lang.Runtime.load0(Runtime.java:770)
+        at java.lang.System.load(System.java:1005)
+        at java.lang.ClassLoader$NativeLibrary.load(Native Method)
+        at java.lang.ClassLoader.loadLibrary0(ClassLoader.java:1751)
+        at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1668)
+        at java.lang.Runtime.loadLibrary0(Runtime.java:823)
+        at java.lang.System.loadLibrary(System.java:1030)
+        at sun.security.action.LoadLibraryAction.run(LoadLibraryAction.java
+:50)
+        at java.security.AccessController.doPrivileged(Native Method)
+        at java.awt.Toolkit.loadLibraries(Toolkit.java:1594)
+        at java.awt.Toolkit.<clinit>(Toolkit.java:1616)
+        at java.awt.Color.<clinit>(Color.java:263)
+        at org.rosuda.ibase.Common.<clinit>(Common.java:47)
+        at org.rosuda.iplots.Framework.<init>(Framework.java:43)
+Error in .jnew("org/rosuda/iplots/Framework") :
+        Failed to create object of class `org/rosuda/iplots/Framework'
+In addition: Warning message:
+NewObject("org/rosuda/iplots/Framework","()V",...) failed
+Error in library(iplots) : .First.lib failed for 'iplots'
+
+Am using the 64-bit java 1.6.0 release from the sun website; already
+modified PATH and JAVA_HOME with the correct folders and did R CMD
+javareconf (without errors) before installing rJava, JavaGD, iplots, and
+JGR. I got iplots and JGR working on a 32-bit fedora core 6 installation
+with the 32-bit java 1.6.0 release.
+
+The iplots website mentions: "For other UNIX operating systems (in
+particular Linux) Sun Java 1.5 or higher is highly recommended (64-bit Linux
+requires at least Java 1.6 beta)." I'm wondering if there are any additional
+configurations that need to be done to get iplots working on a 64-bit linux
+installation?
+
+Thanks,
+Tim
+
+-------------- next part --------------
+
+
+From urbanek at research.att.com  Tue Jan 16 15:53:55 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Tue, 16 Jan 2007 10:53:55 -0500
+Subject: Re: the iBase concept
+In-Reply-To: <45A923C0.8070709@telenet.be>
+References: <45A923C0.8070709@telenet.be>
+Message-ID: <6102E52A-965C-4AD2-99BB-75D967A42F6D@research.att.com>
+
+Tobias,
+
+On Jan 13, 2007, at 1:24 PM, Tobias Verbeke wrote:
+
+> Dear RoSuDa devel,
+>
+> In ?ihammock, I read the ihammock plot is included in iplots to  
+> demonstrate `the iBase concept, which makes it very easy to  
+> implement new interactive plots'.
+>
+> I googled, read ihammock and .iplot.iHammock at R level, but was  
+> not yet able to have a clear idea of what the iBase concept stands  
+> for.
+>
+> Should one dive in the Java source to get to grips with the iBase  
+> concept or is there any document available that describes the  
+> concept in more detail ?
+>
+
+One source of information are some of my talks, e.g. the iBase  
+framework is illustrated in the following slides:
+http://research.att.com/~urbanek/talks/Tokyo05-iPlots.pdf
+
+There is also a chapter on iBase in "Exploratory Data Analysis", S.  
+Urbanek, BoD, ISBN 978-3-8334-6078-4
+
+In fact the iHammock example in the Java sources is quite simple  
+(aside from computing the polygons), so you may have a look at it  
+(org.rosuda.ibase.plots.HamCanvas).
+
+If you are interested in contributing, please let me know and I'll  
+try to help you as much as I can. The sources are in a SVN repository  
+on rforge.net and the JavaDocs at
+http://www.rosuda.org/R/nightly/JavaDoc/
+
+Cheers,
+Simon
+
+
+> Many thanks. iplots are addictive.
+>
+
+=)
+
+From urbanek at research.att.com  Tue Jan 16 16:17:27 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Tue, 16 Jan 2007 11:17:27 -0500
+Subject: Re: JGR and iplots on fedora 64-bit
+In-Reply-To: <c9c8a6e50701152159l4c66003cv142379f81fed7d04@mail.gmail.com>
+References: <c9c8a6e50701152159l4c66003cv142379f81fed7d04@mail.gmail.com>
+Message-ID: <5FF29B6F-989D-4F29-852C-037E87CE727E@research.att.com>
+
+Tim,
+
+On Jan 16, 2007, at 12:59 AM, Timothy Niño Travers wrote:
+
+> I'm trying to install JGR on a 64-bit fedora core 6 installation,  
+> using the R rpm (v 2.4.1) available at fedora extras. Can't load  
+> JGR after installation, mainly because loading iplots gives the  
+> following error:
+>
+> Exception in thread "main" java.lang.UnsatisfiedLinkError: Can't  
+> load library: /lib64/xawt/libmawt.so
+>         at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1650)
+
+Please note that this is a system library, so it may be a problem  
+with your Java installation. Please also check the start script,  
+java.library.path and LD_LIBRARY_PATH (or its cousin for 64-bit) -  
+they all play a role here.
+
+FC is has been known for supplying broken Java, so if in doubt, you  
+may want to try 'pure' Sun's Java. If you find more about the problem  
+above, please let us know. It appears as if Java cannot even load its  
+own libraries.
+
+
+> [...]
+>
+> Am using the 64-bit java 1.6.0 release from the sun website;  
+> already modified PATH and JAVA_HOME with the correct folders and  
+> did R CMD javareconf (without errors) before installing rJava,  
+> JavaGD, iplots, and JGR. I got iplots and JGR working on a 32-bit  
+> fedora core 6 installation with the 32-bit java 1.6.0 release.
+>
+> The iplots website mentions: "For other UNIX operating systems (in  
+> particular Linux) Sun Java 1.5 or higher is highly recommended (64- 
+> bit Linux requires at least Java 1.6 beta)." I'm wondering if there  
+> are any additional configurations that need to be done to get  
+> iplots working on a 64-bit linux installation?
+>
+
+Sun's Java before 1.6.0 beta 2 on 64-bit Linux had a serious bug that  
+prevented it from running via JNI. That has been fixed and iPlots/JGR  
+is known to work with Sun's Java 1.6.0 on 64-bit Linux (tested on  
+Debian) without problems. There were reports that FC's packaged RPM  
+doesn't work, but if installed from Sun's files, it does. We don't  
+have a FC system, so I'm only relaying information received.
+
+Cheers,
+Simon
+
+From dtenenbaum at systemsbiology.org  Wed Jan 17 00:58:50 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Tue, 16 Jan 2007 16:58:50 -0800
+Subject: programmatically finding Rserve's tmp directory
+In-Reply-To: <5FF29B6F-989D-4F29-852C-037E87CE727E@research.att.com>
+References: <c9c8a6e50701152159l4c66003cv142379f81fed7d04@mail.gmail.com> <5FF29B6F-989D-4F29-852C-037E87CE727E@research.att.com>
+Message-ID: <45AD74CA.1070301@systemsbiology.org>
+
+I have Rserve and a Java Rserve client running on the same machine.
+
+If I do this:
+
+Rconnection conn = new Rconnection();
+conn.voidEval("jpeg(\"foo.jpg\");plot(cars);dev.off()")
+
+I notice that it writes foo.jpg to /tmp/Rserve/conn129. I imagine that 
+each different Rconnection has its own directory under /tmp/Rserve.
+
+Given an Rconnection object, is there a way I can find out what its own 
+temp directory is?
+
+
+I would like to run code like the above, and then get a path to the file 
+that was written out. How do I do that?
+
+From urbanek at research.att.com  Wed Jan 17 14:42:06 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Wed, 17 Jan 2007 09:42:06 -0500
+Subject: Re: programmatically finding Rserve's tmp directory
+In-Reply-To: <45AD74CA.1070301@systemsbiology.org>
+References: <c9c8a6e50701152159l4c66003cv142379f81fed7d04@mail.gmail.com> <5FF29B6F-989D-4F29-852C-037E87CE727E@research.att.com> <45AD74CA.1070301@systemsbiology.org>
+Message-ID: <5DD60302-D49B-4C8A-B8C1-A811397F209F@research.att.com>
+
+Dan,
+
+On Jan 16, 2007, at 7:58 PM, Dan Tenenbaum wrote:
+
+> I have Rserve and a Java Rserve client running on the same machine.
+>
+> If I do this:
+>
+> Rconnection conn = new Rconnection();
+> conn.voidEval("jpeg(\"foo.jpg\");plot(cars);dev.off()")
+>
+> I notice that it writes foo.jpg to /tmp/Rserve/conn129. I imagine  
+> that each different Rconnection has its own directory under /tmp/ 
+> Rserve.
+>
+> Given an Rconnection object, is there a way I can find out what its  
+> own temp directory is?
+
+Yes:
+
+conn.eval("getwd()").asString()
+
+FWIW: unless you have a special application you should consider using  
+Rserve's I/O API which doesn't require you to specify full path and  
+works even with remote Rserve, so you can retrieve the above file with
+
+RFileInputStream fis = conn.openFile("foo.jpg");
+...
+
+For a full example that creates a plot, reads it through R's I/O and  
+displays it on screen see PlotDemo.java in the examples directory.
+
+Cheers,
+Simon
+
+From tobias.verbeke at telenet.be  Wed Jan 17 18:22:56 2007
+From: tobias.verbeke at telenet.be (Tobias Verbeke)
+Date: Wed, 17 Jan 2007 19:22:56 +0100
+Subject: remark website (license)
+Message-ID: <45AE6980.4090408@telenet.be>
+
+Hi,
+
+I noticed that the license for a given RoSuDa software package
+is never mentioned on its respective home page. I am aware
+they are released under GPL (and am very grateful and happy
+about it), but still think it is worth mentioning, as it is
+one of the first questions IT people ask when I recommend
+the software or when they come back after a first look on
+the website.
+
+Best,
+Tobias
+
+PS The link to Sergei Potapov's `R and Parallel Computing' document
+    on the bottom of the TWIX page appears to be broken.
+
+From rodri at usal.es  Thu Jan 18 08:33:00 2007
+From: rodri at usal.es (=?utf-8?q?Rodrigo_Santamar=C3=ADa_Vicente?=)
+Date: Thu, 18 Jan 2007 09:33:00 +0100
+Subject: JRI assigning a R matrix to Java
+Message-ID: <45AF30BC.40204@usal.es>
+
+Hi again!
+I want to assign an R matrix to a java matrix. I supposed it was 
+something easy like this
+"REXP x=re.eval("matrix(1:9,3,3)");
+double m[][]=x.asMatrix();"
+But much of the methods of REXP aren't found by my compiler, only 
+asDouble, asDoubleArray,
+asIntArray, asStringArray and asString are found.
+Passing it to a 1D-array with asDoubleArray and then converting it to a 
+matrix is a bit tedious.
+I have found in the forum archive the reverse option (assign from java 
+to R with Rengine.assign) but not this.
+Is something wrong in my installation (JRI0.2.4) and therefore the rest 
+of methods work? What is the best way to assing matrices from R to java?
+
+Thanks very much!
+
+Rodrigo Santamaría
+University of Salamanca (Spain)
+
+From falka777 at gmx.de  Thu Jan 18 08:50:20 2007
+From: falka777 at gmx.de (Wojtek Dabrowski)
+Date: Thu, 18 Jan 2007 09:50:20 +0100
+Subject: Re: JRI assigning a R matrix to Java
+In-Reply-To: <45AF30BC.40204@usal.es>
+References: <45AF30BC.40204@usal.es>
+Message-ID: <45AF34CC.7070700@gmx.de>
+
+Hello!
+> I want to assign an R matrix to a java matrix. I supposed it was
+> something easy like this
+> "REXP x=re.eval("matrix(1:9,3,3)");
+> double m[][]=x.asMatrix();"
+
+A method that works for me is simply getting the matrix row-wise and
+assigning the rows to the rows of a java matrix. Like:
+
+for(int i=0; i<rows; i++) {
+  matrix[i] = rengine.eval("rmatrix[" + i + ",]").asDoubleArray();
+}
+
+Might not be the most elegant, but works just fine ;)
+
+Hope it helps,
+-Wojtek Dabrowski
+
+From urbanek at research.att.com  Thu Jan 18 16:52:30 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Thu, 18 Jan 2007 11:52:30 -0500
+Subject: Re: JRI assigning a R matrix to Java
+In-Reply-To: <45AF30BC.40204@usal.es>
+References: <45AF30BC.40204@usal.es>
+Message-ID: <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com>
+
+Rodrigo,
+
+On Jan 18, 2007, at 3:33 AM, Rodrigo Santamaría Vicente wrote:
+
+> Hi again!
+> I want to assign an R matrix to a java matrix. I supposed it was  
+> something easy like this
+> "REXP x=re.eval("matrix(1:9,3,3)");
+> double m[][]=x.asMatrix();"
+
+Actually, it is.
+
+> But much of the methods of REXP aren't found by my compiler, only  
+> asDouble, asDoubleArray, asIntArray, asStringArray and asString are  
+> found.
+
+Please make sure you have the most recent JRI sources, it seems as if  
+your JRI is outdated (the current version is JRI 0.3-7). They are now  
+part of rJava and can be downloaded either from CRAN or from
+http://rforge.net/rJava/files/
+or fetched from SVN, see
+http://rforge.net/rJava/svn.html
+
+
+> Passing it to a 1D-array with asDoubleArray and then converting it  
+> to a matrix is a bit tedious.
+
+Well, not really, because that is what asMatrix does internally - in  
+R all matrices are just m*n vectors.
+
+Cheers,
+Simon
+
+From dtenenbaum at systemsbiology.org  Sat Jan 20 01:23:10 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Fri, 19 Jan 2007 17:23:10 -0800
+Subject: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com>
+Message-ID: <45B16EFE.50509@systemsbiology.org>
+
+Today I started having a problem that I hadn't had before, for no reason 
+that I can tell.
+
+I have an Rserve application running on another machine. Basically, the 
+application is a SOAP frontend to Rserve. Both the web application and 
+Rserve are running on the same machine.
+
+My web application is already running on the other machine. Now I open a 
+new xterm (my desktop machine is Linux Fedora Core 3; the remote machine 
+is 64-bit RHEL 4 (CentOS 4.4)) and ssh to the remote machine. I'm using 
+bash on both machines.
+
+I issue this command:
+
+R CMD Rserve
+It tells me that Rserve has started in daemon mode and gives me back my 
+prompt.
+
+As long as I keep that shell open, my application works fine.
+
+If I then type "exit" or control-D in the xterm window, the window does 
+not close as it normally would, it just becomes empty and hangs there. 
+But my application still works fine.
+
+If I manually close the xterm window, my application stops working.
+
+If I don't start up Rserve during an ssh session, I don't have this 
+problem with exiting an xterm, so those two things are definitely related.
+
+When I ssh back in, the rserve process is still running, in fact it has 
+spawned a bunch of child processes.
+
+It seems like all of a sudden, Rserve is not behaving fully like a 
+daemon, and some part of its functionality stops when I exit the ssh 
+session. Could it be a threading issue?
+
+I hope this is ringing bells with someone because it's sure confusing me.
+
+It is critical that my application stay available on the remote machine. 
+For now I have to leave an ssh session open on my machine or the remote 
+application will stop working.
+
+Hope someone can help,
+Thanks
+
+From sneumann at IPB-Halle.DE  Sat Jan 20 20:07:28 2007
+From: sneumann at IPB-Halle.DE (Steffen Neumann)
+Date: Sat, 20 Jan 2007 21:07:28 +0100
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <45B16EFE.50509@systemsbiology.org>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org>
+Message-ID: <45B27680.4060009@IPB-Halle.DE>
+
+Dan Tenenbaum wrote:
+
+> ...
+
+> It is critical that my application stay available on the remote 
+> machine. For now I have to leave an ssh session open on my machine or 
+> the remote application will stop working.
+
+Hi,
+
+I can't tell you what's wrong in your case,
+but we have rserve run from /etc/init.d on each bootup.
+As you see from the comment, it was just changing the daemon name ...
+
+Steffen
+
+
+
+#!/bin/bash
+#
+# tomcat       
+#
+# chkconfig:
+# description:  Start up the Tomcat servlet engine.
+
+# Source function library.
+#. /etc/init.d/functions
+. /lib/lsb/init-functions
+
+
+RETVAL=$?
+DAEMON="/usr/bin/R"
+OPTIONS="CMD Rserve --gui-none --RS-conf /etc/Rserve.conf"
+USER=nobody
+PIDFILE=/var/run/rserve.pid
+
+# Make dead sure Rserv does not try to open X11 !!!
+unset DISPLAY
+
+case "$1" in
+ start)
+        log_begin_msg "Starting rserve..."
+        start-stop-daemon -S -o -q -p $PIDFILE -x $DAEMON -u $USER -a 
+/bin/su -- -c "$DAEMON $OPTIONS" $USER
+        log_end_msg $?
+        ;;
+ stop)
+        log_begin_msg "Stopping rserve..."
+        start-stop-daemon -K -o -q -p $PIDFILE -x $DAEMON -u $USER
+        killall /usr/lib/R/bin/Rserve
+        log_end_msg $?
+        ;;
+ force-reload|restart)
+        sh $0 stop
+        sh $0 start
+        ;;
+ *)
+        echo $"Usage: $0 {start|stop|force-reload|restart}"
+        exit 1
+        ;;
+esac
+
+exit $RETVAL
+
+From urbanek at research.att.com  Mon Jan 22 14:50:39 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Mon, 22 Jan 2007 09:50:39 -0500
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <45B16EFE.50509@systemsbiology.org>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org>
+Message-ID: <75076B1A-9E68-4C60-8C10-AC3D0AA11522@research.att.com>
+
+Dan,
+
+this actually the standard behavior in a unix shell, so you shouldn't  
+be surprised ;). When you start a process from the shell in the  
+background, the shell will still send HUP to it when it closes and it  
+will wait for its children to close. This is why the shell appears to  
+hang and yet Rserve gets closed. It is advisable to use `nohup' if  
+you want to run it from a shell and be able to close the shell  
+without shutting down Rserve.
+In a sense I understand your confusion, because some other daemons  
+use HUP for other purposes (e.g. reloading configuration), but Rserve  
+doesn't.
+
+Cheers,
+Simon
+
+On Jan 19, 2007, at 8:23 PM, Dan Tenenbaum wrote:
+
+> Today I started having a problem that I hadn't had before, for no  
+> reason that I can tell.
+>
+> I have an Rserve application running on another machine. Basically,  
+> the application is a SOAP frontend to Rserve. Both the web  
+> application and Rserve are running on the same machine.
+>
+> My web application is already running on the other machine. Now I  
+> open a new xterm (my desktop machine is Linux Fedora Core 3; the  
+> remote machine is 64-bit RHEL 4 (CentOS 4.4)) and ssh to the remote  
+> machine. I'm using bash on both machines.
+>
+> I issue this command:
+>
+> R CMD Rserve
+> It tells me that Rserve has started in daemon mode and gives me  
+> back my prompt.
+>
+> As long as I keep that shell open, my application works fine.
+>
+> If I then type "exit" or control-D in the xterm window, the window  
+> does not close as it normally would, it just becomes empty and  
+> hangs there. But my application still works fine.
+>
+> If I manually close the xterm window, my application stops working.
+>
+> If I don't start up Rserve during an ssh session, I don't have this  
+> problem with exiting an xterm, so those two things are definitely  
+> related.
+>
+> When I ssh back in, the rserve process is still running, in fact it  
+> has spawned a bunch of child processes.
+>
+> It seems like all of a sudden, Rserve is not behaving fully like a  
+> daemon, and some part of its functionality stops when I exit the  
+> ssh session. Could it be a threading issue?
+>
+> I hope this is ringing bells with someone because it's sure  
+> confusing me.
+>
+> It is critical that my application stay available on the remote  
+> machine. For now I have to leave an ssh session open on my machine  
+> or the remote application will stop working.
+>
+> Hope someone can help,
+> Thanks
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From dtenenbaum at systemsbiology.org  Mon Jan 22 18:12:07 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Mon, 22 Jan 2007 10:12:07 -0800
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <75076B1A-9E68-4C60-8C10-AC3D0AA11522@research.att.com>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <75076B1A-9E68-4C60-8C10-AC3D0AA11522@research.att.com>
+Message-ID: <45B4FE77.9010302@systemsbiology.org>
+
+Thank you. I forgot to mention that I was already using nohup and still 
+having this problems. Any other ideas:?
+
+Simon Urbanek wrote:
+> Dan,
+> 
+> this actually the standard behavior in a unix shell, so you shouldn't be 
+> surprised ;). When you start a process from the shell in the background, 
+> the shell will still send HUP to it when it closes and it will wait for 
+> its children to close. This is why the shell appears to hang and yet 
+> Rserve gets closed. It is advisable to use `nohup' if you want to run it 
+> from a shell and be able to close the shell without shutting down Rserve.
+> In a sense I understand your confusion, because some other daemons use 
+> HUP for other purposes (e.g. reloading configuration), but Rserve doesn't.
+> 
+> Cheers,
+> Simon
+> 
+> On Jan 19, 2007, at 8:23 PM, Dan Tenenbaum wrote:
+> 
+>> Today I started having a problem that I hadn't had before, for no 
+>> reason that I can tell.
+>>
+>> I have an Rserve application running on another machine. Basically, 
+>> the application is a SOAP frontend to Rserve. Both the web application 
+>> and Rserve are running on the same machine.
+>>
+>> My web application is already running on the other machine. Now I open 
+>> a new xterm (my desktop machine is Linux Fedora Core 3; the remote 
+>> machine is 64-bit RHEL 4 (CentOS 4.4)) and ssh to the remote machine. 
+>> I'm using bash on both machines.
+>>
+>> I issue this command:
+>>
+>> R CMD Rserve
+>> It tells me that Rserve has started in daemon mode and gives me back 
+>> my prompt.
+>>
+>> As long as I keep that shell open, my application works fine.
+>>
+>> If I then type "exit" or control-D in the xterm window, the window 
+>> does not close as it normally would, it just becomes empty and hangs 
+>> there. But my application still works fine.
+>>
+>> If I manually close the xterm window, my application stops working.
+>>
+>> If I don't start up Rserve during an ssh session, I don't have this 
+>> problem with exiting an xterm, so those two things are definitely 
+>> related.
+>>
+>> When I ssh back in, the rserve process is still running, in fact it 
+>> has spawned a bunch of child processes.
+>>
+>> It seems like all of a sudden, Rserve is not behaving fully like a 
+>> daemon, and some part of its functionality stops when I exit the ssh 
+>> session. Could it be a threading issue?
+>>
+>> I hope this is ringing bells with someone because it's sure confusing me.
+>>
+>> It is critical that my application stay available on the remote 
+>> machine. For now I have to leave an ssh session open on my machine or 
+>> the remote application will stop working.
+>>
+>> Hope someone can help,
+>> Thanks
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From dtenenbaum at systemsbiology.org  Mon Jan 22 20:15:32 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Mon, 22 Jan 2007 12:15:32 -0800
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <45B27680.4060009@IPB-Halle.DE>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <45B27680.4060009@IPB-Halle.DE>
+Message-ID: <45B51B64.9050006@systemsbiology.org>
+
+Hi Everyone,
+
+I'm still struggling with this. I tried the script below and it didn't 
+work--same problem, I would run the script and everything would work 
+fine till I exited the shell from which I had run the script. It might 
+have worked if I had set up a symlink to make it start during a reboot, 
+but I don't want to reboot the machine and really I need the ability to 
+stop and restart Rserv at will without rebooting.
+
+Finally I tried to start Rserv from crontab -- I wrote a script that 
+checks to see if Rserve is already running, and if not, starts it, and I 
+call it from crontab every minute. It is writing to nohup.out so I can 
+see what happens.
+
+First, the script runs and starts rserve:
+"Rserv started in daemon mode."
+Then, my java client code does the following (paraphrased):
+Rconnection conn = new Rconnection();
+String sessionId = java.util.UUID.randomUUID().toString();
+conn.voidEval("jpeg(\"" + sessionId + ".jpg\")";
+
+This causes the following output in nohup.out:
+Error in X11(paste("jpeg::", quality, ":", filename, sep = ""), width,  :
+         unable to start device JPEG
+In addition: Warning message:
+unable to open connection to X11 display ''
+Execution halted
+
+...and then of course my application fails from that point. (BTW, even 
+though it says "execution halted", ps still reports an Rserve process).
+
+So to recap, I need to be able to start Rserv in true daemon fashion 
+(where it won't hold on to the shell where it was started) and have it 
+work. Any ideas? Again, these problems just sort of started happening, I 
+had not changed anything as far as I recall.
+
+TIA
+D
+
+
+
+
+
+Steffen Neumann wrote:
+> Dan Tenenbaum wrote:
+> 
+>> ...
+> 
+>> It is critical that my application stay available on the remote 
+>> machine. For now I have to leave an ssh session open on my machine or 
+>> the remote application will stop working.
+> 
+> Hi,
+> 
+> I can't tell you what's wrong in your case,
+> but we have rserve run from /etc/init.d on each bootup.
+> As you see from the comment, it was just changing the daemon name ...
+> 
+> Steffen
+> 
+> 
+> 
+> #!/bin/bash
+> #
+> # tomcat       #
+> # chkconfig:
+> # description:  Start up the Tomcat servlet engine.
+> 
+> # Source function library.
+> #. /etc/init.d/functions
+> . /lib/lsb/init-functions
+> 
+> 
+> RETVAL=$?
+> DAEMON="/usr/bin/R"
+> OPTIONS="CMD Rserve --gui-none --RS-conf /etc/Rserve.conf"
+> USER=nobody
+> PIDFILE=/var/run/rserve.pid
+> 
+> # Make dead sure Rserv does not try to open X11 !!!
+> unset DISPLAY
+> 
+> case "$1" in
+> start)
+>        log_begin_msg "Starting rserve..."
+>        start-stop-daemon -S -o -q -p $PIDFILE -x $DAEMON -u $USER -a 
+> /bin/su -- -c "$DAEMON $OPTIONS" $USER
+>        log_end_msg $?
+>        ;;
+> stop)
+>        log_begin_msg "Stopping rserve..."
+>        start-stop-daemon -K -o -q -p $PIDFILE -x $DAEMON -u $USER
+>        killall /usr/lib/R/bin/Rserve
+>        log_end_msg $?
+>        ;;
+> force-reload|restart)
+>        sh $0 stop
+>        sh $0 start
+>        ;;
+> *)
+>        echo $"Usage: $0 {start|stop|force-reload|restart}"
+>        exit 1
+>        ;;
+> esac
+> 
+> exit $RETVAL
+> 
+>
+
+From urbanek at research.att.com  Mon Jan 22 20:46:04 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Mon, 22 Jan 2007 15:46:04 -0500
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <45B51B64.9050006@systemsbiology.org>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <45B27680.4060009@IPB-Halle.DE> <45B51B64.9050006@systemsbiology.org>
+Message-ID: <980D594D-8F1D-403D-8FC6-2020FBDC563D@research.att.com>
+
+Dan,
+
+On Jan 22, 2007, at 3:15 PM, Dan Tenenbaum wrote:
+
+> I'm still struggling with this. I tried the script below and it  
+> didn't work--same problem, I would run the script and everything  
+> would work fine till I exited the shell from which I had run the  
+> script. It might have worked if I had set up a symlink to make it  
+> start during a reboot, but I don't want to reboot the machine and  
+> really I need the ability to stop and restart Rserv at will without  
+> rebooting.
+>
+> Finally I tried to start Rserv from crontab -- I wrote a script  
+> that checks to see if Rserve is already running, and if not, starts  
+> it, and I call it from crontab every minute. It is writing to  
+> nohup.out so I can see what happens.
+>
+> First, the script runs and starts rserve:
+> "Rserv started in daemon mode."
+> Then, my java client code does the following (paraphrased):
+> Rconnection conn = new Rconnection();
+> String sessionId = java.util.UUID.randomUUID().toString();
+> conn.voidEval("jpeg(\"" + sessionId + ".jpg\")";
+>
+> This causes the following output in nohup.out:
+> Error in X11(paste("jpeg::", quality, ":", filename, sep = ""),  
+> width,  :
+>         unable to start device JPEG
+> In addition: Warning message:
+> unable to open connection to X11 display ''
+> Execution halted
+>
+
+You didn't set DISPLAY so can't use jpeg(..), this is your problem  
+number one. The "Execution halted" comes from the R child that was  
+connected to your client and it correctly quits. This has nothing to  
+do with the Rserve itself, because that is another, separate process  
+(save for debug mode).
+
+
+> ...and then of course my application fails from that point. (BTW,  
+> even though it says "execution halted", ps still reports an Rserve  
+> process).
+
+Why "of course"? Can you elaborate on that? The above error doesn't  
+affect Rserve, so can you be more specific as of what fails? The  
+above also doesn't have anything to do with a shell, so I'm wondering  
+what you are really asking here ;) ...
+
+In fact even w/o nohup it works fine for me on Linux:
+
+caladan:urbanek$ ssh co
+urbanek@corrino:~$ R CMD Rserve
+[...]
+Rserv started in daemon mode.
+urbanek@corrino:~$ exit
+logout
+
+caladan:urbanek$ ssh co
+urbanek@corrino:~$ ps ax|grep [R]se
+28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+urbanek@corrino:~$ R
+[...]
+ > library(Rserve)
+ > c=RSconnect()
+ > RSeval(c,"'hello, world'")
+[1] "hello, world"
+
+Note that at this point there are two separate Rserve processes:
+urbanek@corrino:~$ ps ax|grep [R]se
+28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+28578 ?        S      0:00 /usr/lib/R/bin/Rserve
+
+the original server process and a client process. The latter will go  
+away when you nuke it or close the connection.
+
+Cheers,
+Simon
+
+
+>
+> So to recap, I need to be able to start Rserv in true daemon  
+> fashion (where it won't hold on to the shell where it was started)  
+> and have it work. Any ideas? Again, these problems just sort of  
+> started happening, I had not changed anything as far as I recall.
+>
+> TIA
+> D
+>
+>
+>
+>
+>
+> Steffen Neumann wrote:
+>> Dan Tenenbaum wrote:
+>>> ...
+>>> It is critical that my application stay available on the remote  
+>>> machine. For now I have to leave an ssh session open on my  
+>>> machine or the remote application will stop working.
+>> Hi,
+>> I can't tell you what's wrong in your case,
+>> but we have rserve run from /etc/init.d on each bootup.
+>> As you see from the comment, it was just changing the daemon name ...
+>> Steffen
+>> #!/bin/bash
+>> #
+>> # tomcat       #
+>> # chkconfig:
+>> # description:  Start up the Tomcat servlet engine.
+>> # Source function library.
+>> #. /etc/init.d/functions
+>> . /lib/lsb/init-functions
+>> RETVAL=$?
+>> DAEMON="/usr/bin/R"
+>> OPTIONS="CMD Rserve --gui-none --RS-conf /etc/Rserve.conf"
+>> USER=nobody
+>> PIDFILE=/var/run/rserve.pid
+>> # Make dead sure Rserv does not try to open X11 !!!
+>> unset DISPLAY
+>> case "$1" in
+>> start)
+>>        log_begin_msg "Starting rserve..."
+>>        start-stop-daemon -S -o -q -p $PIDFILE -x $DAEMON -u $USER - 
+>> a /bin/su -- -c "$DAEMON $OPTIONS" $USER
+>>        log_end_msg $?
+>>        ;;
+>> stop)
+>>        log_begin_msg "Stopping rserve..."
+>>        start-stop-daemon -K -o -q -p $PIDFILE -x $DAEMON -u $USER
+>>        killall /usr/lib/R/bin/Rserve
+>>        log_end_msg $?
+>>        ;;
+>> force-reload|restart)
+>>        sh $0 stop
+>>        sh $0 start
+>>        ;;
+>> *)
+>>        echo $"Usage: $0 {start|stop|force-reload|restart}"
+>>        exit 1
+>>        ;;
+>> esac
+>> exit $RETVAL
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From dtenenbaum at systemsbiology.org  Mon Jan 22 21:14:44 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Mon, 22 Jan 2007 13:14:44 -0800
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <980D594D-8F1D-403D-8FC6-2020FBDC563D@research.att.com>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <45B27680.4060009@IPB-Halle.DE> <45B51B64.9050006@systemsbiology.org> <980D594D-8F1D-403D-8FC6-2020FBDC563D@research.att.com>
+Message-ID: <45B52944.2010307@systemsbiology.org>
+
+Hi Simon, thanks for your help.
+
+Simon Urbanek wrote:
+> You didn't set DISPLAY so can't use jpeg(..), this is your problem 
+> number one. The "Execution halted" comes from the R child that was 
+> connected to your client and it correctly quits. This has nothing to do 
+> with the Rserve itself, because that is another, separate process (save 
+> for debug mode).
+
+DISPLAY is set. If I do "set|grep DISPLAY" it reports this:
+DISPLAY=localhost:10.0
+
+Even if I prepend DISPLAY=localhost:10.0 to my R CMD Rserve command it 
+makes no difference.
+
+
+>> ...and then of course my application fails from that point. (BTW, even 
+>> though it says "execution halted", ps still reports an Rserve process).
+> 
+> Why "of course"? Can you elaborate on that? The above error doesn't 
+> affect Rserve, so can you be more specific as of what fails? The above 
+> also doesn't have anything to do with a shell, so I'm wondering what you 
+> are really asking here ;) ...
+
+Let's leave this alone for now, see below:
+
+> 
+> In fact even w/o nohup it works fine for me on Linux:
+
+I tried to replicate exactly what you are doing here:
+
+> 
+> caladan:urbanek$ ssh co
+> urbanek@corrino:~$ R CMD Rserve
+> [...]
+> Rserv started in daemon mode.
+> urbanek@corrino:~$ exit
+> logout
+
+[dtenenba@tapatio ~]$ ssh specs
+Last login: Mon Jan 22 13:07:34 2007 from ...
+[dtenenba@specs ~]$  R CMD Rserve
+[...]
+Rserv started in daemon mode.
+[dtenenba@specs ~]$ exit
+
+ssh refuses to close! I have to force the xterm closed at this point.
+
+
+Notice that I have done nothing to do with the jpeg() command yet.
+
+I'll continue trying to do exactly what you are doing:
+
+[dtenenba@tapatio ~]$ ssh specs
+Last login: Mon Jan 22 13:07:49 2007 from ...
+[dtenenba@specs ~]$ ps ax|grep [R]se
+  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+[dtenenba@specs ~]$ R
+[...]
+ > library(Rserve)
+ > c=RSconnect()
+Error: could not find function "RSconnect"
+ >
+
+Still I've done nothing with the jpeg() command....
+
+> 
+> caladan:urbanek$ ssh co
+> urbanek@corrino:~$ ps ax|grep [R]se
+> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+> urbanek@corrino:~$ R
+> [...]
+>  > library(Rserve)
+>  > c=RSconnect()
+>  > RSeval(c,"'hello, world'")
+> [1] "hello, world"
+> 
+> Note that at this point there are two separate Rserve processes:
+> urbanek@corrino:~$ ps ax|grep [R]se
+> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+> 28578 ?        S      0:00 /usr/lib/R/bin/Rserve
+
+Not for me. After that error in R I exit and get this:
+[dtenenba@specs ~]$ ps ax|grep [R]se
+  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+
+So I seem to be having different behavior from you. Why is this?
+Thanks for your help.
+Dan
+
+From urbanek at research.att.com  Mon Jan 22 21:24:15 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Mon, 22 Jan 2007 16:24:15 -0500
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <45B52944.2010307@systemsbiology.org>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <45B27680.4060009@IPB-Halle.DE> <45B51B64.9050006@systemsbiology.org> <980D594D-8F1D-403D-8FC6-2020FBDC563D@research.att.com> <45B52944.2010307@systemsbiology.org>
+Message-ID: <837569FD-BBE6-42C4-BF2E-2F1F74237425@research.att.com>
+
+
+On Jan 22, 2007, at 4:14 PM, Dan Tenenbaum wrote:
+
+> Hi Simon, thanks for your help.
+>
+> Simon Urbanek wrote:
+>> You didn't set DISPLAY so can't use jpeg(..), this is your problem  
+>> number one. The "Execution halted" comes from the R child that was  
+>> connected to your client and it correctly quits. This has nothing  
+>> to do with the Rserve itself, because that is another, separate  
+>> process (save for debug mode).
+>
+> DISPLAY is set. If I do "set|grep DISPLAY" it reports this:
+> DISPLAY=localhost:10.0
+>
+> Even if I prepend DISPLAY=localhost:10.0 to my R CMD Rserve command  
+> it makes no difference.
+>
+
+Well, you have to setup a proper X for Rserve first - what you see  
+there is ssh-forwarded X connection which doesn't help as it will go  
+away once you close it. E.g. I'm using
+nohup Xvfb :4 &
+and then
+export DISPLAY=:4
+
+
+>
+>>> ...and then of course my application fails from that point. (BTW,  
+>>> even though it says "execution halted", ps still reports an  
+>>> Rserve process).
+>> Why "of course"? Can you elaborate on that? The above error  
+>> doesn't affect Rserve, so can you be more specific as of what  
+>> fails? The above also doesn't have anything to do with a shell, so  
+>> I'm wondering what you are really asking here ;) ...
+>
+> Let's leave this alone for now, see below:
+>
+>> In fact even w/o nohup it works fine for me on Linux:
+>
+> I tried to replicate exactly what you are doing here:
+>
+>> caladan:urbanek$ ssh co
+>> urbanek@corrino:~$ R CMD Rserve
+>> [...]
+>> Rserv started in daemon mode.
+>> urbanek@corrino:~$ exit
+>> logout
+>
+> [dtenenba@tapatio ~]$ ssh specs
+> Last login: Mon Jan 22 13:07:34 2007 from ...
+> [dtenenba@specs ~]$  R CMD Rserve
+> [...]
+> Rserv started in daemon mode.
+> [dtenenba@specs ~]$ exit
+>
+> ssh refuses to close! I have to force the xterm closed at this point.
+>
+>
+> Notice that I have done nothing to do with the jpeg() command yet.
+>
+> I'll continue trying to do exactly what you are doing:
+>
+> [dtenenba@tapatio ~]$ ssh specs
+> Last login: Mon Jan 22 13:07:49 2007 from ...
+> [dtenenba@specs ~]$ ps ax|grep [R]se
+>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+
+Good, this is your Rserve process
+
+
+> [dtenenba@specs ~]$ R
+> [...]
+> > library(Rserve)
+> > c=RSconnect()
+> Error: could not find function "RSconnect"
+
+You seem to have an old Rserve version - try installing the current  
+one from CRAN.
+
+
+> Still I've done nothing with the jpeg() command....
+>
+>> caladan:urbanek$ ssh co
+>> urbanek@corrino:~$ ps ax|grep [R]se
+>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>> urbanek@corrino:~$ R
+>> [...]
+>>  > library(Rserve)
+>>  > c=RSconnect()
+>>  > RSeval(c,"'hello, world'")
+>> [1] "hello, world"
+>> Note that at this point there are two separate Rserve processes:
+>> urbanek@corrino:~$ ps ax|grep [R]se
+>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>> 28578 ?        S      0:00 /usr/lib/R/bin/Rserve
+>
+> Not for me. After that error in R I exit and get this:
+> [dtenenba@specs ~]$ ps ax|grep [R]se
+>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+>
+
+Yes, that is still the server and it is running. You didn't connect  
+to Rserve, so you don't see a client process. It is only when a  
+client connects to Rserve that you see additional processes.
+
+> So I seem to be having different behavior from you. Why is this?
+
+Rserve version, I'm using Rserve 0.4-7 from CRAN. However, it  
+shouldn't really matter except for testing - your Java program should  
+be unaffected. (I just didn't want to fiddle around with Java  
+commands to illustrate the point ...).
+
+Cheers,
+Simon
+
+From dtenenbaum at systemsbiology.org  Mon Jan 22 21:55:17 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Mon, 22 Jan 2007 13:55:17 -0800
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <837569FD-BBE6-42C4-BF2E-2F1F74237425@research.att.com>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <45B27680.4060009@IPB-Halle.DE> <45B51B64.9050006@systemsbiology.org> <980D594D-8F1D-403D-8FC6-2020FBDC563D@research.att.com> <45B52944.2010307@systemsbiology.org> <837569FD-BBE6-42C4-BF2E-2F1F74237425@research.att.com>
+Message-ID: <45B532C5.9070108@systemsbiology.org>
+
+Sorry for all the back and forth here, but I am still having problems.
+I installed the new RServe as follows:
+% sudo R
+[...]
+ > install.packages("Rserve")
+[...]
+* DONE (Rserve)
+
+The downloaded packages are in
+         /tmp/RtmpAgY0m5/downloaded_packages
+ > q()
+Save workspace image? [y/n/c]: n
+% R CMD Rserve --version
+Rserve v0.4-3
+R version 2.4.0 (2006-10-03)
+[...]
+How do I get it to actually upgrade versions?
+
+Also, I do not have a command called Xvfb on my machine. Is there 
+another command I can use?
+
+Thank you.
+
+
+Simon Urbanek wrote:
+> 
+> On Jan 22, 2007, at 4:14 PM, Dan Tenenbaum wrote:
+> 
+>> Hi Simon, thanks for your help.
+>>
+>> Simon Urbanek wrote:
+>>> You didn't set DISPLAY so can't use jpeg(..), this is your problem 
+>>> number one. The "Execution halted" comes from the R child that was 
+>>> connected to your client and it correctly quits. This has nothing to 
+>>> do with the Rserve itself, because that is another, separate process 
+>>> (save for debug mode).
+>>
+>> DISPLAY is set. If I do "set|grep DISPLAY" it reports this:
+>> DISPLAY=localhost:10.0
+>>
+>> Even if I prepend DISPLAY=localhost:10.0 to my R CMD Rserve command it 
+>> makes no difference.
+>>
+> 
+> Well, you have to setup a proper X for Rserve first - what you see there 
+> is ssh-forwarded X connection which doesn't help as it will go away once 
+> you close it. E.g. I'm using
+> nohup Xvfb :4 &
+> and then
+> export DISPLAY=:4
+> 
+> 
+>>
+>>>> ...and then of course my application fails from that point. (BTW, 
+>>>> even though it says "execution halted", ps still reports an Rserve 
+>>>> process).
+>>> Why "of course"? Can you elaborate on that? The above error doesn't 
+>>> affect Rserve, so can you be more specific as of what fails? The 
+>>> above also doesn't have anything to do with a shell, so I'm wondering 
+>>> what you are really asking here ;) ...
+>>
+>> Let's leave this alone for now, see below:
+>>
+>>> In fact even w/o nohup it works fine for me on Linux:
+>>
+>> I tried to replicate exactly what you are doing here:
+>>
+>>> caladan:urbanek$ ssh co
+>>> urbanek@corrino:~$ R CMD Rserve
+>>> [...]
+>>> Rserv started in daemon mode.
+>>> urbanek@corrino:~$ exit
+>>> logout
+>>
+>> [dtenenba@tapatio ~]$ ssh specs
+>> Last login: Mon Jan 22 13:07:34 2007 from ...
+>> [dtenenba@specs ~]$  R CMD Rserve
+>> [...]
+>> Rserv started in daemon mode.
+>> [dtenenba@specs ~]$ exit
+>>
+>> ssh refuses to close! I have to force the xterm closed at this point.
+>>
+>>
+>> Notice that I have done nothing to do with the jpeg() command yet.
+>>
+>> I'll continue trying to do exactly what you are doing:
+>>
+>> [dtenenba@tapatio ~]$ ssh specs
+>> Last login: Mon Jan 22 13:07:49 2007 from ...
+>> [dtenenba@specs ~]$ ps ax|grep [R]se
+>>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+> 
+> Good, this is your Rserve process
+> 
+> 
+>> [dtenenba@specs ~]$ R
+>> [...]
+>> > library(Rserve)
+>> > c=RSconnect()
+>> Error: could not find function "RSconnect"
+> 
+> You seem to have an old Rserve version - try installing the current one 
+> from CRAN.
+> 
+> 
+>> Still I've done nothing with the jpeg() command....
+>>
+>>> caladan:urbanek$ ssh co
+>>> urbanek@corrino:~$ ps ax|grep [R]se
+>>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>>> urbanek@corrino:~$ R
+>>> [...]
+>>>  > library(Rserve)
+>>>  > c=RSconnect()
+>>>  > RSeval(c,"'hello, world'")
+>>> [1] "hello, world"
+>>> Note that at this point there are two separate Rserve processes:
+>>> urbanek@corrino:~$ ps ax|grep [R]se
+>>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>>> 28578 ?        S      0:00 /usr/lib/R/bin/Rserve
+>>
+>> Not for me. After that error in R I exit and get this:
+>> [dtenenba@specs ~]$ ps ax|grep [R]se
+>>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+>>
+> 
+> Yes, that is still the server and it is running. You didn't connect to 
+> Rserve, so you don't see a client process. It is only when a client 
+> connects to Rserve that you see additional processes.
+> 
+>> So I seem to be having different behavior from you. Why is this?
+> 
+> Rserve version, I'm using Rserve 0.4-7 from CRAN. However, it shouldn't 
+> really matter except for testing - your Java program should be 
+> unaffected. (I just didn't want to fiddle around with Java commands to 
+> illustrate the point ...).
+> 
+> Cheers,
+> Simon
+> 
+> 
+>
+
+From urbanek at research.att.com  Mon Jan 22 22:19:57 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Mon, 22 Jan 2007 17:19:57 -0500
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <45B532C5.9070108@systemsbiology.org>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <45B27680.4060009@IPB-Halle.DE> <45B51B64.9050006@systemsbiology.org> <980D594D-8F1D-403D-8FC6-2020FBDC563D@research.att.com> <45B52944.2010307@systemsbiology.org> <837569FD-BBE6-42C4-BF2E-2F1F74237425@research.att.com> <45B532C5.9070108@systemsbiology.org>
+Message-ID: <4F805B91-66FD-4194-8D45-89165ADE8F4A@research.att.com>
+
+Dan,
+
+On Jan 22, 2007, at 4:55 PM, Dan Tenenbaum wrote:
+
+> Sorry for all the back and forth here, but I am still having problems.
+> I installed the new RServe as follows:
+> % sudo R
+> [...]
+> > install.packages("Rserve")
+> [...]
+> * DONE (Rserve)
+>
+> The downloaded packages are in
+>         /tmp/RtmpAgY0m5/downloaded_packages
+> > q()
+> Save workspace image? [y/n/c]: n
+> % R CMD Rserve --version
+> Rserve v0.4-3
+> R version 2.4.0 (2006-10-03)
+> [...]
+> How do I get it to actually upgrade versions?
+>
+
+Can you send me the full transcript, please? Also please send me the  
+output of
+sudo R CMD sh -c 'echo $PATH;echo $R_HOME; which Rserve'
+
+My guess would be that you have an old version of Rserve somewhere on  
+your PATH for one reason or another ...
+
+> Also, I do not have a command called Xvfb on my machine. Is there  
+> another command I can use?
+>
+
+Xvfb is X11 server using virtual frame buffer, so it is a kind of  
+'headless' X11 server. You can usually find it in /usr/X11R6/bin, but  
+if you don't have it, then you are in trouble, because you 'll need  
+to think of another solution. In fact I don't recommend using jpeg 
+(..) precisely because it's a mess, slow and the output is not very  
+good anyway - you may consider using GDD or Cairo instead - those  
+don't need a running X11 server and have better rendering.
+
+Cheers,
+Simon
+
+
+>
+> Simon Urbanek wrote:
+>> On Jan 22, 2007, at 4:14 PM, Dan Tenenbaum wrote:
+>>> Hi Simon, thanks for your help.
+>>>
+>>> Simon Urbanek wrote:
+>>>> You didn't set DISPLAY so can't use jpeg(..), this is your  
+>>>> problem number one. The "Execution halted" comes from the R  
+>>>> child that was connected to your client and it correctly quits.  
+>>>> This has nothing to do with the Rserve itself, because that is  
+>>>> another, separate process (save for debug mode).
+>>>
+>>> DISPLAY is set. If I do "set|grep DISPLAY" it reports this:
+>>> DISPLAY=localhost:10.0
+>>>
+>>> Even if I prepend DISPLAY=localhost:10.0 to my R CMD Rserve  
+>>> command it makes no difference.
+>>>
+>> Well, you have to setup a proper X for Rserve first - what you see  
+>> there is ssh-forwarded X connection which doesn't help as it will  
+>> go away once you close it. E.g. I'm using
+>> nohup Xvfb :4 &
+>> and then
+>> export DISPLAY=:4
+>>>
+>>>>> ...and then of course my application fails from that point.  
+>>>>> (BTW, even though it says "execution halted", ps still reports  
+>>>>> an Rserve process).
+>>>> Why "of course"? Can you elaborate on that? The above error  
+>>>> doesn't affect Rserve, so can you be more specific as of what  
+>>>> fails? The above also doesn't have anything to do with a shell,  
+>>>> so I'm wondering what you are really asking here ;) ...
+>>>
+>>> Let's leave this alone for now, see below:
+>>>
+>>>> In fact even w/o nohup it works fine for me on Linux:
+>>>
+>>> I tried to replicate exactly what you are doing here:
+>>>
+>>>> caladan:urbanek$ ssh co
+>>>> urbanek@corrino:~$ R CMD Rserve
+>>>> [...]
+>>>> Rserv started in daemon mode.
+>>>> urbanek@corrino:~$ exit
+>>>> logout
+>>>
+>>> [dtenenba@tapatio ~]$ ssh specs
+>>> Last login: Mon Jan 22 13:07:34 2007 from ...
+>>> [dtenenba@specs ~]$  R CMD Rserve
+>>> [...]
+>>> Rserv started in daemon mode.
+>>> [dtenenba@specs ~]$ exit
+>>>
+>>> ssh refuses to close! I have to force the xterm closed at this  
+>>> point.
+>>>
+>>>
+>>> Notice that I have done nothing to do with the jpeg() command yet.
+>>>
+>>> I'll continue trying to do exactly what you are doing:
+>>>
+>>> [dtenenba@tapatio ~]$ ssh specs
+>>> Last login: Mon Jan 22 13:07:49 2007 from ...
+>>> [dtenenba@specs ~]$ ps ax|grep [R]se
+>>>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+>> Good, this is your Rserve process
+>>> [dtenenba@specs ~]$ R
+>>> [...]
+>>> > library(Rserve)
+>>> > c=RSconnect()
+>>> Error: could not find function "RSconnect"
+>> You seem to have an old Rserve version - try installing the  
+>> current one from CRAN.
+>>> Still I've done nothing with the jpeg() command....
+>>>
+>>>> caladan:urbanek$ ssh co
+>>>> urbanek@corrino:~$ ps ax|grep [R]se
+>>>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>>>> urbanek@corrino:~$ R
+>>>> [...]
+>>>>  > library(Rserve)
+>>>>  > c=RSconnect()
+>>>>  > RSeval(c,"'hello, world'")
+>>>> [1] "hello, world"
+>>>> Note that at this point there are two separate Rserve processes:
+>>>> urbanek@corrino:~$ ps ax|grep [R]se
+>>>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>>>> 28578 ?        S      0:00 /usr/lib/R/bin/Rserve
+>>>
+>>> Not for me. After that error in R I exit and get this:
+>>> [dtenenba@specs ~]$ ps ax|grep [R]se
+>>>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+>>>
+>> Yes, that is still the server and it is running. You didn't  
+>> connect to Rserve, so you don't see a client process. It is only  
+>> when a client connects to Rserve that you see additional processes.
+>>> So I seem to be having different behavior from you. Why is this?
+>> Rserve version, I'm using Rserve 0.4-7 from CRAN. However, it  
+>> shouldn't really matter except for testing - your Java program  
+>> should be unaffected. (I just didn't want to fiddle around with  
+>> Java commands to illustrate the point ...).
+>> Cheers,
+>> Simon
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From dtenenbaum at systemsbiology.org  Tue Jan 23 18:54:33 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Tue, 23 Jan 2007 10:54:33 -0800
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <4F805B91-66FD-4194-8D45-89165ADE8F4A@research.att.com>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <45B27680.4060009@IPB-Halle.DE> <45B51B64.9050006@systemsbiology.org> <980D594D-8F1D-403D-8FC6-2020FBDC563D@research.att.com> <45B52944.2010307@systemsbiology.org> <837569FD-BBE6-42C4-BF2E-2F1F74237425@research.att.com> <45B532C5.9070108@systemsbiology.org> <4F805B91-66FD-4194-8D45-89165ADE8F4A@research.att.com>
+Message-ID: <45B659E9.8010102@systemsbiology.org>
+
+Hi Simon,
+
+I am trying GDD, and I built freetype2 first, but my plots have no text 
+in them. here is the output of .GDD.font():
+
+ > .GDD.font()
+[1] "/usr/X11R6/lib/X11/fonts/Type1/l048013t.afm"
+[2] "/usr/X11R6/lib/X11/fonts/Type1/l048016t.afm"
+[3] "/usr/X11R6/lib/X11/fonts/Type1/l048033t.afm"
+[4] "/usr/X11R6/lib/X11/fonts/Type1/l048036t.afm"
+[5] NA
+
+Also, I can do this:
+ > .GDD.font("Times")
+[1] "/usr/share/fonts/default/Type1/n021003l.afm"
+
+So it seems like GDD can find the fonts, but why can't it render them in 
+
+plots?
+
+Thanks for all your help yesterday.
+Dan
+
+
+Simon Urbanek wrote:
+> Dan,
+> 
+> On Jan 22, 2007, at 4:55 PM, Dan Tenenbaum wrote:
+> 
+>> Sorry for all the back and forth here, but I am still having problems.
+>> I installed the new RServe as follows:
+>> % sudo R
+>> [...]
+>> > install.packages("Rserve")
+>> [...]
+>> * DONE (Rserve)
+>>
+>> The downloaded packages are in
+>>         /tmp/RtmpAgY0m5/downloaded_packages
+>> > q()
+>> Save workspace image? [y/n/c]: n
+>> % R CMD Rserve --version
+>> Rserve v0.4-3
+>> R version 2.4.0 (2006-10-03)
+>> [...]
+>> How do I get it to actually upgrade versions?
+>>
+> 
+> Can you send me the full transcript, please? Also please send me the 
+> output of
+> sudo R CMD sh -c 'echo $PATH;echo $R_HOME; which Rserve'
+> 
+> My guess would be that you have an old version of Rserve somewhere on 
+> your PATH for one reason or another ...
+> 
+>> Also, I do not have a command called Xvfb on my machine. Is there 
+>> another command I can use?
+>>
+> 
+> Xvfb is X11 server using virtual frame buffer, so it is a kind of 
+> 'headless' X11 server. You can usually find it in /usr/X11R6/bin, but if 
+> you don't have it, then you are in trouble, because you 'll need to 
+> think of another solution. In fact I don't recommend using jpeg(..) 
+> precisely because it's a mess, slow and the output is not very good 
+> anyway - you may consider using GDD or Cairo instead - those don't need 
+> a running X11 server and have better rendering.
+> 
+> Cheers,
+> Simon
+> 
+> 
+>>
+>> Simon Urbanek wrote:
+>>> On Jan 22, 2007, at 4:14 PM, Dan Tenenbaum wrote:
+>>>> Hi Simon, thanks for your help.
+>>>>
+>>>> Simon Urbanek wrote:
+>>>>> You didn't set DISPLAY so can't use jpeg(..), this is your problem 
+>>>>> number one. The "Execution halted" comes from the R child that was 
+>>>>> connected to your client and it correctly quits. This has nothing 
+>>>>> to do with the Rserve itself, because that is another, separate 
+>>>>> process (save for debug mode).
+>>>>
+>>>> DISPLAY is set. If I do "set|grep DISPLAY" it reports this:
+>>>> DISPLAY=localhost:10.0
+>>>>
+>>>> Even if I prepend DISPLAY=localhost:10.0 to my R CMD Rserve command 
+>>>> it makes no difference.
+>>>>
+>>> Well, you have to setup a proper X for Rserve first - what you see 
+>>> there is ssh-forwarded X connection which doesn't help as it will go 
+>>> away once you close it. E.g. I'm using
+>>> nohup Xvfb :4 &
+>>> and then
+>>> export DISPLAY=:4
+>>>>
+>>>>>> ...and then of course my application fails from that point. (BTW, 
+>>>>>> even though it says "execution halted", ps still reports an Rserve 
+>>>>>> process).
+>>>>> Why "of course"? Can you elaborate on that? The above error doesn't 
+>>>>> affect Rserve, so can you be more specific as of what fails? The 
+>>>>> above also doesn't have anything to do with a shell, so I'm 
+>>>>> wondering what you are really asking here ;) ...
+>>>>
+>>>> Let's leave this alone for now, see below:
+>>>>
+>>>>> In fact even w/o nohup it works fine for me on Linux:
+>>>>
+>>>> I tried to replicate exactly what you are doing here:
+>>>>
+>>>>> caladan:urbanek$ ssh co
+>>>>> urbanek@corrino:~$ R CMD Rserve
+>>>>> [...]
+>>>>> Rserv started in daemon mode.
+>>>>> urbanek@corrino:~$ exit
+>>>>> logout
+>>>>
+>>>> [dtenenba@tapatio ~]$ ssh specs
+>>>> Last login: Mon Jan 22 13:07:34 2007 from ...
+>>>> [dtenenba@specs ~]$  R CMD Rserve
+>>>> [...]
+>>>> Rserv started in daemon mode.
+>>>> [dtenenba@specs ~]$ exit
+>>>>
+>>>> ssh refuses to close! I have to force the xterm closed at this point.
+>>>>
+>>>>
+>>>> Notice that I have done nothing to do with the jpeg() command yet.
+>>>>
+>>>> I'll continue trying to do exactly what you are doing:
+>>>>
+>>>> [dtenenba@tapatio ~]$ ssh specs
+>>>> Last login: Mon Jan 22 13:07:49 2007 from ...
+>>>> [dtenenba@specs ~]$ ps ax|grep [R]se
+>>>>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+>>> Good, this is your Rserve process
+>>>> [dtenenba@specs ~]$ R
+>>>> [...]
+>>>> > library(Rserve)
+>>>> > c=RSconnect()
+>>>> Error: could not find function "RSconnect"
+>>> You seem to have an old Rserve version - try installing the current 
+>>> one from CRAN.
+>>>> Still I've done nothing with the jpeg() command....
+>>>>
+>>>>> caladan:urbanek$ ssh co
+>>>>> urbanek@corrino:~$ ps ax|grep [R]se
+>>>>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>>>>> urbanek@corrino:~$ R
+>>>>> [...]
+>>>>>  > library(Rserve)
+>>>>>  > c=RSconnect()
+>>>>>  > RSeval(c,"'hello, world'")
+>>>>> [1] "hello, world"
+>>>>> Note that at this point there are two separate Rserve processes:
+>>>>> urbanek@corrino:~$ ps ax|grep [R]se
+>>>>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>>>>> 28578 ?        S      0:00 /usr/lib/R/bin/Rserve
+>>>>
+>>>> Not for me. After that error in R I exit and get this:
+>>>> [dtenenba@specs ~]$ ps ax|grep [R]se
+>>>>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+>>>>
+>>> Yes, that is still the server and it is running. You didn't connect 
+>>> to Rserve, so you don't see a client process. It is only when a 
+>>> client connects to Rserve that you see additional processes.
+>>>> So I seem to be having different behavior from you. Why is this?
+>>> Rserve version, I'm using Rserve 0.4-7 from CRAN. However, it 
+>>> shouldn't really matter except for testing - your Java program should 
+>>> be unaffected. (I just didn't want to fiddle around with Java 
+>>> commands to illustrate the point ...).
+>>> Cheers,
+>>> Simon
+>>
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From dtenenbaum at systemsbiology.org  Tue Jan 23 19:50:00 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Tue, 23 Jan 2007 11:50:00 -0800
+Subject: Re: strange Rserve problem - exiting shell causes app to fail
+In-Reply-To: <45B659E9.8010102@systemsbiology.org>
+References: <45AF30BC.40204@usal.es> <5FDE0D47-3360-4A68-9B47-C8812B5375C3@research.att.com> <45B16EFE.50509@systemsbiology.org> <45B27680.4060009@IPB-Halle.DE> <45B51B64.9050006@systemsbiology.org> <980D594D-8F1D-403D-8FC6-2020FBDC563D@research.att.com> <45B52944.2010307@systemsbiology.org> <837569FD-BBE6-42C4-BF2E-2F1F74237425@research.att.com> <45B532C5.9070108@systemsbiology.org> <4F805B91-66FD-4194-8D45-89165ADE8F4A@research.att.com> <45B659E9.8010102@systemsbiology.org>
+Message-ID: <45B666E8.5070103@systemsbiology.org>
+
+I answered my own question. For anyone who is curious, I solved it by 
+editing basefont.mapping (in .../lib/R/library/GDD/fonts/) and having it 
+point to some real truetype fonts on my system. I commented out all 
+other entries.
+
+
+Dan Tenenbaum wrote:
+> Hi Simon,
+> 
+> I am trying GDD, and I built freetype2 first, but my plots have no text 
+> in them. here is the output of .GDD.font():
+> 
+>  > .GDD.font()
+> [1] "/usr/X11R6/lib/X11/fonts/Type1/l048013t.afm"
+> [2] "/usr/X11R6/lib/X11/fonts/Type1/l048016t.afm"
+> [3] "/usr/X11R6/lib/X11/fonts/Type1/l048033t.afm"
+> [4] "/usr/X11R6/lib/X11/fonts/Type1/l048036t.afm"
+> [5] NA
+> 
+> Also, I can do this:
+>  > .GDD.font("Times")
+> [1] "/usr/share/fonts/default/Type1/n021003l.afm"
+> 
+> So it seems like GDD can find the fonts, but why can't it render them in
+> plots?
+> 
+> Thanks for all your help yesterday.
+> Dan
+> 
+> 
+> Simon Urbanek wrote:
+>> Dan,
+>>
+>> On Jan 22, 2007, at 4:55 PM, Dan Tenenbaum wrote:
+>>
+>>> Sorry for all the back and forth here, but I am still having problems.
+>>> I installed the new RServe as follows:
+>>> % sudo R
+>>> [...]
+>>> > install.packages("Rserve")
+>>> [...]
+>>> * DONE (Rserve)
+>>>
+>>> The downloaded packages are in
+>>>         /tmp/RtmpAgY0m5/downloaded_packages
+>>> > q()
+>>> Save workspace image? [y/n/c]: n
+>>> % R CMD Rserve --version
+>>> Rserve v0.4-3
+>>> R version 2.4.0 (2006-10-03)
+>>> [...]
+>>> How do I get it to actually upgrade versions?
+>>>
+>>
+>> Can you send me the full transcript, please? Also please send me the 
+>> output of
+>> sudo R CMD sh -c 'echo $PATH;echo $R_HOME; which Rserve'
+>>
+>> My guess would be that you have an old version of Rserve somewhere on 
+>> your PATH for one reason or another ...
+>>
+>>> Also, I do not have a command called Xvfb on my machine. Is there 
+>>> another command I can use?
+>>>
+>>
+>> Xvfb is X11 server using virtual frame buffer, so it is a kind of 
+>> 'headless' X11 server. You can usually find it in /usr/X11R6/bin, but 
+>> if you don't have it, then you are in trouble, because you 'll need to 
+>> think of another solution. In fact I don't recommend using jpeg(..) 
+>> precisely because it's a mess, slow and the output is not very good 
+>> anyway - you may consider using GDD or Cairo instead - those don't 
+>> need a running X11 server and have better rendering.
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>>
+>>> Simon Urbanek wrote:
+>>>> On Jan 22, 2007, at 4:14 PM, Dan Tenenbaum wrote:
+>>>>> Hi Simon, thanks for your help.
+>>>>>
+>>>>> Simon Urbanek wrote:
+>>>>>> You didn't set DISPLAY so can't use jpeg(..), this is your problem 
+>>>>>> number one. The "Execution halted" comes from the R child that was 
+>>>>>> connected to your client and it correctly quits. This has nothing 
+>>>>>> to do with the Rserve itself, because that is another, separate 
+>>>>>> process (save for debug mode).
+>>>>>
+>>>>> DISPLAY is set. If I do "set|grep DISPLAY" it reports this:
+>>>>> DISPLAY=localhost:10.0
+>>>>>
+>>>>> Even if I prepend DISPLAY=localhost:10.0 to my R CMD Rserve command 
+>>>>> it makes no difference.
+>>>>>
+>>>> Well, you have to setup a proper X for Rserve first - what you see 
+>>>> there is ssh-forwarded X connection which doesn't help as it will go 
+>>>> away once you close it. E.g. I'm using
+>>>> nohup Xvfb :4 &
+>>>> and then
+>>>> export DISPLAY=:4
+>>>>>
+>>>>>>> ...and then of course my application fails from that point. (BTW, 
+>>>>>>> even though it says "execution halted", ps still reports an 
+>>>>>>> Rserve process).
+>>>>>> Why "of course"? Can you elaborate on that? The above error 
+>>>>>> doesn't affect Rserve, so can you be more specific as of what 
+>>>>>> fails? The above also doesn't have anything to do with a shell, so 
+>>>>>> I'm wondering what you are really asking here ;) ...
+>>>>>
+>>>>> Let's leave this alone for now, see below:
+>>>>>
+>>>>>> In fact even w/o nohup it works fine for me on Linux:
+>>>>>
+>>>>> I tried to replicate exactly what you are doing here:
+>>>>>
+>>>>>> caladan:urbanek$ ssh co
+>>>>>> urbanek@corrino:~$ R CMD Rserve
+>>>>>> [...]
+>>>>>> Rserv started in daemon mode.
+>>>>>> urbanek@corrino:~$ exit
+>>>>>> logout
+>>>>>
+>>>>> [dtenenba@tapatio ~]$ ssh specs
+>>>>> Last login: Mon Jan 22 13:07:34 2007 from ...
+>>>>> [dtenenba@specs ~]$  R CMD Rserve
+>>>>> [...]
+>>>>> Rserv started in daemon mode.
+>>>>> [dtenenba@specs ~]$ exit
+>>>>>
+>>>>> ssh refuses to close! I have to force the xterm closed at this point.
+>>>>>
+>>>>>
+>>>>> Notice that I have done nothing to do with the jpeg() command yet.
+>>>>>
+>>>>> I'll continue trying to do exactly what you are doing:
+>>>>>
+>>>>> [dtenenba@tapatio ~]$ ssh specs
+>>>>> Last login: Mon Jan 22 13:07:49 2007 from ...
+>>>>> [dtenenba@specs ~]$ ps ax|grep [R]se
+>>>>>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+>>>> Good, this is your Rserve process
+>>>>> [dtenenba@specs ~]$ R
+>>>>> [...]
+>>>>> > library(Rserve)
+>>>>> > c=RSconnect()
+>>>>> Error: could not find function "RSconnect"
+>>>> You seem to have an old Rserve version - try installing the current 
+>>>> one from CRAN.
+>>>>> Still I've done nothing with the jpeg() command....
+>>>>>
+>>>>>> caladan:urbanek$ ssh co
+>>>>>> urbanek@corrino:~$ ps ax|grep [R]se
+>>>>>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>>>>>> urbanek@corrino:~$ R
+>>>>>> [...]
+>>>>>>  > library(Rserve)
+>>>>>>  > c=RSconnect()
+>>>>>>  > RSeval(c,"'hello, world'")
+>>>>>> [1] "hello, world"
+>>>>>> Note that at this point there are two separate Rserve processes:
+>>>>>> urbanek@corrino:~$ ps ax|grep [R]se
+>>>>>> 28357 ?        Ss     0:00 /usr/lib/R/bin/Rserve
+>>>>>> 28578 ?        S      0:00 /usr/lib/R/bin/Rserve
+>>>>>
+>>>>> Not for me. After that error in R I exit and get this:
+>>>>> [dtenenba@specs ~]$ ps ax|grep [R]se
+>>>>>  3471 ?        Ss     0:00 /usr/local/lib64/R/bin/Rserve
+>>>>>
+>>>> Yes, that is still the server and it is running. You didn't connect 
+>>>> to Rserve, so you don't see a client process. It is only when a 
+>>>> client connects to Rserve that you see additional processes.
+>>>>> So I seem to be having different behavior from you. Why is this?
+>>>> Rserve version, I'm using Rserve 0.4-7 from CRAN. However, it 
+>>>> shouldn't really matter except for testing - your Java program 
+>>>> should be unaffected. (I just didn't want to fiddle around with Java 
+>>>> commands to illustrate the point ...).
+>>>> Cheers,
+>>>> Simon
+>>>
+>>>
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From dtenenbaum at systemsbiology.org  Tue Jan 23 21:54:07 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Tue, 23 Jan 2007 13:54:07 -0800
+Subject: problem loading GDD library on 64-bit machine
+Message-ID: <45B683FF.5090102@systemsbiology.org>
+
+Hi, I was able to build and use GDD just fine on my 32-bit RHEL 4.1 
+machine, and it seems to build fine on a 64-bit RHEL 4.1 machine but 
+then I cannot load the library, I get this error:
+
+ > library(GDD)
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+         unable to load shared library 
+'/usr/lib64/R/library/GDD/libs/GDD.so':
+   /usr/lib64/R/library/GDD/libs/GDD.so: undefined symbol: 
+gdImageOpenPolygon
+Error in library(GDD) : .First.lib failed for 'GDD'
+ >
+
+Here is how gd is configured:
+# gdlib-config --all
+GD library  2.0.33
+includedir: /usr/local/include
+cflags:     -I/usr/local/include
+ldflags:     -L/usr/lib64 -Wl,--rpath -Wl,/usr/lib64  -L/usr/lib64 
+-L/usr/X11R6/lib64
+libs:       -lXpm -lX11 -ljpeg -lfontconfig -lfreetype -lpng12 -lz -lm
+libdir:     /usr/local/lib
+features:   GD_XPM GD_JPEG GD_FONTCONFIG GD_FREETYPE GD_PNG GD_GIF
+
+
+Here is the whole transcript of the installation, with R run as root. 
+Hope someone can help. Thanks.
+
+
+# R -q
+ > install.packages("GDD",contriburl="http://www.rosuda.org/R")
+trying URL 'http://www.rosuda.org/R/GDD_0.1-8.tar.gz'
+Content type 'application/x-tar' length 80143 bytes
+opened URL
+==================================================
+downloaded 78Kb
+
+* Installing *source* package 'GDD' ...
+checking for gcc... gcc
+checking for C compiler default output file name... a.out
+checking whether the C compiler works... yes
+checking whether we are cross compiling... no
+checking for suffix of executables...
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc accepts -g... yes
+checking for gcc option to accept ANSI C... none needed
+checking how to run the C preprocessor... gcc -E
+checking for egrep... grep -E
+checking for ANSI C header files... yes
+checking for sys/wait.h that is POSIX.1 compatible... yes
+checking for sys/types.h... yes
+checking for sys/stat.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for memory.h... yes
+checking for strings.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for unistd.h... yes
+checking for string.h... (cached) yes
+checking sys/time.h usability... yes
+checking sys/time.h presence... yes
+checking for sys/time.h... yes
+checking for unistd.h... (cached) yes
+checking for an ANSI C-conforming const... yes
+checking whether time.h and sys/time.h may both be included... yes
+checking for stdlib.h... (cached) yes
+checking for GNU libc compatible malloc... yes
+checking return type of signal handlers... void
+checking for memset... yes
+checking for mkdir... yes
+checking for rmdir... yes
+checking for gdlib-config... /usr/local/bin/gdlib-config
+libgd-flags according to gdlib-config:
+    -I/usr/local/include -L/usr/lib64 -Wl,--rpath -Wl,/usr/lib64 
+-L/usr/lib64 -L/usr/X11R6/lib64 -lXpm -lX11 -ljpeg -lfontconfig 
+-lfreetype -lpng12 -lz -lm
+if that is not correct, fix your gd installation
+checking gd.h usability... yes
+checking gd.h presence... yes
+checking for gd.h... yes
+checking for gdImageCreateFromPng in -lgd... yes
+checking usability of FreeType in GD... yes
+checking whether GD programs can be compiled... yes
+configure: creating ./config.status
+config.status: creating src/Makevars
+config.status: creating src/gddconfig.h
+** libs
+gcc -I/usr/lib64/R/include -I/usr/lib64/R/include -I/usr/local/include 
+-I/usr/local/include -DHAVE_GDDCONFIG_H -I. -Iinclude 
+-I/usr/local/include   -O2 -g -std=gnu99 -fpic  -O2 -g -std=gnu99 -c 
+GDD.c -o GDD.o
+gcc -I/usr/lib64/R/include -I/usr/lib64/R/include -I/usr/local/include 
+-I/usr/local/include -DHAVE_GDDCONFIG_H -I. -Iinclude 
+-I/usr/local/include   -O2 -g -std=gnu99 -fpic  -O2 -g -std=gnu99 -c 
+GDDtalk.c -o GDDtalk.o
+gcc -shared -Wl,-O1 -o GDD.so GDD.o GDDtalk.o -L/usr/lib64 -Wl,--rpath 
+-Wl,/usr/lib64 -L/usr/lib64 -L/usr/X11R6/lib64 -L/usr/local/lib -lgd 
+-lXpm -lX11 -ljpeg -lfontconfig -lfreetype -lpng12 -lz -lm 
+-L/usr/lib64/R/lib -lR
+** R
+** inst
+** help
+  >>> Building/Updating help pages for package 'GDD'
+      Formats: text html latex example
+   GDD                               text    html    latex   example
+   GDDfont                           text    html    latex   example
+** building package indices ...
+* DONE (GDD)
+
+The downloaded packages are in
+         /tmp/RtmpfwvKZF/downloaded_packages
+
+From dtenenbaum at systemsbiology.org  Tue Jan 23 23:14:10 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Tue, 23 Jan 2007 15:14:10 -0800
+Subject: Re: problem loading GDD library on 64-bit machine
+In-Reply-To: <45B683FF.5090102@systemsbiology.org>
+References: <45B683FF.5090102@systemsbiology.org>
+Message-ID: <45B696C2.2010807@systemsbiology.org>
+
+I solved this.
+
+Here's how I did it...when I built gd it put its libraries in 
+/usr/local/libs. It seemed that GDD was looking for them in 
+/usr/lib64/libgd, so I copied the libs in /usr/local/libs there (first 
+backing up some older ones in /usr/lib64/libgd that probably did not 
+support that missing function). I rebuilt GDD to be safe (not sure if 
+that step was necessary) and then the library(GDD) command worked, and I 
+could create plots, etc.
+
+
+
+Dan Tenenbaum wrote:
+> Hi, I was able to build and use GDD just fine on my 32-bit RHEL 4.1 
+> machine, and it seems to build fine on a 64-bit RHEL 4.1 machine but 
+> then I cannot load the library, I get this error:
+> 
+>  > library(GDD)
+> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>         unable to load shared library 
+> '/usr/lib64/R/library/GDD/libs/GDD.so':
+>   /usr/lib64/R/library/GDD/libs/GDD.so: undefined symbol: 
+> gdImageOpenPolygon
+> Error in library(GDD) : .First.lib failed for 'GDD'
+>  >
+> 
+> Here is how gd is configured:
+> # gdlib-config --all
+> GD library  2.0.33
+> includedir: /usr/local/include
+> cflags:     -I/usr/local/include
+> ldflags:     -L/usr/lib64 -Wl,--rpath -Wl,/usr/lib64  -L/usr/lib64 
+> -L/usr/X11R6/lib64
+> libs:       -lXpm -lX11 -ljpeg -lfontconfig -lfreetype -lpng12 -lz -lm
+> libdir:     /usr/local/lib
+> features:   GD_XPM GD_JPEG GD_FONTCONFIG GD_FREETYPE GD_PNG GD_GIF
+> 
+> 
+> Here is the whole transcript of the installation, with R run as root. 
+> Hope someone can help. Thanks.
+> 
+> 
+> # R -q
+>  > install.packages("GDD",contriburl="http://www.rosuda.org/R")
+> trying URL 'http://www.rosuda.org/R/GDD_0.1-8.tar.gz'
+> Content type 'application/x-tar' length 80143 bytes
+> opened URL
+> ==================================================
+> downloaded 78Kb
+> 
+> * Installing *source* package 'GDD' ...
+> checking for gcc... gcc
+> checking for C compiler default output file name... a.out
+> checking whether the C compiler works... yes
+> checking whether we are cross compiling... no
+> checking for suffix of executables...
+> checking for suffix of object files... o
+> checking whether we are using the GNU C compiler... yes
+> checking whether gcc accepts -g... yes
+> checking for gcc option to accept ANSI C... none needed
+> checking how to run the C preprocessor... gcc -E
+> checking for egrep... grep -E
+> checking for ANSI C header files... yes
+> checking for sys/wait.h that is POSIX.1 compatible... yes
+> checking for sys/types.h... yes
+> checking for sys/stat.h... yes
+> checking for stdlib.h... yes
+> checking for string.h... yes
+> checking for memory.h... yes
+> checking for strings.h... yes
+> checking for inttypes.h... yes
+> checking for stdint.h... yes
+> checking for unistd.h... yes
+> checking for string.h... (cached) yes
+> checking sys/time.h usability... yes
+> checking sys/time.h presence... yes
+> checking for sys/time.h... yes
+> checking for unistd.h... (cached) yes
+> checking for an ANSI C-conforming const... yes
+> checking whether time.h and sys/time.h may both be included... yes
+> checking for stdlib.h... (cached) yes
+> checking for GNU libc compatible malloc... yes
+> checking return type of signal handlers... void
+> checking for memset... yes
+> checking for mkdir... yes
+> checking for rmdir... yes
+> checking for gdlib-config... /usr/local/bin/gdlib-config
+> libgd-flags according to gdlib-config:
+>    -I/usr/local/include -L/usr/lib64 -Wl,--rpath -Wl,/usr/lib64 
+> -L/usr/lib64 -L/usr/X11R6/lib64 -lXpm -lX11 -ljpeg -lfontconfig 
+> -lfreetype -lpng12 -lz -lm
+> if that is not correct, fix your gd installation
+> checking gd.h usability... yes
+> checking gd.h presence... yes
+> checking for gd.h... yes
+> checking for gdImageCreateFromPng in -lgd... yes
+> checking usability of FreeType in GD... yes
+> checking whether GD programs can be compiled... yes
+> configure: creating ./config.status
+> config.status: creating src/Makevars
+> config.status: creating src/gddconfig.h
+> ** libs
+> gcc -I/usr/lib64/R/include -I/usr/lib64/R/include -I/usr/local/include 
+> -I/usr/local/include -DHAVE_GDDCONFIG_H -I. -Iinclude 
+> -I/usr/local/include   -O2 -g -std=gnu99 -fpic  -O2 -g -std=gnu99 -c 
+> GDD.c -o GDD.o
+> gcc -I/usr/lib64/R/include -I/usr/lib64/R/include -I/usr/local/include 
+> -I/usr/local/include -DHAVE_GDDCONFIG_H -I. -Iinclude 
+> -I/usr/local/include   -O2 -g -std=gnu99 -fpic  -O2 -g -std=gnu99 -c 
+> GDDtalk.c -o GDDtalk.o
+> gcc -shared -Wl,-O1 -o GDD.so GDD.o GDDtalk.o -L/usr/lib64 -Wl,--rpath 
+> -Wl,/usr/lib64 -L/usr/lib64 -L/usr/X11R6/lib64 -L/usr/local/lib -lgd 
+> -lXpm -lX11 -ljpeg -lfontconfig -lfreetype -lpng12 -lz -lm 
+> -L/usr/lib64/R/lib -lR
+> ** R
+> ** inst
+> ** help
+>  >>> Building/Updating help pages for package 'GDD'
+>      Formats: text html latex example
+>   GDD                               text    html    latex   example
+>   GDDfont                           text    html    latex   example
+> ** building package indices ...
+> * DONE (GDD)
+> 
+> The downloaded packages are in
+>         /tmp/RtmpfwvKZF/downloaded_packages
+> 
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From dtenenbaum at systemsbiology.org  Tue Jan 23 23:23:26 2007
+From: dtenenbaum at systemsbiology.org (Dan Tenenbaum)
+Date: Tue, 23 Jan 2007 15:23:26 -0800
+Subject: Re: problem loading GDD library on 64-bit machine
+In-Reply-To: <45B696C2.2010807@systemsbiology.org>
+References: <45B683FF.5090102@systemsbiology.org> <45B696C2.2010807@systemsbiology.org>
+Message-ID: <45B698EE.9090400@systemsbiology.org>
+
+Correction, I mentioned the wrong paths.
+Here is a more concise explanation of what worked:
+
+# mkdir /usr/lib64/libgd.bak
+# cp /usr/lib64/libgd.* /usr/lib64/bak
+# cp /usr/local/libs/libgd.* /usr/lib64/lib
+(rebuild GDD)
+
+
+Dan Tenenbaum wrote:
+> I solved this.
+> 
+> Here's how I did it...when I built gd it put its libraries in 
+> /usr/local/libs. It seemed that GDD was looking for them in 
+> /usr/lib64/libgd, so I copied the libs in /usr/local/libs there (first 
+> backing up some older ones in /usr/lib64/libgd that probably did not 
+> support that missing function). I rebuilt GDD to be safe (not sure if 
+> that step was necessary) and then the library(GDD) command worked, and I 
+> could create plots, etc.
+> 
+> 
+> 
+> Dan Tenenbaum wrote:
+>> Hi, I was able to build and use GDD just fine on my 32-bit RHEL 4.1 
+>> machine, and it seems to build fine on a 64-bit RHEL 4.1 machine but 
+>> then I cannot load the library, I get this error:
+>>
+>>  > library(GDD)
+>> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>>         unable to load shared library 
+>> '/usr/lib64/R/library/GDD/libs/GDD.so':
+>>   /usr/lib64/R/library/GDD/libs/GDD.so: undefined symbol: 
+>> gdImageOpenPolygon
+>> Error in library(GDD) : .First.lib failed for 'GDD'
+>>  >
+>>
+>> Here is how gd is configured:
+>> # gdlib-config --all
+>> GD library  2.0.33
+>> includedir: /usr/local/include
+>> cflags:     -I/usr/local/include
+>> ldflags:     -L/usr/lib64 -Wl,--rpath -Wl,/usr/lib64  -L/usr/lib64 
+>> -L/usr/X11R6/lib64
+>> libs:       -lXpm -lX11 -ljpeg -lfontconfig -lfreetype -lpng12 -lz -lm
+>> libdir:     /usr/local/lib
+>> features:   GD_XPM GD_JPEG GD_FONTCONFIG GD_FREETYPE GD_PNG GD_GIF
+>>
+>>
+>> Here is the whole transcript of the installation, with R run as root. 
+>> Hope someone can help. Thanks.
+>>
+>>
+>> # R -q
+>>  > install.packages("GDD",contriburl="http://www.rosuda.org/R")
+>> trying URL 'http://www.rosuda.org/R/GDD_0.1-8.tar.gz'
+>> Content type 'application/x-tar' length 80143 bytes
+>> opened URL
+>> ==================================================
+>> downloaded 78Kb
+>>
+>> * Installing *source* package 'GDD' ...
+>> checking for gcc... gcc
+>> checking for C compiler default output file name... a.out
+>> checking whether the C compiler works... yes
+>> checking whether we are cross compiling... no
+>> checking for suffix of executables...
+>> checking for suffix of object files... o
+>> checking whether we are using the GNU C compiler... yes
+>> checking whether gcc accepts -g... yes
+>> checking for gcc option to accept ANSI C... none needed
+>> checking how to run the C preprocessor... gcc -E
+>> checking for egrep... grep -E
+>> checking for ANSI C header files... yes
+>> checking for sys/wait.h that is POSIX.1 compatible... yes
+>> checking for sys/types.h... yes
+>> checking for sys/stat.h... yes
+>> checking for stdlib.h... yes
+>> checking for string.h... yes
+>> checking for memory.h... yes
+>> checking for strings.h... yes
+>> checking for inttypes.h... yes
+>> checking for stdint.h... yes
+>> checking for unistd.h... yes
+>> checking for string.h... (cached) yes
+>> checking sys/time.h usability... yes
+>> checking sys/time.h presence... yes
+>> checking for sys/time.h... yes
+>> checking for unistd.h... (cached) yes
+>> checking for an ANSI C-conforming const... yes
+>> checking whether time.h and sys/time.h may both be included... yes
+>> checking for stdlib.h... (cached) yes
+>> checking for GNU libc compatible malloc... yes
+>> checking return type of signal handlers... void
+>> checking for memset... yes
+>> checking for mkdir... yes
+>> checking for rmdir... yes
+>> checking for gdlib-config... /usr/local/bin/gdlib-config
+>> libgd-flags according to gdlib-config:
+>>    -I/usr/local/include -L/usr/lib64 -Wl,--rpath -Wl,/usr/lib64 
+>> -L/usr/lib64 -L/usr/X11R6/lib64 -lXpm -lX11 -ljpeg -lfontconfig 
+>> -lfreetype -lpng12 -lz -lm
+>> if that is not correct, fix your gd installation
+>> checking gd.h usability... yes
+>> checking gd.h presence... yes
+>> checking for gd.h... yes
+>> checking for gdImageCreateFromPng in -lgd... yes
+>> checking usability of FreeType in GD... yes
+>> checking whether GD programs can be compiled... yes
+>> configure: creating ./config.status
+>> config.status: creating src/Makevars
+>> config.status: creating src/gddconfig.h
+>> ** libs
+>> gcc -I/usr/lib64/R/include -I/usr/lib64/R/include -I/usr/local/include 
+>> -I/usr/local/include -DHAVE_GDDCONFIG_H -I. -Iinclude 
+>> -I/usr/local/include   -O2 -g -std=gnu99 -fpic  -O2 -g -std=gnu99 -c 
+>> GDD.c -o GDD.o
+>> gcc -I/usr/lib64/R/include -I/usr/lib64/R/include -I/usr/local/include 
+>> -I/usr/local/include -DHAVE_GDDCONFIG_H -I. -Iinclude 
+>> -I/usr/local/include   -O2 -g -std=gnu99 -fpic  -O2 -g -std=gnu99 -c 
+>> GDDtalk.c -o GDDtalk.o
+>> gcc -shared -Wl,-O1 -o GDD.so GDD.o GDDtalk.o -L/usr/lib64 -Wl,--rpath 
+>> -Wl,/usr/lib64 -L/usr/lib64 -L/usr/X11R6/lib64 -L/usr/local/lib -lgd 
+>> -lXpm -lX11 -ljpeg -lfontconfig -lfreetype -lpng12 -lz -lm 
+>> -L/usr/lib64/R/lib -lR
+>> ** R
+>> ** inst
+>> ** help
+>>  >>> Building/Updating help pages for package 'GDD'
+>>      Formats: text html latex example
+>>   GDD                               text    html    latex   example
+>>   GDDfont                           text    html    latex   example
+>> ** building package indices ...
+>> * DONE (GDD)
+>>
+>> The downloaded packages are in
+>>         /tmp/RtmpfwvKZF/downloaded_packages
+>>
+>>
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ljouneau at jouy.inra.fr  Wed Jan 24 06:41:13 2007
+From: ljouneau at jouy.inra.fr
+Date: Wed, 24 Jan 2007 07:41:13 +0100
+Subject: encoding problem
+Message-ID: <1169620873.45b6ff894fe8d@www.jouy.inra.fr>
+
+Hello,
+
+I tried to install RServe executable for windows on a computer where chinese is
+the default language. R2.2.1 has been installed using this default language.
+
+When I try to run RGui, I encounter no problem, but when I try to launch
+RServe.exe, I get following error :
+"(error in gzfile(file,"rb") : invalid encoding argument
+ Execution halted"
+
+I have checked in the documentation to set in config file, encoding to some
+other values than the default one, but did not find anything about it.
+Can someone help me ?
+
+Thanks,
+Luc
+
+From Schroeder at iism.uni-karlsruhe.de  Wed Jan 24 13:58:37 2007
+From: Schroeder at iism.uni-karlsruhe.de (=?utf-8?b?IkphbiBTY2hyw7ZkZXIgKGRlKSI=?=)
+Date: Wed, 24 Jan 2007 14:58:37 +0100
+Subject: JRI Installation on UNIX -
+Message-ID: <45B7660D.8040805@iism.uni-karlsruhe.de>
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+ 
+Dear list,
+
+I am trying to install the JRI classes on a UNIX-system but got stock
+at 95 %. The problem is that when executing the call from JAVA the
+following error-message is thrown:
+
+  [sshexec]
+java.library.path=/opt/sun-jdk-1.5.0.09/jre/lib/i386/server:/opt/sun-jdk-1.5.0.09/jre/lib/i386:/opt/sun-jdk-1.5.0.09/jre/../lib/i386:/home/jsc/r/src/R-2.4.1/bin:/home/jsc/r/src/R-2.4.1/lib:/home/jsc/r/src/JRI
+  [sshexec] Cannot find JRI native library!
+  [sshexec] Please make sure that the JRI native library is in a
+directory listed in java.library.path.
+  [sshexec] java.lang.UnsatisfiedLinkError:
+/home/jsc/r/src/JRI/libjri.so: /home/jsc/r/src/JRI/libjri.so:
+undefined symbol: R_CStackLimit
+
+I think the root of the problem in libjri.so is to be found in
+./src/Rinit.c where R_CStackLimit is maybe not properly initialised. I
+didn't find any hints on the problem. Does anyone of you know
+solutions to this or had the same problem?
+
+Thanks for any answer
+
+Jan
+
+- --
+Dipl.-Inform.Wirt Jan Schröder
+
+Institut für Informationswirtschaft und -management (IISM)
+Universität Karlsruhe (TH)
+D-76128 Karlsruhe
+
+Gebäude 20.20 RZ 171, Zirkel 2
+
+Telefon: +49.721.608-8405
+Telefax: +49.721.608-8403
+
+Schroeder at iism.uni-karlsruhe.de
+http://www.iism.uni-karlsruhe.de
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (MingW32)
+ 
+iD8DBQFFt2YN1ukrisbIBHERAp65AJ9RCq6pn6ovGb1DXxpLJJzmsG283gCfTx7t
+2jdUudpbQwVGGgx+H88EKW4=
+=vDsC
+-----END PGP SIGNATURE-----
+
+From urbanek at research.att.com  Wed Jan 24 14:44:17 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Wed, 24 Jan 2007 09:44:17 -0500
+Subject: Re: JRI Installation on UNIX -
+In-Reply-To: <45B7660D.8040805@iism.uni-karlsruhe.de>
+References: <45B7660D.8040805@iism.uni-karlsruhe.de>
+Message-ID: <11DC2D5B-3DD2-4F8C-83BD-B082A59BCC24@research.att.com>
+
+Jan,
+
+On Jan 24, 2007, at 8:58 AM, Jan Schröder (de) wrote:
+
+> Dear list,
+>
+> I am trying to install the JRI classes on a UNIX-system but got stock
+> at 95 %. The problem is that when executing the call from JAVA the
+> following error-message is thrown:
+>
+>   [sshexec]
+> java.library.path=/opt/sun-jdk-1.5.0.09/jre/lib/i386/server:/opt/ 
+> sun-jdk-1.5.0.09/jre/lib/i386:/opt/sun-jdk-1.5.0.09/jre/../lib/ 
+> i386:/home/jsc/r/src/R-2.4.1/bin:/home/jsc/r/src/R-2.4.1/lib:/home/ 
+> jsc/r/src/JRI
+>   [sshexec] Cannot find JRI native library!
+>   [sshexec] Please make sure that the JRI native library is in a
+> directory listed in java.library.path.
+>   [sshexec] java.lang.UnsatisfiedLinkError:
+> /home/jsc/r/src/JRI/libjri.so: /home/jsc/r/src/JRI/libjri.so:
+> undefined symbol: R_CStackLimit
+>
+> I think the root of the problem in libjri.so is to be found in
+> ./src/Rinit.c where R_CStackLimit is maybe not properly initialised. I
+> didn't find any hints on the problem. Does anyone of you know
+> solutions to this or had the same problem?
+>
+
+Please make sure you have the correct R version, or rather that there  
+is not an old R version lurking around. R_CStackLimit is defined in R  
+2.3.1 and higher, but was not in previous versions. If you pick up an  
+older R version for one reason or another, it would fail exactly as  
+above.
+
+Please review the settings in the run script, in particular  
+LD_LIBRARY_PATH.
+
+If you still have problems, please tell us precisely what rJava/JRI  
+version you are using, more information on the unix system (type,  
+version, hardware) and the full run script.
+
+Thanks,
+Simon
+
+From tstravers at gmail.com  Thu Jan 25 08:56:47 2007
+From: tstravers at gmail.com (=?utf-8?q?Timothy_Ni=C3=B1o_Travers?=)
+Date: Thu, 25 Jan 2007 16:56:47 +0800
+Subject: Re: JGR and iplots on fedora 64-bit
+In-Reply-To: <5FF29B6F-989D-4F29-852C-037E87CE727E@research.att.com>
+References: <c9c8a6e50701152159l4c66003cv142379f81fed7d04@mail.gmail.com> <5FF29B6F-989D-4F29-852C-037E87CE727E@research.att.com>
+Message-ID: <c9c8a6e50701250056w12c039dfsc23fa00f46f65222@mail.gmail.com>
+
+Hello,
+
+Please note that this is a system library, so it may be a problem
+> with your Java installation. Please also check the start script,
+> java.library.path and LD_LIBRARY_PATH (or its cousin for 64-bit) -
+> they all play a role here.
+
+
+Thanks for your reply. I fixed the loading error of iplots; just created a
+link at /lib64/xawt/libmawt.so. A bit of a sloppy fix, but it worked
+nonetheless.
+
+FC is has been known for supplying broken Java, so if in doubt, you
+> may want to try 'pure' Sun's Java. If you find more about the problem
+> above, please let us know. It appears as if Java cannot even load its
+> own libraries.
+
+Sun's Java before 1.6.0 beta 2 on 64-bit Linux had a serious bug that
+> prevented it from running via JNI. That has been fixed and iPlots/JGR
+> is known to work with Sun's Java 1.6.0 on 64-bit Linux (tested on
+> Debian) without problems. There were reports that FC's packaged RPM
+> doesn't work, but if installed from Sun's files, it does. We don't
+> have a FC system, so I'm only relaying information received.
+>
+
+A new problem has cropped up, however. Loading iplots, rJava, and JavaGR is
+now okay, and I can also load JGR. But when I try running JGR(), or if I
+execute JGR's run script, the JVM crashes:
+
+#
+# An unexpected error has been detected by Java Runtime Environment:
+#
+#  SIGSEGV (0xb) at pc=0x00002aaaaaab4202, pid=9738, tid=1076017472
+#
+# Java VM: Java HotSpot(TM) 64-Bit Server VM (1.6.0-b105 mixed mode)
+# Problematic frame:
+# C  [ld-linux-x86-64.so.2+0x9202]
+#
+
+I'm guessing that this is not a problem of JGR, but with the JVM. Strange
+that it works fine on an i386 machine but crashes on an x86_64 machine. Any
+help on this would be greatly appreciated. Or, I just might have to submit a
+bug report to Sun.
+
+Am using the .bin version, not the rpm, of Java 1.6 from Sun.
+
+Thanks again.
+
+Cheers,
+Tim
+
+-------------- next part --------------
+
+
+From tamir at imp.univie.ac.at  Fri Jan 26 10:57:31 2007
+From: tamir at imp.univie.ac.at (Ido M. Tamir)
+Date: Fri, 26 Jan 2007 11:57:31 +0100
+Subject: reinitialize jvm
+Message-ID: <200701261157.31309.tamir@imp.univie.ac.at>
+
+Hello,
+
+ist it possible to reinitialize a jvm from R?
+
+After I made some changes to my java
+function, I always have to make a new R 
+session to pick up the changes.
+Is there something like .jexit?
+detaching rJava did not help.
+
+Also: where is this jvm instance actually,
+because I can not find it with ps ax etc... 
+Even if I kill all java processes the .jcall still works.
+
+thank you very much
+Ido
+
+From urbanek at research.att.com  Fri Jan 26 15:57:39 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Fri, 26 Jan 2007 10:57:39 -0500
+Subject: Re: reinitialize jvm
+In-Reply-To: <200701261157.31309.tamir@imp.univie.ac.at>
+References: <200701261157.31309.tamir@imp.univie.ac.at>
+Message-ID: <89140E4E-5134-4D3F-8F01-390A29D74004@research.att.com>
+
+Ido,
+
+On Jan 26, 2007, at 5:57 AM, Ido M. Tamir wrote:
+
+> ist it possible to reinitialize a jvm from R?
+>
+
+Currently, no. There is an undocumented internal C function that  
+attempts to destroy the JVM:
+.C("doneJVM")
+You can try it (you get a list of error as explained below), but  
+you're entirely on your own - your platform may not even allow you to  
+create another VM at all.
+
+One of the main reasons for not providing .jexit is that R holds  
+references to several internal objects in Java, so destroying the VM  
+makes all those references invalid (including all objects that you  
+created until garbage collected). The second reason is that you need  
+to detach all threads first, but R has no idea what threads you  
+created (you could have done it in Java code or indirectly, e.g. by  
+calling AWT/Swing).
+
+
+> After I made some changes to my java function, I always have to  
+> make a new R session to pick up the changes.
+> Is there something like .jexit?
+> detaching rJava did not help.
+>
+> Also: where is this jvm instance actually, because I can not find  
+> it with ps ax etc...  Even if I kill all java processes the .jcall  
+> still works.
+>
+
+java processes have nothing to do with it - there is just one  
+process: the R process.
+
+Cheers,
+Simon
+
+From craigm at dcs.gla.ac.uk  Tue Jan 30 19:16:57 2007
+From: craigm at dcs.gla.ac.uk (Craig Macdonald)
+Date: Tue, 30 Jan 2007 19:16:57 +0000
+Subject: dyn.load problem with JGR/JRI
+Message-ID: <45BF99A9.6080608@dcs.gla.ac.uk>
+
+Hi there,
+
+I've recently installed R, and liked the look of your JGR GUI, so 
+decided to give that
+a whirl too.
+On my Fedora Core 3 desktop (non root), I built and installed R using 
+--enable-R-shlib option, and can confirm that libR.so is built. Our 
+local java install is Sun jdk1.5.0_09
+
+However, I have problems using JGR. Essentially, R is started, but it is 
+unable to dyn.load() any other libraries, (including grDevices.so and 
+methods.so), due to undefined symbols.
+
+I've checked that the Java system property java.library.path is 
+correctly set, which it is, and also compared 
+Sys.getEnv("LD_LIBRARY_PATH") between normal R and R in JGR (identical).
+
+The salient point seems to be that
+is.loaded("Rf_allocS4Object") and is.loaded("utf8locale") return TRUE in 
+normal R, but FALSE in the R launched by JRI.
+
+Moreover, I tried to run the examples provided with JRI. rtest2 shows 
+the same problem as JGR (suggesting it's a JRI problem, not JGR).
+
+Furthermore, JRI rtest causes Java to core due to:
+"(Unhandled dwarf expresion opcode DW_OP_piece 0) at Rengine.c:213."
+More info on this at the bottom of the email.
+
+Any thoughts anyone?
+
+Many thanks
+
+Craig Macdonald
+
+
+The errors are:
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+    unable to load shared library 
+'/extra/craigm/local/R//lib/R/library/methods/libs/methods.so':
+  /extra/craigm/local/R//lib/R/library/methods/libs/methods.so: 
+undefined symbol: Rf_allocS4Object
+
+Loading required package: grDevices
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+    unable to load shared library 
+'/extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so':
+  /extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so: 
+undefined symbol: utf8locale
+In addition: Warning message:
+package "methods" in options("defaultPackages") was not found
+Error: package 'grDevices' could not be loaded
+
+
+My LD_LIBRARY_PATH as set in R, and in JGR/run is (sorted and exact dups 
+removed):
+/extra/craigm/local/lib/
+/extra/craigm/local/R//lib/R/bin
+/extra/craigm/local/R//lib/R/lib
+/extra/craigm/local/R//lib/R/library/rJava/jri
+/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/../lib/i386
+/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386
+/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client
+/usr/local/lib
+/usr/X11R6/lib
+
+
+
+[craigm@bohol jri]$./run rtest
+Creating Rengine (with arguments)
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+        unable to load shared library 
+'/extra/craigm/local/R//lib/R/library/methods/libs/methods.so':
+  /extra/craigm/local/R//lib/R/library/methods/libs/methods.so: 
+undefined symbol: Rf_allocS4Object
+
+R version 2.4.1 (2006-12-18)
+Copyright (C) 2006 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+        unable to load shared library 
+'/extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so':
+  /extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so: 
+undefined symbol: utf8locale
+In addition: Warning message:
+package "methods" in options("defaultPackages") was not found
+Loading required package: grDevices
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+        unable to load shared library 
+'/extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so':
+  /extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so: 
+undefined symbol: utf8locale
+In addition: Warning message:
+package grDevices in options("defaultPackages") was not found
+Error: package 'grDevices' could not be loaded
+Rengine created, waiting for R
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+        unable to load shared library 
+'/extra/craigm/local/R//lib/R/library/tools/libs/tools.so':
+  /extra/craigm/local/R//lib/R/library/tools/libs/tools.so: undefined 
+symbol: mbcslocale
+[VECTOR ([REAL* (5.1, 4.9, 4.7, 4.6, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9, 5.4, 
+4.8, 4.8, 4.3, 5.8, 5.7, 5.4, 5.1, 5.7, 5.1, 5.4, 5.1, 4.6, 5.1, 4.8, 
+5.0, 5.0, 5.2, 5.2, 4.7, 4.8, 5.4, 5.2, 5.5, 4.9, 5.0, 5.5, 4.9, 4.4, 
+5.1, 5.0, 4.5, 4.4, 5.0, 5.1, 4.8, 5.1, 4.6, 5.3, 5.0, 7.0, 6.4, 6.9, 
+5.5, 6.5, 5.7, 6.3, 4.9, 6.6,5.2, 5.0, 5.9, 6.0, 6.1, 5.6, 6.7, 5.6, 
+5.8, 6.2, 5.6, 5.9, 6.1, 6.3, 6.1, 6.4, 6.6, 6.8, 6.7, 6.0, 5.7, 5.5, 
+5.5, 5.8, 6.0, 5.4, 6.0, 6.7, 6.3, 5.6, 5.5, 5.5, 6.1, 5.8, 5.0, 5.6, 
+5.7, 5.7, 6.2, 5.1, 5.7, ... (50 more values follow))], [REAL* (3.5, 
+3.0, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 2.9, 3.1, 3.7, 3.4, 3.0, 3.0, 4.0, 
+4.4, 3.9, 3.5, 3.8, 3.8, 3.4, 3.7, 3.6, 3.3, 3.4, 3.0, 3.4, 3.5, 3.4, 
+3.2, 3.1, 3.4, 4.1, 4.2, 3.1, 3.2, 3.5, 3.6, 3.0, 3.4, 3.5, 2.3, 3.2, 
+3.5, 3.8, 3.0, 3.8, 3.2, 3.7, 3.3, 3.2, 3.2, 3.1, 2.3, 2.8, 2.8, 3.3, 
+2.4, 2.9, 2.7, 2.0, 3.0, 2.2, 2.9, 2.9, 3.1, 3.0, 2.7, 2.2, 2.5, 3.2, 
+2.8, 2.5, 2.8, 2.9, 3.0,2.8, 3.0, 2.9, 2.6, 2.4, 2.4, 2.7, 2.7, 3.0, 
+3.4, 3.1, 2.3, 3.0, 2.5, 2.6, 3.0, 2.6, 2.3, 2.7, 3.0, 2.9, 2.9, 2.5, 
+2.8, ... (50 more values follow))], [REAL* (1.4, 1.4, 1.3, 1.5, 1.4, 
+1.7, 1.4, 1.5, 1.4, 1.5, 1.5, 1.6, 1.4, 1.1, 1.2, 1.5, 1.3, 1.4, 1.7, 
+1.5, 1.7, 1.5, 1.0, 1.7, 1.9, 1.6, 1.6, 1.5, 1.4, 1.6, 1.6, 1.5, 1.5, 
+1.4, 1.5, 1.2, 1.3, 1.4, 1.3, 1.5, 1.3, 1.3, 1.3, 1.6, 1.9, 1.4, 1.6, 
+1.4, 1.5, 1.4, 4.7, 4.5, 4.9, 4.0, 4.6, 4.5, 4.7, 3.3, 4.6, 3.9, 3.5, 
+4.2, 4.0, 4.7, 3.6, 4.4, 4.5, 4.1, 4.5, 3.9, 4.8, 4.0, 4.9, 4.7, 4.3, 
+4.4, 4.8, 5.0, 4.5, 3.5, 3.8, 3.7, 3.9, 5.1, 4.5, 4.5, 4.7, 4.4, 4.1, 
+4.0, 4.4, 4.6, 4.0,3.3, 4.2, 4.2, 4.2, 4.3, 3.0, 4.1, ... (50 more 
+values follow))], [REAL* (0.2, 0.2, 0.2, 0.2, 0.2, 0.4, 0.3, 0.2, 0.2, 
+0.1, 0.2, 0.2, 0.1, 0.1, 0.2, 0.4, 0.4, 0.3, 0.3, 0.3, 0.2, 0.4, 0.2, 
+0.5, 0.2, 0.2, 0.4, 0.2, 0.2, 0.2, 0.2, 0.4, 0.1, 0.2, 0.2, 0.2, 0.2, 
+0.1, 0.2, 0.2, 0.3, 0.3, 0.2, 0.6, 0.4, 0.3, 0.2, 0.2, 0.2, 0.2, 1.4, 
+1.5, 1.5, 1.3, 1.5, 1.3, 1.6, 1.0, 1.3, 1.4, 1.0, 1.5, 1.0, 1.4, 1.3, 
+1.4, 1.5, 1.0, 1.5, 1.1, 1.8, 1.3, 1.5, 1.2, 1.3, 1.4, 1.4, 1.7, 1.5, 
+1.0, 1.1, 1.0, 1.2, 1.6, 1.5, 1.6, 1.5, 1.3, 1.3, 1.3, 1.2, 1.4, 1.2, 
+1.0, 1.3, 1.2, 1.3, 1.3, 1.1, 1.3, ... (50 more values follow))], 
+[FACTOR 
+{levels=("setosa","versicolor","virginica"),ids=(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2)}])]
+has names:
+Sepal.Length
+Sepal.Width
+Petal.Length
+Petal.Width
+Species
+and once again from the list:
+Sepal.Length
+Sepal.Width
+Petal.Length
+Petal.Width
+Species
+[BOOLi* ]
+F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F 
+F F F F F F F F F F F F F F T T T F T F T F T F F T T T F T F F T F T T 
+T T T T T TT F F F F T F T T T F F F T F F F F F T F F T F T T T T F T T 
+T T T T F F T T T T T T F T T T T T T T T T T T T T T T T T T T T F T T 
+T T T T T
+[BOOLi* ]
+isTRUE? true
+[LIST [REAL* (1.0)]:[SYMBOL a],([LIST [STRING "foo"]:[SYMBOL b],([LIST 
+[INT* (1, 2, 3, 4, 5)]:[SYMBOL c],(null)])])]
+Keys:
+a
+b
+c
+Contents:
+[REAL* (1.0)]
+[STRING "foo"]
+[INT* (1, 2, 3, 4, 5)]
+[REAL* (6.0)]
+Parsing
+Result = 141061128, running eval
+Error in dyn.load(x, as.logical(local), as.logical(now)) :
+        unable to load shared library 
+'/extra/craigm/local/R//lib/R/library/tools/libs/tools.so':
+  /extra/craigm/local/R//lib/R/library/tools/libs/tools.so: undefined 
+symbol: mbcslocale
+Result = 0, building REXP
+#
+# An unexpected error has been detected by HotSpot Virtual Machine:
+#
+#  SIGSEGV (0xb) at pc=0xb1b92e92, pid=25413, tid=3085461184
+#
+# Java VM: Java HotSpot(TM) Client VM (1.5.0_09-b03 mixed mode, sharing)
+# Problematic frame:
+# C  [libR.so+0x131e92]  TYPEOF+0x6
+#
+# An error report file with more information is saved as hs_err_pid25413.log
+#
+# If you would like to submit a bug report, please visit:
+#   http://java.sun.com/webapps/bugreport/crash.jsp
+#
+
+./run: line 34: 25413 Aborted                 (core dumped) ${JAVA} 
+-Djava.library.path=.:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/../lib/i386:/extra/craigm/local/R//lib/R/lib:/usr/local/lib:/usr/X11R6/lib:/extra/craigm/local/R//lib/R/lib:/usr/local/lib:/usr/X11R6/lib:/extra/craigm/local/lib/:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/../lib/i386:/extra/craigm/local/R//lib/R/lib:/usr/local/lib:/usr/X11R6/lib:/extra/craigm/local/R//lib/R/lib:/usr/local/lib:/usr/X11R6/lib:/extra/craigm/local/lib/ 
+-cp ${CLASSPATH}:src/JRI.jar:JRI.jar $*
+
+gdb java core.*
+<snip>
+(gdb) where
+#0  0xb7fe97a2 in _dl_sysinfo_int80 () from /lib/ld-linux.so.2
+#1  0xb7eae955 in raise () from /lib/tls/libc.so.6
+#2  0xb7eb0319 in abort () from /lib/tls/libc.so.6
+#3  0xb796d0f5 in os::abort () from 
+/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client/libjvm.so
+#4  0xb7a0a274 in VMError::report_and_die () from 
+/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client/libjvm.so
+#5  0xb7971c14 in JVM_handle_linux_signal () from 
+/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client/libjvm.so
+#6  0xb796f034 in signalHandler () from 
+/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client/libjvm.so
+#7  <signal handler called>
+#8  0xb1b92e92 in TYPEOF (x=0x0) at memory.c:2444
+#9  0xb2036e8e in Java_org_rosuda_JRI_Rengine_rniExpType (env=0x805d718, 
+this=0xbfffc810, exp=warning: Unhandled dwarf expresion opcode DW_OP_piece
+0) at Rengine.c:213
+#10 0xb26a0c4b in ?? ()
+#11 0x0805d718 in ?? ()
+#12 0xbfffc810 in ?? ()
+#13 0x00000000 in ?? ()
+
+From urbanek at research.att.com  Tue Jan 30 19:47:14 2007
+From: urbanek at research.att.com (Simon Urbanek)
+Date: Tue, 30 Jan 2007 14:47:14 -0500
+Subject: Re: dyn.load problem with JGR/JRI
+In-Reply-To: <45BF99A9.6080608@dcs.gla.ac.uk>
+References: <45BF99A9.6080608@dcs.gla.ac.uk>
+Message-ID: <30723527-9808-4128-95D2-BC4703F3EC3C@research.att.com>
+
+Craig,
+
+
+On Jan 30, 2007, at 2:16 PM, Craig Macdonald wrote:
+
+> I've recently installed R, and liked the look of your JGR GUI, so  
+> decided to give that
+> a whirl too.
+> On my Fedora Core 3 desktop (non root), I built and installed R  
+> using --enable-R-shlib option, and can confirm that libR.so is  
+> built. Our local java install is Sun jdk1.5.0_09
+>
+> However, I have problems using JGR. Essentially, R is started, but  
+> it is unable to dyn.load() any other libraries, (including  
+> grDevices.so and methods.so), due to undefined symbols.
+>
+
+are you sure that you're picking up the right R and packages? You  
+must re-compile all packages for your newly built R. The errors look  
+as if you have mismatch between various parts of R. Please make sure  
+that you are dealing only with one R version here. Also verify that  
+JRI is picking up the correct R version at compile time. Please send  
+me the config and compile logs if in doubt.
+
+But first, let's go one step back - are you sure you need your own  
+version of R? I have reports from many people using FC that use R  
+with shared library from rpms, without the need to re-compile. Once  
+you have multiple R versions in your system, you must be very careful  
+that everything is configured correctly.
+
+Cheers,
+Simon
+
+
+> I've checked that the Java system property java.library.path is  
+> correctly set, which it is, and also compared Sys.getEnv 
+> ("LD_LIBRARY_PATH") between normal R and R in JGR (identical).
+>
+> The salient point seems to be that
+> is.loaded("Rf_allocS4Object") and is.loaded("utf8locale") return  
+> TRUE in normal R, but FALSE in the R launched by JRI.
+>
+> Moreover, I tried to run the examples provided with JRI. rtest2  
+> shows the same problem as JGR (suggesting it's a JRI problem, not  
+> JGR).
+>
+> Furthermore, JRI rtest causes Java to core due to:
+> "(Unhandled dwarf expresion opcode DW_OP_piece 0) at Rengine.c:213."
+> More info on this at the bottom of the email.
+>
+> Any thoughts anyone?
+>
+> Many thanks
+>
+> Craig Macdonald
+>
+>
+> The errors are:
+> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>    unable to load shared library '/extra/craigm/local/R//lib/R/ 
+> library/methods/libs/methods.so':
+>  /extra/craigm/local/R//lib/R/library/methods/libs/methods.so:  
+> undefined symbol: Rf_allocS4Object
+>
+> Loading required package: grDevices
+> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>    unable to load shared library '/extra/craigm/local/R//lib/R/ 
+> library/grDevices/libs/grDevices.so':
+>  /extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so:  
+> undefined symbol: utf8locale
+> In addition: Warning message:
+> package "methods" in options("defaultPackages") was not found
+> Error: package 'grDevices' could not be loaded
+>
+>
+> My LD_LIBRARY_PATH as set in R, and in JGR/run is (sorted and exact  
+> dups removed):
+> /extra/craigm/local/lib/
+> /extra/craigm/local/R//lib/R/bin
+> /extra/craigm/local/R//lib/R/lib
+> /extra/craigm/local/R//lib/R/library/rJava/jri
+> /local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/../lib/i386
+> /local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386
+> /local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client
+> /usr/local/lib
+> /usr/X11R6/lib
+>
+>
+>
+> [craigm@bohol jri]$./run rtest
+> Creating Rengine (with arguments)
+> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>        unable to load shared library '/extra/craigm/local/R//lib/R/ 
+> library/methods/libs/methods.so':
+>  /extra/craigm/local/R//lib/R/library/methods/libs/methods.so:  
+> undefined symbol: Rf_allocS4Object
+>
+> R version 2.4.1 (2006-12-18)
+> Copyright (C) 2006 The R Foundation for Statistical Computing
+> ISBN 3-900051-07-0
+>
+> R is free software and comes with ABSOLUTELY NO WARRANTY.
+> You are welcome to redistribute it under certain conditions.
+> Type 'license()' or 'licence()' for distribution details.
+>
+>  Natural language support but running in an English locale
+>
+> R is a collaborative project with many contributors.
+> Type 'contributors()' for more information and
+> 'citation()' on how to cite R or R packages in publications.
+>
+> Type 'demo()' for some demos, 'help()' for on-line help, or
+> 'help.start()' for an HTML browser interface to help.
+> Type 'q()' to quit R.
+>
+> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>        unable to load shared library '/extra/craigm/local/R//lib/R/ 
+> library/grDevices/libs/grDevices.so':
+>  /extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so:  
+> undefined symbol: utf8locale
+> In addition: Warning message:
+> package "methods" in options("defaultPackages") was not found
+> Loading required package: grDevices
+> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>        unable to load shared library '/extra/craigm/local/R//lib/R/ 
+> library/grDevices/libs/grDevices.so':
+>  /extra/craigm/local/R//lib/R/library/grDevices/libs/grDevices.so:  
+> undefined symbol: utf8locale
+> In addition: Warning message:
+> package grDevices in options("defaultPackages") was not found
+> Error: package 'grDevices' could not be loaded
+> Rengine created, waiting for R
+> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>        unable to load shared library '/extra/craigm/local/R//lib/R/ 
+> library/tools/libs/tools.so':
+>  /extra/craigm/local/R//lib/R/library/tools/libs/tools.so:  
+> undefined symbol: mbcslocale
+> [VECTOR ([REAL* (5.1, 4.9, 4.7, 4.6, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9,  
+> 5.4, 4.8, 4.8, 4.3, 5.8, 5.7, 5.4, 5.1, 5.7, 5.1, 5.4, 5.1, 4.6,  
+> 5.1, 4.8, 5.0, 5.0, 5.2, 5.2, 4.7, 4.8, 5.4, 5.2, 5.5, 4.9, 5.0,  
+> 5.5, 4.9, 4.4, 5.1, 5.0, 4.5, 4.4, 5.0, 5.1, 4.8, 5.1, 4.6, 5.3,  
+> 5.0, 7.0, 6.4, 6.9, 5.5, 6.5, 5.7, 6.3, 4.9, 6.6,5.2, 5.0, 5.9,  
+> 6.0, 6.1, 5.6, 6.7, 5.6, 5.8, 6.2, 5.6, 5.9, 6.1, 6.3, 6.1, 6.4,  
+> 6.6, 6.8, 6.7, 6.0, 5.7, 5.5, 5.5, 5.8, 6.0, 5.4, 6.0, 6.7, 6.3,  
+> 5.6, 5.5, 5.5, 6.1, 5.8, 5.0, 5.6, 5.7, 5.7, 6.2, 5.1, 5.7, ... (50  
+> more values follow))], [REAL* (3.5, 3.0, 3.2, 3.1, 3.6, 3.9, 3.4,  
+> 3.4, 2.9, 3.1, 3.7, 3.4, 3.0, 3.0, 4.0, 4.4, 3.9, 3.5, 3.8, 3.8,  
+> 3.4, 3.7, 3.6, 3.3, 3.4, 3.0, 3.4, 3.5, 3.4, 3.2, 3.1, 3.4, 4.1,  
+> 4.2, 3.1, 3.2, 3.5, 3.6, 3.0, 3.4, 3.5, 2.3, 3.2, 3.5, 3.8, 3.0,  
+> 3.8, 3.2, 3.7, 3.3, 3.2, 3.2, 3.1, 2.3, 2.8, 2.8, 3.3, 2.4, 2.9,  
+> 2.7, 2.0, 3.0, 2.2, 2.9, 2.9, 3.1, 3.0, 2.7, 2.2, 2.5, 3.2, 2.8,  
+> 2.5, 2.8, 2.9, 3.0,2.8, 3.0, 2.9, 2.6, 2.4, 2.4, 2.7, 2.7, 3.0,  
+> 3.4, 3.1, 2.3, 3.0, 2.5, 2.6, 3.0, 2.6, 2.3, 2.7, 3.0, 2.9, 2.9,  
+> 2.5, 2.8, ... (50 more values follow))], [REAL* (1.4, 1.4, 1.3,  
+> 1.5, 1.4, 1.7, 1.4, 1.5, 1.4, 1.5, 1.5, 1.6, 1.4, 1.1, 1.2, 1.5,  
+> 1.3, 1.4, 1.7, 1.5, 1.7, 1.5, 1.0, 1.7, 1.9, 1.6, 1.6, 1.5, 1.4,  
+> 1.6, 1.6, 1.5, 1.5, 1.4, 1.5, 1.2, 1.3, 1.4, 1.3, 1.5, 1.3, 1.3,  
+> 1.3, 1.6, 1.9, 1.4, 1.6, 1.4, 1.5, 1.4, 4.7, 4.5, 4.9, 4.0, 4.6,  
+> 4.5, 4.7, 3.3, 4.6, 3.9, 3.5, 4.2, 4.0, 4.7, 3.6, 4.4, 4.5, 4.1,  
+> 4.5, 3.9, 4.8, 4.0, 4.9, 4.7, 4.3, 4.4, 4.8, 5.0, 4.5, 3.5, 3.8,  
+> 3.7, 3.9, 5.1, 4.5, 4.5, 4.7, 4.4, 4.1, 4.0, 4.4, 4.6, 4.0,3.3,  
+> 4.2, 4.2, 4.2, 4.3, 3.0, 4.1, ... (50 more values follow))], [REAL*  
+> (0.2, 0.2, 0.2, 0.2, 0.2, 0.4, 0.3, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1,  
+> 0.1, 0.2, 0.4, 0.4, 0.3, 0.3, 0.3, 0.2, 0.4, 0.2, 0.5, 0.2, 0.2,  
+> 0.4, 0.2, 0.2, 0.2, 0.2, 0.4, 0.1, 0.2, 0.2, 0.2, 0.2, 0.1, 0.2,  
+> 0.2, 0.3, 0.3, 0.2, 0.6, 0.4, 0.3, 0.2, 0.2, 0.2, 0.2, 1.4, 1.5,  
+> 1.5, 1.3, 1.5, 1.3, 1.6, 1.0, 1.3, 1.4, 1.0, 1.5, 1.0, 1.4, 1.3,  
+> 1.4, 1.5, 1.0, 1.5, 1.1, 1.8, 1.3, 1.5, 1.2, 1.3, 1.4, 1.4, 1.7,  
+> 1.5, 1.0, 1.1, 1.0, 1.2, 1.6, 1.5, 1.6, 1.5, 1.3, 1.3, 1.3, 1.2,  
+> 1.4, 1.2, 1.0, 1.3, 1.2, 1.3, 1.3, 1.1, 1.3, ... (50 more values  
+> follow))], [FACTOR {levels=("setosa","versicolor","virginica"),ids= 
+> (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 
+> , 
+> 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 
+> 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2, 
+> 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 
+> 2,2,2,2,2,2,2,2,2,2)}])]
+> has names:
+> Sepal.Length
+> Sepal.Width
+> Petal.Length
+> Petal.Width
+> Species
+> and once again from the list:
+> Sepal.Length
+> Sepal.Width
+> Petal.Length
+> Petal.Width
+> Species
+> [BOOLi* ]
+> F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F F  
+> F F F F F F F F F F F F F F F F T T T F T F T F T F F T T T F T F F  
+> T F T T T T T T T TT F F F F T F T T T F F F T F F F F F T F F T F  
+> T T T T F T T T T T T F F T T T T T T F T T T T T T T T T T T T T T  
+> T T T T T T F T T T T T T T
+> [BOOLi* ]
+> isTRUE? true
+> [LIST [REAL* (1.0)]:[SYMBOL a],([LIST [STRING "foo"]:[SYMBOL b], 
+> ([LIST [INT* (1, 2, 3, 4, 5)]:[SYMBOL c],(null)])])]
+> Keys:
+> a
+> b
+> c
+> Contents:
+> [REAL* (1.0)]
+> [STRING "foo"]
+> [INT* (1, 2, 3, 4, 5)]
+> [REAL* (6.0)]
+> Parsing
+> Result = 141061128, running eval
+> Error in dyn.load(x, as.logical(local), as.logical(now)) :
+>        unable to load shared library '/extra/craigm/local/R//lib/R/ 
+> library/tools/libs/tools.so':
+>  /extra/craigm/local/R//lib/R/library/tools/libs/tools.so:  
+> undefined symbol: mbcslocale
+> Result = 0, building REXP
+> #
+> # An unexpected error has been detected by HotSpot Virtual Machine:
+> #
+> #  SIGSEGV (0xb) at pc=0xb1b92e92, pid=25413, tid=3085461184
+> #
+> # Java VM: Java HotSpot(TM) Client VM (1.5.0_09-b03 mixed mode,  
+> sharing)
+> # Problematic frame:
+> # C  [libR.so+0x131e92]  TYPEOF+0x6
+> #
+> # An error report file with more information is saved as  
+> hs_err_pid25413.log
+> #
+> # If you would like to submit a bug report, please visit:
+> #   http://java.sun.com/webapps/bugreport/crash.jsp
+> #
+>
+> ./run: line 34: 25413 Aborted                 (core dumped) ${JAVA}  
+> -Djava.library.path=.:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/ 
+> jre/lib/i386/client:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/ 
+> jre/lib/i386:/local/terrier_tmp/macdonch/java/jdk1.5.0_09/jre/../ 
+> lib/i386:/extra/craigm/local/R//lib/R/lib:/usr/local/lib:/usr/X11R6/ 
+> lib:/extra/craigm/local/R//lib/R/lib:/usr/local/lib:/usr/X11R6/lib:/ 
+> extra/craigm/local/lib/:/local/terrier_tmp/macdonch/java/ 
+> jdk1.5.0_09/jre/lib/i386/client:/local/terrier_tmp/macdonch/java/ 
+> jdk1.5.0_09/jre/lib/i386:/local/terrier_tmp/macdonch/java/ 
+> jdk1.5.0_09/jre/../lib/i386:/extra/craigm/local/R//lib/R/lib:/usr/ 
+> local/lib:/usr/X11R6/lib:/extra/craigm/local/R//lib/R/lib:/usr/ 
+> local/lib:/usr/X11R6/lib:/extra/craigm/local/lib/ -cp $ 
+> {CLASSPATH}:src/JRI.jar:JRI.jar $*
+>
+> gdb java core.*
+> <snip>
+> (gdb) where
+> #0  0xb7fe97a2 in _dl_sysinfo_int80 () from /lib/ld-linux.so.2
+> #1  0xb7eae955 in raise () from /lib/tls/libc.so.6
+> #2  0xb7eb0319 in abort () from /lib/tls/libc.so.6
+> #3  0xb796d0f5 in os::abort () from /local/terrier_tmp/macdonch/ 
+> java/jdk1.5.0_09/jre/lib/i386/client/libjvm.so
+> #4  0xb7a0a274 in VMError::report_and_die () from /local/ 
+> terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client/libjvm.so
+> #5  0xb7971c14 in JVM_handle_linux_signal () from /local/ 
+> terrier_tmp/macdonch/java/jdk1.5.0_09/jre/lib/i386/client/libjvm.so
+> #6  0xb796f034 in signalHandler () from /local/terrier_tmp/macdonch/ 
+> java/jdk1.5.0_09/jre/lib/i386/client/libjvm.so
+> #7  <signal handler called>
+> #8  0xb1b92e92 in TYPEOF (x=0x0) at memory.c:2444
+> #9  0xb2036e8e in Java_org_rosuda_JRI_Rengine_rniExpType  
+> (env=0x805d718, this=0xbfffc810, exp=warning: Unhandled dwarf  
+> expresion opcode DW_OP_piece
+> 0) at Rengine.c:213
+> #10 0xb26a0c4b in ?? ()
+> #11 0x0805d718 in ?? ()
+> #12 0xbfffc810 in ?? ()
+> #13 0x00000000 in ?? ()
+>
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+

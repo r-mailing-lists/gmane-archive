@@ -1,0 +1,2550 @@
+From Shraddha_Pai at camh.net  Thu Dec  2 22:10:06 2010
+From: Shraddha_Pai at camh.net (Shraddha Pai)
+Date: Thu, 02 Dec 2010 22:10:06 +0000
+Subject: C stack running out of memory?
+Message-ID: <2B921AAAFDD56840B390B83EB9584EFC0179A725@CAMHMBX1.camh.ca>
+
+Hi,
+How can I increase the amount of memory available to iplots?
+I'm running it within R on a Linux machine (Ubuntu 10.04). 
+
+I try to keep the number of graphs up to a minimum by calling iplots.off() whenever I don't need a graph. However I think the off() call is not cleaning up graph-related variables in the backend. After trying to plot a few (5-7) plots (say five boxplots, with ~5K datapoints in each), I get an error saying something about a "C stack running low on memory".
+
+I then exit and restart R to start iplots afresh.
+In general, how can I manage the amount of memory available to iplots better? Is there a clean-up function?
+
+By the way, I am very new to this package. It's great; thank you very much for developing it!  I've also begun reading the "Interactive Graphics for Data Analysis" book and especially enjoy going through the case studies at the back for basic data exploration. Has been very useful for my work (research on DNA methylation patterns in human health and disease). Seurat is also the only tool I know that allows interaction with heatmaps. Good job!
+
+Regards,
+Shraddha
+-----
+Shraddha Pai
+Post-doctoral fellow, Petronis lab
+Krembil Family Epigenetic Research Laboratory
+Centre for Addiction and Mental Health, Toronto
+
+
+______________________________________________________________________
+This email has been scanned by the CAMH Email Security System.
+______________________________________________________________________
+
+From Katharina.Manderscheid at unilu.ch  Tue Dec  7 09:11:57 2010
+From: Katharina.Manderscheid at unilu.ch (Manderscheid Katharina)
+Date: Tue, 07 Dec 2010 10:11:57 +0100
+Subject: crash when plotting
+Message-ID: <3B1C6B267BFCC542A79A7AD736C056790CE4ED4A6B@ulpfimxs01.unet.unilu.ch>
+
+hi,
+
+i am running R with JGR and Deducer under Ubuntu Mint Lucid. since i updated to R 2.12 i can no longer make graphs - R just crashes.
+the full error report was posted to launchpad (https://bugs.launchpad.net/ubuntu/+source/openjdk-6/+bug/675905) without any success so far.
+
+the example i am using is
+> data(airquality)
+> plot(airquality$Temp)
+
+here is the error message 
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  SIGSEGV (0xb) at pc=0x00000000, pid=5729, tid=3012004720
+#
+# JRE version: 6.0_22-b04
+# Java VM: Java HotSpot(TM) Client VM (17.1-b03 mixed mode, sharing linux-x86 )
+# Problematic frame:
+# C  0x00000000
+#
+# An error report file with more information is saved as:
+# /root/hs_err_pid5729.log
+#
+# If you would like to submit a bug report, please visit:
+#   http://java.sun.com/webapps/bugreport/crash.jsp
+# The crash happened outside the Java Virtual Machine in native code.
+# See problematic frame for where to report the bug.
+#
+Aborted
+
+and the sessionInfo
+> sessionInfo()
+R version 2.12.0 (2010-10-15)
+Platform: i486-pc-linux-gnu (32-bit)
+
+locale:
+ [1] LC_CTYPE=de_CH.UTF-8          LC_NUMERIC=C                 
+ [3] LC_TIME=de_CH.UTF-8           LC_COLLATE=de_CH.UTF-8       
+ [5] LC_MONETARY=de_CH.UTF-8       LC_MESSAGES=de_CH.UTF-8      
+ [7] LC_PAPER=de_CH.UTF-8          LC_NAME=de_CH.UTF-8          
+ [9] LC_ADDRESS=de_CH.UTF-8        LC_TELEPHONE=de_CH.UTF-8     
+[11] LC_MEASUREMENT=de_CH.UTF-8    LC_IDENTIFICATION=de_CH.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] ctv_0.7-0    JGR_1.7-3    iplots_1.1-3 JavaGD_0.5-3 rJava_0.8-7 
+
+loaded via a namespace (and not attached):
+[1] tools_2.12.0
+
+any ideas?
+thanks!
+k.
+
+
+anyone with a similar problem or helpful suggestions?
+
+thanks!
+kat
+
+
+
+dr. katharina manderscheid
+
+soziologisches seminar
+universität luzern
+
+kasernenplatz 3
+6000 luzern 7
+
+tel. ++41 41 228 4657
+
+From simon.urbanek at r-project.org  Tue Dec  7 15:29:09 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 07 Dec 2010 10:29:09 -0500
+Subject: Re: C stack running out of memory?
+In-Reply-To: <2B921AAAFDD56840B390B83EB9584EFC0179A725@CAMHMBX1.camh.ca>
+References: <2B921AAAFDD56840B390B83EB9584EFC0179A725@CAMHMBX1.camh.ca>
+Message-ID: <B1BB71DF-A664-4CFF-8919-F334603D9A0C@r-project.org>
+
+Shraddha,
+
+On Dec 2, 2010, at 5:10 PM, Shraddha Pai wrote:
+
+> Hi,
+> How can I increase the amount of memory available to iplots?
+> I'm running it within R on a Linux machine (Ubuntu 10.04). 
+> 
+> I try to keep the number of graphs up to a minimum by calling iplots.off() whenever I don't need a graph. However I think the off() call is not cleaning up graph-related variables in the backend. After trying to plot a few (5-7) plots (say five boxplots, with ~5K datapoints in each), I get an error saying something about a "C stack running low on memory".
+> 
+
+That has nothing to do with available memory. This seems like an issue with R where it is trying to compute that stack space but that will fail in programs involving Java as each thread has a different  stack base address so the result is bogus. JGR usually tries to disable that check but you may be using iplots outside of JGR (which is not recommended) so the check may be still enabled.
+
+So
+
+a) try using JGR.
+
+b) if you don't want to do that for any reason, you can try to disable the C stack check to see if the issue goes away. To do that, run this before starting iplots (you will need to install the "inline" package first)
+
+stack.off <- cfunction(body="R_CStackLimit = -1; return R_NilValue;",
+  includes=c("#define CSTACK_DEFNS 1","#include <Rinternals.h>","#include <Rinterface.h>"))
+stack.off()
+
+Cheers,
+Simon
+
+
+
+> I then exit and restart R to start iplots afresh.
+> In general, how can I manage the amount of memory available to iplots better? Is there a clean-up function?
+> 
+> By the way, I am very new to this package. It's great; thank you very much for developing it!  I've also begun reading the "Interactive Graphics for Data Analysis" book and especially enjoy going through the case studies at the back for basic data exploration. Has been very useful for my work (research on DNA methylation patterns in human health and disease). Seurat is also the only tool I know that allows interaction with heatmaps. Good job!
+> 
+> Regards,
+> Shraddha
+> -----
+> Shraddha Pai
+> Post-doctoral fellow, Petronis lab
+> Krembil Family Epigenetic Research Laboratory
+> Centre for Addiction and Mental Health, Toronto
+> 
+> 
+> ______________________________________________________________________
+> This email has been scanned by the CAMH Email Security System.
+> ______________________________________________________________________
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From simon.urbanek at r-project.org  Tue Dec  7 15:51:36 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 07 Dec 2010 10:51:36 -0500
+Subject: Re: crash when plotting
+In-Reply-To: <3B1C6B267BFCC542A79A7AD736C056790CE4ED4A6B@ulpfimxs01.unet.unilu.ch>
+References: <3B1C6B267BFCC542A79A7AD736C056790CE4ED4A6B@ulpfimxs01.unet.unilu.ch>
+Message-ID: <D137A413-D9C9-4372-BB06-601A2E267C70@r-project.org>
+
+Katharina,
+
+please make sure you have re-installed *all* packages after upgrading to R 2.12. The packages are *not* compatible across R versions. I have tested JGR on Ubuntu 10.10 (I don't have any Mint Lucid around) and it works without problems.
+If you still run into problems after upgrading properly, please supply all details - i.e. how did you install R, JGR and the packages (manually or using apt - if so from where...) and which Java are you using (I was using (IcedTea6 1.9.2) (6b20-1.9.2-0ubuntu1) successfully).
+
+Cheers,
+Simon
+
+
+On Dec 7, 2010, at 4:11 AM, Manderscheid Katharina wrote:
+
+> hi,
+> 
+> i am running R with JGR and Deducer under Ubuntu Mint Lucid. since i updated to R 2.12 i can no longer make graphs - R just crashes.
+> the full error report was posted to launchpad (https://bugs.launchpad.net/ubuntu/+source/openjdk-6/+bug/675905) without any success so far.
+> 
+> the example i am using is
+>> data(airquality)
+>> plot(airquality$Temp)
+> 
+> here is the error message 
+> # A fatal error has been detected by the Java Runtime Environment:
+> #
+> #  SIGSEGV (0xb) at pc=0x00000000, pid=5729, tid=3012004720
+> #
+> # JRE version: 6.0_22-b04
+> # Java VM: Java HotSpot(TM) Client VM (17.1-b03 mixed mode, sharing linux-x86 )
+> # Problematic frame:
+> # C  0x00000000
+> #
+> # An error report file with more information is saved as:
+> # /root/hs_err_pid5729.log
+> #
+> # If you would like to submit a bug report, please visit:
+> #   http://java.sun.com/webapps/bugreport/crash.jsp
+> # The crash happened outside the Java Virtual Machine in native code.
+> # See problematic frame for where to report the bug.
+> #
+> Aborted
+> 
+> and the sessionInfo
+>> sessionInfo()
+> R version 2.12.0 (2010-10-15)
+> Platform: i486-pc-linux-gnu (32-bit)
+> 
+> locale:
+> [1] LC_CTYPE=de_CH.UTF-8          LC_NUMERIC=C                 
+> [3] LC_TIME=de_CH.UTF-8           LC_COLLATE=de_CH.UTF-8       
+> [5] LC_MONETARY=de_CH.UTF-8       LC_MESSAGES=de_CH.UTF-8      
+> [7] LC_PAPER=de_CH.UTF-8          LC_NAME=de_CH.UTF-8          
+> [9] LC_ADDRESS=de_CH.UTF-8        LC_TELEPHONE=de_CH.UTF-8     
+> [11] LC_MEASUREMENT=de_CH.UTF-8    LC_IDENTIFICATION=de_CH.UTF-8
+> 
+> attached base packages:
+> [1] stats     graphics  grDevices utils     datasets  methods   base     
+> 
+> other attached packages:
+> [1] ctv_0.7-0    JGR_1.7-3    iplots_1.1-3 JavaGD_0.5-3 rJava_0.8-7 
+> 
+> loaded via a namespace (and not attached):
+> [1] tools_2.12.0
+> 
+> any ideas?
+> thanks!
+> k.
+> 
+> 
+> anyone with a similar problem or helpful suggestions?
+> 
+> thanks!
+> kat
+> 
+> 
+> 
+> dr. katharina manderscheid
+> 
+> soziologisches seminar
+> universität luzern
+> 
+> kasernenplatz 3
+> 6000 luzern 7
+> 
+> tel. ++41 41 228 4657
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+>
+
+From Katharina.Manderscheid at unilu.ch  Wed Dec  8 18:24:58 2010
+From: Katharina.Manderscheid at unilu.ch (Manderscheid Katharina)
+Date: Wed, 08 Dec 2010 19:24:58 +0100
+Subject: RE crash when plotting
+Message-ID: <3B1C6B267BFCC542A79A7AD736C056790CE4ED4A72@ulpfimxs01.unet.unilu.ch>
+
+so:
+- i removed all old packages (old.packages()) for the 2.10 version
+- all other packages are updated.
+- i have installed R via apt from the swiss server and afterwards installed JGR and Deducer as described on the website.
+- i found that i have two librarys for the packages for R 2.12. plus two librarys for R 2.10
+- below again my sessionInfo,
+- what else can i do???
+thanks for your help,
+katharina
+
+Packages in /home/kat/R/i486-pc-linux-gnu-library/2.10
+
+AER
+Applied Econometrics with R
+akima
+Interpolation of irregularly spaced data
+alr3
+Methods and data to accompany Applied Linear Regression 3rd edition
+bdsmatrix
+Routines for Block Diagonal Symmetric matrices
+biglm
+bounded memory linear and generalized linear models
+bitops
+Functions for Bitwise operations
+car
+Companion to Applied Regression
+caTools
+Tools: moving window statistics, GIF, Base64, ROC AUC, etc.
+coda
+Output analysis and diagnostics for MCMC
+coin
+Conditional Inference Procedures in a Permutation Test Framework
+colorspace
+Color Space Manipulation
+coxme
+Mixed Effects Cox Models.
+cubature
+Adaptive multivariate integration over hypercubes
+DAAG
+Data Analysis And Graphics data and functions
+DBI
+R Database Interface
+Deducer
+Deducer
+digest
+Create cryptographic hash digests of R objects
+dynlm
+Dynamic Linear Regression
+e1071
+Misc Functions of the Department of Statistics (e1071), TU Wien
+Ecdat
+Data sets for econometrics
+effects
+Effect Displays for Linear, Generalized Linear, Multinomial-Logit, and Proportional-Odds Logit Models
+ellipse
+Functions for drawing ellipses and ellipse-like confidence regions
+fBasics
+Rmetrics - Markets and Basic Statistics
+fCalendar
+Chronological and Calendarical Objects
+fEcofin
+Economic and Financial Data Sets
+foreach
+Foreach looping construct for R
+Formula
+Extended Model Formulas
+fSeries
+Financial Time Series Objects
+fts
+R interface to tslib (a time series library in c++)
+fUtilities
+Function Utilities
+gam
+Generalized Additive Models
+gclus
+Clustering Graphics
+gdata
+Various R programming tools for data manipulation
+geoR
+Analysis of geostatistical data
+ggplot2
+An implementation of the Grammar of Graphics
+gmodels
+Various R programming tools for model fitting
+gpclib
+General Polygon Clipping Library for R
+gplots
+Various R programming tools for plotting data
+graph
+graph: A package to handle graph data structures
+gtools
+Various R programming tools
+hexbin
+Hexagonal Binning Routines
+Hmisc
+Harrell Miscellaneous
+HSAUR
+A Handbook of Statistical Analyses Using R
+ineq
+Measuring Inequality, Concentration, and Poverty
+iplots
+iPlots - interactive graphics for R
+ipred
+Improved Predictors
+iterators
+Iterator construct for R
+itertools
+Iterator Tools
+its
+Irregular Time Series
+JavaGD
+Java Graphics Device
+JGR
+JGR - Java Gui for R
+Kendall
+Kendall rank correlation and Mann-Kendall trend test
+kernlab
+Kernel-based Machine Learning Lab
+kinship
+mixed-effects Cox models, sparse matrices, and modeling data from large pedigrees
+lawstat
+An R package for biostatistics, public policy, and law
+leaps
+regression subset selection
+lme4
+Linear mixed-effects models using S4 classes
+lmtest
+Testing Linear Regression Models
+locfit
+Local Regression, Likelihood and Density Estimation.
+logspline
+Logspline density estimation routines
+mapproj
+Map Projections
+maps
+Draw Geographical Maps
+maptools
+Tools for reading and handling spatial objects
+maxLik
+Maximum Likelihood Estimation
+mclust
+Model-Based Clustering / Normal Mixture Modeling
+MCMCpack
+Markov chain Monte Carlo (MCMC) Package
+memisc
+Tools for Management of Survey Data, Graphics, Programming, Statistics, and Simulation
+MEMSS
+Data sets from Mixed-effects Models in S
+misc3d
+Miscellaneous 3D Plots
+miscTools
+Miscellanneous Tools and Utilities
+mix
+Estimation/multiple Imputation for Mixed Categorical and Continuous Data
+mlbench
+Machine Learning Benchmark Problems
+mlmRev
+Examples from Multilevel Modelling Software Review
+mlogit
+multinomial logit model
+modeltools
+Tools and Classes for Statistical Models
+moments
+Moments, cumulants, skewness, kurtosis and related tests
+multcomp
+Simultaneous Inference in General Parametric Models
+multicore
+Parallel processing of R code on machines with multiple cores or CPUs
+nortest
+Tests for Normality
+np
+Nonparametric kernel smoothing methods for mixed data types
+oz
+Plot the Australian coastline and states
+PBSmapping
+Mapping Fisheries Data and Spatial Analysis Tools
+plyr
+Tools for splitting, applying and combining data
+proto
+Prototype object-based programming
+pscl
+Political Science Computational Laboratory, Stanford University
+quadprog
+Functions to solve Quadratic Programming Problems.
+quantreg
+Quantile Regression
+R2HTML
+HTML exportation for R objects
+RandomFields
+Simulation and Analysis of Random Fields
+randomForest
+Breiman and Cutler's random forests for classification and regression
+RArcInfo
+Functions to import data from Arc/Info V7.x binary coverages
+RBGL
+An interface to the BOOST graph library
+RColorBrewer
+ColorBrewer palettes
+reshape
+Flexibly reshape data.
+rgrs
+Functions to make R usage in social sciences easier (in french)
+rJava
+Low-level R to Java interface
+rmeta
+Meta-analysis
+robustbase
+Basic Robust Statistics
+ROCR
+Visualizing the performance of scoring classifiers.
+rpanel
+Simple Interactive Controls for R Using the tcltk Package.
+RUnit
+R Unit test framework
+sampleSelection
+Sample Selection Models
+sandwich
+Robust Covariance Matrix Estimators
+scatterplot3d
+3D Scatter Plot
+sem
+Structural Equation Models
+sm
+Smoothing methods for nonparametric regression and density estimation
+SparseM
+Sparse Linear Algebra
+splancs
+Spatial and Space-Time Point Pattern Analysis
+statmod
+Statistical Modeling
+strucchange
+Testing, Monitoring and Dating Structural Changes
+systemfit
+Estimating Systems of Simultaneous Equations
+tcltk2
+Tcl/Tk Additions
+timeDate
+Rmetrics - Chronological and Calendarical Objects
+timeSeries
+Rmetrics - Financial Time Series Objects
+tripack
+Triangulation of irregularly spaced data
+truncreg
+Truncated Regression Models
+TSA
+Time Series Analysis
+tweedie
+Tweedie exponential family models
+urca
+Unit root and cointegration tests for time series data
+vcd
+Visualizing Categorical Data
+VGAM
+Vector Generalized Linear and Additive Models
+xtable
+Export tables to LaTeX or HTML
+xts
+Extensible Time Series
+zoo
+Z's ordered observations
+
+Packages in /usr/local/lib/R/site-library
+
+car
+Companion to Applied Regression
+colorspace
+Color Space Manipulation
+Deducer
+Deducer
+digest
+Create cryptographic hash digests of R objects
+effects
+Effect Displays for Linear, Generalized Linear, Multinomial-Logit, and Proportional-Odds Logit Models
+ggplot2
+An implementation of the Grammar of Graphics
+iplots
+iPlots - interactive graphics for R
+iterators
+Iterator construct for R
+itertools
+Iterator Tools
+JavaGD
+Java Graphics Device
+JGR
+JGR - Java Gui for R
+multcomp
+Simultaneous Inference in General Parametric Models
+mvtnorm
+Multivariate Normal and t Distributions
+nortest
+Tests for Normality
+plyr
+Tools for splitting, applying and combining data
+proto
+Prototype object-based programming
+RColorBrewer
+ColorBrewer palettes
+reshape
+Flexibly reshape data.
+rJava
+Low-level R to Java interface
+
+
+
+
+
+Packages in /home/kat/R/i486-pc-linux-gnu-library/2.12
+
+abind
+Combine multi-dimensional arrays
+akima
+Interpolation of irregularly spaced data
+alr3
+Methods and data to accompany Applied Linear Regression 3rd edition
+aod
+Analysis of Overdispersed Data
+boot
+Bootstrap R (S-Plus) Functions (Canty)
+bootstrap
+Functions for the Book "An Introduction to the Bootstrap"
+BradleyTerry
+Bradley-Terry Models -- this package is now deprecated in favour of 'BradleyTerry2'
+brglm
+Bias reduction in binomial-response GLMs.
+ca
+Simple, Multiple and Joint Correspondence Analysis
+car
+Companion to Applied Regression
+class
+Functions for Classification
+coda
+Output analysis and diagnostics for MCMC
+concord
+Concordance and reliability
+contrast
+A collection of contrast methods
+ctv
+CRAN Task Views
+cubature
+Adaptive multivariate integration over hypercubes
+Deducer
+Deducer
+Design
+Design Package
+doBy
+Groupwise summary statistics, general linear contrasts, LSMEANS (least-squares-means), and other utilities
+dr
+Methods for dimension reduction for regression
+dyn
+Time Series Regression
+dynlm
+Dynamic Linear Regression
+effects
+Effect Displays for Linear, Generalized Linear, Multinomial-Logit, and Proportional-Odds Logit Models
+eha
+Event History Analysis
+exactLoglinTest
+Monte Carlo Exact Tests for Log-linear models
+foreign
+Read Data Stored by Minitab, S, SAS, SPSS, Stata, Systat, dBase, ...
+forward
+Forward search
+frailtypack
+Frailty models using maximum penalized likelihood estimation
+gam
+Generalized Additive Models
+gdata
+Various R programming tools for data manipulation
+gee
+Generalized Estimation Equation solver
+geepack
+Generalized Estimating Equation Package
+gmodels
+Various R programming tools for model fitting
+gnm
+Generalized Nonlinear Models
+gss
+General Smoothing Splines
+gtools
+Various R programming tools
+Hmisc
+Harrell Miscellaneous
+iplots
+iPlots - interactive graphics for R
+irr
+Various Coefficients of Interrater Reliability and Agreement
+JavaGD
+Java Graphics Device
+JGR
+JGR - Java Gui for R
+latentnet
+Latent position and cluster models for statistical networks
+leaps
+regression subset selection
+lmeSplines
+lmeSplines
+lmm
+Linear mixed models
+lmtest
+Testing Linear Regression Models
+locfit
+Local Regression, Likelihood and Density Estimation.
+lpSolve
+Interface to Lp_solve v. 5.5 to solve linear/integer programs
+ltm
+Latent Trait Models under IRT
+MASS
+Support Functions and Datasets for Venables and Ripley's MASS
+Matching
+Multivariate and Propensity Score Matching with Balance Optimization
+MatchIt
+MatchIt
+Matrix
+Sparse and Dense Matrix Classes and Methods
+mgcv
+GAMs with GCV/AIC/REML smoothness estimation and GAMMs by PQL
+mice
+Multivariate Imputation by Chained Equations
+micEcon
+Microeconomic Analysis and Modelling
+miscTools
+Miscellanneous Tools and Utilities
+mitools
+Tools for multiple imputation of missing data
+mix
+Estimation/multiple Imputation for Mixed Categorical and Continuous Data
+MNP
+R Package for Fitting the Multinomial Probit Model
+msm
+Multi-state Markov and hidden Markov models in continuous time
+multcomp
+Simultaneous Inference in General Parametric Models
+multinomRob
+Robust Estimation of Overdispersed Multinomial Regression Models
+network
+Classes for Relational Data
+nlme
+Linear and Nonlinear Mixed Effects Models
+nnet
+Feed-forward Neural Networks and Multinomial Log-Linear Models
+nortest
+Tests for Normality
+np
+Nonparametric kernel smoothing methods for mixed data types
+optmatch
+Functions for optimal matching
+pan
+Multiple imputation for multivariate panel or clustered data
+pcaPP
+Robust PCA by Projection Pursuit
+pls
+Partial Least Squares Regression (PLSR) and Principal Component Regression (PCR)
+polycor
+Polychoric and Polyserial Correlations
+profileModel
+Tools for profiling inference functions for various model classes
+pscl
+Political Science Computational Laboratory, Stanford University
+psy
+Various procedures used in psychometry
+QuantPsyc
+Quantitative Psychology Tools
+quantreg
+Quantile Regression
+qvcalc
+Quasi variances for factor effects in statistical models
+relimp
+Relative Contribution of Effects in a Regression Model
+reshape
+Flexibly reshape data.
+rgenoud
+R version of GENetic Optimization Using Derivatives
+rJava
+Low-level R to Java interface
+rmeta
+Meta-analysis
+robust
+Insightful Robust Library
+robustbase
+Basic Robust Statistics
+rrcov
+Scalable Robust Estimators with High Breakdown Point
+sampling
+Survey Sampling
+sandwich
+Robust Covariance Matrix Estimators
+scatterplot3d
+3D Scatter Plot
+sem
+Structural Equation Models
+sfsmisc
+Utilities from Seminar fuer Statistik ETH Zurich
+shapes
+Statistical shape analysis
+sm
+Smoothing methods for nonparametric regression and density estimation
+sna
+Tools for Social Network Analysis
+SparseM
+Sparse Linear Algebra
+spatial
+Functions for Kriging and Point Pattern Analysis
+strucchange
+Testing, Monitoring and Dating Structural Changes
+survey
+analysis of complex survey samples
+survival
+Survival analysis, including penalised likelihood.
+survrec
+Survival analysis for recurrent event data
+systemfit
+Estimating Systems of Simultaneous Equations
+USPS
+Unsupervised and Supervised methods of Propensity Score Adjustment for Bias
+Zelig
+Everyone's Statistical Software
+zoo
+Z's ordered observations
+
+Packages in /usr/lib/R/library
+
+base
+The R Base Package
+boot
+Bootstrap R (S-Plus) Functions (Canty)
+class
+Functions for Classification
+cluster
+Cluster Analysis Extended Rousseeuw et al.
+codetools
+Code Analysis Tools for R
+datasets
+The R Datasets Package
+foreign
+Read Data Stored by Minitab, S, SAS, SPSS, Stata, Systat, dBase, ...
+graphics
+The R Graphics Package
+grDevices
+The R Graphics Devices and Support for Colours and Fonts
+grid
+The Grid Graphics Package
+KernSmooth
+Functions for kernel smoothing for Wand & Jones (1995)
+lattice
+Lattice Graphics
+MASS
+Support Functions and Datasets for Venables and Ripley's MASS
+Matrix
+Sparse and Dense Matrix Classes and Methods
+methods
+Formal Methods and Classes
+mgcv
+GAMs with GCV/AIC/REML smoothness estimation and GAMMs by PQL
+nlme
+Linear and Nonlinear Mixed Effects Models
+nnet
+Feed-forward Neural Networks and Multinomial Log-Linear Models
+rpart
+Recursive Partitioning
+spatial
+Functions for Kriging and Point Pattern Analysis
+splines
+Regression Spline Functions and Classes
+stats
+The R Stats Package
+stats4
+Statistical Functions using S4 Classes
+survival
+Survival analysis, including penalised likelihood.
+tcltk
+Tcl/Tk Interface
+tools
+Tools for Package Development
+utils
+The R Utils Package
+
+sessionInfo()
+R version 2.12.0 (2010-10-15)
+Platform: i486-pc-linux-gnu (32-bit)
+
+locale:
+ [1] LC_CTYPE=de_CH.UTF-8          LC_NUMERIC=C
+ [3] LC_TIME=de_CH.UTF-8           LC_COLLATE=de_CH.UTF-8
+ [5] LC_MONETARY=de_CH.UTF-8       LC_MESSAGES=de_CH.UTF-8
+ [7] LC_PAPER=de_CH.UTF-8          LC_NAME=de_CH.UTF-8
+ [9] LC_ADDRESS=de_CH.UTF-8        LC_TELEPHONE=de_CH.UTF-8
+[11] LC_MEASUREMENT=de_CH.UTF-8    LC_IDENTIFICATION=de_CH.UTF-8
+
+attached base packages:
+[1] splines   grid      stats     graphics  grDevices utils     datasets
+[8] methods   base
+
+other attached packages:
+ [1] Deducer_0.4-2    foreign_0.8-41   effects_2.0-10   colorspace_1.0-1
+ [5] lattice_0.19-13  multcomp_1.2-4   mvtnorm_0.9-95   car_2.0-6
+ [9] survival_2.36-2  nnet_7.3-1       MASS_7.3-9       ggplot2_0.8.8
+[13] proto_0.3-8      reshape_0.8.3    plyr_1.2.1       JGR_1.7-3
+[17] iplots_1.1-3     JavaGD_0.5-3     rJava_0.8-7
+
+loaded via a namespace (and not attached):
+[1] tools_2.12.0
+> old.packages()
+NULL
+>
+
+Katharina,
+
+please make sure you have re-installed *all* packages after upgrading to R 2.12. The packages are *not* compatible across R versions. I have tested JGR on Ubuntu 10.10 (I don't have any Mint Lucid around) and it works without problems.
+If you still run into problems after upgrading properly, please supply all details - i.e. how did you install R, JGR and the packages (manually or using apt - if so from where...) and which Java are you using (I was using (IcedTea6 1.9.2) (6b20-1.9.2-0ubuntu1) successfully).
+
+Cheers,
+Simon
+
+
+On Dec 7, 2010, at 4:11 AM, Manderscheid Katharina wrote:
+
+> hi,
+>
+> i am running R with JGR and Deducer under Ubuntu Mint Lucid. since i updated to R 2.12 i can no longer make graphs - R just crashes.
+> the full error report was posted to launchpad (https://bugs.launchpad.net/ubuntu/+source/openjdk-6/+bug/675905) without any success so far.
+>
+> the example i am using is
+>> data(airquality)
+>> plot(airquality$Temp)
+>
+> here is the error message
+> # A fatal error has been detected by the Java Runtime Environment:
+> #
+> #  SIGSEGV (0xb) at pc=0x00000000, pid=5729, tid=3012004720
+> #
+> # JRE version: 6.0_22-b04
+> # Java VM: Java HotSpot(TM) Client VM (17.1-b03 mixed mode, sharing linux-x86 )
+> # Problematic frame:
+> # C  0x00000000
+> #
+> # An error report file with more information is saved as:
+> # /root/hs_err_pid5729.log
+> #
+> # If you would like to submit a bug report, please visit:
+> #   http://java.sun.com/webapps/bugreport/crash.jsp
+> # The crash happened outside the Java Virtual Machine in native code.
+> # See problematic frame for where to report the bug.
+> #
+> Aborted
+>
+> and the sessionInfo
+>> sessionInfo()
+> R version 2.12.0 (2010-10-15)
+> Platform: i486-pc-linux-gnu (32-bit)
+>
+> locale:
+> [1] LC_CTYPE=de_CH.UTF-8          LC_NUMERIC=C
+> [3] LC_TIME=de_CH.UTF-8           LC_COLLATE=de_CH.UTF-8
+> [5] LC_MONETARY=de_CH.UTF-8       LC_MESSAGES=de_CH.UTF-8
+> [7] LC_PAPER=de_CH.UTF-8          LC_NAME=de_CH.UTF-8
+> [9] LC_ADDRESS=de_CH.UTF-8        LC_TELEPHONE=de_CH.UTF-8
+> [11] LC_MEASUREMENT=de_CH.UTF-8    LC_IDENTIFICATION=de_CH.UTF-8
+>
+> attached base packages:
+> [1] stats     graphics  grDevices utils     datasets  methods   base
+>
+> other attached packages:
+> [1] ctv_0.7-0    JGR_1.7-3    iplots_1.1-3 JavaGD_0.5-3 rJava_0.8-7
+>
+> loaded via a namespace (and not attached):
+> [1] tools_2.12.0
+>
+> any ideas?
+> thanks!
+> k.
+>
+>
+> anyone with a similar problem or helpful suggestions?
+>
+> thanks!
+> kat
+>
+>
+>
+> dr. katharina manderscheid
+>
+> soziologisches seminar
+> universit?t luzern
+>
+> kasernenplatz 3
+> 6000 luzern 7
+>
+> tel. ++41 41 228 4657
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+
+
+
+------------------------------
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+End of stats-rosuda-devel Digest, Vol 78, Issue 3
+*************************************************
+
+From ilhami.visne at gmail.com  Thu Dec  9 14:01:50 2010
+From: ilhami.visne at gmail.com (Ilhami Visne)
+Date: Thu, 09 Dec 2010 15:01:50 +0100
+Subject: Problems with rJava and JGR on Windows 7 x64
+Message-ID: <AANLkTinzeWXuZbU59phJbieLPmAwoJwomNZ2oX7st0Jb@mail.gmail.com>
+
+Hi,
+
+I can't run JGR or load rJava from R console. I've installed R 2.12.0 and
+Java 6 update 23. Both 64 Bit.
+
+I get this error if i run JGR using jgr-x64.exe: Can not find Java/R
+Interface (JRI) library jri.dll.
+
+I tried to load rJava from R and got this error: Roughly translated in
+english: the program can not be started, because jvm.dll is not found.
+
+I've checked, the jvm.dll is there. I set JAVA_HOME to
+C:\Programme\Java\jdk1.6.0_23
+
+best wishes,
+ilhami visne
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Thu Dec  9 14:39:06 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 09 Dec 2010 09:39:06 -0500
+Subject: Re: Problems with rJava and JGR on Windows 7 x64
+In-Reply-To: <AANLkTinzeWXuZbU59phJbieLPmAwoJwomNZ2oX7st0Jb@mail.gmail.com>
+References: <AANLkTinzeWXuZbU59phJbieLPmAwoJwomNZ2oX7st0Jb@mail.gmail.com>
+Message-ID: <FF92E486-70F2-40DE-BD4B-51228379AACC@r-project.org>
+
+
+On Dec 9, 2010, at 9:01 AM, Ilhami Visne wrote:
+
+> Hi,
+> 
+> I can't run JGR or load rJava from R console. I've installed R 2.12.0 and Java 6 update 23. Both 64 Bit.
+> 
+> I get this error if i run JGR using jgr-x64.exe: Can not find Java/R Interface (JRI) library jri.dll.
+> 
+
+Yep, that's very understandable - jgr-x64.exe works only with R <= 2.11.x. You'll have to use 
+http://www.rforge.net/JGR/web-files/jgr-1_62-x64.exe
+with R 2.12.0 and higher. Also make sure you update to rJava 0.8-8 from RForge.net (install.packages("rJava",,"http://rforge.net"))
+
+Cheers,
+Simon
+
+
+> I tried to load rJava from R and got this error: Roughly translated in english: the program can not be started, because jvm.dll is not found.
+> 
+> I've checked, the jvm.dll is there. I set JAVA_HOME to C:\Programme\Java\jdk1.6.0_23
+> 
+> best wishes,
+> ilhami visne
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From Katharina.Manderscheid at unilu.ch  Fri Dec 10 08:01:02 2010
+From: Katharina.Manderscheid at unilu.ch (Manderscheid Katharina)
+Date: Fri, 10 Dec 2010 09:01:02 +0100
+Subject: Re: stats-rosuda-devel Digest, Vol 78, Issue 3
+In-Reply-To: <mailman.37.1291806003.27059.stats-rosuda-devel@listserv.uni-augsburg.de>
+References: <mailman.37.1291806003.27059.stats-rosuda-devel@listserv.uni-augsburg.de>
+Message-ID: <3B1C6B267BFCC542A79A7AD736C056790CE4ED4A7B@ulpfimxs01.unet.unilu.ch>
+
+i fixed it - hurray!
+a complete de-installation and removal of all r-files and a nice clean new installation did the trick. i guess there were some problems caused by various libraries around from older r-versions.
+thanks for the support,
+katharina
+
+Date: Tue, 7 Dec 2010 10:51:36 -0500
+From: Simon Urbanek <simon.urbanek at r-project.org>
+To: Manderscheid Katharina <Katharina.Manderscheid at unilu.ch>
+Cc: "stats-rosuda-devel at listserv.uni-augsburg.de"
+        <stats-rosuda-devel at listserv.uni-augsburg.de>
+Subject: Re: [stats-rosuda-devel] crash when plotting
+Message-ID: <D137A413-D9C9-4372-BB06-601A2E267C70 at r-project.org>
+Content-Type: text/plain; charset=iso-8859-1
+
+Katharina,
+
+please make sure you have re-installed *all* packages after upgrading to R 2.12. The packages are *not* compatible across R versions. I have tested JGR on Ubuntu 10.10 (I don't have any Mint Lucid around) and it works without problems.
+If you still run into problems after upgrading properly, please supply all details - i.e. how did you install R, JGR and the packages (manually or using apt - if so from where...) and which Java are you using (I was using (IcedTea6 1.9.2) (6b20-1.9.2-0ubuntu1) successfully).
+
+Cheers,
+Simon
+
+
+On Dec 7, 2010, at 4:11 AM, Manderscheid Katharina wrote:
+
+> hi,
+>
+> i am running R with JGR and Deducer under Ubuntu Mint Lucid. since i updated to R 2.12 i can no longer make graphs - R just crashes.
+> the full error report was posted to launchpad (https://bugs.launchpad.net/ubuntu/+source/openjdk-6/+bug/675905) without any success so far.
+>
+> the example i am using is
+>> data(airquality)
+>> plot(airquality$Temp)
+>
+> here is the error message
+> # A fatal error has been detected by the Java Runtime Environment:
+> #
+> #  SIGSEGV (0xb) at pc=0x00000000, pid=5729, tid=3012004720
+> #
+> # JRE version: 6.0_22-b04
+> # Java VM: Java HotSpot(TM) Client VM (17.1-b03 mixed mode, sharing linux-x86 )
+> # Problematic frame:
+> # C  0x00000000
+> #
+> # An error report file with more information is saved as:
+> # /root/hs_err_pid5729.log
+> #
+> # If you would like to submit a bug report, please visit:
+> #   http://java.sun.com/webapps/bugreport/crash.jsp
+> # The crash happened outside the Java Virtual Machine in native code.
+> # See problematic frame for where to report the bug.
+> #
+> Aborted
+>
+> and the sessionInfo
+>> sessionInfo()
+> R version 2.12.0 (2010-10-15)
+> Platform: i486-pc-linux-gnu (32-bit)
+>
+> locale:
+> [1] LC_CTYPE=de_CH.UTF-8          LC_NUMERIC=C
+> [3] LC_TIME=de_CH.UTF-8           LC_COLLATE=de_CH.UTF-8
+> [5] LC_MONETARY=de_CH.UTF-8       LC_MESSAGES=de_CH.UTF-8
+> [7] LC_PAPER=de_CH.UTF-8          LC_NAME=de_CH.UTF-8
+> [9] LC_ADDRESS=de_CH.UTF-8        LC_TELEPHONE=de_CH.UTF-8
+> [11] LC_MEASUREMENT=de_CH.UTF-8    LC_IDENTIFICATION=de_CH.UTF-8
+>
+> attached base packages:
+> [1] stats     graphics  grDevices utils     datasets  methods   base
+>
+> other attached packages:
+> [1] ctv_0.7-0    JGR_1.7-3    iplots_1.1-3 JavaGD_0.5-3 rJava_0.8-7
+>
+> loaded via a namespace (and not attached):
+> [1] tools_2.12.0
+>
+> any ideas?
+> thanks!
+> k.
+>
+>
+> anyone with a similar problem or helpful suggestions?
+>
+> thanks!
+> kat
+>
+>
+>
+> dr. katharina manderscheid
+>
+> soziologisches seminar
+> universit?t luzern
+>
+> kasernenplatz 3
+> 6000 luzern 7
+>
+> tel. ++41 41 228 4657
+>
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+
+
+
+------------------------------
+
+_______________________________________________
+stats-rosuda-devel mailing list
+stats-rosuda-devel at listserv.uni-augsburg.de
+http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+
+End of stats-rosuda-devel Digest, Vol 78, Issue 3
+*************************************************
+
+From ilhami.visne at gmail.com  Fri Dec 10 09:22:10 2010
+From: ilhami.visne at gmail.com (Ilhami Visne)
+Date: Fri, 10 Dec 2010 10:22:10 +0100
+Subject: Re: Problems with rJava and JGR on Windows 7 x64
+In-Reply-To: <FF92E486-70F2-40DE-BD4B-51228379AACC@r-project.org>
+References: <AANLkTinzeWXuZbU59phJbieLPmAwoJwomNZ2oX7st0Jb@mail.gmail.com> <FF92E486-70F2-40DE-BD4B-51228379AACC@r-project.org>
+Message-ID: <AANLkTimW=MVkkRtytrDnb4_nB7nm0ySv8PfWtWbvJPHw@mail.gmail.com>
+
+On Thu, Dec 9, 2010 at 3:39 PM, Simon Urbanek
+<simon.urbanek at r-project.org>wrote:
+
+>
+> On Dec 9, 2010, at 9:01 AM, Ilhami Visne wrote:
+>
+> > Hi,
+> >
+> > I can't run JGR or load rJava from R console. I've installed R 2.12.0 and
+> Java 6 update 23. Both 64 Bit.
+> >
+> > I get this error if i run JGR using jgr-x64.exe: Can not find Java/R
+> Interface (JRI) library jri.dll.
+> >
+>
+> Yep, that's very understandable - jgr-x64.exe works only with R <= 2.11.x.
+> You'll have to use
+> http://www.rforge.net/JGR/web-files/jgr-1_62-x64.exe
+>
+
+New launcher started the JGR successfully.
+
+
+> with R 2.12.0 and higher. Also make sure you update to rJava 0.8-8 from
+> RForge.net (install.packages("rJava",,"http://rforge.net"))
+>
+> This didn't help. Still getting the jvm.dll not found error. If it helps,
+below my full path:
+
+PATH=C:\Programme (x86)\MiKTeX
+2.9\miktex\bin;c:\Rtools\bin;c:\Rtools\perl\bin;c
+:\Rtools\MinGW\bin;c:\Rtools\MinGW64\bin;C:\Windows\system32;C:\Windows;C:\Windo
+ws\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Programme\Intel\
+WiFi\bin\;C:\Programme\Common
+Files\Intel\WirelessCommon\;C:\Programme\Java\jdk1
+.6.0_23\bin
+
+best wishes,
+ilhami visne
+
+
+> Cheers,
+> Simon
+>
+>
+> > I tried to load rJava from R and got this error: Roughly translated in
+> english: the program can not be started, because jvm.dll is not found.
+> >
+> > I've checked, the jvm.dll is there. I set JAVA_HOME to
+> C:\Programme\Java\jdk1.6.0_23
+> >
+> > best wishes,
+> > ilhami visne
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Fri Dec 10 15:46:17 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Fri, 10 Dec 2010 10:46:17 -0500
+Subject: Re: Problems with rJava and JGR on Windows 7 x64
+In-Reply-To: <AANLkTimW=MVkkRtytrDnb4_nB7nm0ySv8PfWtWbvJPHw@mail.gmail.com>
+References: <AANLkTinzeWXuZbU59phJbieLPmAwoJwomNZ2oX7st0Jb@mail.gmail.com> <FF92E486-70F2-40DE-BD4B-51228379AACC@r-project.org> <AANLkTimW=MVkkRtytrDnb4_nB7nm0ySv8PfWtWbvJPHw@mail.gmail.com>
+Message-ID: <BD09401D-DF4B-43DB-B148-3A11C99558F3@r-project.org>
+
+
+On Dec 10, 2010, at 4:22 AM, Ilhami Visne wrote:
+
+> 
+> On Thu, Dec 9, 2010 at 3:39 PM, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> 
+> On Dec 9, 2010, at 9:01 AM, Ilhami Visne wrote:
+> 
+> > Hi,
+> >
+> > I can't run JGR or load rJava from R console. I've installed R 2.12.0 and Java 6 update 23. Both 64 Bit.
+> >
+> > I get this error if i run JGR using jgr-x64.exe: Can not find Java/R Interface (JRI) library jri.dll.
+> >
+> 
+> Yep, that's very understandable - jgr-x64.exe works only with R <= 2.11.x. You'll have to use
+> http://www.rforge.net/JGR/web-files/jgr-1_62-x64.exe
+> 
+> New launcher started the JGR successfully. 
+>  
+> with R 2.12.0 and higher. Also make sure you update to rJava 0.8-8 from RForge.net (install.packages("rJava",,"http://rforge.net"))
+> 
+> This didn't help. Still getting the jvm.dll not found error. If it helps, below my full path:
+> 
+
+That doesn't help - you should actually not touch the PATH. 
+
+But I don't quite get your response as it's contradictory - so does it work now or not?
+
+Cheers,
+Simon
+
+
+> PATH=C:\Programme (x86)\MiKTeX 2.9\miktex\bin;c:\Rtools\bin;c:\Rtools\perl\bin;c
+> :\Rtools\MinGW\bin;c:\Rtools\MinGW64\bin;C:\Windows\system32;C:\Windows;C:\Windo
+> ws\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Programme\Intel\
+> WiFi\bin\;C:\Programme\Common Files\Intel\WirelessCommon\;C:\Programme\Java\jdk1
+> .6.0_23\bin
+> 
+> best wishes,
+> ilhami visne
+>  
+> Cheers,
+> Simon
+> 
+> 
+> > I tried to load rJava from R and got this error: Roughly translated in english: the program can not be started, because jvm.dll is not found.
+> >
+> > I've checked, the jvm.dll is there. I set JAVA_HOME to C:\Programme\Java\jdk1.6.0_23
+> >
+> > best wishes,
+> > ilhami visne
+> > _______________________________________________
+> > stats-rosuda-devel mailing list
+> > stats-rosuda-devel at listserv.uni-augsburg.de
+> > http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+> 
+> 
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ilhami.visne at gmail.com  Sat Dec 11 13:12:11 2010
+From: ilhami.visne at gmail.com (ilhami visne)
+Date: Sat, 11 Dec 2010 14:12:11 +0100
+Subject: Re: Problems with rJava and JGR on Windows 7 x64
+In-Reply-To: <BD09401D-DF4B-43DB-B148-3A11C99558F3@r-project.org>
+References: <AANLkTinzeWXuZbU59phJbieLPmAwoJwomNZ2oX7st0Jb@mail.gmail.com> <FF92E486-70F2-40DE-BD4B-51228379AACC@r-project.org> <AANLkTimW=MVkkRtytrDnb4_nB7nm0ySv8PfWtWbvJPHw@mail.gmail.com> <BD09401D-DF4B-43DB-B148-3A11C99558F3@r-project.org>
+Message-ID: <4D0378AB.8030201@gmail.com>
+
+On 12/10/2010 4:46 PM, Simon Urbanek wrote:
+> On Dec 10, 2010, at 4:22 AM, Ilhami Visne wrote:
+>
+>> On Thu, Dec 9, 2010 at 3:39 PM, Simon Urbanek<simon.urbanek at r-project.org>  wrote:
+>>
+>> On Dec 9, 2010, at 9:01 AM, Ilhami Visne wrote:
+>>
+>>> Hi,
+>>>
+>>> I can't run JGR or load rJava from R console. I've installed R 2.12.0 and Java 6 update 23. Both 64 Bit.
+>>>
+>>> I get this error if i run JGR using jgr-x64.exe: Can not find Java/R Interface (JRI) library jri.dll.
+>>>
+>> Yep, that's very understandable - jgr-x64.exe works only with R<= 2.11.x. You'll have to use
+>> http://www.rforge.net/JGR/web-files/jgr-1_62-x64.exe
+>>
+>> New launcher started the JGR successfully.
+>>
+>> with R 2.12.0 and higher. Also make sure you update to rJava 0.8-8 from RForge.net (install.packages("rJava",,"http://rforge.net"))
+>>
+>> This didn't help. Still getting the jvm.dll not found error. If it helps, below my full path:
+>>
+> That doesn't help - you should actually not touch the PATH.
+>
+> But I don't quite get your response as it's contradictory - so does it work now or not?
+
+Sorry for confusion. No, it did not work.
+How does rJava look for the Java installation directory? In the windows 
+registry? Maybe i have corrupted registry entries. Which registry 
+entries should i check and what value must they have?
+
+Thanks,
+Ilhami
+
+> Cheers,
+> Simon
+>
+>
+>> PATH=C:\Programme (x86)\MiKTeX 2.9\miktex\bin;c:\Rtools\bin;c:\Rtools\perl\bin;c
+>> :\Rtools\MinGW\bin;c:\Rtools\MinGW64\bin;C:\Windows\system32;C:\Windows;C:\Windo
+>> ws\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Programme\Intel\
+>> WiFi\bin\;C:\Programme\Common Files\Intel\WirelessCommon\;C:\Programme\Java\jdk1
+>> .6.0_23\bin
+>>
+>> best wishes,
+>> ilhami visne
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>> I tried to load rJava from R and got this error: Roughly translated in english: the program can not be started, because jvm.dll is not found.
+>>>
+>>> I've checked, the jvm.dll is there. I set JAVA_HOME to C:\Programme\Java\jdk1.6.0_23
+>>>
+>>> best wishes,
+>>> ilhami visne
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From simon.urbanek at r-project.org  Sat Dec 11 15:32:43 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Sat, 11 Dec 2010 10:32:43 -0500
+Subject: Re: Problems with rJava and JGR on Windows 7 x64
+In-Reply-To: <4D0378AB.8030201@gmail.com>
+References: <AANLkTinzeWXuZbU59phJbieLPmAwoJwomNZ2oX7st0Jb@mail.gmail.com> <FF92E486-70F2-40DE-BD4B-51228379AACC@r-project.org> <AANLkTimW=MVkkRtytrDnb4_nB7nm0ySv8PfWtWbvJPHw@mail.gmail.com> <BD09401D-DF4B-43DB-B148-3A11C99558F3@r-project.org> <4D0378AB.8030201@gmail.com>
+Message-ID: <AB48FA73-D5DF-4182-B5EB-F1DB30A7723A@r-project.org>
+
+
+On Dec 11, 2010, at 8:12 AM, ilhami visne wrote:
+
+> On 12/10/2010 4:46 PM, Simon Urbanek wrote:
+>> On Dec 10, 2010, at 4:22 AM, Ilhami Visne wrote:
+>> 
+>>> On Thu, Dec 9, 2010 at 3:39 PM, Simon Urbanek<simon.urbanek at r-project.org>  wrote:
+>>> 
+>>> On Dec 9, 2010, at 9:01 AM, Ilhami Visne wrote:
+>>> 
+>>>> Hi,
+>>>> 
+>>>> I can't run JGR or load rJava from R console. I've installed R 2.12.0 and Java 6 update 23. Both 64 Bit.
+>>>> 
+>>>> I get this error if i run JGR using jgr-x64.exe: Can not find Java/R Interface (JRI) library jri.dll.
+>>>> 
+>>> Yep, that's very understandable - jgr-x64.exe works only with R<= 2.11.x. You'll have to use
+>>> http://www.rforge.net/JGR/web-files/jgr-1_62-x64.exe
+>>> 
+>>> New launcher started the JGR successfully.
+>>> 
+>>> with R 2.12.0 and higher. Also make sure you update to rJava 0.8-8 from RForge.net (install.packages("rJava",,"http://rforge.net"))
+>>> 
+>>> This didn't help. Still getting the jvm.dll not found error. If it helps, below my full path:
+>>> 
+>> That doesn't help - you should actually not touch the PATH.
+>> 
+>> But I don't quite get your response as it's contradictory - so does it work now or not?
+> 
+> Sorry for confusion. No, it did not work.
+
+Ok, in that case use --debug parameter with JGR and look for JGRdebug.txt either in C:\ (if you have write rights there) or in the current directory where you start it and post that file - it has the details on all the paths involved. As I said earlier, also make sure you have rJava 0.8-8 from RForge.net (CRAN has an older version).
+
+Thanks,
+Simon
+
+
+> How does rJava look for the Java installation directory? In the windows registry? Maybe i have corrupted registry entries. Which registry entries should i check and what value must they have?
+> 
+
+The entries are under SOFTWARE/Java/ and either JRE or JDK (I don't recall the exact names but the debug file will tell you). Also note that there is a separate registry for 64-bit.
+
+
+> Thanks,
+> Ilhami
+> 
+>> Cheers,
+>> Simon
+>> 
+>> 
+>>> PATH=C:\Programme (x86)\MiKTeX 2.9\miktex\bin;c:\Rtools\bin;c:\Rtools\perl\bin;c
+>>> :\Rtools\MinGW\bin;c:\Rtools\MinGW64\bin;C:\Windows\system32;C:\Windows;C:\Windo
+>>> ws\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Programme\Intel\
+>>> WiFi\bin\;C:\Programme\Common Files\Intel\WirelessCommon\;C:\Programme\Java\jdk1
+>>> .6.0_23\bin
+>>> 
+>>> best wishes,
+>>> ilhami visne
+>>> 
+>>> Cheers,
+>>> Simon
+>>> 
+>>> 
+>>>> I tried to load rJava from R and got this error: Roughly translated in english: the program can not be started, because jvm.dll is not found.
+>>>> 
+>>>> I've checked, the jvm.dll is there. I set JAVA_HOME to C:\Programme\Java\jdk1.6.0_23
+>>>> 
+>>>> best wishes,
+>>>> ilhami visne
+>>>> _______________________________________________
+>>>> stats-rosuda-devel mailing list
+>>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>> 
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>> 
+> 
+>
+
+From ilhami.visne at gmail.com  Tue Dec 14 10:41:51 2010
+From: ilhami.visne at gmail.com (Ilhami Visne)
+Date: Tue, 14 Dec 2010 11:41:51 +0100
+Subject: rJava support for R 2.12.0
+Message-ID: <AANLkTinY-Yd4tZED2_p=YrGjM5mXPeWGLGieuWh7WE57@mail.gmail.com>
+
+Hi,
+
+Does rJava support R 2.12.0 on Windows 7 fully?
+
+I'm getting the following erros on library(rJava) if run on 32bit:
+
+Error in utils::readRegistry(key, "HLM", 2) :
+  Registry-Schlüssel 'Software\JavaSoft\Java Runtime Environment' nicht
+gefunden
+Error in utils::readRegistry(key, "HLM", 2) :
+  Registry-Schlüssel 'Software\JavaSoft\Java Development Kit' nicht gefunden
+Error : .onLoad in loadNamespace() fehlgechlagen, Details:
+  Aufruf: rJava
+  Fehler: fun(...)
+
+Translated:
+
+Error in utils::readRegistry(key, "HLM", 2) :
+  Registry-Key'Software\JavaSoft\Java Runtime Environment' not found
+Error in utils::readRegistry(key, "HLM", 2) :
+  Registry-Key'Software\JavaSoft\Java Development Kit' not found
+Error : .onLoad in loadNamespace() failed, Details:
+  Call: rJava
+  Error: fun(...)
+
+If i run it on the 64bit version, rJava loads itself. However my package
+that depends on rJava crashes R. R Window went away but R process was still
+running (task manager displays it).
+
+best wishes,
+ilhami visne
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Wed Dec 15 19:36:43 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Wed, 15 Dec 2010 14:36:43 -0500
+Subject: Re: rJava support for R 2.12.0
+In-Reply-To: <AANLkTinY-Yd4tZED2_p=YrGjM5mXPeWGLGieuWh7WE57@mail.gmail.com>
+References: <AANLkTinY-Yd4tZED2_p=YrGjM5mXPeWGLGieuWh7WE57@mail.gmail.com>
+Message-ID: <B16445D4-A5F1-4945-BA9E-C2DA7F28005F@r-project.org>
+
+
+On Dec 14, 2010, at 5:41 AM, Ilhami Visne wrote:
+
+> Hi,
+> 
+> Does rJava support R 2.12.0 on Windows 7 fully? 
+> 
+
+Yes
+
+
+> I'm getting the following erros on library(rJava) if run on 32bit:
+> 
+
+Do you have 32-bit Java installed? On Windows 32-bit and 64-bit Java are entirely separate.
+
+
+> Error in utils::readRegistry(key, "HLM", 2) : 
+>   Registry-Schlüssel 'Software\JavaSoft\Java Runtime Environment' nicht gefunden
+> Error in utils::readRegistry(key, "HLM", 2) : 
+>   Registry-Schlüssel 'Software\JavaSoft\Java Development Kit' nicht gefunden
+> Error : .onLoad in loadNamespace() fehlgechlagen, Details:
+>   Aufruf: rJava
+>   Fehler: fun(...)
+> 
+> Translated:
+> 
+> Error in utils::readRegistry(key, "HLM", 2) : 
+>   Registry-Key'Software\JavaSoft\Java Runtime Environment' not found
+> Error in utils::readRegistry(key, "HLM", 2) : 
+>   Registry-Key'Software\JavaSoft\Java Development Kit' not found
+> Error : .onLoad in loadNamespace() failed, Details:
+>   Call: rJava
+>   Error: fun(...)
+> 
+> If i run it on the 64bit version, rJava loads itself. However my package that depends on rJava crashes R.
+
+
+Do you have a reproducible example?
+
+Cheers,
+Simon
+
+
+> R Window went away but R process was still running (task manager displays it).
+> 
+> best wishes,
+> ilhami visne
+> _______________________________________________
+> stats-rosuda-devel mailing list
+> stats-rosuda-devel at listserv.uni-augsburg.de
+> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+
+From ilhami.visne at gmail.com  Sat Dec 18 10:48:46 2010
+From: ilhami.visne at gmail.com (ilhami visne)
+Date: Sat, 18 Dec 2010 11:48:46 +0100
+Subject: Re: rJava support for R 2.12.0
+In-Reply-To: <B16445D4-A5F1-4945-BA9E-C2DA7F28005F@r-project.org>
+References: <AANLkTinY-Yd4tZED2_p=YrGjM5mXPeWGLGieuWh7WE57@mail.gmail.com> <B16445D4-A5F1-4945-BA9E-C2DA7F28005F@r-project.org>
+Message-ID: <4D0C918E.6030803@gmail.com>
+
+Hi Simon,
+
+Please forget what i said before. I've just moved from my old 32bit XP 
+to Windows 7 64bit. I could not think that i have to install both 32bit 
+and 64bit version of java to use rJava in R 32bit and R 64bit.
+
+One of my problems (running rJava in R 32bit) is solved. Thanks.
+
+Still i have the problem using rJava from R 2.12.0 64bit and this time i 
+tried and looked for a solution before asking you:
+
+First of all, my system: Win 7 enterprise x64, Java 6 update 23 x64
+
+R v2.12.0 64bit crashes when i try to create callback engine:
+
+library(rJava)       # fine
+.jpackage("rJava") # fine
+.jengine(start=TRUE) # here crashes
+
+I tried this in R v2.11.1 64bit and it works just fine.
+
+best wishes,
+Ilhami Visne
+
+
+
+Am 15.12.2010 20:36, schrieb Simon Urbanek:
+> On Dec 14, 2010, at 5:41 AM, Ilhami Visne wrote:
+>
+>> Hi,
+>>
+>> Does rJava support R 2.12.0 on Windows 7 fully?
+>>
+> Yes
+>
+>
+>> I'm getting the following erros on library(rJava) if run on 32bit:
+>>
+> Do you have 32-bit Java installed? On Windows 32-bit and 64-bit Java are entirely separate.
+>
+>
+>> Error in utils::readRegistry(key, "HLM", 2) :
+>>    Registry-Schlüssel 'Software\JavaSoft\Java Runtime Environment' nicht gefunden
+>> Error in utils::readRegistry(key, "HLM", 2) :
+>>    Registry-Schlüssel 'Software\JavaSoft\Java Development Kit' nicht gefunden
+>> Error : .onLoad in loadNamespace() fehlgechlagen, Details:
+>>    Aufruf: rJava
+>>    Fehler: fun(...)
+>>
+>> Translated:
+>>
+>> Error in utils::readRegistry(key, "HLM", 2) :
+>>    Registry-Key'Software\JavaSoft\Java Runtime Environment' not found
+>> Error in utils::readRegistry(key, "HLM", 2) :
+>>    Registry-Key'Software\JavaSoft\Java Development Kit' not found
+>> Error : .onLoad in loadNamespace() failed, Details:
+>>    Call: rJava
+>>    Error: fun(...)
+>>
+>> If i run it on the 64bit version, rJava loads itself. However my package that depends on rJava crashes R.
+>
+> Do you have a reproducible example?
+>
+> Cheers,
+> Simon
+>
+>
+>> R Window went away but R process was still running (task manager displays it).
+>>
+>> best wishes,
+>> ilhami visne
+>> _______________________________________________
+>> stats-rosuda-devel mailing list
+>> stats-rosuda-devel at listserv.uni-augsburg.de
+>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>
+
+From ilhami.visne at gmail.com  Wed Dec 22 17:17:32 2010
+From: ilhami.visne at gmail.com (Ilhami Visne)
+Date: Wed, 22 Dec 2010 18:17:32 +0100
+Subject: Re: rJava support for R 2.12.0
+In-Reply-To: <4D0C918E.6030803@gmail.com>
+References: <AANLkTinY-Yd4tZED2_p=YrGjM5mXPeWGLGieuWh7WE57@mail.gmail.com> <B16445D4-A5F1-4945-BA9E-C2DA7F28005F@r-project.org> <4D0C918E.6030803@gmail.com>
+Message-ID: <AANLkTimC7TYObmmmNjAYQnQs+roSqxG5jGZQCGw4cUss@mail.gmail.com>
+
+I 've chased more after the error by calling the .jengine function line by
+line. R crashes exactly when rJava tries to load the class
+"org.rosuda.JRI.Rengine" in .jfindClass on line 322, which is called by
+.setupJRI on line 50.
+
+ How can i enable debugging (-DRJ_DEBUG), if it is run from R, so i can
+provide more info?
+
+best wishes and happy new year,
+Ilhami Visne
+
+On Sat, Dec 18, 2010 at 11:48 AM, ilhami visne <ilhami.visne at gmail.com>wrote:
+
+> Hi Simon,
+>
+> Please forget what i said before. I've just moved from my old 32bit XP to
+> Windows 7 64bit. I could not think that i have to install both 32bit and
+> 64bit version of java to use rJava in R 32bit and R 64bit.
+>
+> One of my problems (running rJava in R 32bit) is solved. Thanks.
+>
+> Still i have the problem using rJava from R 2.12.0 64bit and this time i
+> tried and looked for a solution before asking you:
+>
+> First of all, my system: Win 7 enterprise x64, Java 6 update 23 x64
+>
+> R v2.12.0 64bit crashes when i try to create callback engine:
+>
+> library(rJava)       # fine
+> .jpackage("rJava") # fine
+> .jengine(start=TRUE) # here crashes
+>
+> I tried this in R v2.11.1 64bit and it works just fine.
+>
+> best wishes,
+> Ilhami Visne
+>
+>
+>
+> Am 15.12.2010 20:36, schrieb Simon Urbanek:
+>
+>  On Dec 14, 2010, at 5:41 AM, Ilhami Visne wrote:
+>>
+>>  Hi,
+>>>
+>>> Does rJava support R 2.12.0 on Windows 7 fully?
+>>>
+>>>  Yes
+>>
+>>
+>>  I'm getting the following erros on library(rJava) if run on 32bit:
+>>>
+>>>  Do you have 32-bit Java installed? On Windows 32-bit and 64-bit Java are
+>> entirely separate.
+>>
+>>
+>>  Error in utils::readRegistry(key, "HLM", 2) :
+>>>   Registry-Schlüssel 'Software\JavaSoft\Java Runtime Environment' nicht
+>>> gefunden
+>>> Error in utils::readRegistry(key, "HLM", 2) :
+>>>   Registry-Schlüssel 'Software\JavaSoft\Java Development Kit' nicht
+>>> gefunden
+>>> Error : .onLoad in loadNamespace() fehlgechlagen, Details:
+>>>   Aufruf: rJava
+>>>   Fehler: fun(...)
+>>>
+>>> Translated:
+>>>
+>>> Error in utils::readRegistry(key, "HLM", 2) :
+>>>   Registry-Key'Software\JavaSoft\Java Runtime Environment' not found
+>>> Error in utils::readRegistry(key, "HLM", 2) :
+>>>   Registry-Key'Software\JavaSoft\Java Development Kit' not found
+>>> Error : .onLoad in loadNamespace() failed, Details:
+>>>   Call: rJava
+>>>   Error: fun(...)
+>>>
+>>> If i run it on the 64bit version, rJava loads itself. However my package
+>>> that depends on rJava crashes R.
+>>>
+>>
+>> Do you have a reproducible example?
+>>
+>> Cheers,
+>> Simon
+>>
+>>
+>>  R Window went away but R process was still running (task manager displays
+>>> it).
+>>>
+>>> best wishes,
+>>> ilhami visne
+>>> _______________________________________________
+>>> stats-rosuda-devel mailing list
+>>> stats-rosuda-devel at listserv.uni-augsburg.de
+>>> http://mailman.rz.uni-augsburg.de/mailman/listinfo/stats-rosuda-devel
+>>>
+>>
+>>
+>
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Tue Dec 28 19:05:46 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 28 Dec 2010 14:05:46 -0500
+Subject: Re: rJava question
+In-Reply-To: <AANLkTik4xi4WjYXTLnw=T=zF1ufwNiF9gPy9mcKKPEZd@mail.gmail.com>
+References: <AANLkTik4xi4WjYXTLnw=T=zF1ufwNiF9gPy9mcKKPEZd@mail.gmail.com>
+Message-ID: <345492BD-A0EF-4ED5-A074-2C0C76FE3F1E@r-project.org>
+
+Dominick,
+
+On Dec 27, 2010, at 11:56 PM, Dominick Samperi wrote:
+
+> After some trial and error I figured out how to pass matrices from R to java
+> and back using rJava, but this method is not documented and I wonder if there is a
+> better way?
+> 
+
+stats-rosuda-devel is the rJava list you want to use.
+
+
+> Anyway, here is what I found works:
+> 
+> (m = matrix(as.double(1:12),3,4))
+> [shows m as you would expect]
+> 
+> jtest <- .jnew("JTest")
+> (v <- .jcall(jtest, '[[D], 'myfunc', .jarray(m), evalArray=FALSE))
+> [shows v = m + 10]
+> 
+> Here the JTest class has a method named myfunc that accepts
+> a double[][] and returns a double[][]. It simply adds 10 to every
+> element.
+> 
+
+The above is plain wrong (well, that's actually a guess since you didn't provide even the signature of the method) - matrices in R are vectors, so the type is double[]. In Java there is no matrix type, so it's up to the application to represent matrices and there are many ways - some more efficient than others. From your example above it seems that you are using double[][] -- so you have to allocate the extra objects one way or another (that's why it's inefficient to represent matrices that way).
+
+But from your e-mail I have the feeling that your questions is rather about calling a method that returns double[][], so for example:
+public static double[][] pass();
+where double[][] is a rectangular array (i.e. length of all inner arrays is equal).
+
+Unfortunately .jcall is a bit inconsistent due to bug that was introduced with the new J() API. So the intended behavior is (using class Test with the method above):
+> J("Test")$pass()
+     [,1] [,2] [,3] [,4]
+[1,]    1    2    3    4
+[2,]    5    6    7    8
+[3,]    9   10   11   12
+[4,]   13   14   15   16
+
+The $ operator makes sure that the result is converted to a native R form where possible, including recursive structures like double[][].
+
+However, the intention of .jcall() was to never perform recursive evaluation, so this is intended:
+
+> .jcall("Test","[[D","pass", evalArray=TRUE)
+[[1]]
+[1] "Java-Array-Object[D:[D@11ddcde"
+
+[[2]]
+[1] "Java-Array-Object[D:[D@18fb1f7"
+
+[[3]]
+[1] "Java-Array-Object[D:[D@ed0338"
+
+[[4]]
+[1] "Java-Array-Object[D:[D@6e70c7"
+
+
+The intended behavior (and true in older version of rJava) was for .jcall with evalArray=FALSE to return the reference:
+
+> .jcall("Test","[[D","pass", evalArray=FALSE)
+[1] "Java-Array-Object[[D:[[D@8f4fb3"
+
+Unfortunately, the bug is that .jcall uses rJava:::newArray() to create the reference which defaults to simplify=TRUE so the current (buggy) behavior is:
+
+> .jcall("Test","[[D","pass", evalArray=FALSE)
+     [,1] [,2] [,3] [,4]
+[1,]    1    2    3    4
+[2,]    5    6    7    8
+[3,]    9   10   11   12
+[4,]   13   14   15   16
+
+
+The real issue is that:
+a) if the bug is fixed, .jcall() can return just the reference which is intended
+but
+b) there is currently no exposed API for rJava:::newArray so the simplification is not available in any form for references if the bug is fixed (other than using the J/$ API).
+
+That's why I was hesitant so far to fix the bug, but I really should -- which is why the behavior your discovered will change. However, then I need to add some API to be able to convert a reference in the same way that rJava:::newArray provides and expose it - I didn't think through that part, so that's why I got stuck.
+
+I hope it helps...
+Cheers,
+Simon
+
+(PS: please continue any discussion on stats-rosuda-devel)
+
+
+> The parameter 'evalArray' is confusing because when
+> evalArray=TRUE the result is NOT evaluated (a list is returned
+> that you then have to apply .jevalArray to do get the answer).
+> 
+> There seems to be an option to have a java reference returned
+> instead of the actual matrix. Can the R side manipulate the
+> matrix (on the java side) through this reference?
+> 
+> Thanks,
+> Dominick
+> 
+> 	[[alternative HTML version deleted]]
+> 
+> ______________________________________________
+> R-devel at r-project.org mailing list
+> https://stat.ethz.ch/mailman/listinfo/r-devel
+> 
+>
+
+From simon.urbanek at r-project.org  Tue Dec 28 21:51:59 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Tue, 28 Dec 2010 16:51:59 -0500
+Subject: Re: [Rd] rJava question
+In-Reply-To: <AANLkTi=opRNd4BA2D3u1nKmZJQ4YjfKmy9d6162-DHNZ@mail.gmail.com>
+References: <AANLkTik4xi4WjYXTLnw=T=zF1ufwNiF9gPy9mcKKPEZd@mail.gmail.com> <345492BD-A0EF-4ED5-A074-2C0C76FE3F1E@r-project.org> <AANLkTi=opRNd4BA2D3u1nKmZJQ4YjfKmy9d6162-DHNZ@mail.gmail.com>
+Message-ID: <803BDBAF-E020-4AEB-8031-DC829B211A16@r-project.org>
+
+On Dec 28, 2010, at 3:29 PM, Dominick Samperi wrote:
+
+> On Tue, Dec 28, 2010 at 2:05 PM, Simon Urbanek <simon.urbanek at r-project.org> wrote:
+> Dominick,
+> 
+> On Dec 27, 2010, at 11:56 PM, Dominick Samperi wrote:
+> 
+> > After some trial and error I figured out how to pass matrices from R to java
+> > and back using rJava, but this method is not documented and I wonder if there is a
+> > better way?
+> >
+> 
+> stats-rosuda-devel is the rJava list you want to use.
+> 
+> OK Simon, redirected to stats-rusuda-devel (removed r-devel).
+>  
+> > Anyway, here is what I found works:
+> >
+> > (m = matrix(as.double(1:12),3,4))
+> > [shows m as you would expect]
+> >
+> > jtest <- .jnew("JTest")
+> > (v <- .jcall(jtest, '[[D], 'myfunc', .jarray(m), evalArray=FALSE))
+> > [shows v = m + 10]
+> >
+> > Here the JTest class has a method named myfunc that accepts
+> > a double[][] and returns a double[][]. It simply adds 10 to every
+> > element.
+> >
+> 
+> The above is plain wrong (well, that's actually a guess since you didn't provide even the signature of the method) - matrices in R are vectors, so the type is double[]. In Java there is no matrix type, so it's up to the application to represent matrices and there are many ways - some more efficient than others. From your example above it seems that you are using double[][] -- so you have to allocate the extra objects one way or another (that's why it's inefficient to represent matrices that way).
+>  
+> I am mostly concerned with efficiency on the Java side, not on the interface, and double[][] is useful for numerical computations (on the Java side), can be used without the overhead of boxing/unboxing (pass by reference), and is a native (non-Object) type.
+> 
+
+It's not, really, because Java doesn't have native vector objects as it's not a vector language. That's why it's up to your routines to use the representation you want. But, still, double[][] has the overhead of an additional object per row (or column depending on your interpretation) and thus is nto the most efficient when dealing with big matrices.
+
+Now, I have to admit that there is another change in rJava which I was not aware of and I think it's plain wrong: .jarray(matrix(...))should always return double[] but apparently there is some new code that makes it into double[][]. It boils down to the fact that dispatch=FALSE should the the default in .jarray but is not.
+
+
+> 
+> But from your e-mail I have the feeling that your questions is rather about calling a method that returns double[][], so for example:
+> public static double[][] pass();
+> where double[][] is a rectangular array (i.e. length of all inner arrays is equal).
+> 
+> My question was about passing double matrices between R and Java, both directions, so the
+> method signature on the Java side would be:
+> public double[][] myfunc(double[][] m) {...}
+> 
+> It appears that the tools are there in rJava to solve this problem (as my hack shows), 
+> but the interface is still in flux.
+
+Well, the .jcall, .jarray tools should NOT touch matrices at all - the fact that they do is a serious bug. What is debatable is that using a$foo(m) could try to match double[][] for convenience, but plain .jarray(m) must return a vector = "[xxx" type.
+
+
+> I am not sure why my hack is plain wrong, as you say. It more-or-less follows the docs, except for the fact that I had to peek at the code to see that the sense of evalArray is reversed.
+> 
+
+As I said - it's both wrong how rJava behaves, not how you interpreted it ;). Old versions of rJava behaved as expected - .jarray(matrix(...)) returned double[] and evalArray=FALSE returned the reference. 
+
+
+> is there currently a preferred way to address this problem? Would that be to just work with the list of java references and convert to vectors as needed using .jevalArray, binding into a matrix if desired?
+> 
+
+Well, as-is rJava is broken (I wonder why this didn't show up in the dependent packages?) -- the intention was that for returning doubly-linked matrices (double[][]) you should be able to do
+sapply(.jcall(x, "[[D", ...), .jevalArray)
+which still works. For passing matrices you can either use double[] as input and re-copy in Java (if you need to), or split it up in R (e.g., .jarray(lapply(as.data.frame(m),.jarray),"[D")).
+
+That said, the dispatch=TRUE support can be useful, so you can pass matrices in the doubly-linked form, and I will retain it, but I'll revert the default to FALSE for compatibility with older versions and the original intention. As for retrieving matrices, we'll need some other argument because evalArray=FALSE returns simply the wrong result -- for symmetry we could add dispatch=TRUE in .jevalArray ...
+
+Thanks for the catch - this really needs fixing - I shall release 0.8-9 very soon..
+Simon
+
+
+
+> 
+> 
+> Unfortunately .jcall is a bit inconsistent due to bug that was introduced with the new J() API. So the intended behavior is (using class Test with the method above):
+> > J("Test")$pass()
+>     [,1] [,2] [,3] [,4]
+> [1,]    1    2    3    4
+> [2,]    5    6    7    8
+> [3,]    9   10   11   12
+> [4,]   13   14   15   16
+> 
+> The $ operator makes sure that the result is converted to a native R form where possible, including recursive structures like double[][].
+> 
+> However, the intention of .jcall() was to never perform recursive evaluation, so this is intended:
+> 
+> > .jcall("Test","[[D","pass", evalArray=TRUE) 
+> [[1]]
+> [1] "Java-Array-Object[D:[D@11ddcde"
+> 
+> [[2]]
+> [1] "Java-Array-Object[D:[D@18fb1f7"
+> 
+> [[3]]
+> [1] "Java-Array-Object[D:[D@ed0338"
+> 
+> [[4]]
+> [1] "Java-Array-Object[D:[D@6e70c7"
+> 
+> 
+> The intended behavior (and true in older version of rJava) was for .jcall with evalArray=FALSE to return the reference:
+> 
+> > .jcall("Test","[[D","pass", evalArray=FALSE)
+> [1] "Java-Array-Object[[D:[[D@8f4fb3"
+> 
+> Unfortunately, the bug is that .jcall uses rJava:::newArray() to create the reference which defaults to simplify=TRUE so the current (buggy) behavior is:
+> 
+> > .jcall("Test","[[D","pass", evalArray=FALSE)
+>     [,1] [,2] [,3] [,4]
+> [1,]    1    2    3    4
+> [2,]    5    6    7    8
+> [3,]    9   10   11   12
+> [4,]   13   14   15   16
+> 
+> 
+> The real issue is that:
+> a) if the bug is fixed, .jcall() can return just the reference which is intended
+> but
+> b) there is currently no exposed API for rJava:::newArray so the simplification is not available in any form for references if the bug is fixed (other than using the J/$ API).
+> 
+> That's why I was hesitant so far to fix the bug, but I really should -- which is why the behavior your discovered will change. However, then I need to add some API to be able to convert a reference in the same way that rJava:::newArray provides and expose it - I didn't think through that part, so that's why I got stuck.
+> 
+> I hope it helps...
+> Cheers,
+> Simon
+> 
+> (PS: please continue any discussion on stats-rosuda-devel)
+> 
+> 
+> > The parameter 'evalArray' is confusing because when
+> > evalArray=TRUE the result is NOT evaluated (a list is returned
+> > that you then have to apply .jevalArray to do get the answer).
+> >
+> > There seems to be an option to have a java reference returned
+> > instead of the actual matrix. Can the R side manipulate the
+> > matrix (on the java side) through this reference?
+> >
+> > Thanks,
+> > Dominick
+> >
+> >       [[alternative HTML version deleted]]
+> >
+> > ______________________________________________
+> > R-devel at r-project.org mailing list
+> > https://stat.ethz.ch/mailman/listinfo/r-devel
+> >
+> >
+> 
+>
+
+From djsamperi at gmail.com  Tue Dec 28 20:29:29 2010
+From: djsamperi at gmail.com (Dominick Samperi)
+Date: Tue, 28 Dec 2010 15:29:29 -0500
+Subject: Re: [Rd] rJava question
+In-Reply-To: <345492BD-A0EF-4ED5-A074-2C0C76FE3F1E@r-project.org>
+References: <AANLkTik4xi4WjYXTLnw=T=zF1ufwNiF9gPy9mcKKPEZd@mail.gmail.com> <345492BD-A0EF-4ED5-A074-2C0C76FE3F1E@r-project.org>
+Message-ID: <AANLkTi=opRNd4BA2D3u1nKmZJQ4YjfKmy9d6162-DHNZ@mail.gmail.com>
+
+On Tue, Dec 28, 2010 at 2:05 PM, Simon Urbanek
+<simon.urbanek at r-project.org>wrote:
+
+> Dominick,
+>
+> On Dec 27, 2010, at 11:56 PM, Dominick Samperi wrote:
+>
+> > After some trial and error I figured out how to pass matrices from R to
+> java
+> > and back using rJava, but this method is not documented and I wonder if
+> there is a
+> > better way?
+> >
+>
+> stats-rosuda-devel is the rJava list you want to use.
+>
+
+OK Simon, redirected to stats-rusuda-devel (removed r-devel).
+
+> Anyway, here is what I found works:
+>
+> (m = matrix(as.double(1:12),3,4))
+> [shows m as you would expect]
+>
+> jtest <- .jnew("JTest")
+> (v <- .jcall(jtest, '[[D], 'myfunc', .jarray(m), evalArray=FALSE))
+> [shows v = m + 10]
+>
+> Here the JTest class has a method named myfunc that accepts
+> a double[][] and returns a double[][]. It simply adds 10 to every
+> element.
+>
+
+ The above is plain wrong (well, that's actually a guess since you didn't
+> provide even the signature of the method) - matrices in R are vectors, so
+> the type is double[]. In Java there is no matrix type, so it's up to the
+> application to represent matrices and there are many ways - some more
+> efficient than others. From your example above it seems that you are using
+> double[][] -- so you have to allocate the extra objects one way or another
+> (that's why it's inefficient to represent matrices that way).
+>
+
+I am mostly concerned with efficiency on the Java side, not on the
+interface, and double[][] is
+useful for numerical computations (on the Java side), can be used without
+the overhead of
+boxing/unboxing (pass by reference), and is a native (non-Object) type.
+
+
+> But from your e-mail I have the feeling that your questions is rather about
+> calling a method that returns double[][], so for example:
+> public static double[][] pass();
+> where double[][] is a rectangular array (i.e. length of all inner arrays is
+> equal).
+>
+
+My question was about passing double matrices between R and Java, both
+directions, so the
+method signature on the Java side would be:
+public double[][] myfunc(double[][] m) {...}
+
+It appears that the tools are there in rJava to solve this problem (as my
+hack shows),
+but the interface is still in flux. I am not sure why my hack is plain
+wrong, as you say.
+It more-or-less follows the docs, except for the fact that I had to peek at
+the code
+to see that the sense of evalArray is reversed.
+
+is there currently a preferred way to address this problem? Would that be to
+just
+work with the list of java references and convert to vectors as needed using
+.jevalArray, binding into a matrix if desired?
+
+Thanks,
+Dominick
+
+
+> Unfortunately .jcall is a bit inconsistent due to bug that was introduced
+> with the new J() API. So the intended behavior is (using class Test with the
+> method above):
+> > J("Test")$pass()
+>     [,1] [,2] [,3] [,4]
+> [1,]    1    2    3    4
+> [2,]    5    6    7    8
+> [3,]    9   10   11   12
+> [4,]   13   14   15   16
+>
+> The $ operator makes sure that the result is converted to a native R form
+> where possible, including recursive structures like double[][].
+>
+> However, the intention of .jcall() was to never perform recursive
+> evaluation, so this is intended:
+>
+> > .jcall("Test","[[D","pass", evalArray=TRUE)
+>
+[[1]]
+> [1] "Java-Array-Object[D:[D@11ddcde"
+>
+> [[2]]
+> [1] "Java-Array-Object[D:[D@18fb1f7"
+>
+> [[3]]
+> [1] "Java-Array-Object[D:[D@ed0338"
+>
+> [[4]]
+> [1] "Java-Array-Object[D:[D@6e70c7"
+>
+>
+> The intended behavior (and true in older version of rJava) was for .jcall
+> with evalArray=FALSE to return the reference:
+>
+> > .jcall("Test","[[D","pass", evalArray=FALSE)
+> [1] "Java-Array-Object[[D:[[D@8f4fb3"
+>
+> Unfortunately, the bug is that .jcall uses rJava:::newArray() to create the
+> reference which defaults to simplify=TRUE so the current (buggy) behavior
+> is:
+>
+> > .jcall("Test","[[D","pass", evalArray=FALSE)
+>     [,1] [,2] [,3] [,4]
+> [1,]    1    2    3    4
+> [2,]    5    6    7    8
+> [3,]    9   10   11   12
+> [4,]   13   14   15   16
+>
+>
+> The real issue is that:
+> a) if the bug is fixed, .jcall() can return just the reference which is
+> intended
+> but
+> b) there is currently no exposed API for rJava:::newArray so the
+> simplification is not available in any form for references if the bug is
+> fixed (other than using the J/$ API).
+>
+> That's why I was hesitant so far to fix the bug, but I really should --
+> which is why the behavior your discovered will change. However, then I need
+> to add some API to be able to convert a reference in the same way that
+> rJava:::newArray provides and expose it - I didn't think through that part,
+> so that's why I got stuck.
+>
+> I hope it helps...
+> Cheers,
+> Simon
+>
+> (PS: please continue any discussion on stats-rosuda-devel)
+>
+>
+> > The parameter 'evalArray' is confusing because when
+> > evalArray=TRUE the result is NOT evaluated (a list is returned
+> > that you then have to apply .jevalArray to do get the answer).
+> >
+> > There seems to be an option to have a java reference returned
+> > instead of the actual matrix. Can the R side manipulate the
+> > matrix (on the java side) through this reference?
+> >
+> > Thanks,
+> > Dominick
+> >
+> >       [[alternative HTML version deleted]]
+> >
+> > ______________________________________________
+> > R-devel at r-project.org mailing list
+> > https://stat.ethz.ch/mailman/listinfo/r-devel
+> >
+> >
+>
+>
+
+-------------- next part --------------
+
+
+From maha.abdelaziz at gmail.com  Tue Dec 28 22:46:08 2010
+From: maha.abdelaziz at gmail.com (Maha Abdel Aziz)
+Date: Wed, 29 Dec 2010 00:46:08 +0200
+Subject: stats-rosuda-devel mailing list submission request
+Message-ID: <AANLkTi=d2g=FJ7FaUhkv7n5kGk7ArRhJ3F3cOU1Hro+X@mail.gmail.com>
+
+Dear Sir,
+Kindly include this email in the stats-rosuda-devel mailing list.
+
+Thanks,
+Maha
+
+-------------- next part --------------
+
+
+From djsamperi at gmail.com  Tue Dec 28 23:29:48 2010
+From: djsamperi at gmail.com (Dominick Samperi)
+Date: Tue, 28 Dec 2010 18:29:48 -0500
+Subject: Re: [Rd] rJava question
+In-Reply-To: <803BDBAF-E020-4AEB-8031-DC829B211A16@r-project.org>
+References: <AANLkTik4xi4WjYXTLnw=T=zF1ufwNiF9gPy9mcKKPEZd@mail.gmail.com> <345492BD-A0EF-4ED5-A074-2C0C76FE3F1E@r-project.org> <AANLkTi=opRNd4BA2D3u1nKmZJQ4YjfKmy9d6162-DHNZ@mail.gmail.com> <803BDBAF-E020-4AEB-8031-DC829B211A16@r-project.org>
+Message-ID: <AANLkTinDDRPCZwdnxDfwQtc5VBkwDo3_0STp2J44C84O@mail.gmail.com>
+
+On Tue, Dec 28, 2010 at 4:51 PM, Simon Urbanek
+<simon.urbanek at r-project.org>wrote:
+
+> On Dec 28, 2010, at 3:29 PM, Dominick Samperi wrote:
+>
+> > On Tue, Dec 28, 2010 at 2:05 PM, Simon Urbanek <
+> simon.urbanek at r-project.org> wrote:
+> > Dominick,
+> >
+> > On Dec 27, 2010, at 11:56 PM, Dominick Samperi wrote:
+> >
+> > > After some trial and error I figured out how to pass matrices from R to
+> java
+> > > and back using rJava, but this method is not documented and I wonder if
+> there is a
+> > > better way?
+> > >
+> >
+> > stats-rosuda-devel is the rJava list you want to use.
+> >
+> > OK Simon, redirected to stats-rusuda-devel (removed r-devel).
+> >
+> > > Anyway, here is what I found works:
+> > >
+> > > (m = matrix(as.double(1:12),3,4))
+> > > [shows m as you would expect]
+> > >
+> > > jtest <- .jnew("JTest")
+> > > (v <- .jcall(jtest, '[[D], 'myfunc', .jarray(m), evalArray=FALSE))
+> > > [shows v = m + 10]
+> > >
+> > > Here the JTest class has a method named myfunc that accepts
+> > > a double[][] and returns a double[][]. It simply adds 10 to every
+> > > element.
+> > >
+> >
+> > The above is plain wrong (well, that's actually a guess since you didn't
+> provide even the signature of the method) - matrices in R are vectors, so
+> the type is double[]. In Java there is no matrix type, so it's up to the
+> application to represent matrices and there are many ways - some more
+> efficient than others. From your example above it seems that you are using
+> double[][] -- so you have to allocate the extra objects one way or another
+> (that's why it's inefficient to represent matrices that way).
+> >
+> > I am mostly concerned with efficiency on the Java side, not on the
+> interface, and double[][] is useful for numerical computations (on the Java
+> side), can be used without the overhead of boxing/unboxing (pass by
+> reference), and is a native (non-Object) type.
+> >
+>
+> It's not, really, because Java doesn't have native vector objects as it's
+> not a vector language. That's why it's up to your routines to use the
+> representation you want. But, still, double[][] has the overhead of an
+> additional object per row (or column depending on your interpretation) and
+> thus is nto the most efficient when dealing with big matrices.
+>
+
+Thanks for the tips on rJava Simon. Your comment here leads to a related
+question. I have seen studies
+that claim Java can compete with optimized C/C++ when the tasks are
+well-defined benchmarks that
+do not involve a lot of object copying (the Achilles heel of many
+object-oriented system). Doesn't this
+discount to some extend your comment that Java is not a vector language? You
+probably know more
+about these studies than I do.
+
+Thanks,
+Dominick
+
+
+> Now, I have to admit that there is another change in rJava which I was not
+> aware of and I think it's plain wrong: .jarray(matrix(...))should always
+> return double[] but apparently there is some new code that makes it into
+> double[][]. It boils down to the fact that dispatch=FALSE should the the
+> default in .jarray but is not.
+>
+>
+> >
+> > But from your e-mail I have the feeling that your questions is rather
+> about calling a method that returns double[][], so for example:
+> > public static double[][] pass();
+> > where double[][] is a rectangular array (i.e. length of all inner arrays
+> is equal).
+> >
+> > My question was about passing double matrices between R and Java, both
+> directions, so the
+> > method signature on the Java side would be:
+> > public double[][] myfunc(double[][] m) {...}
+> >
+> > It appears that the tools are there in rJava to solve this problem (as my
+> hack shows),
+> > but the interface is still in flux.
+>
+> Well, the .jcall, .jarray tools should NOT touch matrices at all - the fact
+> that they do is a serious bug. What is debatable is that using a$foo(m)
+> could try to match double[][] for convenience, but plain .jarray(m) must
+> return a vector = "[xxx" type.
+>
+>
+> > I am not sure why my hack is plain wrong, as you say. It more-or-less
+> follows the docs, except for the fact that I had to peek at the code to see
+> that the sense of evalArray is reversed.
+> >
+>
+> As I said - it's both wrong how rJava behaves, not how you interpreted it
+> ;). Old versions of rJava behaved as expected - .jarray(matrix(...))
+> returned double[] and evalArray=FALSE returned the reference.
+>
+>
+> > is there currently a preferred way to address this problem? Would that be
+> to just work with the list of java references and convert to vectors as
+> needed using .jevalArray, binding into a matrix if desired?
+> >
+>
+> Well, as-is rJava is broken (I wonder why this didn't show up in the
+> dependent packages?) -- the intention was that for returning doubly-linked
+> matrices (double[][]) you should be able to do
+> sapply(.jcall(x, "[[D", ...), .jevalArray)
+> which still works. For passing matrices you can either use double[] as
+> input and re-copy in Java (if you need to), or split it up in R (e.g.,
+> .jarray(lapply(as.data.frame(m),.jarray),"[D")).
+>
+> That said, the dispatch=TRUE support can be useful, so you can pass
+> matrices in the doubly-linked form, and I will retain it, but I'll revert
+> the default to FALSE for compatibility with older versions and the original
+> intention. As for retrieving matrices, we'll need some other argument
+> because evalArray=FALSE returns simply the wrong result -- for symmetry we
+> could add dispatch=TRUE in .jevalArray ...
+>
+> Thanks for the catch - this really needs fixing - I shall release 0.8-9
+> very soon..
+> Simon
+>
+>
+>
+> >
+> >
+> > Unfortunately .jcall is a bit inconsistent due to bug that was introduced
+> with the new J() API. So the intended behavior is (using class Test with the
+> method above):
+> > > J("Test")$pass()
+> >     [,1] [,2] [,3] [,4]
+> > [1,]    1    2    3    4
+> > [2,]    5    6    7    8
+> > [3,]    9   10   11   12
+> > [4,]   13   14   15   16
+> >
+> > The $ operator makes sure that the result is converted to a native R form
+> where possible, including recursive structures like double[][].
+> >
+> > However, the intention of .jcall() was to never perform recursive
+> evaluation, so this is intended:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=TRUE)
+> > [[1]]
+> > [1] "Java-Array-Object[D:[D@11ddcde"
+> >
+> > [[2]]
+> > [1] "Java-Array-Object[D:[D@18fb1f7"
+> >
+> > [[3]]
+> > [1] "Java-Array-Object[D:[D@ed0338"
+> >
+> > [[4]]
+> > [1] "Java-Array-Object[D:[D@6e70c7"
+> >
+> >
+> > The intended behavior (and true in older version of rJava) was for .jcall
+> with evalArray=FALSE to return the reference:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=FALSE)
+> > [1] "Java-Array-Object[[D:[[D@8f4fb3"
+> >
+> > Unfortunately, the bug is that .jcall uses rJava:::newArray() to create
+> the reference which defaults to simplify=TRUE so the current (buggy)
+> behavior is:
+> >
+> > > .jcall("Test","[[D","pass", evalArray=FALSE)
+> >     [,1] [,2] [,3] [,4]
+> > [1,]    1    2    3    4
+> > [2,]    5    6    7    8
+> > [3,]    9   10   11   12
+> > [4,]   13   14   15   16
+> >
+> >
+> > The real issue is that:
+> > a) if the bug is fixed, .jcall() can return just the reference which is
+> intended
+> > but
+> > b) there is currently no exposed API for rJava:::newArray so the
+> simplification is not available in any form for references if the bug is
+> fixed (other than using the J/$ API).
+> >
+> > That's why I was hesitant so far to fix the bug, but I really should --
+> which is why the behavior your discovered will change. However, then I need
+> to add some API to be able to convert a reference in the same way that
+> rJava:::newArray provides and expose it - I didn't think through that part,
+> so that's why I got stuck.
+> >
+> > I hope it helps...
+> > Cheers,
+> > Simon
+> >
+> > (PS: please continue any discussion on stats-rosuda-devel)
+> >
+> >
+> > > The parameter 'evalArray' is confusing because when
+> > > evalArray=TRUE the result is NOT evaluated (a list is returned
+> > > that you then have to apply .jevalArray to do get the answer).
+> > >
+> > > There seems to be an option to have a java reference returned
+> > > instead of the actual matrix. Can the R side manipulate the
+> > > matrix (on the java side) through this reference?
+> > >
+> > > Thanks,
+> > > Dominick
+> > >
+> > >       [[alternative HTML version deleted]]
+> > >
+> > > ______________________________________________
+> > > R-devel at r-project.org mailing list
+> > > https://stat.ethz.ch/mailman/listinfo/r-devel
+> > >
+> > >
+> >
+> >
+>
+>
+
+-------------- next part --------------
+
+
+From krishna at primps.com.sg  Thu Dec 30 01:41:02 2010
+From: krishna at primps.com.sg (SNV Krishna)
+Date: Thu, 30 Dec 2010 09:41:02 +0800
+Subject: JGR Installation problem
+Message-ID: <84520D8AEBFF4505AD172E61106AA5A5@primpsg>
+
+Hi All,
+ 
+I am trying to install JGR GUI for R (windows xp) but facing the problem.
+The following error message is displayed when I click on JGR.exe
+ 
+"Cannot find Java/R Interface (JRI) library (jri.dll)
+Please make sure you start JGR by double clicking the JGR.exe program"
+ 
+I have java JRE installed on my system, updated with latest version (as
+tested on Java website > verify Java version)
+ 
+Any help or idea will be highly appreciated. 
+ 
+thanks and regards,
+ 
+SNVK
+
+-------------- next part --------------
+
+
+From simon.urbanek at r-project.org  Thu Dec 30 15:06:18 2010
+From: simon.urbanek at r-project.org (Simon Urbanek)
+Date: Thu, 30 Dec 2010 10:06:18 -0500
+Subject: Re: JGR Installation problem
+In-Reply-To: <84520D8AEBFF4505AD172E61106AA5A5@primpsg>
+References: <84520D8AEBFF4505AD172E61106AA5A5@primpsg>
+Message-ID: <12710238-D161-4B5B-BC31-B92B92CEF054@r-project.org>
+
+On Dec 29, 2010, at 8:41 PM, SNV Krishna wrote:
+
+> Hi All,
+>  
+> I am trying to install JGR GUI for R (windows xp) but facing the problem. The following error message is displayed when I click on JGR.exe
+>  
+> "Cannot find Java/R Interface (JRI) library (jri.dll)
+> Please make sure you start JGR by double clicking the JGR.exe program"
+>  
+> I have java JRE installed on my system, updated with latest version (as tested on Java website > verify Java version)
+>  
+> Any help or idea will be highly appreciated.
+
+It says "JRI" - so make sure you have latest rJava installed. Also if you have R 2.12.0 or higher, make sure you're using the new launcher for R 2.12.0 and higher:
+
+32-bit:
+http://rforge.net/JGR/web-files/jgr-1_62.exe
+
+64-bit:
+http://rforge.net/JGR/web-files/jgr-1_62-x64.exe
+
+Cheers,
+Simon
+

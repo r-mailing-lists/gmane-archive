@@ -1,0 +1,144 @@
+From tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org  Thu Mar 29 08:07:58 2012
+From: tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org (Tomoaki NISHIYAMA)
+Date: Thu, 29 Mar 2012 17:07:58 +0900
+Subject: Re: RPostgreSQL transactions
+In-Reply-To: <CAK0yx2f7psYmBk_CNGN37MSfGaE=omB066g6n54axy0NHaTHVA@mail.gmail.com>
+References: <CAK0yx2d7iuWhSDpf2NucYCK3aXAyVqLfusddLGoq9VKPNQC1HQ@mail.gmail.com> <6227D1E9-9FF8-4BF3-9D7E-910D7418950C@kenroku.kanazawa-u.ac.jp> <CAK0yx2f7psYmBk_CNGN37MSfGaE=omB066g6n54axy0NHaTHVA@mail.gmail.com>
+Message-ID: <04CD2EE8-C709-422E-8579-3B97B704FF5F@kenroku.kanazawa-u.ac.jp>
+
+Hi,
+
+The point 2 is perhaps mostly done with the last commit r230.
+Probably,
+dbGetQuery(con, "BEGIN TRANSACTION")
+will work fine. 
+
+A small test was added as dbTransactionTests.R
+at r228, and you can see how it works.
+
+I appreciate, if you have some test on it and report if any problem
+exists.
+
+Whether to make it under the name of dbBeginTransaction()
+remain as a matter of the standardization of DBI. 
+
+Best regards,
+-- 
+Tomoaki NISHIYAMA
+
+Advanced Science Research Center,
+Kanazawa University,
+13-1 Takara-machi, 
+Kanazawa, 920-0934, Japan
+
+
+On 2012/03/29, at 16:58, Willem Ligtenberg wrote:
+
+> Hi,
+> 
+> It is a pity that it has been dropped, since it is a nice feature of a
+> database system like Postgresql.
+> I am not sure if it is common enough that it has to be in DBI,
+> although MySQL also support it and quite probably that is one of the
+> most used systems.
+> I understand why you dropped it, but I really do hope to see the
+> feature return in future releases. (And probably also supported in
+> DBI)
+> 
+> Kind regards,
+> 
+> Willem
+> 
+> On Wed, Mar 28, 2012 at 14:51, Tomoaki NISHIYAMA
+> <tomoakin-mW12fOdZGSDdqfzlIRWTy7hJywXYPV/v at public.gmane.org> wrote:
+>> Hi,
+>> 
+>> Thank you for comments.
+>> 
+>> dbBeginTransaction() was dropped recently because
+>> 1. it is not defined in DBI
+>> 2. RPostgreSQL code base did not guarantee the
+>>   communication is done through a single connection
+>> 
+>> While both are not simple problems,
+>> I cannot directly change the DBI specification.
+>> If necessary, please contact DBI maintainers.
+>> To my understanding, the DBI standard expects transaction mode /
+>> autocommit mode may be set as an option at connection rather than a function
+>> like dbBeginTransaction(). RMySQL implemented dbBeginTransaction() and
+>> RPostgreSQL originally inherited it.  But when you load both libraries (for sqldf),
+>> a warning was emitted.
+>> 
+>> For the point 2, there are following code in a few places:
+>> 
+>>    ## Do we need to clone the connection (ie., if it is in use)?
+>>    if(length(dbListResults(con))!=0){
+>>        new.con <- dbConnect(con)              ## there's pending work, so clone
+>>        on.exit(dbDisconnect(new.con))
+>>    }
+>>    else
+>>        new.con <- con
+>> 
+>> When this code is executed and cloned, perhaps you will see different things
+>> in different queries in transaction mode. I have a code with these removed
+>> but did not have confidence to commit as I do not have a good test method yet.
+>> 
+>> If you code very carefully so that the second channel would not
+>> be opened,
+>> dbGetQuery(con, "BEGIN transaction")
+>> would start a transaction.
+>> dbGetQuery() after dbSendQuery() without fetching all the results
+>> is perhaps the trigger of the clone connection.
+>> 
+>> It is my mistake that dbBeginTransaction() remained in some documents without warning,
+>> but please understand that it is likely very unstable if it was kept.
+>> 
+>> If you want to test a version with the connection cloning disabled, I will
+>> commit to the svn tree as soon as possible. (see http://code.google.com/p/rpostgresql/)
+>> 
+>> Best regards,
+>> --
+>> Tomoaki NISHIYAMA
+>> 
+>> Advanced Science Research Center,
+>> Kanazawa University,
+>> 13-1 Takara-machi,
+>> Kanazawa, 920-0934, Japan
+>> 
+>> 
+>> On 2012/03/28, at 21:11, Willem Ligtenberg wrote:
+>> 
+>>> Hi,
+>>> 
+>>> I want to use transactions in postgresql from within R.
+>>> When I look at the manual I can find the following method:
+>>> dbBeginTransaction(con)
+>>> 
+>>> in the following code:
+>>> 
+>>> drv <- dbDriver("PostgreSQL")
+>>> con <- dbConnect(drv, dbname="postgres")
+>>> dbGetQuery(con, "select count(*) from sales")
+>>> dbBeginTransaction(con)
+>>> rs <- dbSendQuery(con, "Delete * from sales as p where p.cost>10")
+>>> if(dbGetInfo(rs, what = "rowsAffected") > 250){
+>>>  warning("Rolling back transaction")
+>>>  dbRollback(con)
+>>> }
+>>> dbGetQuery(con, "select count(*) from sales")
+>>> dbDisconnect(con)
+>>> 
+>>> However, when I try to use that method with versionL RPostgreSQL_0.3-1
+>>> I get the following error:
+>>> Error in function (classes, fdef, mtable)  :
+>>>  unable to find an inherited method for function
+>>> "dbBeginTransaction", for signature "PostgreSQLConnection"
+>>> 
+>>> Does this mean that it is currently not possible to use transaction
+>>> from within R?
+>>> 
+>>> Kind regards,
+>>> 
+>>> Willem
+>>
+

@@ -1,0 +1,1250 @@
+From johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Mon Mar 19 16:37:15 2012
+From: johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Sverre Stausland)
+Date: Mon, 19 Mar 2012 17:37:15 +0100
+Subject: Simpler model with random slopes
+Message-ID: <CACtaF7yKPg8RQmuXtNU98UnPHdt2saZuvSAsbFeBgqr1wzsAPA@mail.gmail.com>
+
+Hi all,
+
+this question is ultimately based on Florian's lecture1 slides here:
+http://hlplab.wordpress.com/2010/05/10/mini-womm/
+
+I'm doing a mixed model logistic regression, with random intercepts
+for items and random slopes for items with respect to the fixed effect
+Indep2 (cf. slide 85):
+
+(a) glmer(formula = Dep ~ 1 + (1 | Item) + (0 + Indep2 | Item) +
+Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+
+As per slide 88, I can also reduce the random effects to (1 + Indep2 | Item):
+
+(b) glmer(formula = Dep ~ 1 + (1 + Indep2 | Item) + Indep1 + Indep2,
+data = my.data, family = binomial(link = "logit"))
+
+It's not exactly clear to me what (1 + Indep2 | Item) does, since the
+output of both (a) and (b) includes random intercepts for items and
+random slopes for items by Indep2. At the same time, model (a) and (b)
+differ in their exact estimates.
+
+I would appreciate if someone could explain what the difference
+between model (a) and (b) is.
+
+Thanks
+Sverre
+
+From njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org  Mon Mar 19 16:54:25 2012
+From: njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org (Nathaniel Smith)
+Date: Mon, 19 Mar 2012 16:54:25 +0000
+Subject: Re: Simpler model with random slopes
+In-Reply-To: <CACtaF7yKPg8RQmuXtNU98UnPHdt2saZuvSAsbFeBgqr1wzsAPA@mail.gmail.com>
+References: <CACtaF7yKPg8RQmuXtNU98UnPHdt2saZuvSAsbFeBgqr1wzsAPA@mail.gmail.com>
+Message-ID: <CAPJVwBmvFfMLQcy-X9twrXz8pxQdUSzk5AfSN-kfvVAh_HbT6w@mail.gmail.com>
+
+On Mon, Mar 19, 2012 at 4:37 PM, Sverre Stausland
+<johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org> wrote:
+> Hi all,
+>
+> this question is ultimately based on Florian's lecture1 slides here:
+> http://hlplab.wordpress.com/2010/05/10/mini-womm/
+>
+> I'm doing a mixed model logistic regression, with random intercepts
+> for items and random slopes for items with respect to the fixed effect
+> Indep2 (cf. slide 85):
+>
+> (a) glmer(formula = Dep ~ 1 + (1 | Item) + (0 + Indep2 | Item) +
+> Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+>
+> As per slide 88, I can also reduce the random effects to (1 + Indep2 | Item):
+>
+> (b) glmer(formula = Dep ~ 1 + (1 + Indep2 | Item) + Indep1 + Indep2,
+> data = my.data, family = binomial(link = "logit"))
+>
+> It's not exactly clear to me what (1 + Indep2 | Item) does, since the
+> output of both (a) and (b) includes random intercepts for items and
+> random slopes for items by Indep2. At the same time, model (a) and (b)
+> differ in their exact estimates.
+>
+> I would appreciate if someone could explain what the difference
+> between model (a) and (b) is.
+
+(1 | Item) means that items are assumed to have different intercepts
+-- like if "Dep" were some kind of error rate, then this would be
+saying that some items are intrinsically more prone to errors
+("harder") and some are less prone to errors ("easier").
+
+(Indep2 | Item) means that some items are more or less strongly
+affected by manipulations in Indep2.
+
+(1 | Item) + (Indep2 | Item) means that both of these things are
+assumed to be true. However, it is assumed that these two kinds of
+variation are *independent*. I.e., some hard items are strongly or
+weakly affected by Indep2, and some easy items are strongly or weakly
+affected by Indep2, but on average Indep2 effects hard items and easy
+items equally.
+
+(1 + Indep2 | Item) means that both of these things are assumed to be
+true, and also removes this independence assumption. It means that
+there might be some correlation where e.g. items which are hard also
+tend to be strongly affected by Indep2 while easy items tend to be
+weakly affected.
+
+When you fit the model, you'll see the difference if you look at the
+random effects correlation matrix. The (1 | Item) + (Indep2 | Item)
+model will have two numbers, which are estimates of the per-item
+variance in the intercept and in the Indep2 effect. The (1 + Indep2 |
+Item) will have an extra number, which is the estimate of the
+covariance between the intercept and the Indep2 effect. The (1 | Item)
++ (Indep2 | Item) model is equivalent to forcing this third number to
+be zero.
+
+-- Nathaniel
+
+From johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Mon Mar 19 18:45:38 2012
+From: johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Sverre Stausland)
+Date: Mon, 19 Mar 2012 19:45:38 +0100
+Subject: Re: Simpler model with random slopes
+In-Reply-To: <CAPJVwBmvFfMLQcy-X9twrXz8pxQdUSzk5AfSN-kfvVAh_HbT6w@mail.gmail.com>
+References: <CACtaF7yKPg8RQmuXtNU98UnPHdt2saZuvSAsbFeBgqr1wzsAPA@mail.gmail.com> <CAPJVwBmvFfMLQcy-X9twrXz8pxQdUSzk5AfSN-kfvVAh_HbT6w@mail.gmail.com>
+Message-ID: <CACtaF7yiO843W3tPsYuW8YTVYKWUHqVoSjCDEZ77ieLWwcFa5Q@mail.gmail.com>
+
+Thanks for the explanation. I think I got it!
+
+On Mon, Mar 19, 2012 at 5:54 PM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+> On Mon, Mar 19, 2012 at 4:37 PM, Sverre Stausland
+> <johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org> wrote:
+>> Hi all,
+>>
+>> this question is ultimately based on Florian's lecture1 slides here:
+>> http://hlplab.wordpress.com/2010/05/10/mini-womm/
+>>
+>> I'm doing a mixed model logistic regression, with random intercepts
+>> for items and random slopes for items with respect to the fixed effect
+>> Indep2 (cf. slide 85):
+>>
+>> (a) glmer(formula = Dep ~ 1 + (1 | Item) + (0 + Indep2 | Item) +
+>> Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+>>
+>> As per slide 88, I can also reduce the random effects to (1 + Indep2 | Item):
+>>
+>> (b) glmer(formula = Dep ~ 1 + (1 + Indep2 | Item) + Indep1 + Indep2,
+>> data = my.data, family = binomial(link = "logit"))
+>>
+>> It's not exactly clear to me what (1 + Indep2 | Item) does, since the
+>> output of both (a) and (b) includes random intercepts for items and
+>> random slopes for items by Indep2. At the same time, model (a) and (b)
+>> differ in their exact estimates.
+>>
+>> I would appreciate if someone could explain what the difference
+>> between model (a) and (b) is.
+>
+> (1 | Item) means that items are assumed to have different intercepts
+> -- like if "Dep" were some kind of error rate, then this would be
+> saying that some items are intrinsically more prone to errors
+> ("harder") and some are less prone to errors ("easier").
+>
+> (Indep2 | Item) means that some items are more or less strongly
+> affected by manipulations in Indep2.
+>
+> (1 | Item) + (Indep2 | Item) means that both of these things are
+> assumed to be true. However, it is assumed that these two kinds of
+> variation are *independent*. I.e., some hard items are strongly or
+> weakly affected by Indep2, and some easy items are strongly or weakly
+> affected by Indep2, but on average Indep2 effects hard items and easy
+> items equally.
+>
+> (1 + Indep2 | Item) means that both of these things are assumed to be
+> true, and also removes this independence assumption. It means that
+> there might be some correlation where e.g. items which are hard also
+> tend to be strongly affected by Indep2 while easy items tend to be
+> weakly affected.
+>
+> When you fit the model, you'll see the difference if you look at the
+> random effects correlation matrix. The (1 | Item) + (Indep2 | Item)
+> model will have two numbers, which are estimates of the per-item
+> variance in the intercept and in the Indep2 effect. The (1 + Indep2 |
+> Item) will have an extra number, which is the estimate of the
+> covariance between the intercept and the Indep2 effect. The (1 | Item)
+> + (Indep2 | Item) model is equivalent to forcing this third number to
+> be zero.
+>
+> -- Nathaniel
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Tue Mar 20 01:19:31 2012
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Mon, 19 Mar 2012 21:19:31 -0400
+Subject: Re: Simpler model with random slopes
+In-Reply-To: <CACtaF7yiO843W3tPsYuW8YTVYKWUHqVoSjCDEZ77ieLWwcFa5Q@mail.gmail.com>
+References: <CACtaF7yKPg8RQmuXtNU98UnPHdt2saZuvSAsbFeBgqr1wzsAPA@mail.gmail.com> <CAPJVwBmvFfMLQcy-X9twrXz8pxQdUSzk5AfSN-kfvVAh_HbT6w@mail.gmail.com> <CACtaF7yiO843W3tPsYuW8YTVYKWUHqVoSjCDEZ77ieLWwcFa5Q@mail.gmail.com>
+Message-ID: <CAG2Vd7icFHMOZCjcLjhSp54C3LwvFTUD_QZjmbvDLxtXi_GE6A@mail.gmail.com>
+
+just to add to Nathaniel's beautifully clear explanation: going from (a) to
+(b) is really the opposite of "reducing" the model. going from (b) to (a)
+would remove one parameter (the covariance parameter)
+
+flo
+
+On Mon, Mar 19, 2012 at 2:45 PM, Sverre Stausland
+<johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org>wrote:
+
+> Thanks for the explanation. I think I got it!
+>
+> On Mon, Mar 19, 2012 at 5:54 PM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+> > On Mon, Mar 19, 2012 at 4:37 PM, Sverre Stausland
+> > <johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org> wrote:
+> >> Hi all,
+> >>
+> >> this question is ultimately based on Florian's lecture1 slides here:
+> >> http://hlplab.wordpress.com/2010/05/10/mini-womm/
+> >>
+> >> I'm doing a mixed model logistic regression, with random intercepts
+> >> for items and random slopes for items with respect to the fixed effect
+> >> Indep2 (cf. slide 85):
+> >>
+> >> (a) glmer(formula = Dep ~ 1 + (1 | Item) + (0 + Indep2 | Item) +
+> >> Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+> >>
+> >> As per slide 88, I can also reduce the random effects to (1 + Indep2 |
+> Item):
+> >>
+> >> (b) glmer(formula = Dep ~ 1 + (1 + Indep2 | Item) + Indep1 + Indep2,
+> >> data = my.data, family = binomial(link = "logit"))
+> >>
+> >> It's not exactly clear to me what (1 + Indep2 | Item) does, since the
+> >> output of both (a) and (b) includes random intercepts for items and
+> >> random slopes for items by Indep2. At the same time, model (a) and (b)
+> >> differ in their exact estimates.
+> >>
+> >> I would appreciate if someone could explain what the difference
+> >> between model (a) and (b) is.
+> >
+> > (1 | Item) means that items are assumed to have different intercepts
+> > -- like if "Dep" were some kind of error rate, then this would be
+> > saying that some items are intrinsically more prone to errors
+> > ("harder") and some are less prone to errors ("easier").
+> >
+> > (Indep2 | Item) means that some items are more or less strongly
+> > affected by manipulations in Indep2.
+> >
+> > (1 | Item) + (Indep2 | Item) means that both of these things are
+> > assumed to be true. However, it is assumed that these two kinds of
+> > variation are *independent*. I.e., some hard items are strongly or
+> > weakly affected by Indep2, and some easy items are strongly or weakly
+> > affected by Indep2, but on average Indep2 effects hard items and easy
+> > items equally.
+> >
+> > (1 + Indep2 | Item) means that both of these things are assumed to be
+> > true, and also removes this independence assumption. It means that
+> > there might be some correlation where e.g. items which are hard also
+> > tend to be strongly affected by Indep2 while easy items tend to be
+> > weakly affected.
+> >
+> > When you fit the model, you'll see the difference if you look at the
+> > random effects correlation matrix. The (1 | Item) + (Indep2 | Item)
+> > model will have two numbers, which are estimates of the per-item
+> > variance in the intercept and in the Indep2 effect. The (1 + Indep2 |
+> > Item) will have an extra number, which is the estimate of the
+> > covariance between the intercept and the Indep2 effect. The (1 | Item)
+> > + (Indep2 | Item) model is equivalent to forcing this third number to
+> > be zero.
+> >
+> > -- Nathaniel
+>
+
+From johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Tue Mar 20 10:49:41 2012
+From: johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Sverre Stausland)
+Date: Tue, 20 Mar 2012 11:49:41 +0100
+Subject: Re: Simpler model with random slopes
+In-Reply-To: <CAG2Vd7icFHMOZCjcLjhSp54C3LwvFTUD_QZjmbvDLxtXi_GE6A@mail.gmail.com>
+References: <CACtaF7yKPg8RQmuXtNU98UnPHdt2saZuvSAsbFeBgqr1wzsAPA@mail.gmail.com> <CAPJVwBmvFfMLQcy-X9twrXz8pxQdUSzk5AfSN-kfvVAh_HbT6w@mail.gmail.com> <CACtaF7yiO843W3tPsYuW8YTVYKWUHqVoSjCDEZ77ieLWwcFa5Q@mail.gmail.com> <CAG2Vd7icFHMOZCjcLjhSp54C3LwvFTUD_QZjmbvDLxtXi_GE6A@mail.gmail.com>
+Message-ID: <CACtaF7yb0QfyBFVyg6n5=B6b2KLO+2RR+ZKvA2brQoPZteeGbA@mail.gmail.com>
+
+Thanks for pointing that out, Florian. I noticed just that when I
+built my models with and without the covariance, and it makes sense
+from Nathaniel's exemplary explanation.
+
+I do have a follow-up question that I'm taking the liberty to ask in
+this thread:
+
+As an example, say my model includes random slopes for items with
+respect to a variable Indep2, as in (a)
+
+(a) glmer(formula = Dep ~ 1 + (1 | Subject) + (0 + Indep2 | Item) +
+Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+
+To assess the contribution of variable Indep2 through model
+comparison, should I then remove the main effect Indep2 as well as the
+random slopes for items, as in (b) below?
+
+(b) glmer(formula = Dep ~ 1 + (1 | Subject) + Indep1, data = my.data,
+family = binomial(link = "logit"))
+
+It seems slightly odd to me to allow the model to include random
+variation among items with respect to a variable Indep2 if the model
+doesn't assume that Indep2 plays a role as a main effect as well,
+similar to how higher-order interactions between variables require
+that those variables are also included as main effects in the model.
+Is my understanding correct here?
+
+In case the answer is yes, let me ask a follow-up to that [ignore this
+if the answer is no]:
+
+The model I have has random slopes (0 + Indep2 | Item) as the only
+random effect (others proved unnecessary):
+
+(c) glmer(formula = Dep ~ 1 + (0 + Indep2 | Item) + Indep1 + Indep2,
+data = my.data, family = binomial(link = "logit"))
+
+If my subset model without Indep2 needs to take out the random slopes
+as well, I need to introduce a dummy random effect, since lmer won't
+construct a model without any random effects. The question is, does it
+matter what kind of dummy random effect this is? Could it be random
+intercepts (d) just as well as random slopes (e), or would something
+else be more appropriate?
+
+dummy <- rep(1, nrow(my.data))
+(d) glmer(formula = Dep ~ 1 + (1 | dummy) + Indep1, data = my.data,
+family = binomial(link = "logit"))
+(e) glmer(formula = Dep ~ 1 + (0 + dummy | Item) + Indep1, data =
+my.data, family = binomial(link = "logit"))
+
+Thanks
+Sverre
+
+On Tue, Mar 20, 2012 at 2:19 AM, T. Florian Jaeger
+<tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:
+> just to add to Nathaniel's beautifully clear explanation: going from (a) to
+> (b) is really the opposite of "reducing" the model. going from (b) to (a)
+> would remove one parameter (the covariance parameter)
+>
+> flo
+>
+>
+> On Mon, Mar 19, 2012 at 2:45 PM, Sverre Stausland <johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org>
+> wrote:
+>>
+>> Thanks for the explanation. I think I got it!
+>>
+>> On Mon, Mar 19, 2012 at 5:54 PM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+>> > On Mon, Mar 19, 2012 at 4:37 PM, Sverre Stausland
+>> > <johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org> wrote:
+>> >> Hi all,
+>> >>
+>> >> this question is ultimately based on Florian's lecture1 slides here:
+>> >> http://hlplab.wordpress.com/2010/05/10/mini-womm/
+>> >>
+>> >> I'm doing a mixed model logistic regression, with random intercepts
+>> >> for items and random slopes for items with respect to the fixed effect
+>> >> Indep2 (cf. slide 85):
+>> >>
+>> >> (a) glmer(formula = Dep ~ 1 + (1 | Item) + (0 + Indep2 | Item) +
+>> >> Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+>> >>
+>> >> As per slide 88, I can also reduce the random effects to (1 + Indep2 |
+>> >> Item):
+>> >>
+>> >> (b) glmer(formula = Dep ~ 1 + (1 + Indep2 | Item) + Indep1 + Indep2,
+>> >> data = my.data, family = binomial(link = "logit"))
+>> >>
+>> >> It's not exactly clear to me what (1 + Indep2 | Item) does, since the
+>> >> output of both (a) and (b) includes random intercepts for items and
+>> >> random slopes for items by Indep2. At the same time, model (a) and (b)
+>> >> differ in their exact estimates.
+>> >>
+>> >> I would appreciate if someone could explain what the difference
+>> >> between model (a) and (b) is.
+>> >
+>> > (1 | Item) means that items are assumed to have different intercepts
+>> > -- like if "Dep" were some kind of error rate, then this would be
+>> > saying that some items are intrinsically more prone to errors
+>> > ("harder") and some are less prone to errors ("easier").
+>> >
+>> > (Indep2 | Item) means that some items are more or less strongly
+>> > affected by manipulations in Indep2.
+>> >
+>> > (1 | Item) + (Indep2 | Item) means that both of these things are
+>> > assumed to be true. However, it is assumed that these two kinds of
+>> > variation are *independent*. I.e., some hard items are strongly or
+>> > weakly affected by Indep2, and some easy items are strongly or weakly
+>> > affected by Indep2, but on average Indep2 effects hard items and easy
+>> > items equally.
+>> >
+>> > (1 + Indep2 | Item) means that both of these things are assumed to be
+>> > true, and also removes this independence assumption. It means that
+>> > there might be some correlation where e.g. items which are hard also
+>> > tend to be strongly affected by Indep2 while easy items tend to be
+>> > weakly affected.
+>> >
+>> > When you fit the model, you'll see the difference if you look at the
+>> > random effects correlation matrix. The (1 | Item) + (Indep2 | Item)
+>> > model will have two numbers, which are estimates of the per-item
+>> > variance in the intercept and in the Indep2 effect. The (1 + Indep2 |
+>> > Item) will have an extra number, which is the estimate of the
+>> > covariance between the intercept and the Indep2 effect. The (1 | Item)
+>> > + (Indep2 | Item) model is equivalent to forcing this third number to
+>> > be zero.
+>> >
+>> > -- Nathaniel
+>
+>
+
+From johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org  Wed Mar 21 12:58:10 2012
+From: johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org (Sverre Stausland)
+Date: Wed, 21 Mar 2012 13:58:10 +0100
+Subject: Re: Simpler model with random slopes
+In-Reply-To: <CACtaF7yb0QfyBFVyg6n5=B6b2KLO+2RR+ZKvA2brQoPZteeGbA@mail.gmail.com>
+References: <CACtaF7yKPg8RQmuXtNU98UnPHdt2saZuvSAsbFeBgqr1wzsAPA@mail.gmail.com> <CAPJVwBmvFfMLQcy-X9twrXz8pxQdUSzk5AfSN-kfvVAh_HbT6w@mail.gmail.com> <CACtaF7yiO843W3tPsYuW8YTVYKWUHqVoSjCDEZ77ieLWwcFa5Q@mail.gmail.com> <CAG2Vd7icFHMOZCjcLjhSp54C3LwvFTUD_QZjmbvDLxtXi_GE6A@mail.gmail.com> <CACtaF7yb0QfyBFVyg6n5=B6b2KLO+2RR+ZKvA2brQoPZteeGbA@mail.gmail.com>
+Message-ID: <CACtaF7y5JKaK_N=XLtQ3k+CDwEa9qdD8sPWNgb0VsrdL=Kmhgw@mail.gmail.com>
+
+An update: I asked below whether one should treat a model with a main
+effect Indep2 and random slopes for Indep2 similarly as one should
+treat a model with a main effect Indep2 and an interaction between
+Indep2 and another main effect. That is, a model with random slopes
+for Indep2 should also contain the main effect Indep2 - one should not
+remove the main effect Indep2 and leave the random slopes for Indep2
+in.
+
+For what it's worth, I just found the same question asked in R-sig-ME
+in 2010: https://stat.ethz.ch/pipermail/r-sig-mixed-models/2010q2/003876.html,
+to which Ben Bolker answers in the affirmative (with an explanation).
+
+Sverre
+
+On Tue, Mar 20, 2012 at 11:49 AM, Sverre Stausland
+<johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org> wrote:
+> Thanks for pointing that out, Florian. I noticed just that when I
+> built my models with and without the covariance, and it makes sense
+> from Nathaniel's exemplary explanation.
+>
+> I do have a follow-up question that I'm taking the liberty to ask in
+> this thread:
+>
+> As an example, say my model includes random slopes for items with
+> respect to a variable Indep2, as in (a)
+>
+> (a) glmer(formula = Dep ~ 1 + (1 | Subject) + (0 + Indep2 | Item) +
+> Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+>
+> To assess the contribution of variable Indep2 through model
+> comparison, should I then remove the main effect Indep2 as well as the
+> random slopes for items, as in (b) below?
+>
+> (b) glmer(formula = Dep ~ 1 + (1 | Subject) + Indep1, data = my.data,
+> family = binomial(link = "logit"))
+>
+> It seems slightly odd to me to allow the model to include random
+> variation among items with respect to a variable Indep2 if the model
+> doesn't assume that Indep2 plays a role as a main effect as well,
+> similar to how higher-order interactions between variables require
+> that those variables are also included as main effects in the model.
+> Is my understanding correct here?
+>
+> In case the answer is yes, let me ask a follow-up to that [ignore this
+> if the answer is no]:
+>
+> The model I have has random slopes (0 + Indep2 | Item) as the only
+> random effect (others proved unnecessary):
+>
+> (c) glmer(formula = Dep ~ 1 + (0 + Indep2 | Item) + Indep1 + Indep2,
+> data = my.data, family = binomial(link = "logit"))
+>
+> If my subset model without Indep2 needs to take out the random slopes
+> as well, I need to introduce a dummy random effect, since lmer won't
+> construct a model without any random effects. The question is, does it
+> matter what kind of dummy random effect this is? Could it be random
+> intercepts (d) just as well as random slopes (e), or would something
+> else be more appropriate?
+>
+> dummy <- rep(1, nrow(my.data))
+> (d) glmer(formula = Dep ~ 1 + (1 | dummy) + Indep1, data = my.data,
+> family = binomial(link = "logit"))
+> (e) glmer(formula = Dep ~ 1 + (0 + dummy | Item) + Indep1, data =
+> my.data, family = binomial(link = "logit"))
+>
+> Thanks
+> Sverre
+>
+> On Tue, Mar 20, 2012 at 2:19 AM, T. Florian Jaeger
+> <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:
+>> just to add to Nathaniel's beautifully clear explanation: going from (a) to
+>> (b) is really the opposite of "reducing" the model. going from (b) to (a)
+>> would remove one parameter (the covariance parameter)
+>>
+>> flo
+>>
+>>
+>> On Mon, Mar 19, 2012 at 2:45 PM, Sverre Stausland <johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org>
+>> wrote:
+>>>
+>>> Thanks for the explanation. I think I got it!
+>>>
+>>> On Mon, Mar 19, 2012 at 5:54 PM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+>>> > On Mon, Mar 19, 2012 at 4:37 PM, Sverre Stausland
+>>> > <johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org> wrote:
+>>> >> Hi all,
+>>> >>
+>>> >> this question is ultimately based on Florian's lecture1 slides here:
+>>> >> http://hlplab.wordpress.com/2010/05/10/mini-womm/
+>>> >>
+>>> >> I'm doing a mixed model logistic regression, with random intercepts
+>>> >> for items and random slopes for items with respect to the fixed effect
+>>> >> Indep2 (cf. slide 85):
+>>> >>
+>>> >> (a) glmer(formula = Dep ~ 1 + (1 | Item) + (0 + Indep2 | Item) +
+>>> >> Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+>>> >>
+>>> >> As per slide 88, I can also reduce the random effects to (1 + Indep2 |
+>>> >> Item):
+>>> >>
+>>> >> (b) glmer(formula = Dep ~ 1 + (1 + Indep2 | Item) + Indep1 + Indep2,
+>>> >> data = my.data, family = binomial(link = "logit"))
+>>> >>
+>>> >> It's not exactly clear to me what (1 + Indep2 | Item) does, since the
+>>> >> output of both (a) and (b) includes random intercepts for items and
+>>> >> random slopes for items by Indep2. At the same time, model (a) and (b)
+>>> >> differ in their exact estimates.
+>>> >>
+>>> >> I would appreciate if someone could explain what the difference
+>>> >> between model (a) and (b) is.
+>>> >
+>>> > (1 | Item) means that items are assumed to have different intercepts
+>>> > -- like if "Dep" were some kind of error rate, then this would be
+>>> > saying that some items are intrinsically more prone to errors
+>>> > ("harder") and some are less prone to errors ("easier").
+>>> >
+>>> > (Indep2 | Item) means that some items are more or less strongly
+>>> > affected by manipulations in Indep2.
+>>> >
+>>> > (1 | Item) + (Indep2 | Item) means that both of these things are
+>>> > assumed to be true. However, it is assumed that these two kinds of
+>>> > variation are *independent*. I.e., some hard items are strongly or
+>>> > weakly affected by Indep2, and some easy items are strongly or weakly
+>>> > affected by Indep2, but on average Indep2 effects hard items and easy
+>>> > items equally.
+>>> >
+>>> > (1 + Indep2 | Item) means that both of these things are assumed to be
+>>> > true, and also removes this independence assumption. It means that
+>>> > there might be some correlation where e.g. items which are hard also
+>>> > tend to be strongly affected by Indep2 while easy items tend to be
+>>> > weakly affected.
+>>> >
+>>> > When you fit the model, you'll see the difference if you look at the
+>>> > random effects correlation matrix. The (1 | Item) + (Indep2 | Item)
+>>> > model will have two numbers, which are estimates of the per-item
+>>> > variance in the intercept and in the Indep2 effect. The (1 + Indep2 |
+>>> > Item) will have an extra number, which is the estimate of the
+>>> > covariance between the intercept and the Indep2 effect. The (1 | Item)
+>>> > + (Indep2 | Item) model is equivalent to forcing this third number to
+>>> > be zero.
+>>> >
+>>> > -- Nathaniel
+>>
+>>
+
+From tom.gijssels-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Mar 26 17:15:46 2012
+From: tom.gijssels-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Tom Gijssels)
+Date: Mon, 26 Mar 2012 13:15:46 -0400
+Subject: Conflicting p-values from pvals.fnc
+Message-ID: <CAPB_MR1W2onq7RB8s_KL+oyC6F8UtBCAPc7vFdnv+aFur3iEEQ@mail.gmail.com>
+
+Dear R-langers,
+
+I'm trying to run a mixed effect model using the lmer() function and have
+run into some issues in interpreting the p-values generated by
+pvals.fnc(). The design is a between-subjects design, with two fixed
+effects (condition & block; each with two levels), and one random effect
+(subject). Additionally, I have a set of weights that I want to include.
+
+When looking at the pvals.fnc() output,there appears to be a large
+discrepancy between the pMCMC values and the t-statistic p-values. Whereas
+one of the main effects and the interaction are far from significant
+judging by the pMCMC values, they are highly significant when looking at
+the t-statistic p-values (e.g. Condition: pMCMC = 0.2294; Pr(>|t|) = 0.0000
+& Condition*Block: pMCMC = 0.3296; Pr(>|t|) = 0.0000) . I have read that
+the t-statistic based p-values are less conservative, but the difference
+between these two values seems really extreme.
+
+Below some code that simulates the model and the data. The original data
+set has two precise characteristics that might influence the results, so I
+tried to simulate those characteristics in the mock data. That is: 1)
+there's fewer observations in block A than in block B; and 2) the weights
+for observations in block A generally are lower than those for block B.
+
+Running this code reproduces the original observation of conflicting pMCMC
+and p-T-test values. However, when excluding the weights argument from the
+lmer model, these values seem to converge, suggesting that the weights
+specification might be underlying these problems.
+
+In short, my question is whether anyone knows why these values diverge and
+what I could do to address this issue.
+
+Many thanks in advance!
+
+Tom
+
+block <- as.factor(c(rep('a', times = 20), rep('b', times = 200)))
+condition <- as.factor(c(rep(c('x', 'y'), each = 10), rep(c('x','y'), each
+= 100)))
+contrasts(block) <- c(-0.5, 0.5)
+contrasts(condition) <- c(-0.5, 0.5)
+
+subject <- c(rep(1:4, each = 5), rep(1:4, each = 50))
+
+intercept <- 100block.me <- 20condition.me <- 30
+err <- rnorm(length(block), sd = 20)
+weights <- c(rep(1, times = 20), rep(10, times = 200))
+
+y <- intercept + ifelse(block == 'a', block.me, 0) + ifelse(condition ==
+'x', condition.me, 0) +
+    ifelse(block == 'a' & condition == 'x', 30, 0) + (subject * 10) + err
+
+
+fm.1 <- lmer(y ~ block * condition + (1 | as.factor(subject)),
+             weights = weights, REML = FALSE)
+fm.1.mcmc <- pvals.fnc(fm.1, addPlot=F)
+
+	[[alternative HTML version deleted]]
+
+From rlevy-XkckGZ689+c at public.gmane.org  Mon Mar 26 21:56:07 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Mon, 26 Mar 2012 21:56:07 +0000
+Subject: Re: Conflicting p-values from pvals.fnc
+In-Reply-To: <CAPB_MR1W2onq7RB8s_KL+oyC6F8UtBCAPc7vFdnv+aFur3iEEQ@mail.gmail.com>
+References: <CAPB_MR1W2onq7RB8s_KL+oyC6F8UtBCAPc7vFdnv+aFur3iEEQ@mail.gmail.com>
+Message-ID: <1D067C18-50BD-4B97-8B13-1F28E0413F76@ucsd.edu>
+
+Hi Tom,
+
+I'm not sure how lmer uses the weights argument -- I think I know how it *should* be used (setting a weight of k to a given observation should be equivalent to having seen k replicates of that observation), but what you've got here makes me wonder what's actually going on under the hood.  Could you maybe point us to some documentation as to what lmer claims to be doing with the weights argument, and maybe also explain why you want to use the weights you're using?
+
+Best
+
+Roger
+
+On Mar 26, 2012, at 10:15 AM PDT, Tom Gijssels wrote:
+
+
+Dear R-langers,
+
+I'm trying to run a mixed effect model using the lmer() function and have
+run into some issues in interpreting the p-values generated by
+pvals.fnc(). The design is a between-subjects design, with two fixed
+effects (condition & block; each with two levels), and one random effect
+(subject). Additionally, I have a set of weights that I want to include.
+
+When looking at the pvals.fnc() output,there appears to be a large
+discrepancy between the pMCMC values and the t-statistic p-values. Whereas
+one of the main effects and the interaction are far from significant
+judging by the pMCMC values, they are highly significant when looking at
+the t-statistic p-values (e.g. Condition: pMCMC = 0.2294; Pr(>|t|) = 0.0000
+& Condition*Block: pMCMC = 0.3296; Pr(>|t|) = 0.0000) . I have read that
+the t-statistic based p-values are less conservative, but the difference
+between these two values seems really extreme.
+
+Below some code that simulates the model and the data. The original data
+set has two precise characteristics that might influence the results, so I
+tried to simulate those characteristics in the mock data. That is: 1)
+there's fewer observations in block A than in block B; and 2) the weights
+for observations in block A generally are lower than those for block B.
+
+Running this code reproduces the original observation of conflicting pMCMC
+and p-T-test values. However, when excluding the weights argument from the
+lmer model, these values seem to converge, suggesting that the weights
+specification might be underlying these problems.
+
+In short, my question is whether anyone knows why these values diverge and
+what I could do to address this issue.
+
+Many thanks in advance!
+
+Tom
+
+block <- as.factor(c(rep('a', times = 20), rep('b', times = 200)))
+condition <- as.factor(c(rep(c('x', 'y'), each = 10), rep(c('x','y'), each
+= 100)))
+contrasts(block) <- c(-0.5, 0.5)
+contrasts(condition) <- c(-0.5, 0.5)
+
+subject <- c(rep(1:4, each = 5), rep(1:4, each = 50))
+
+intercept <- 100
+block.me<http://block.me/> <- 20
+condition.me<http://condition.me/> <- 30
+err <- rnorm(length(block), sd = 20)
+weights <- c(rep(1, times = 20), rep(10, times = 200))
+
+y <- intercept + ifelse(block == 'a', block.me<http://block.me/>, 0) + ifelse(condition ==
+'x', condition.me<http://condition.me/>, 0) +
+    ifelse(block == 'a' & condition == 'x', 30, 0) + (subject * 10) + err
+
+
+fm.1 <- lmer(y ~ block * condition + (1 | as.factor(subject)),
+             weights = weights, REML = FALSE)
+fm.1.mcmc <- pvals.fnc(fm.1, addPlot=F)
+
+        [[alternative HTML version deleted]]
+
+
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy-XkckGZ689+c at public.gmane.org>
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+
+From tom.gijssels-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Mar 27 22:19:42 2012
+From: tom.gijssels-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Tom Gijssels)
+Date: Tue, 27 Mar 2012 18:19:42 -0400
+Subject: Re: Conflicting p-values from pvals.fnc
+In-Reply-To: <1D067C18-50BD-4B97-8B13-1F28E0413F76-XkckGZ689+c@public.gmane.org>
+References: <CAPB_MR1W2onq7RB8s_KL+oyC6F8UtBCAPc7vFdnv+aFur3iEEQ@mail.gmail.com> <1D067C18-50BD-4B97-8B13-1F28E0413F76@ucsd.edu>
+Message-ID: <CAPB_MR0arWJFKhcQsmYQdWzo6nisNT6P=Hf9Gx-ZwYQkNQCkTA@mail.gmail.com>
+
+Hey Roger,
+
+Thanks for the response!
+
+Let me try to address your questions as good as possible (and in reverse
+order to make things a bit more concrete).
+
+The reason for including weights is that there's a reasonable amount of
+variance in the relative importance of the data-points I'm using. To be a
+bit more specific: the experiment looks at whether people accommodate their
+speech rate to a conversational partner's speech rate. Speech rate was
+calculated by taking the words per second for each of the subject's
+utterances during Baseline and during Conversation. Since a subject's
+utterances vary in duration (e.g. some are 2s, others 10s), I want to make
+sure that the speech rate measure of a long utterance gets contributes more
+strongly to the model than a short utterance. Therefore, I wanted to
+include the duration for each utterance as a weight for the corresponding
+speech rate measure. Does this sound sensible?
+
+As far as I can see, it seems that this is at least conceptually what the
+weights argument does in lm (the lmer documentation states 'weights' gets
+implemented exactly as in lm).
+
+The vector supplied as the weights argument is used to calculate weighted
+least squares (minimizing sum(w*e^2)). The weights are included to smooth
+out differences in the variance of the different observations ('with the
+values in weights being inversely proportional to the variances', taken
+from the lm documentation). If I understand this correctly, in the current
+data set, the short duration observations would have higher variance than
+the long duration observations. Including duration as a weight, then, would
+lead to the former observations exerting less influence on the final fit.
+Is this correct?
+
+Finally, a colleague of mine posted the message appended below in response
+to the same post on R-Sig-ME. The correspondence between the Wald
+chi-square and the pMCMC results indeed seems to suggest that the pvals
+based on the t-tests are unreliable. Any ideas about this?
+
+Thanks again for the input, it's much appreciated.
+
+Cheers,
+
+Tom
+
+Hi listers,
+
+If you get p-vals using Wald chi-square tests with lme4::anova, they look
+pretty close to the pMCMC output.
+fm.1 <- lmer(y ~ block * condition + (1 | as.factor(subject)),
+             weights = weights, REML = FALSE)
+fm.2 <- lmer(y ~ block + condition + (1 | as.factor(subject)),
+             weights = weights, REML = FALSE)
+anova(fm.1, fm.2)
+
+This gives p = .35 for the block*condition interaction. For comparison,
+pvals.fnc gave pMCMC = .3 and p(<|t|) < .001. So it looks like p-vals
+derived from t-tests are just way off.
+
+It seems to me like we should just totally ignore the P(<|t|) output. Does
+anyone who knows more about how these work think otherwise?
+
+-- geoff
+
+
+
+
+On Mon, Mar 26, 2012 at 5:56 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+
+>  Hi Tom,
+>
+>  I'm not sure how lmer uses the weights argument -- I think I know how it
+> *should* be used (setting a weight of k to a given observation should be
+> equivalent to having seen k replicates of that observation), but what
+> you've got here makes me wonder what's actually going on under the hood.
+>  Could you maybe point us to some documentation as to what lmer claims to
+> be doing with the weights argument, and maybe also explain why you want to
+> use the weights you're using?
+>
+>  Best
+>
+>  Roger
+>
+>  On Mar 26, 2012, at 10:15 AM PDT, Tom Gijssels wrote:
+>
+>  Dear R-langers,
+>
+> I'm trying to run a mixed effect model using the lmer() function and have
+> run into some issues in interpreting the p-values generated by
+> pvals.fnc(). The design is a between-subjects design, with two fixed
+> effects (condition & block; each with two levels), and one random effect
+> (subject). Additionally, I have a set of weights that I want to include.
+>
+> When looking at the pvals.fnc() output,there appears to be a large
+> discrepancy between the pMCMC values and the t-statistic p-values. Whereas
+> one of the main effects and the interaction are far from significant
+> judging by the pMCMC values, they are highly significant when looking at
+> the t-statistic p-values (e.g. Condition: pMCMC = 0.2294; Pr(>|t|) = 0.0000
+> & Condition*Block: pMCMC = 0.3296; Pr(>|t|) = 0.0000) . I have read that
+> the t-statistic based p-values are less conservative, but the difference
+> between these two values seems really extreme.
+>
+> Below some code that simulates the model and the data. The original data
+> set has two precise characteristics that might influence the results, so I
+> tried to simulate those characteristics in the mock data. That is: 1)
+> there's fewer observations in block A than in block B; and 2) the weights
+> for observations in block A generally are lower than those for block B.
+>
+> Running this code reproduces the original observation of conflicting pMCMC
+> and p-T-test values. However, when excluding the weights argument from the
+> lmer model, these values seem to converge, suggesting that the weights
+> specification might be underlying these problems.
+>
+> In short, my question is whether anyone knows why these values diverge and
+> what I could do to address this issue.
+>
+> Many thanks in advance!
+>
+> Tom
+>
+> block <- as.factor(c(rep('a', times = 20), rep('b', times = 200)))
+> condition <- as.factor(c(rep(c('x', 'y'), each = 10), rep(c('x','y'), each
+> = 100)))
+> contrasts(block) <- c(-0.5, 0.5)
+> contrasts(condition) <- c(-0.5, 0.5)
+>
+> subject <- c(rep(1:4, each = 5), rep(1:4, each = 50))
+>
+> intercept <- 100block.me <- 20condition.me <- 30
+> err <- rnorm(length(block), sd = 20)
+> weights <- c(rep(1, times = 20), rep(10, times = 200))
+>
+> y <- intercept + ifelse(block == 'a', block.me, 0) + ifelse(condition ==
+> 'x', condition.me, 0) +
+>     ifelse(block == 'a' & condition == 'x', 30, 0) + (subject * 10) + err
+>
+>
+> fm.1 <- lmer(y ~ block * condition + (1 | as.factor(subject)),
+>              weights = weights, REML = FALSE)
+> fm.1.mcmc <- pvals.fnc(fm.1, addPlot=F)
+>
+> 	[[alternative HTML version deleted]]
+>
+>
+>
+>      --
+>
+>  Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+> Assistant Professor             Phone: 858-534-7219
+> Department of Linguistics       Fax:   858-534-4789
+> UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu Mar 29 02:13:14 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 29 Mar 2012 02:13:14 +0000
+Subject: Re: Conflicting p-values from pvals.fnc
+In-Reply-To: <CAPB_MR0arWJFKhcQsmYQdWzo6nisNT6P=Hf9Gx-ZwYQkNQCkTA@mail.gmail.com>
+References: <CAPB_MR1W2onq7RB8s_KL+oyC6F8UtBCAPc7vFdnv+aFur3iEEQ@mail.gmail.com> <1D067C18-50BD-4B97-8B13-1F28E0413F76@ucsd.edu> <CAPB_MR0arWJFKhcQsmYQdWzo6nisNT6P=Hf9Gx-ZwYQkNQCkTA@mail.gmail.com>
+Message-ID: <C57DC971-BC22-48BA-87E4-ED066A882BBF@ucsd.edu>
+
+
+On Mar 27, 2012, at 3:19 PM PDT, Tom Gijssels wrote:
+
+Hey Roger,
+
+Thanks for the response!
+
+Let me try to address your questions as good as possible (and in reverse order to make things a bit more concrete).
+
+The reason for including weights is that there's a reasonable amount of variance in the relative importance of the data-points I'm using. To be a bit more specific: the experiment looks at whether people accommodate their speech rate to a conversational partner's speech rate. Speech rate was calculated by taking the words per second for each of the subject's utterances during Baseline and during Conversation. Since a subject's utterances vary in duration (e.g. some are 2s, others 10s), I want to make sure that the speech rate measure of a long utterance gets contributes more strongly to the model than a short utterance. Therefore, I wanted to include the duration for each utterance as a weight for the corresponding speech rate measure. Does this sound sensible?
+
+As far as I can see, it seems that this is at least conceptually what the weights argument does in lm (the lmer documentation states 'weights' gets implemented exactly as in lm).
+
+The vector supplied as the weights argument is used to calculate weighted least squares (minimizing sum(w*e^2)). The weights are included to smooth out differences in the variance of the different observations ('with the values in weights being inversely proportional to the variances', taken from the lm documentation). If I understand this correctly, in the current data set, the short duration observations would have higher variance than the long duration observations. Including duration as a weight, then, would lead to the former observations exerting less influence on the final fit. Is this correct?
+
+Thanks for the additional information Tom.  I see your justification for using the weights argument as you're using it, but I'm not sure that lmer and pvals.fnc jointly are handling the weights in a totally consistent way.  Note that as you crank the weights up, the t statistic gets larger and larger (which would be what you expect on the reading that a weight of k should simulate k replicates of that datum), but the pMCMC "significance level" goes in the opposite direction.
+
+I will follow up on r-sig-me.
+
+Best
+
+Roger
+
+
+
+Finally, a colleague of mine posted the message appended below in response to the same post on R-Sig-ME. The correspondence between the Wald chi-square and the pMCMC results indeed seems to suggest that the pvals based on the t-tests are unreliable. Any ideas about this?
+
+Thanks again for the input, it's much appreciated.
+
+Cheers,
+
+Tom
+
+
+Hi listers,
+
+If you get p-vals using Wald chi-square tests with lme4::anova, they look
+pretty close to the pMCMC output.
+fm.1 <- lmer(y ~ block * condition + (1 | as.factor(subject)),
+             weights = weights, REML = FALSE)
+fm.2 <- lmer(y ~ block + condition + (1 | as.factor(subject)),
+             weights = weights, REML = FALSE)
+anova(fm.1, fm.2)
+
+This gives p = .35 for the block*condition interaction. For comparison,
+pvals.fnc gave pMCMC = .3 and p(<|t|) < .001. So it looks like p-vals
+derived from t-tests are just way off.
+
+It seems to me like we should just totally ignore the P(<|t|) output. Does
+anyone who knows more about how these work think otherwise?
+
+-- geoff
+
+
+
+On Mon, Mar 26, 2012 at 5:56 PM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy at ucsd.edu>> wrote:
+Hi Tom,
+
+I'm not sure how lmer uses the weights argument -- I think I know how it *should* be used (setting a weight of k to a given observation should be equivalent to having seen k replicates of that observation), but what you've got here makes me wonder what's actually going on under the hood.  Could you maybe point us to some documentation as to what lmer claims to be doing with the weights argument, and maybe also explain why you want to use the weights you're using?
+
+Best
+
+Roger
+
+On Mar 26, 2012, at 10:15 AM PDT, Tom Gijssels wrote:
+
+
+Dear R-langers,
+
+I'm trying to run a mixed effect model using the lmer() function and have
+run into some issues in interpreting the p-values generated by
+pvals.fnc(). The design is a between-subjects design, with two fixed
+effects (condition & block; each with two levels), and one random effect
+(subject). Additionally, I have a set of weights that I want to include.
+
+When looking at the pvals.fnc() output,there appears to be a large
+discrepancy between the pMCMC values and the t-statistic p-values. Whereas
+one of the main effects and the interaction are far from significant
+judging by the pMCMC values, they are highly significant when looking at
+the t-statistic p-values (e.g. Condition: pMCMC = 0.2294; Pr(>|t|) = 0.0000
+& Condition*Block: pMCMC = 0.3296; Pr(>|t|) = 0.0000) . I have read that
+the t-statistic based p-values are less conservative, but the difference
+between these two values seems really extreme.
+
+Below some code that simulates the model and the data. The original data
+set has two precise characteristics that might influence the results, so I
+tried to simulate those characteristics in the mock data. That is: 1)
+there's fewer observations in block A than in block B; and 2) the weights
+for observations in block A generally are lower than those for block B.
+
+Running this code reproduces the original observation of conflicting pMCMC
+and p-T-test values. However, when excluding the weights argument from the
+lmer model, these values seem to converge, suggesting that the weights
+specification might be underlying these problems.
+
+In short, my question is whether anyone knows why these values diverge and
+what I could do to address this issue.
+
+Many thanks in advance!
+
+Tom
+
+block <- as.factor(c(rep('a', times = 20), rep('b', times = 200)))
+condition <- as.factor(c(rep(c('x', 'y'), each = 10), rep(c('x','y'), each
+= 100)))
+contrasts(block) <- c(-0.5, 0.5)
+contrasts(condition) <- c(-0.5, 0.5)
+
+subject <- c(rep(1:4, each = 5), rep(1:4, each = 50))
+
+intercept <- 100
+block.me<http://block.me/> <- 20
+condition.me<http://condition.me/> <- 30
+err <- rnorm(length(block), sd = 20)
+weights <- c(rep(1, times = 20), rep(10, times = 200))
+
+y <- intercept + ifelse(block == 'a', block.me<http://block.me/>, 0) + ifelse(condition ==
+'x', condition.me<http://condition.me/>, 0) +
+    ifelse(block == 'a' & condition == 'x', 30, 0) + (subject * 10) + err
+
+
+fm.1 <- lmer(y ~ block * condition + (1 | as.factor(subject)),
+             weights = weights, REML = FALSE)
+fm.1.mcmc <- pvals.fnc(fm.1, addPlot=F)
+
+        [[alternative HTML version deleted]]
+
+
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy-XkckGZ689+c at public.gmane.org>
+Assistant Professor             Phone: 858-534-7219<tel:858-534-7219>
+Department of Linguistics       Fax:   858-534-4789<tel:858-534-4789>
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+
+
+
+
+
+
+
+
+
+
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy-XkckGZ689+c at public.gmane.org>
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+
+From njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org  Thu Mar 29 13:45:01 2012
+From: njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org (Nathaniel Smith)
+Date: Thu, 29 Mar 2012 14:45:01 +0100
+Subject: Re: Conflicting p-values from pvals.fnc
+In-Reply-To: <CAPB_MR0arWJFKhcQsmYQdWzo6nisNT6P=Hf9Gx-ZwYQkNQCkTA@mail.gmail.com>
+References: <CAPB_MR1W2onq7RB8s_KL+oyC6F8UtBCAPc7vFdnv+aFur3iEEQ@mail.gmail.com> <1D067C18-50BD-4B97-8B13-1F28E0413F76@ucsd.edu> <CAPB_MR0arWJFKhcQsmYQdWzo6nisNT6P=Hf9Gx-ZwYQkNQCkTA@mail.gmail.com>
+Message-ID: <CAPJVwB=Q3hxkeY40dhVqyBMFEGDmrT0un+JKyJnMB4d9cxvT=g@mail.gmail.com>
+
+On Tue, Mar 27, 2012 at 11:19 PM, Tom Gijssels <tom.gijssels-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> Finally, a colleague of mine posted the message appended below in response
+> to the same post on R-Sig-ME. The correspondence between the Wald chi-square
+> and the pMCMC results indeed seems to suggest that the pvals based on the
+> t-tests are unreliable. Any ideas about this?
+
+I'm not sure what it means that two tests of unknown quality disagree
+with a third test of unknown quality... but figuring out which tests
+might be accurate is actually very easy. You already wrote code to
+simulate data from your model; just run it 1000 times with no real
+effects put in, and look at the distribution of p values you get. An
+accurate test will produce p values that are uniformly distributed,
+i.e., 0.05 * 1000 = ~50 of them should be less than 0.05.
+
+(Also I notice your simulation code uses different weights for the
+different conditions, but doesn't actually add more noise to one
+condition than the other; you might want to fix that first.. You just
+need something like err <- err * 1/sqrt(weights).)
+
+-- Nathaniel
+
+From rlevy-XkckGZ689+c at public.gmane.org  Fri Mar 30 19:34:32 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Fri, 30 Mar 2012 19:34:32 +0000
+Subject: Re: Conflicting p-values from pvals.fnc
+In-Reply-To: <C57DC971-BC22-48BA-87E4-ED066A882BBF-XkckGZ689+c@public.gmane.org>
+References: <CAPB_MR1W2onq7RB8s_KL+oyC6F8UtBCAPc7vFdnv+aFur3iEEQ@mail.gmail.com> <1D067C18-50BD-4B97-8B13-1F28E0413F76@ucsd.edu> <CAPB_MR0arWJFKhcQsmYQdWzo6nisNT6P=Hf9Gx-ZwYQkNQCkTA@mail.gmail.com> <C57DC971-BC22-48BA-87E4-ED066A882BBF@ucsd.edu>
+Message-ID: <B88410B2-01E8-43BB-AE58-5B0CE06C9EAE@ucsd.edu>
+
+
+On Mar 28, 2012, at 7:13 PM PDT, Levy, Roger wrote:
+
+
+On Mar 27, 2012, at 3:19 PM PDT, Tom Gijssels wrote:
+
+Hey Roger,
+
+Thanks for the response!
+
+Let me try to address your questions as good as possible (and in reverse order to make things a bit more concrete).
+
+The reason for including weights is that there's a reasonable amount of variance in the relative importance of the data-points I'm using. To be a bit more specific: the experiment looks at whether people accommodate their speech rate to a conversational partner's speech rate. Speech rate was calculated by taking the words per second for each of the subject's utterances during Baseline and during Conversation. Since a subject's utterances vary in duration (e.g. some are 2s, others 10s), I want to make sure that the speech rate measure of a long utterance gets contributes more strongly to the model than a short utterance. Therefore, I wanted to include the duration for each utterance as a weight for the corresponding speech rate measure. Does this sound sensible?
+
+As far as I can see, it seems that this is at least conceptually what the weights argument does in lm (the lmer documentation states 'weights' gets implemented exactly as in lm).
+
+The vector supplied as the weights argument is used to calculate weighted least squares (minimizing sum(w*e^2)). The weights are included to smooth out differences in the variance of the different observations ('with the values in weights being inversely proportional to the variances', taken from the lm documentation). If I understand this correctly, in the current data set, the short duration observations would have higher variance than the long duration observations. Including duration as a weight, then, would lead to the former observations exerting less influence on the final fit. Is this correct?
+
+Thanks for the additional information Tom.  I see your justification for using the weights argument as you're using it, but I'm not sure that lmer and pvals.fnc jointly are handling the weights in a totally consistent way.  Note that as you crank the weights up, the t statistic gets larger and larger (which would be what you expect on the reading that a weight of k should simulate k replicates of that datum), but the pMCMC "significance level" goes in the opposite direction.
+
+I will follow up on r-sig-me.
+
+Well, we don't seem to have gotten any enlightenment from r-sig-me.  I guess I would suggest being wary of using weights indiscriminately in lmer until the understanding of exactly what it's doing becomes more clear.  Nathaniel's suggestion of simulating from your data to determine which (if any) of the pMCMC, Wald, and t statistics give normative p-values is definitely worth following, too.
+
+Best & hope this helps.
+
+Roger
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy-XkckGZ689+c at public.gmane.org>
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+
+From rlevy-XkckGZ689+c at public.gmane.org  Sat Mar 31 00:38:23 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Sat, 31 Mar 2012 00:38:23 +0000
+Subject: Re: Simpler model with random slopes
+In-Reply-To: <CACtaF7yb0QfyBFVyg6n5=B6b2KLO+2RR+ZKvA2brQoPZteeGbA@mail.gmail.com>
+References: <CACtaF7yKPg8RQmuXtNU98UnPHdt2saZuvSAsbFeBgqr1wzsAPA@mail.gmail.com> <CAPJVwBmvFfMLQcy-X9twrXz8pxQdUSzk5AfSN-kfvVAh_HbT6w@mail.gmail.com> <CACtaF7yiO843W3tPsYuW8YTVYKWUHqVoSjCDEZ77ieLWwcFa5Q@mail.gmail.com> <CAG2Vd7icFHMOZCjcLjhSp54C3LwvFTUD_QZjmbvDLxtXi_GE6A@mail.gmail.com> <CACtaF7yb0QfyBFVyg6n5=B6b2KLO+2RR+ZKvA2brQoPZteeGbA@mail.gmail.com>
+Message-ID: <2453C090-80ED-4924-AD8B-9533DE46CE55@ucsd.edu>
+
+Hi Sverre,
+
+This is a belated follow-up to your follow-up questions.
+
+On Mar 20, 2012, at 3:49 AM PDT, Sverre Stausland wrote:
+
+> Thanks for pointing that out, Florian. I noticed just that when I
+> built my models with and without the covariance, and it makes sense
+> from Nathaniel's exemplary explanation.
+> 
+> I do have a follow-up question that I'm taking the liberty to ask in
+> this thread:
+> 
+> As an example, say my model includes random slopes for items with
+> respect to a variable Indep2, as in (a)
+> 
+> (a) glmer(formula = Dep ~ 1 + (1 | Subject) + (0 + Indep2 | Item) +
+> Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+> 
+> To assess the contribution of variable Indep2 through model
+> comparison,
+
+Critical question: by "assess the contribution" do you mean assess whether there is a reliable fixed effect of Indep2 (i.e. whether Indep2 has a reliable effect in one direction or another that generalizes across subjects)?  Or assessing whether including Indep2 at all in your model helps its ability to predict Dep, even if Indep2 may matter only in a subset of subjects?
+
+> should I then remove the main effect Indep2 as well as the
+> random slopes for items, as in (b) below?
+> 
+> (b) glmer(formula = Dep ~ 1 + (1 | Subject) + Indep1, data = my.data,
+> family = binomial(link = "logit"))
+> 
+> It seems slightly odd to me to allow the model to include random
+> variation among items with respect to a variable Indep2 if the model
+> doesn't assume that Indep2 plays a role as a main effect as well,
+> similar to how higher-order interactions between variables require
+> that those variables are also included as main effects in the model.
+> Is my understanding correct here?
+> 
+> In case the answer is yes, let me ask a follow-up to that [ignore this
+> if the answer is no]:
+> 
+> The model I have has random slopes (0 + Indep2 | Item) as the only
+> random effect (others proved unnecessary):
+> 
+> (c) glmer(formula = Dep ~ 1 + (0 + Indep2 | Item) + Indep1 + Indep2,
+> data = my.data, family = binomial(link = "logit"))
+> 
+> If my subset model without Indep2 needs to take out the random slopes
+> as well, I need to introduce a dummy random effect, since lmer won't
+> construct a model without any random effects. The question is, does it
+> matter what kind of dummy random effect this is? Could it be random
+> intercepts (d) just as well as random slopes (e), or would something
+> else be more appropriate?
+> 
+> dummy <- rep(1, nrow(my.data))
+> (d) glmer(formula = Dep ~ 1 + (1 | dummy) + Indep1, data = my.data,
+> family = binomial(link = "logit"))
+> (e) glmer(formula = Dep ~ 1 + (0 + dummy | Item) + Indep1, data =
+> my.data, family = binomial(link = "logit"))
+> 
+> Thanks
+> Sverre
+> 
+> On Tue, Mar 20, 2012 at 2:19 AM, T. Florian Jaeger
+> <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org> wrote:
+>> just to add to Nathaniel's beautifully clear explanation: going from (a) to
+>> (b) is really the opposite of "reducing" the model. going from (b) to (a)
+>> would remove one parameter (the covariance parameter)
+>> 
+>> flo
+>> 
+>> 
+>> On Mon, Mar 19, 2012 at 2:45 PM, Sverre Stausland <johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org>
+>> wrote:
+>>> 
+>>> Thanks for the explanation. I think I got it!
+>>> 
+>>> On Mon, Mar 19, 2012 at 5:54 PM, Nathaniel Smith <njs-e+AXbWqSrlAAvxtiuMwx3w at public.gmane.org> wrote:
+>>>> On Mon, Mar 19, 2012 at 4:37 PM, Sverre Stausland
+>>>> <johnsen-fWAZDB8bsKe+fmr0zi+kZQ at public.gmane.org> wrote:
+>>>>> Hi all,
+>>>>> 
+>>>>> this question is ultimately based on Florian's lecture1 slides here:
+>>>>> http://hlplab.wordpress.com/2010/05/10/mini-womm/
+>>>>> 
+>>>>> I'm doing a mixed model logistic regression, with random intercepts
+>>>>> for items and random slopes for items with respect to the fixed effect
+>>>>> Indep2 (cf. slide 85):
+>>>>> 
+>>>>> (a) glmer(formula = Dep ~ 1 + (1 | Item) + (0 + Indep2 | Item) +
+>>>>> Indep1 + Indep2, data = my.data, family = binomial(link = "logit"))
+>>>>> 
+>>>>> As per slide 88, I can also reduce the random effects to (1 + Indep2 |
+>>>>> Item):
+>>>>> 
+>>>>> (b) glmer(formula = Dep ~ 1 + (1 + Indep2 | Item) + Indep1 + Indep2,
+>>>>> data = my.data, family = binomial(link = "logit"))
+>>>>> 
+>>>>> It's not exactly clear to me what (1 + Indep2 | Item) does, since the
+>>>>> output of both (a) and (b) includes random intercepts for items and
+>>>>> random slopes for items by Indep2. At the same time, model (a) and (b)
+>>>>> differ in their exact estimates.
+>>>>> 
+>>>>> I would appreciate if someone could explain what the difference
+>>>>> between model (a) and (b) is.
+>>>> 
+>>>> (1 | Item) means that items are assumed to have different intercepts
+>>>> -- like if "Dep" were some kind of error rate, then this would be
+>>>> saying that some items are intrinsically more prone to errors
+>>>> ("harder") and some are less prone to errors ("easier").
+>>>> 
+>>>> (Indep2 | Item) means that some items are more or less strongly
+>>>> affected by manipulations in Indep2.
+>>>> 
+>>>> (1 | Item) + (Indep2 | Item) means that both of these things are
+>>>> assumed to be true. However, it is assumed that these two kinds of
+>>>> variation are *independent*. I.e., some hard items are strongly or
+>>>> weakly affected by Indep2, and some easy items are strongly or weakly
+>>>> affected by Indep2, but on average Indep2 effects hard items and easy
+>>>> items equally.
+>>>> 
+>>>> (1 + Indep2 | Item) means that both of these things are assumed to be
+>>>> true, and also removes this independence assumption. It means that
+>>>> there might be some correlation where e.g. items which are hard also
+>>>> tend to be strongly affected by Indep2 while easy items tend to be
+>>>> weakly affected.
+>>>> 
+>>>> When you fit the model, you'll see the difference if you look at the
+>>>> random effects correlation matrix. The (1 | Item) + (Indep2 | Item)
+>>>> model will have two numbers, which are estimates of the per-item
+>>>> variance in the intercept and in the Indep2 effect. The (1 + Indep2 |
+>>>> Item) will have an extra number, which is the estimate of the
+>>>> covariance between the intercept and the Indep2 effect. The (1 | Item)
+>>>> + (Indep2 | Item) model is equivalent to forcing this third number to
+>>>> be zero.
+>>>> 
+>>>> -- Nathaniel
+>> 
+>> 
+
+--
+
+Roger Levy                      Email: rlevy-XkckGZ689+c at public.gmane.org
+Assistant Professor             Phone: 858-534-7219
+Department of Linguistics       Fax:   858-534-4789
+UC San Diego                    Web:   http://idiom.ucsd.edu/~rlevy
+

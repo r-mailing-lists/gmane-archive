@@ -1,0 +1,3221 @@
+From daniel.mirman-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Nov 21 14:20:18 2012
+From: daniel.mirman-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Dan Mirman)
+Date: Wed, 21 Nov 2012 09:20:18 -0500
+Subject: lmer multiple comparisons for interaction between continuous and categorical predictor
+Message-ID: <CAGfVdypvSG_QTP7hksq-wMFDh5DLEL4yrLr6syw4Qvhm9wGnYQ@mail.gmail.com>
+
+Dear list,
+A few weeks ago there was a discussion on this list about how to use
+multcomp to do comparisons between different levels for an interaction. In
+that case it was an interaction between two categorical factors, but it got
+me thinking about how to do this for an interaction between a continuous
+and a categorical predictor. I've been puzzling over it for a while and
+haven't been able to figure it out, so I'm coming back to the list in the
+hope that you can help me out.
+
+As an example, I've been using the ChickWeight data set in R. I fit the
+model like this:
+
+m <- lmer(weight ~ Time * Diet + (1 | Chick), data=ChickWeight, REML=F)
+
+
+Where Time is continuous and Diet is categorical (with 4 levels). The
+chicks started out at (approximately) the same weight, but (for this
+example) I want to know compare individual diets to test if differently
+affect growth rate. The following works for getting the pairwise
+comparisons for the intercept effect of diet:
+
+summary(glht(m, linfct=mcp(Diet = "Tukey")))
+
+
+but I can't figure out the analogous thing for the Time:Diet interaction. I
+tried putting the interaction into mcp, but that produced an error:
+
+summary(glht(m, linfct=mcp('Time:Diet' = "Tukey")))Error in
+summary(glht(m, linfct = mcp(`Time:Diet` = "Tukey"))) :
+  error in evaluating the argument 'object' in selecting a method for function
+ 'summary': Error in mcp2matrix(model, linfct = linfct) : Variable(s)
+‘Time:Diet’ have been specified in ‘linfct’ but cannot be found in
+‘model’!
+
+
+Thanks in advance,
+Dan
+
+-- 
+-----------------------------------------------------
+Dan Mirman
+Institute Scientist
+Moss Rehabilitation Research Institute
+Elkins Park, PA 19027
+http://www.danmirman.org
+-----------------------------------------------------
+
+From scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Nov 21 21:21:02 2012
+From: scottuba-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Scott Jackson)
+Date: Wed, 21 Nov 2012 16:21:02 -0500
+Subject: Re: lmer multiple comparisons for interaction between continuous and categorical predictor
+In-Reply-To: <CAGfVdypvSG_QTP7hksq-wMFDh5DLEL4yrLr6syw4Qvhm9wGnYQ@mail.gmail.com>
+References: <CAGfVdypvSG_QTP7hksq-wMFDh5DLEL4yrLr6syw4Qvhm9wGnYQ@mail.gmail.com>
+Message-ID: <CA+tkQ_OLyqK_mk23o9WWTGjXEOchq7h3s2KTAn=jev4XMS616w@mail.gmail.com>
+
+Hi Dan,
+
+I feel a little responsible for unleashing multcomp on the group, so
+I'll try to field this one.
+
+First, let me make sure I understand what comparisons you're
+interested in.  So for Diet1, there's an effect of Time, and you want
+to know whether the effect of Time is greater for Diet2, Diet3, or
+Diet4 (compared to Diet1). And then furthermore, whether the effect of
+Time for Diet2 is greater than for Diet3, and all the pairwise
+comparisons between the effects of Time for different Diets.  So at
+the end of the day, you can say something like "Diet 3 showed the
+biggest effect of growth over time, significantly different from all
+the other Diets.  Diet 2 and 4 were both better than Diet 1, but Diet
+4 was not significantly more effective than Diet 2."  Right?
+
+Second, you probably know this already, but just to be clear: if you
+keep the default "treatment" contrast coding of Diet when you fit your
+model m, you already get all the pairwise comparisons between Diet1
+and the others.
+
+Here's the fixed effect table I get when I run your code:
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  31.5081     5.9108   5.331
+Time          6.7130     0.2573  26.089
+Diet2        -2.8745    10.1910  -0.282
+Diet3       -13.2577    10.1910  -1.301
+Diet4        -0.3983    10.1998  -0.039
+Time:Diet2    1.8961     0.4267   4.443
+Time:Diet3    4.7099     0.4267  11.037
+Time:Diet4    2.9495     0.4323   6.824
+
+So this basically this linear model says that for Diet1, for every
+unit of Time that changes, you get a change of 6.713 in weight.  The
+Time:Diet2 effect says that this is 1.896 greater for Diet2, meaning
+that in Diet2, every unit of Time results in a change of (6.713 +
+1.896 =) 8.609 in weight.  The model you've already fitted gives you a
+std error and a t-value, and a t of 4.44 is quite a bit larger than
+needed to reach p <.05.
+
+The point is that you can do the math for getting the comparison
+estimates quite easily, without need for the multcomp package.  And if
+you think about it a little more, it's just as easy to get the other
+comparisons, like Diet2 vs Diet4.
+
+Here's how, if it's not immediately obvious.  The effect of Time:Diet2
+is essentially how much bigger the estimate of Time is for Diet2
+compared to how big it is for Diet1.  In other words: (Time | Diet2) -
+(Time | Diet1).  Similarly, the effect of Time:Diet4 in your initial
+model is (Time | Diet4) - (Time | Diet1).  So if you subtract those
+two estimates from each other, the (Time | Diet1)'s cancel out.  In
+other words:
+
+Time:Diet2 = (Time | Diet2) - (Time | Diet1)   ## just definitional
+Time:Diet4 = (Time | Diet4) - (Time | Diet1)   ## definitional
+(Time | Diet2) - (Time | Diet4) = [(Time | Diet2) - (Time | Diet1)] -
+[(Time | Diet4) - (Time | Diet1)]   ## this is just pointing out that
+x - y = (x - z) - (y - z)
+(Time | Diet4) - (Time | Diet2) = Time:Diet4 - Time:Diet2     ##
+substitution on the right side of the previous equation, using the
+definitions above
+
+It's one of those things that seems so obvious once you get it, but
+always takes people (myself included) a long time to get initially.
+The upshot is that if you want to know how much bigger the effect of
+Time is for Diet4 compared to the effect of Time for Diet2, you can
+get it just by subtracting the Time:Diet2 interaction estimate from
+your initial model from the Time:Diet4 estimate: 2.95 - 1.90 = 1.05.
+
+In order to get the standard error (and t) for each of these
+comparisons, you have a couple of options.  One is to do it "manually"
+by re-leveling the factor, re-fitting the model, and looking at the
+output.  So if you re-level Diet so that Diet2 is the "base" level,
+then you get estimates for Time:Diet1, Time:Diet3, and Time:Diet4, and
+the Time:Diet4 estimate will be the 1.05 result we got by just doing
+subtraction above (but with std err and t value).
+
+But this is kind of a pain in the rear, and since otherwise the model
+is no different, it would be nicer to be able to extract these things
+without this re-leveling hassle.  That's one thing the multcomp
+package is good for, since you can get as many comparisons as you
+want, all from your one model fit.  If you try both methods, you'll
+notice that the std errors and t-values are identical, whether you're
+using multcomp or doing the re-leveling trick.
+
+The second thing multcomp does is "correct" p-values. I'll be honest
+and say I haven't taken the time to understand exactly how this works,
+but at first blush it seems like a reasonable sort of correction
+(i.e., less conservative than a Bonferroni correction).  But in the
+case of continuous effects using lmer, I *really* don't know where
+it's getting its p-values, since most people these days are hesitant
+to get p-values from Gaussian lmer, unless they can use Baayen's MCMC
+method (the 'pvals.fnc' function).  So it's probably getting pretty
+anti-conservative p-values to start, and then correcting those to some
+degree.  As always, dig into the code itself (and/or read their paper
+where they explain the method) if this is a feature you really want to
+understand better -- I haven't yet myself.
+
+But the point is that because their method corrects p-values, and
+doesn't modify std errors, you can kind of pick and choose. So if you
+just want a convenient way to get a bunch of comparison estimates and
+std errors, and use some other method for establishing significance,
+you can.
+
+Sorry if all this is obvious or overly pedantic, I just felt compelled
+to be as clear as possible.
+
+When you go to actually run the code, the above discussion about
+subtracting interaction estimates to get what you want is relevant.
+Here's code you can use to specify the contrast matrix directly,
+instead of messing around with the Tukey method stuff.
+
+contrast.matrix <- rbind(  "Time:Diet1 vs. Time:Diet2" =  c(0, 0, 0,
+0, 0, 1, 0, 0),
+                           "Time:Diet1 vs. Time:Diet3" =  c(0, 0, 0,
+0, 0, 0, 1, 0),
+                           "Time:Diet1 vs. Time:Diet4" =  c(0, 0, 0,
+0, 0, 0, 0, 1),
+                           "Time:Diet2 vs. Time:Diet3" =  c(0, 0, 0,
+0, 0, -1, 1, 0),
+                           "Time:Diet2 vs. Time:Diet4" =  c(0, 0, 0,
+0, 0, -1, 0, 1),
+                           "Time:Diet3 vs. Time:Diet4" =  c(0, 0, 0,
+0, 0, 0, -1, 1))
+
+then:
+
+summary(glht(m, contrast.matrix))
+
+Gets you what I think you're looking for.  Here's how the contrast
+matrix works:  each row vector in the matrix represents weights for
+the effects you get in the default model output, starting with the
+intercept.  So if you want an effect that's already included in the
+basic print(m) output, you just put a "1" in the position
+corresponding to that effect.  The trickier bit is getting more
+complex things, but the logic from above makes this straightforward,
+too.  If you want to compare the effect of Time for Diet2 vs. the
+effect of Time for Diet4, that's equivalent to just subtracting the
+two interactions, so you code one of those "1" and the other "-1".  If
+this feels weird, you can always just play around with it and use the
+re-leveling kludge to double-check if you're unsure.
+
+In the end, I just want to emphasize that you can use the glht
+function this way as a convenience function to get a bunch of
+estimates (and std errors) you could otherwise get by changing which
+level of the factor is the "base" level and re-fitting the model (or
+by using subtraction is you just wanted the estimate). But glht ALSO
+applies a new method for correcting p-values for multiple comparisons.
+If you don't want that part, you can just ignore the p-values in the
+output.
+
+Hope this helps!
+
+-scott
+
+On Wed, Nov 21, 2012 at 9:20 AM, Dan Mirman <daniel.mirman-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> Dear list,
+> A few weeks ago there was a discussion on this list about how to use
+> multcomp to do comparisons between different levels for an interaction. In
+> that case it was an interaction between two categorical factors, but it got
+> me thinking about how to do this for an interaction between a continuous and
+> a categorical predictor. I've been puzzling over it for a while and haven't
+> been able to figure it out, so I'm coming back to the list in the hope that
+> you can help me out.
+>
+> As an example, I've been using the ChickWeight data set in R. I fit the
+> model like this:
+>
+> m <- lmer(weight ~ Time * Diet + (1 | Chick), data=ChickWeight, REML=F)
+>
+>
+> Where Time is continuous and Diet is categorical (with 4 levels). The chicks
+> started out at (approximately) the same weight, but (for this example) I
+> want to know compare individual diets to test if differently affect growth
+> rate. The following works for getting the pairwise comparisons for the
+> intercept effect of diet:
+>
+> summary(glht(m, linfct=mcp(Diet = "Tukey")))
+>
+>
+> but I can't figure out the analogous thing for the Time:Diet interaction. I
+> tried putting the interaction into mcp, but that produced an error:
+>
+> summary(glht(m, linfct=mcp('Time:Diet' = "Tukey")))
+> Error in summary(glht(m, linfct = mcp(`Time:Diet` = "Tukey"))) :
+>   error in evaluating the argument 'object' in selecting a method for
+> function
+>  'summary': Error in mcp2matrix(model, linfct = linfct) :
+> Variable(s) ‘Time:Diet’ have been specified in ‘linfct’ but cannot be found
+> in ‘model’!
+>
+>
+> Thanks in advance,
+> Dan
+>
+> --
+> -----------------------------------------------------
+> Dan Mirman
+> Institute Scientist
+> Moss Rehabilitation Research Institute
+> Elkins Park, PA 19027
+> http://www.danmirman.org
+> -----------------------------------------------------
+
+From lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Thu Nov 29 04:58:58 2012
+From: lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Laura Suttle)
+Date: Wed, 28 Nov 2012 23:58:58 -0500
+Subject: False convergence in mixed logit model
+Message-ID: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com>
+
+Hello all,
+
+I hope this question hasn't been asked before, but the internet isn't being
+of much help to me.
+
+I am trying to run a mixed logit regression predicting whether participants
+use a novel verb in a particular construction or not depending on how they
+were exposed to that novel verb. I dummy coded the three conditions of the
+experiment into two dummy variables and have added two random effects, one
+for the motion used for the verb, the other for the verb itself (since
+these were all counterbalanced).
+
+I can get this model to run fine, the problem is when I try to add any kind
+of random effect for the subjects themselves. I then get this error message:
+
+Warning message:
+In mer_finalize(ans) : false convergence (8)
+
+And all of the effects I had of the exposure type go away.
+
+I've been trying to look up what this means and how to deal with it, but
+there are no clear solutions or explanations that I can find, but plenty of
+warning of how I should be skeptical of any output from a model with this
+warning. One suggestion I did find was that the subjects variable may be
+overfitting my data and there might be something to this: when participants
+are exposed to the verb in a certain way, they tend to only use the
+construction I'm looking for, with no variance in their responses. That
+said, I'm not sure that's right and I'd love a second opinion on either how
+I can fix this or whether I can use this as justification to not include
+the subjects random effect.
+
+Thanks in advance for any help you can give,
+Laura Suttle
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu Nov 29 06:34:33 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 29 Nov 2012 06:34:33 +0000
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com>
+Message-ID: <E4DB7409-6637-40B7-80F4-68DEA4DB1D58@ucsd.edu>
+
+Hi Laura,
+
+This is a question that might be better answered on R-sig-ME, but briefly: I would be cautious with a model that reports false convergence; in my experience with this warning (and I am by no means expert on it), it can indicate that the optimization routine that determines the best-fit model parameters got stuck at a parameter estimate that is not near a true optimum, perhaps due to numerical issues.  You might try standardizing any continuous predictor variables you and rerunning the lmer() call.  It would be helpful to set the msVerbose control parameter to TRUE to see what the optimizer is doing.  Also, upping the maxIter and/or maxFN control parameters *might* be helpful.
+
+I do not think that this warning message alone would be justification to omit a random effect.
+
+Best & hope that this helps,
+
+Roger
+
+On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+
+Hello all,
+
+I hope this question hasn't been asked before, but the internet isn't being of much help to me.
+
+I am trying to run a mixed logit regression predicting whether participants use a novel verb in a particular construction or not depending on how they were exposed to that novel verb. I dummy coded the three conditions of the experiment into two dummy variables and have added two random effects, one for the motion used for the verb, the other for the verb itself (since these were all counterbalanced).
+
+I can get this model to run fine, the problem is when I try to add any kind of random effect for the subjects themselves. I then get this error message:
+
+Warning message:
+In mer_finalize(ans) : false convergence (8)
+
+And all of the effects I had of the exposure type go away.
+
+I've been trying to look up what this means and how to deal with it, but there are no clear solutions or explanations that I can find, but plenty of warning of how I should be skeptical of any output from a model with this warning. One suggestion I did find was that the subjects variable may be overfitting my data and there might be something to this: when participants are exposed to the verb in a certain way, they tend to only use the construction I'm looking for, with no variance in their responses. That said, I'm not sure that's right and I'd love a second opinion on either how I can fix this or whether I can use this as justification to not include the subjects random effect.
+
+Thanks in advance for any help you can give,
+Laura Suttle
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu Nov 29 07:31:22 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 29 Nov 2012 07:31:22 +0000
+Subject: Re: dealing with failure to converge in an lmer
+In-Reply-To: <BE421D816877B244A7C5D480BA305406EBC08EB8D2@MAILER.mpi.nl>
+References: <BE421D816877B244A7C5D480BA305406EBC08EB8D2@MAILER.mpi.nl>
+Message-ID: <2F6AC4BF-E890-4F8B-8ED8-83FDAC615B12@ucsd.edu>
+
+Hi Holger,
+
+This is a very belated response to your query, but I have been thinking about this very good question off and on since you posted it.  Given that your proximate goal here is trying to demonstrate the *absence* of an effect, the relevant question is the degree of statistical power of the test, namely whether there are parameter settings under which a random-intercepts model is ever less powerful than a random-slopes model (note that this is different than the question of whether either model is anti-conservative).  I can think of one rather diabolical set of circumstances under which the random-intercepts model is indeed less powerful than the random-slopes model.  This can happen when you are doing an omnibus test for the effect of a factor with more than two levels.  Suppose that the with
+ in-subjects factor x has levels a, b, c, with the following by-subjects random slope variances and fixed effects (I use dummy coding here)
+
+   variance  fixed effect
+a   small       beta1
+b   small       beta2
+c   large       beta2
+
+where beta2 != beta1.  Here, the random-slope model can in principle be more powerful than the random-intercept model, because the random-slope model can pick up the heteroscedasticity of the by-subject variances and thus discriminate the overall difference between a and b.  (The difference between a and c will be hard to discriminate from chance derived from the large by-subject variance in c.)  The random-intercept model can't do this because it has to attribute the same across-subjects variance to all conditions (along, of course, with correlation 1 among conditions), which can wipe out its ability to detect the difference between a and b.
+
+The following code illustrates an example of this type of anticonservativity:
+
+library(lme4)
+library(mvtnorm)
+M <- 24
+dat <- expand.grid(subj=factor(paste("S",1:M)),x=factor(c("a","b","c")),measurement=1:2)
+
+Sigma <- diag(3)
+Sigma[3,3] <- 100
+f <- function(seed) {
+    set.seed(seed)
+    b <- rmvnorm(M,c(0,0,0),Sigma)
+    y <- with(dat,ifelse(x=="a",1,0)+b[cbind(as.numeric(subj),as.numeric(x))]+rnorm(nrow(dat)))
+    m <- lmer(y~x+(1|subj),dat)
+    m0 <- lmer(y~1+(1|subj),dat)
+    p.ri <- anova(m0,m)[["Pr(>Chisq)"]][2]
+    M <- lmer(y~x+(x|subj),dat)
+    M0 <- lmer(y~1+(x|subj),dat)
+    p.rs <- anova(M0,M)[["Pr(>Chisq)"]][2]
+    return(c(ri=p.ri,rs=p.rs))
+}
+
+system.time(res <- sapply(1:100,f))
+apply(res,1,function(x) mean(x<0.05))
+
+The results I get are that the random-intercept model detects the effect of x 37% of the time, the random-slope model detects it 76% of the time.  (There's one singular-convergence warning but that doesn't affect the overall picture.)
+
+Now, all this being said, this is not a demonstration that these circumstances could hold in a situation where the random-slope model is also unlikely to converge.  Additionally, this is a rather extreme set of circumstances that one could probably identify visually in a factorially designed experiment (look for big differences in by-subject and/or by-item variability across condition).  Therefore, in practice it seems to me that your argument is probably fairly reasonable.
+
+Best
+
+Roger
+
+
+
+
+On Oct 22, 2012, at 2:24 AM PDT, Holger Mitterer wrote:
+
+> Dear list,
+> 
+> I am analyzing a data set with two multi-level factors (4 and 5 levels)
+> varying over subjects and (partly) over items. As the data set is not
+> completely balanced and the dependent variable is yes/no,
+> I am using an lmer with a logistic linking function.
+> 
+> I ran into the problem of nonconvergence for the maximal model
+> if I include the interaction in the random effects
+> (which is not that suprising, because the number of random slopes
+> to be estimated for a 4x5 desgin is quite large). 
+> 
+> So I tried the following to get at least a glimpse at the possibility
+> of a significant interaction: I ran two models (one with and one
+> without the interaction) and only random intercepts for subject and item:
+> 
+> model1 = lmer(response ~ factor1*factor2 + (1|subject) + (1|item), ...)
+> model2 = lmer(response ~ factor1+factor2 + (1|subject) + (1|item), ...)
+> anova(model1,model2)
+> 
+> The model comparison is far from significant. As this is an anti-conservative
+> test, I should be in a safe position to assume that there is no interaction and
+> go on to test the "main" effects of these factors. 
+> 
+> Would the users of the list agree?
+> 
+> Kind regards,
+> Holger
+> 
+> 
+> 
+> 
+> 
+> 
+> - - - - - - - - - - - - - - - - - - - - - - - - 
+> Holger Mitterer, Ph.D.
+> Max-Planck-Institut für Psycholinguistik
+> Postbus 310
+> 6500 AH Nijmegen
+> The Netherlands
+> Phone: (+31) (0)24 - 3521375
+> Fax: (+31) (0)24 - 3521213
+> - - - - - - - - - - - - - - - - - - - - - - - -
+> 
+> 
+>
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu Nov 29 07:35:04 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 29 Nov 2012 07:35:04 +0000
+Subject: Re: dealing with failure to converge in an lmer
+In-Reply-To: <2F6AC4BF-E890-4F8B-8ED8-83FDAC615B12-XkckGZ689+c@public.gmane.org>
+References: <BE421D816877B244A7C5D480BA305406EBC08EB8D2@MAILER.mpi.nl> <2F6AC4BF-E890-4F8B-8ED8-83FDAC615B12@ucsd.edu>
+Message-ID: <7FCA1548-193E-4ADF-B0FB-B95BA53053C8@ucsd.edu>
+
+
+On Nov 28, 2012, at 11:31 PM PST, Levy, Roger wrote:
+
+> Hi Holger,
+> 
+> This is a very belated response to your query, but I have been thinking about this very good question off and on since you posted it.  Given that your proximate goal here is trying to demonstrate the *absence* of an effect, the relevant question is the degree of statistical power of the test, namely whether there are parameter settings under which a random-intercepts model is ever less powerful than a random-slopes model (note that this is different than the question of whether either model is anti-conservative).  I can think of one rather diabolical set of circumstances under which the random-intercepts model is indeed less powerful than the random-slopes model.  This can happen when you are doing an omnibus test for the effect of a factor with more than two levels.  Suppose that the wi
+ thin-subjects factor x has levels a, b, c, with the following by-subjects random slope variances and fixed effects (I use dummy coding here)
+> 
+>   variance  fixed effect
+> a   small       beta1
+> b   small       beta2
+> c   large       beta2
+> 
+> where beta2 != beta1.  Here, the random-slope model can in principle be more powerful than the random-intercept model, because the random-slope model can pick up the heteroscedasticity of the by-subject variances and thus discriminate the overall difference between a and b.  (The difference between a and c will be hard to discriminate from chance derived from the large by-subject variance in c.)  The random-intercept model can't do this because it has to attribute the same across-subjects variance to all conditions (along, of course, with correlation 1 among conditions), which can wipe out its ability to detect the difference between a and b.
+> 
+> The following code illustrates an example of this type of anticonservativity:
+
+Clarification: I didn't mean to write "anti-conservativity" here -- rather, difference in power.
+
+> 
+> library(lme4)
+> library(mvtnorm)
+> M <- 24
+> dat <- expand.grid(subj=factor(paste("S",1:M)),x=factor(c("a","b","c")),measurement=1:2)
+> 
+> Sigma <- diag(3)
+> Sigma[3,3] <- 100
+> f <- function(seed) {
+>    set.seed(seed)
+>    b <- rmvnorm(M,c(0,0,0),Sigma)
+>    y <- with(dat,ifelse(x=="a",1,0)+b[cbind(as.numeric(subj),as.numeric(x))]+rnorm(nrow(dat)))
+>    m <- lmer(y~x+(1|subj),dat)
+>    m0 <- lmer(y~1+(1|subj),dat)
+>    p.ri <- anova(m0,m)[["Pr(>Chisq)"]][2]
+>    M <- lmer(y~x+(x|subj),dat)
+>    M0 <- lmer(y~1+(x|subj),dat)
+>    p.rs <- anova(M0,M)[["Pr(>Chisq)"]][2]
+>    return(c(ri=p.ri,rs=p.rs))
+> }
+> 
+> system.time(res <- sapply(1:100,f))
+> apply(res,1,function(x) mean(x<0.05))
+> 
+> The results I get are that the random-intercept model detects the effect of x 37% of the time, the random-slope model detects it 76% of the time.  (There's one singular-convergence warning but that doesn't affect the overall picture.)
+> 
+> Now, all this being said, this is not a demonstration that these circumstances could hold in a situation where the random-slope model is also unlikely to converge.  Additionally, this is a rather extreme set of circumstances that one could probably identify visually in a factorially designed experiment (look for big differences in by-subject and/or by-item variability across condition).  Therefore, in practice it seems to me that your argument is probably fairly reasonable.
+> 
+> Best
+> 
+> Roger
+> 
+> 
+> 
+> 
+> On Oct 22, 2012, at 2:24 AM PDT, Holger Mitterer wrote:
+> 
+>> Dear list,
+>> 
+>> I am analyzing a data set with two multi-level factors (4 and 5 levels)
+>> varying over subjects and (partly) over items. As the data set is not
+>> completely balanced and the dependent variable is yes/no,
+>> I am using an lmer with a logistic linking function.
+>> 
+>> I ran into the problem of nonconvergence for the maximal model
+>> if I include the interaction in the random effects
+>> (which is not that suprising, because the number of random slopes
+>> to be estimated for a 4x5 desgin is quite large). 
+>> 
+>> So I tried the following to get at least a glimpse at the possibility
+>> of a significant interaction: I ran two models (one with and one
+>> without the interaction) and only random intercepts for subject and item:
+>> 
+>> model1 = lmer(response ~ factor1*factor2 + (1|subject) + (1|item), ...)
+>> model2 = lmer(response ~ factor1+factor2 + (1|subject) + (1|item), ...)
+>> anova(model1,model2)
+>> 
+>> The model comparison is far from significant. As this is an anti-conservative
+>> test, I should be in a safe position to assume that there is no interaction and
+>> go on to test the "main" effects of these factors. 
+>> 
+>> Would the users of the list agree?
+>> 
+>> Kind regards,
+>> Holger
+>> 
+>> 
+>> 
+>> 
+>> 
+>> 
+>> - - - - - - - - - - - - - - - - - - - - - - - - 
+>> Holger Mitterer, Ph.D.
+>> Max-Planck-Institut für Psycholinguistik
+>> Postbus 310
+>> 6500 AH Nijmegen
+>> The Netherlands
+>> Phone: (+31) (0)24 - 3521375
+>> Fax: (+31) (0)24 - 3521213
+>> - - - - - - - - - - - - - - - - - - - - - - - -
+>> 
+>> 
+>> 
+>
+
+From lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Thu Nov 29 15:03:29 2012
+From: lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Laura Suttle)
+Date: Thu, 29 Nov 2012 10:03:29 -0500
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu>
+Message-ID: <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com>
+
+Hi Roger,
+
+Thanks for the other list suggestion, I'll cross post to there.
+
+Every variable in my data set is categorical, so I can't do that fix. I've
+tried playing around with the maxIter parameter before, but I'm not sure I
+was doing it right. Do you have any suggestions for where I can read more
+about how to interpret the verbose output? I found some things but they
+weren't very helpful.
+
+Thanks,
+Laura
+
+
+On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+
+>  Hi Laura,
+>
+>  This is a question that might be better answered on R-sig-ME, but
+> briefly: I would be cautious with a model that reports false convergence;
+> in my experience with this warning (and I am by no means expert on it), it
+> can indicate that the optimization routine that determines the best-fit
+> model parameters got stuck at a parameter estimate that is not near a true
+> optimum, perhaps due to numerical issues.  You might try standardizing any
+> continuous predictor variables you and rerunning the lmer() call.  It would
+> be helpful to set the msVerbose control parameter to TRUE to see what the
+> optimizer is doing.  Also, upping the maxIter and/or maxFN control
+> parameters *might* be helpful.
+>
+>  I do not think that this warning message alone would be justification to
+> omit a random effect.
+>
+>  Best & hope that this helps,
+>
+>  Roger
+>
+>  On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+>
+> Hello all,
+>
+>  I hope this question hasn't been asked before, but the internet isn't
+> being of much help to me.
+>
+>  I am trying to run a mixed logit regression predicting whether
+> participants use a novel verb in a particular construction or not depending
+> on how they were exposed to that novel verb. I dummy coded the three
+> conditions of the experiment into two dummy variables and have added two
+> random effects, one for the motion used for the verb, the other for the
+> verb itself (since these were all counterbalanced).
+>
+>  I can get this model to run fine, the problem is when I try to add any
+> kind of random effect for the subjects themselves. I then get this error
+> message:
+>
+>  Warning message:
+> In mer_finalize(ans) : false convergence (8)
+>
+>  And all of the effects I had of the exposure type go away.
+>
+>  I've been trying to look up what this means and how to deal with it, but
+> there are no clear solutions or explanations that I can find, but plenty of
+> warning of how I should be skeptical of any output from a model with this
+> warning. One suggestion I did find was that the subjects variable may be
+> overfitting my data and there might be something to this: when participants
+> are exposed to the verb in a certain way, they tend to only use the
+> construction I'm looking for, with no variance in their responses. That
+> said, I'm not sure that's right and I'd love a second opinion on either how
+> I can fix this or whether I can use this as justification to not include
+> the subjects random effect.
+>
+>  Thanks in advance for any help you can give,
+> Laura Suttle
+>
+>
+>
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu Nov 29 16:08:38 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 29 Nov 2012 16:08:38 +0000
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com>
+Message-ID: <C738F755-AD4F-4EEF-89A7-ECDB6B064741@ucsd.edu>
+
+Yes -- the first column of the verbose output is the step number and the second column is the deviance.  If the deviance was still going down and the model stopped, you probably need more iterations.
+
+It could be useful to change the starting value of the model parameters with the "start" argument of lmer and see if you wind up converging to the same parameter estimates regardless of starting value.
+
+More information about the dataset, and example code output, is, of course, always helpful.
+
+Best
+
+Roger
+
+
+On Nov 29, 2012, at 7:03 AM PST, Laura Suttle wrote:
+
+Hi Roger,
+
+Thanks for the other list suggestion, I'll cross post to there.
+
+Every variable in my data set is categorical, so I can't do that fix. I've tried playing around with the maxIter parameter before, but I'm not sure I was doing it right. Do you have any suggestions for where I can read more about how to interpret the verbose output? I found some things but they weren't very helpful.
+
+Thanks,
+Laura
+
+
+On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy at ucsd.edu>> wrote:
+Hi Laura,
+
+This is a question that might be better answered on R-sig-ME, but briefly: I would be cautious with a model that reports false convergence; in my experience with this warning (and I am by no means expert on it), it can indicate that the optimization routine that determines the best-fit model parameters got stuck at a parameter estimate that is not near a true optimum, perhaps due to numerical issues.  You might try standardizing any continuous predictor variables you and rerunning the lmer() call.  It would be helpful to set the msVerbose control parameter to TRUE to see what the optimizer is doing.  Also, upping the maxIter and/or maxFN control parameters *might* be helpful.
+
+I do not think that this warning message alone would be justification to omit a random effect.
+
+Best & hope that this helps,
+
+Roger
+
+On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+
+Hello all,
+
+I hope this question hasn't been asked before, but the internet isn't being of much help to me.
+
+I am trying to run a mixed logit regression predicting whether participants use a novel verb in a particular construction or not depending on how they were exposed to that novel verb. I dummy coded the three conditions of the experiment into two dummy variables and have added two random effects, one for the motion used for the verb, the other for the verb itself (since these were all counterbalanced).
+
+I can get this model to run fine, the problem is when I try to add any kind of random effect for the subjects themselves. I then get this error message:
+
+Warning message:
+In mer_finalize(ans) : false convergence (8)
+
+And all of the effects I had of the exposure type go away.
+
+I've been trying to look up what this means and how to deal with it, but there are no clear solutions or explanations that I can find, but plenty of warning of how I should be skeptical of any output from a model with this warning. One suggestion I did find was that the subjects variable may be overfitting my data and there might be something to this: when participants are exposed to the verb in a certain way, they tend to only use the construction I'm looking for, with no variance in their responses. That said, I'm not sure that's right and I'd love a second opinion on either how I can fix this or whether I can use this as justification to not include the subjects random effect.
+
+Thanks in advance for any help you can give,
+Laura Suttle
+
+From lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Thu Nov 29 17:46:02 2012
+From: lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Laura Suttle)
+Date: Thu, 29 Nov 2012 12:46:02 -0500
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <0f3b1aeca80c48e7ac56ec48f76fb655@CSGHUB208W.pu.win.princeton.edu>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com> <0f3b1aeca80c48e7ac56ec48f76fb655@CSGHUB208W.pu.win.princeton.edu>
+Message-ID: <CAPNJOOhT-p-P_drVv1g6YnUvmaSBpoD+_qx5wUDyD9GxbeNQdw@mail.gmail.com>
+
+Hello again,
+
+The deviance was not going down anymore when the model ended (and had been
+stable for around 10 steps). Changing the start value doesn't do anything
+as well.
+
+Another potential issue: are subject random effects relevant when you are
+only looking at between subjects fixed effects? I'm wondering if that's
+part of the issue.
+
+Here's the code with output for the simplest model I have with subjects
+random effect (adding them in in any form causes this issue). ditrans is a
+binary DV that categorizes speaker usages of a novel verb into double
+object datives (1) or other sentence types (0). Condition is a categorical
+variable that has three levels with a control condition as the baseline
+(I've dummy coded these and there are no differences between running it
+this way and with the dummy code, so I'm providing this one for the same of
+simplicity).
+
+
+> ditmodel3 <-lmer(ditrans~condition +
+(1|subj),data=adultdata,family="binomial",verbose=T)
+  0:     814.04384: 0.391997 -0.472359 -0.840468 0.222898
+  1:     474.30352:  1.39176 -0.489556 -0.853831 0.221628
+  2:     446.52182:  1.60483 -1.29691 -1.39869 0.144777
+  3:     386.13626:  2.59735 -1.19061 -1.38968 0.204059
+  4:     383.11685:  2.69684 -1.19357 -1.39816 0.208801
+  5:     377.92258:  2.89551 -1.20228 -1.41725 0.218187
+  6:     376.11423:  2.97465 -1.20814 -1.42671 0.221868
+  7:     372.88540:  3.13258 -1.22176 -1.44712 0.229201
+  8:     371.72249:  3.19542 -1.22881 -1.45656 0.232118
+  9:     369.58988:  3.32079 -1.24417 -1.47647 0.237957
+ 10:     369.58183:  3.32129 -1.24424 -1.47656 0.237981
+ 11:     369.56574:  3.32229 -1.24439 -1.47674 0.238028
+ 12:     369.55931:  3.32269 -1.24444 -1.47681 0.238046
+ 13:     369.54645:  3.32349 -1.24456 -1.47695 0.238084
+ 14:     369.54594:  3.32352 -1.24456 -1.47696 0.238085
+ 15:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+ 16:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+ 17:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 18:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 19:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 20:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 21:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 22:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 23:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 24:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 25:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 26:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 27:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 28:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 29:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 30:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 31:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 32:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 33:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 34:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 35:     369.54175:  3.32378 -1.24460 -1.47699 0.238081
+ 36:     369.54062:  3.32390 -1.24460 -1.47681 0.237810
+ 37:     369.52871:  3.32514 -1.24460 -1.47496 0.234970
+ 38:     369.41249:  3.33754 -1.24460 -1.45648 0.206662
+ 39:     368.48882:  3.45721 -1.24460 -1.27810 -0.0665675
+ 40:     367.50882:  3.71632 -1.24460 -0.891867 -0.658143
+ 41:     367.42619:  3.80235 -1.24460 -0.763626 -0.854531
+ 42:     367.42069:  3.82935 -1.24460 -0.723378 -0.916133
+ 43:     367.42061:  3.83197 -1.24460 -0.719473 -0.922078
+ 44:     367.42056:  3.83302 -1.24460 -0.717885 -0.924450
+ 45:     367.42030:  3.83643 -1.24460 -0.712740 -0.931948
+ 46:     367.41976:  3.84096 -1.24460 -0.705833 -0.941589
+ 47:     367.41821:  3.84903 -1.24460 -0.693317 -0.957909
+ 48:     367.41433:  3.86190 -1.24460 -0.672862 -0.981743
+ 49:     367.40420:  3.88359 -1.24460 -0.637123 -1.01631
+ 50:     367.37911:  3.91871 -1.24460 -0.576118 -1.05854
+ 51:     367.31987:  3.97369 -1.24460 -0.473099 -1.09171
+ 52:     367.19878:  4.04676 -1.24460 -0.319173 -1.06129
+ 53:     367.00997:  4.11079 -1.24460 -0.148079 -0.875985
+ 54:     366.83505:  4.11105 -1.24460 -0.0694293 -0.533561
+ 55:     366.76596:  4.05082 -1.24460 -0.131236 -0.273508
+ 56:     366.75441:  4.00835 -1.24460 -0.205517 -0.224632
+ 57:     366.75330:  3.99692 -1.24460 -0.231735 -0.238739
+ 58:     366.75328:  3.99700 -1.24460 -0.232466 -0.242660
+ 59:     366.75327:  3.99706 -1.24460 -0.232631 -0.243916
+ 60:     366.75321:  3.99733 -1.24460 -0.233186 -0.248657
+ 61:     366.75310:  3.99766 -1.24460 -0.233948 -0.254660
+ 62:     366.75277:  3.99818 -1.24460 -0.235467 -0.265375
+ 63:     366.75194:  3.99913 -1.24460 -0.237734 -0.282069
+ 64:     366.74974:  4.00078 -1.24460 -0.241634 -0.309537
+ 65:     366.74401:  4.00376 -1.24460 -0.248277 -0.353787
+ 66:     366.72917:  4.00940 -1.24460 -0.260050 -0.425563
+ 67:     366.69014:  4.02037 -1.24460 -0.282150 -0.541757
+ 68:     366.58903:  4.04387 -1.24460 -0.323645 -0.729228
+ 69:     366.33054:  4.09566 -1.24460 -0.407098 -1.03058
+ 70:     365.69165:  4.21044 -1.24460 -0.582890 -1.50206
+ 71:     364.22961:  4.45811 -1.24460 -0.955294 -2.19620
+ 72:     363.88256:  4.50536 -1.24460 -1.03067 -2.28460
+ 73:     363.78744:  4.51528 -1.24460 -1.04951 -2.29787
+ 74:     363.76346:  4.51729 -1.24460 -1.05384 -2.29942
+ 75:     363.71559:  4.52093 -1.24460 -1.06284 -2.30192
+ 76:     363.50871:  4.53406 -1.24460 -1.10070 -2.30424
+ 77:     362.67929:  4.58017 -1.24460 -1.25368 -2.28868
+ 78:     362.34767:  4.59767 -1.24460 -1.31389 -2.27484
+ 79:     362.28332:  4.60067 -1.24460 -1.32582 -2.27114
+ 80:     362.15615:  4.60614 -1.24460 -1.34933 -2.26235
+ 81:     362.10583:  4.60818 -1.24460 -1.35861 -2.25843
+ 82:     361.98440:  4.61586 -1.24460 -1.37557 -2.24974
+ 83:     361.94584:  4.61723 -1.24460 -1.38296 -2.24642
+ 84:     361.93799:  4.61752 -1.24460 -1.38442 -2.24571
+ 85:     361.87531:  4.61979 -1.24460 -1.39595 -2.23983
+ 86:     361.87506:  4.61980 -1.24460 -1.39600 -2.23980
+ 87:     361.87456:  4.61982 -1.24460 -1.39609 -2.23975
+ 88:     361.87424:  4.61985 -1.24460 -1.39611 -2.23974
+ 89:     361.87421:  4.61986 -1.24460 -1.39612 -2.23973
+ 90:     361.87420:  4.61986 -1.24460 -1.39612 -2.23973
+ 91:     361.87418:  4.61986 -1.24460 -1.39612 -2.23973
+ 92:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 93:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 94:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 95:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 96:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 97:     361.61308:  4.63208 -1.24460 -1.31790 -2.07725
+ 98:     360.78393:  4.70563 -1.24460 -1.01240 -1.42611
+ 99:     360.30955:  4.80814 -1.24460 -0.794807 -0.933962
+100:     359.83679:  4.94614 -1.24460 -0.694790 -0.658108
+101:     358.66805:  5.34357 -1.24460 -0.659430 -0.362284
+102:     357.21569:  5.94720 -1.24460 -0.865900 -0.407961
+103:     355.87363:  6.65147 -1.24460 -1.34871 -0.894451
+104:     354.79576:  7.33163 -1.24460 -2.04508 -1.75302
+105:     354.79427:  7.33250 -1.24460 -2.04623 -1.75453
+106:     354.78176:  7.33863 -1.24460 -2.05548 -1.76699
+107:     354.78124:  7.33885 -1.24460 -2.05585 -1.76750
+108:     354.78114:  7.33890 -1.24460 -2.05592 -1.76760
+109:     354.78092:  7.33897 -1.24460 -2.05608 -1.76780
+110:     354.78083:  7.33900 -1.24460 -2.05614 -1.76789
+111:     354.78081:  7.33901 -1.24460 -2.05615 -1.76790
+112:     354.78077:  7.33902 -1.24460 -2.05618 -1.76794
+113:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+114:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+115:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+116:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+117:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+118:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+119:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+120:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+121:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+122:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+Warning message:
+In mer_finalize(ans) : false convergence (8)
+>
+> summary(ditmodel3)
+Generalized linear mixed model fit by the Laplace approximation
+Formula: ditrans ~ condition + (1 | subj)
+   Data: adultdata
+   AIC   BIC logLik deviance
+ 362.8 381.7 -177.4    354.8
+Random effects:
+ Groups Name        Variance Std.Dev.
+ subj   (Intercept) 53.861   7.339
+Number of obs: 833, groups: subj, 48
+
+Fixed effects:
+                Estimate Std. Error z value Pr(>|z|)
+(Intercept)       -1.245      1.951  -0.638    0.523
+conditionDative   -2.056      2.832  -0.726    0.468
+conditionTrans    -1.768      2.791  -0.633    0.526
+
+Correlation of Fixed Effects:
+            (Intr) cndtnD
+conditinDtv -0.689
+conditnTrns -0.699  0.481
+
+Thanks and sorry for the length,
+Laura
+
+On Thu, Nov 29, 2012 at 11:08 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+
+>  Yes -- the first column of the verbose output is the step number and the
+> second column is the deviance.  If the deviance was still going down and
+> the model stopped, you probably need more iterations.
+>
+>  It could be useful to change the starting value of the model parameters
+> with the "start" argument of lmer and see if you wind up converging to
+> the same parameter estimates regardless of starting value.
+>
+>  More information about the dataset, and example code output, is, of
+> course, always helpful.
+>
+>  Best
+>
+>  Roger
+>
+>
+>
+>  On Nov 29, 2012, at 7:03 AM PST, Laura Suttle wrote:
+>
+> Hi Roger,
+>
+>  Thanks for the other list suggestion, I'll cross post to there.
+>
+>  Every variable in my data set is categorical, so I can't do that fix.
+> I've tried playing around with the maxIter parameter before, but I'm not
+> sure I was doing it right. Do you have any suggestions for where I can read
+> more about how to interpret the verbose output? I found some things but
+> they weren't very helpful.
+>
+>  Thanks,
+> Laura
+>
+>
+> On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>
+>> Hi Laura,
+>>
+>>  This is a question that might be better answered on R-sig-ME, but
+>> briefly: I would be cautious with a model that reports false convergence;
+>> in my experience with this warning (and I am by no means expert on it), it
+>> can indicate that the optimization routine that determines the best-fit
+>> model parameters got stuck at a parameter estimate that is not near a true
+>> optimum, perhaps due to numerical issues.  You might try standardizing any
+>> continuous predictor variables you and rerunning the lmer() call.  It would
+>> be helpful to set the msVerbose control parameter to TRUE to see what the
+>> optimizer is doing.  Also, upping the maxIter and/or maxFN control
+>> parameters *might* be helpful.
+>>
+>>  I do not think that this warning message alone would be justification
+>> to omit a random effect.
+>>
+>>  Best & hope that this helps,
+>>
+>>  Roger
+>>
+>>  On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+>>
+>> Hello all,
+>>
+>>  I hope this question hasn't been asked before, but the internet isn't
+>> being of much help to me.
+>>
+>>  I am trying to run a mixed logit regression predicting whether
+>> participants use a novel verb in a particular construction or not depending
+>> on how they were exposed to that novel verb. I dummy coded the three
+>> conditions of the experiment into two dummy variables and have added two
+>> random effects, one for the motion used for the verb, the other for the
+>> verb itself (since these were all counterbalanced).
+>>
+>>  I can get this model to run fine, the problem is when I try to add any
+>> kind of random effect for the subjects themselves. I then get this error
+>> message:
+>>
+>>  Warning message:
+>> In mer_finalize(ans) : false convergence (8)
+>>
+>>  And all of the effects I had of the exposure type go away.
+>>
+>>  I've been trying to look up what this means and how to deal with it,
+>> but there are no clear solutions or explanations that I can find, but
+>> plenty of warning of how I should be skeptical of any output from a model
+>> with this warning. One suggestion I did find was that the subjects variable
+>> may be overfitting my data and there might be something to this: when
+>> participants are exposed to the verb in a certain way, they tend to only
+>> use the construction I'm looking for, with no variance in their responses.
+>> That said, I'm not sure that's right and I'd love a second opinion on
+>> either how I can fix this or whether I can use this as justification to not
+>> include the subjects random effect.
+>>
+>>  Thanks in advance for any help you can give,
+>> Laura Suttle
+>>
+>>
+>>
+>
+>
+
+From rlevy-XkckGZ689+c at public.gmane.org  Thu Nov 29 19:35:27 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Thu, 29 Nov 2012 19:35:27 +0000
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <CAPNJOOhT-p-P_drVv1g6YnUvmaSBpoD+_qx5wUDyD9GxbeNQdw@mail.gmail.com>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com> <0f3b1aeca80c48e7ac56ec48f76fb655@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOhT-p-P_drVv1g6YnUvmaSBpoD+_qx5wUDyD9GxbeNQdw@mail.gmail.com>
+Message-ID: <36380331-1D9D-4AF8-A28F-67F888F89080@ucsd.edu>
+
+Hi Laura,
+
+On Nov 29, 2012, at 9:46 AM PST, Laura Suttle wrote:
+
+Hello again,
+
+The deviance was not going down anymore when the model ended (and had been stable for around 10 steps). Changing the start value doesn't do anything as well.
+
+Do you mean that the model converges to the same parameter values if you set the starting parameters to wildly different values?
+
+It's not obvious to me why this model wouldn't actually be converged, except that the variance of the subject random effect is very large.  Do you have dramatic differences in behavior across subjects?
+
+Another potential issue: are subject random effects relevant when you are only looking at between subjects fixed effects? I'm wondering if that's part of the issue.
+
+They're relevant whenever you have repeated measures from individual subjects.
+
+If your condition (Dative, Transitive, and something else) varies within subjects, and what you care about is inferences about the effect of condition, you'll want to fit a model with a by-subjects random slope (i.e., response ~ condition + (condition | subj)), as per Barr et al.
+
+Best
+
+Roger
+
+Here's the code with output for the simplest model I have with subjects random effect (adding them in in any form causes this issue). ditrans is a binary DV that categorizes speaker usages of a novel verb into double object datives (1) or other sentence types (0). Condition is a categorical variable that has three levels with a control condition as the baseline (I've dummy coded these and there are no differences between running it this way and with the dummy code, so I'm providing this one for the same of simplicity).
+
+
+> ditmodel3 <-lmer(ditrans~condition + (1|subj),data=adultdata,family="binomial",verbose=T)
+  0:     814.04384: 0.391997 -0.472359 -0.840468 0.222898
+  1:     474.30352:  1.39176 -0.489556 -0.853831 0.221628
+  2:     446.52182:  1.60483 -1.29691 -1.39869 0.144777
+  3:     386.13626:  2.59735 -1.19061 -1.38968 0.204059
+  4:     383.11685:  2.69684 -1.19357 -1.39816 0.208801
+  5:     377.92258:  2.89551 -1.20228 -1.41725 0.218187
+  6:     376.11423:  2.97465 -1.20814 -1.42671 0.221868
+  7:     372.88540:  3.13258 -1.22176 -1.44712 0.229201
+  8:     371.72249:  3.19542 -1.22881 -1.45656 0.232118
+  9:     369.58988:  3.32079 -1.24417 -1.47647 0.237957
+ 10:     369.58183:  3.32129 -1.24424 -1.47656 0.237981
+ 11:     369.56574:  3.32229 -1.24439 -1.47674 0.238028
+ 12:     369.55931:  3.32269 -1.24444 -1.47681 0.238046
+ 13:     369.54645:  3.32349 -1.24456 -1.47695 0.238084
+ 14:     369.54594:  3.32352 -1.24456 -1.47696 0.238085
+ 15:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+ 16:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+ 17:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 18:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 19:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 20:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 21:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 22:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 23:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 24:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 25:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 26:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 27:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 28:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 29:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 30:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 31:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 32:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 33:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 34:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 35:     369.54175:  3.32378 -1.24460 -1.47699 0.238081
+ 36:     369.54062:  3.32390 -1.24460 -1.47681 0.237810
+ 37:     369.52871:  3.32514 -1.24460 -1.47496 0.234970
+ 38:     369.41249:  3.33754 -1.24460 -1.45648 0.206662
+ 39:     368.48882:  3.45721 -1.24460 -1.27810 -0.0665675
+ 40:     367.50882:  3.71632 -1.24460 -0.891867 -0.658143
+ 41:     367.42619:  3.80235 -1.24460 -0.763626 -0.854531
+ 42:     367.42069:  3.82935 -1.24460 -0.723378 -0.916133
+ 43:     367.42061:  3.83197 -1.24460 -0.719473 -0.922078
+ 44:     367.42056:  3.83302 -1.24460 -0.717885 -0.924450
+ 45:     367.42030:  3.83643 -1.24460 -0.712740 -0.931948
+ 46:     367.41976:  3.84096 -1.24460 -0.705833 -0.941589
+ 47:     367.41821:  3.84903 -1.24460 -0.693317 -0.957909
+ 48:     367.41433:  3.86190 -1.24460 -0.672862 -0.981743
+ 49:     367.40420:  3.88359 -1.24460 -0.637123 -1.01631
+ 50:     367.37911:  3.91871 -1.24460 -0.576118 -1.05854
+ 51:     367.31987:  3.97369 -1.24460 -0.473099 -1.09171
+ 52:     367.19878:  4.04676 -1.24460 -0.319173 -1.06129
+ 53:     367.00997:  4.11079 -1.24460 -0.148079 -0.875985
+ 54:     366.83505:  4.11105 -1.24460 -0.0694293 -0.533561
+ 55:     366.76596:  4.05082 -1.24460 -0.131236 -0.273508
+ 56:     366.75441:  4.00835 -1.24460 -0.205517 -0.224632
+ 57:     366.75330:  3.99692 -1.24460 -0.231735 -0.238739
+ 58:     366.75328:  3.99700 -1.24460 -0.232466 -0.242660
+ 59:     366.75327:  3.99706 -1.24460 -0.232631 -0.243916
+ 60:     366.75321:  3.99733 -1.24460 -0.233186 -0.248657
+ 61:     366.75310:  3.99766 -1.24460 -0.233948 -0.254660
+ 62:     366.75277:  3.99818 -1.24460 -0.235467 -0.265375
+ 63:     366.75194:  3.99913 -1.24460 -0.237734 -0.282069
+ 64:     366.74974:  4.00078 -1.24460 -0.241634 -0.309537
+ 65:     366.74401:  4.00376 -1.24460 -0.248277 -0.353787
+ 66:     366.72917:  4.00940 -1.24460 -0.260050 -0.425563
+ 67:     366.69014:  4.02037 -1.24460 -0.282150 -0.541757
+ 68:     366.58903:  4.04387 -1.24460 -0.323645 -0.729228
+ 69:     366.33054:  4.09566 -1.24460 -0.407098 -1.03058
+ 70:     365.69165:  4.21044 -1.24460 -0.582890 -1.50206
+ 71:     364.22961:  4.45811 -1.24460 -0.955294 -2.19620
+ 72:     363.88256:  4.50536 -1.24460 -1.03067 -2.28460
+ 73:     363.78744:  4.51528 -1.24460 -1.04951 -2.29787
+ 74:     363.76346:  4.51729 -1.24460 -1.05384 -2.29942
+ 75:     363.71559:  4.52093 -1.24460 -1.06284 -2.30192
+ 76:     363.50871:  4.53406 -1.24460 -1.10070 -2.30424
+ 77:     362.67929:  4.58017 -1.24460 -1.25368 -2.28868
+ 78:     362.34767:  4.59767 -1.24460 -1.31389 -2.27484
+ 79:     362.28332:  4.60067 -1.24460 -1.32582 -2.27114
+ 80:     362.15615:  4.60614 -1.24460 -1.34933 -2.26235
+ 81:     362.10583:  4.60818 -1.24460 -1.35861 -2.25843
+ 82:     361.98440:  4.61586 -1.24460 -1.37557 -2.24974
+ 83:     361.94584:  4.61723 -1.24460 -1.38296 -2.24642
+ 84:     361.93799:  4.61752 -1.24460 -1.38442 -2.24571
+ 85:     361.87531:  4.61979 -1.24460 -1.39595 -2.23983
+ 86:     361.87506:  4.61980 -1.24460 -1.39600 -2.23980
+ 87:     361.87456:  4.61982 -1.24460 -1.39609 -2.23975
+ 88:     361.87424:  4.61985 -1.24460 -1.39611 -2.23974
+ 89:     361.87421:  4.61986 -1.24460 -1.39612 -2.23973
+ 90:     361.87420:  4.61986 -1.24460 -1.39612 -2.23973
+ 91:     361.87418:  4.61986 -1.24460 -1.39612 -2.23973
+ 92:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 93:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 94:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 95:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 96:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 97:     361.61308:  4.63208 -1.24460 -1.31790 -2.07725
+ 98:     360.78393:  4.70563 -1.24460 -1.01240 -1.42611
+ 99:     360.30955:  4.80814 -1.24460 -0.794807 -0.933962
+100:     359.83679:  4.94614 -1.24460 -0.694790 -0.658108
+101:     358.66805:  5.34357 -1.24460 -0.659430 -0.362284
+102:     357.21569:  5.94720 -1.24460 -0.865900 -0.407961
+103:     355.87363:  6.65147 -1.24460 -1.34871 -0.894451
+104:     354.79576:  7.33163 -1.24460 -2.04508 -1.75302
+105:     354.79427:  7.33250 -1.24460 -2.04623 -1.75453
+106:     354.78176:  7.33863 -1.24460 -2.05548 -1.76699
+107:     354.78124:  7.33885 -1.24460 -2.05585 -1.76750
+108:     354.78114:  7.33890 -1.24460 -2.05592 -1.76760
+109:     354.78092:  7.33897 -1.24460 -2.05608 -1.76780
+110:     354.78083:  7.33900 -1.24460 -2.05614 -1.76789
+111:     354.78081:  7.33901 -1.24460 -2.05615 -1.76790
+112:     354.78077:  7.33902 -1.24460 -2.05618 -1.76794
+113:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+114:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+115:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+116:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+117:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+118:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+119:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+120:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+121:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+122:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+Warning message:
+In mer_finalize(ans) : false convergence (8)
+>
+> summary(ditmodel3)
+Generalized linear mixed model fit by the Laplace approximation
+Formula: ditrans ~ condition + (1 | subj)
+   Data: adultdata
+   AIC   BIC logLik deviance
+ 362.8 381.7 -177.4    354.8
+Random effects:
+ Groups Name        Variance Std.Dev.
+ subj   (Intercept) 53.861   7.339
+Number of obs: 833, groups: subj, 48
+
+Fixed effects:
+                Estimate Std. Error z value Pr(>|z|)
+(Intercept)       -1.245      1.951  -0.638    0.523
+conditionDative   -2.056      2.832  -0.726    0.468
+conditionTrans    -1.768      2.791  -0.633    0.526
+
+Correlation of Fixed Effects:
+            (Intr) cndtnD
+conditinDtv -0.689
+conditnTrns -0.699  0.481
+
+Thanks and sorry for the length,
+Laura
+
+On Thu, Nov 29, 2012 at 11:08 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy at ucsd.edu>> wrote:
+Yes -- the first column of the verbose output is the step number and the second column is the deviance.  If the deviance was still going down and the model stopped, you probably need more iterations.
+
+It could be useful to change the starting value of the model parameters with the "start" argument of lmer and see if you wind up converging to the same parameter estimates regardless of starting value.
+
+More information about the dataset, and example code output, is, of course, always helpful.
+
+Best
+
+Roger
+
+
+
+On Nov 29, 2012, at 7:03 AM PST, Laura Suttle wrote:
+
+Hi Roger,
+
+Thanks for the other list suggestion, I'll cross post to there.
+
+Every variable in my data set is categorical, so I can't do that fix. I've tried playing around with the maxIter parameter before, but I'm not sure I was doing it right. Do you have any suggestions for where I can read more about how to interpret the verbose output? I found some things but they weren't very helpful.
+
+Thanks,
+Laura
+
+
+On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy at ucsd.edu>> wrote:
+Hi Laura,
+
+This is a question that might be better answered on R-sig-ME, but briefly: I would be cautious with a model that reports false convergence; in my experience with this warning (and I am by no means expert on it), it can indicate that the optimization routine that determines the best-fit model parameters got stuck at a parameter estimate that is not near a true optimum, perhaps due to numerical issues.  You might try standardizing any continuous predictor variables you and rerunning the lmer() call.  It would be helpful to set the msVerbose control parameter to TRUE to see what the optimizer is doing.  Also, upping the maxIter and/or maxFN control parameters *might* be helpful.
+
+I do not think that this warning message alone would be justification to omit a random effect.
+
+Best & hope that this helps,
+
+Roger
+
+On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+
+Hello all,
+
+I hope this question hasn't been asked before, but the internet isn't being of much help to me.
+
+I am trying to run a mixed logit regression predicting whether participants use a novel verb in a particular construction or not depending on how they were exposed to that novel verb. I dummy coded the three conditions of the experiment into two dummy variables and have added two random effects, one for the motion used for the verb, the other for the verb itself (since these were all counterbalanced).
+
+I can get this model to run fine, the problem is when I try to add any kind of random effect for the subjects themselves. I then get this error message:
+
+Warning message:
+In mer_finalize(ans) : false convergence (8)
+
+And all of the effects I had of the exposure type go away.
+
+I've been trying to look up what this means and how to deal with it, but there are no clear solutions or explanations that I can find, but plenty of warning of how I should be skeptical of any output from a model with this warning. One suggestion I did find was that the subjects variable may be overfitting my data and there might be something to this: when participants are exposed to the verb in a certain way, they tend to only use the construction I'm looking for, with no variance in their responses. That said, I'm not sure that's right and I'd love a second opinion on either how I can fix this or whether I can use this as justification to not include the subjects random effect.
+
+Thanks in advance for any help you can give,
+Laura Suttle
+
+From lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Thu Nov 29 19:45:28 2012
+From: lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Laura Suttle)
+Date: Thu, 29 Nov 2012 14:45:28 -0500
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <f40a99d010ad4b91836028dfae28b329@CSGHUB208W.pu.win.princeton.edu>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com> <0f3b1aeca80c48e7ac56ec48f76fb655@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOhT-p-P_drVv1g6YnUvmaSBpoD+_qx5wUDyD9GxbeNQdw@mail.gmail.com> <f40a99d010ad4b91836028dfae28b329@CSGHUB208W.pu.win.princeton.edu>
+Message-ID: <CAPNJOOgWZuazd6655y+COHk3UFA_WpZ_6Y68AtP53XccnzgXRg@mail.gmail.com>
+
+> Do you mean that the model converges to the same parameter values if you
+> set the starting parameters to wildly different values?
+>
+>
+Ok, I'm not sure what constitutes "wildly different." I just tried values
+like 100 and 1000 and now things aren't converging to the same values.
+Maybe I wasn't being different enough before to see it.
+
+
+>  It's not obvious to me why this model wouldn't actually be converged,
+> except that the variance of the subject random effect is very large.  Do
+> you have dramatic differences in behavior across subjects?
+>
+
+I do, in that participants usually either use this construction (so they
+have all 1's for the DV) or don't use it at all (so they have all 0's). The
+relevant thing that I'm trying to show is that more people use in one
+condition versus another. I don't want to convert this to a single binary
+variable since there are some subjects who switch up how they use these
+novel verbs, but for the most part they are either all or none.
+
+
+
+>  Another potential issue: are subject random effects relevant when you
+> are only looking at between subjects fixed effects? I'm wondering if that's
+> part of the issue.
+>
+>
+>  They're relevant whenever you have repeated measures from individual
+> subjects.
+>
+>  If your condition (Dative, Transitive, and something else) varies within
+> subjects, and what you care about is inferences about the effect of
+> condition, you'll want to fit a model with a by-subjects random slope
+> (i.e., response ~ condition + (condition | subj)), as per Barr et al.
+>
+
+Those conditions (control is the something else) are between subjects.
+
+Thanks,
+Laura
+
+
+>  Best
+>
+>  Roger
+>
+>  Here's the code with output for the simplest model I have with subjects
+> random effect (adding them in in any form causes this issue). ditrans is a
+> binary DV that categorizes speaker usages of a novel verb into double
+> object datives (1) or other sentence types (0). Condition is a categorical
+> variable that has three levels with a control condition as the baseline
+> (I've dummy coded these and there are no differences between running it
+> this way and with the dummy code, so I'm providing this one for the same of
+> simplicity).
+>
+>
+>  > ditmodel3 <-lmer(ditrans~condition +
+> (1|subj),data=adultdata,family="binomial",verbose=T)
+>    0:     814.04384: 0.391997 -0.472359 -0.840468 0.222898
+>   1:     474.30352:  1.39176 -0.489556 -0.853831 0.221628
+>   2:     446.52182:  1.60483 -1.29691 -1.39869 0.144777
+>   3:     386.13626:  2.59735 -1.19061 -1.38968 0.204059
+>   4:     383.11685:  2.69684 -1.19357 -1.39816 0.208801
+>   5:     377.92258:  2.89551 -1.20228 -1.41725 0.218187
+>   6:     376.11423:  2.97465 -1.20814 -1.42671 0.221868
+>   7:     372.88540:  3.13258 -1.22176 -1.44712 0.229201
+>   8:     371.72249:  3.19542 -1.22881 -1.45656 0.232118
+>   9:     369.58988:  3.32079 -1.24417 -1.47647 0.237957
+>  10:     369.58183:  3.32129 -1.24424 -1.47656 0.237981
+>  11:     369.56574:  3.32229 -1.24439 -1.47674 0.238028
+>  12:     369.55931:  3.32269 -1.24444 -1.47681 0.238046
+>  13:     369.54645:  3.32349 -1.24456 -1.47695 0.238084
+>  14:     369.54594:  3.32352 -1.24456 -1.47696 0.238085
+>  15:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+>  16:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+>  17:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  18:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  19:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  20:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  21:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  22:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  23:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  24:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  25:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  26:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  27:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  28:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  29:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  30:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  31:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  32:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  33:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  34:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>  35:     369.54175:  3.32378 -1.24460 -1.47699 0.238081
+>  36:     369.54062:  3.32390 -1.24460 -1.47681 0.237810
+>  37:     369.52871:  3.32514 -1.24460 -1.47496 0.234970
+>  38:     369.41249:  3.33754 -1.24460 -1.45648 0.206662
+>  39:     368.48882:  3.45721 -1.24460 -1.27810 -0.0665675
+>  40:     367.50882:  3.71632 -1.24460 -0.891867 -0.658143
+>  41:     367.42619:  3.80235 -1.24460 -0.763626 -0.854531
+>  42:     367.42069:  3.82935 -1.24460 -0.723378 -0.916133
+>  43:     367.42061:  3.83197 -1.24460 -0.719473 -0.922078
+>  44:     367.42056:  3.83302 -1.24460 -0.717885 -0.924450
+>  45:     367.42030:  3.83643 -1.24460 -0.712740 -0.931948
+>  46:     367.41976:  3.84096 -1.24460 -0.705833 -0.941589
+>  47:     367.41821:  3.84903 -1.24460 -0.693317 -0.957909
+>  48:     367.41433:  3.86190 -1.24460 -0.672862 -0.981743
+>  49:     367.40420:  3.88359 -1.24460 -0.637123 -1.01631
+>  50:     367.37911:  3.91871 -1.24460 -0.576118 -1.05854
+>  51:     367.31987:  3.97369 -1.24460 -0.473099 -1.09171
+>  52:     367.19878:  4.04676 -1.24460 -0.319173 -1.06129
+>  53:     367.00997:  4.11079 -1.24460 -0.148079 -0.875985
+>  54:     366.83505:  4.11105 -1.24460 -0.0694293 -0.533561
+>  55:     366.76596:  4.05082 -1.24460 -0.131236 -0.273508
+>  56:     366.75441:  4.00835 -1.24460 -0.205517 -0.224632
+>  57:     366.75330:  3.99692 -1.24460 -0.231735 -0.238739
+>  58:     366.75328:  3.99700 -1.24460 -0.232466 -0.242660
+>  59:     366.75327:  3.99706 -1.24460 -0.232631 -0.243916
+>  60:     366.75321:  3.99733 -1.24460 -0.233186 -0.248657
+>  61:     366.75310:  3.99766 -1.24460 -0.233948 -0.254660
+>  62:     366.75277:  3.99818 -1.24460 -0.235467 -0.265375
+>  63:     366.75194:  3.99913 -1.24460 -0.237734 -0.282069
+>  64:     366.74974:  4.00078 -1.24460 -0.241634 -0.309537
+>  65:     366.74401:  4.00376 -1.24460 -0.248277 -0.353787
+>  66:     366.72917:  4.00940 -1.24460 -0.260050 -0.425563
+>  67:     366.69014:  4.02037 -1.24460 -0.282150 -0.541757
+>  68:     366.58903:  4.04387 -1.24460 -0.323645 -0.729228
+>  69:     366.33054:  4.09566 -1.24460 -0.407098 -1.03058
+>  70:     365.69165:  4.21044 -1.24460 -0.582890 -1.50206
+>  71:     364.22961:  4.45811 -1.24460 -0.955294 -2.19620
+>  72:     363.88256:  4.50536 -1.24460 -1.03067 -2.28460
+>  73:     363.78744:  4.51528 -1.24460 -1.04951 -2.29787
+>  74:     363.76346:  4.51729 -1.24460 -1.05384 -2.29942
+>  75:     363.71559:  4.52093 -1.24460 -1.06284 -2.30192
+>  76:     363.50871:  4.53406 -1.24460 -1.10070 -2.30424
+>  77:     362.67929:  4.58017 -1.24460 -1.25368 -2.28868
+>  78:     362.34767:  4.59767 -1.24460 -1.31389 -2.27484
+>  79:     362.28332:  4.60067 -1.24460 -1.32582 -2.27114
+>  80:     362.15615:  4.60614 -1.24460 -1.34933 -2.26235
+>  81:     362.10583:  4.60818 -1.24460 -1.35861 -2.25843
+>  82:     361.98440:  4.61586 -1.24460 -1.37557 -2.24974
+>  83:     361.94584:  4.61723 -1.24460 -1.38296 -2.24642
+>  84:     361.93799:  4.61752 -1.24460 -1.38442 -2.24571
+>  85:     361.87531:  4.61979 -1.24460 -1.39595 -2.23983
+>  86:     361.87506:  4.61980 -1.24460 -1.39600 -2.23980
+>  87:     361.87456:  4.61982 -1.24460 -1.39609 -2.23975
+>  88:     361.87424:  4.61985 -1.24460 -1.39611 -2.23974
+>  89:     361.87421:  4.61986 -1.24460 -1.39612 -2.23973
+>  90:     361.87420:  4.61986 -1.24460 -1.39612 -2.23973
+>  91:     361.87418:  4.61986 -1.24460 -1.39612 -2.23973
+>  92:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>  93:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>  94:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>  95:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>  96:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>  97:     361.61308:  4.63208 -1.24460 -1.31790 -2.07725
+>  98:     360.78393:  4.70563 -1.24460 -1.01240 -1.42611
+>  99:     360.30955:  4.80814 -1.24460 -0.794807 -0.933962
+> 100:     359.83679:  4.94614 -1.24460 -0.694790 -0.658108
+> 101:     358.66805:  5.34357 -1.24460 -0.659430 -0.362284
+> 102:     357.21569:  5.94720 -1.24460 -0.865900 -0.407961
+> 103:     355.87363:  6.65147 -1.24460 -1.34871 -0.894451
+> 104:     354.79576:  7.33163 -1.24460 -2.04508 -1.75302
+> 105:     354.79427:  7.33250 -1.24460 -2.04623 -1.75453
+> 106:     354.78176:  7.33863 -1.24460 -2.05548 -1.76699
+> 107:     354.78124:  7.33885 -1.24460 -2.05585 -1.76750
+> 108:     354.78114:  7.33890 -1.24460 -2.05592 -1.76760
+> 109:     354.78092:  7.33897 -1.24460 -2.05608 -1.76780
+> 110:     354.78083:  7.33900 -1.24460 -2.05614 -1.76789
+> 111:     354.78081:  7.33901 -1.24460 -2.05615 -1.76790
+> 112:     354.78077:  7.33902 -1.24460 -2.05618 -1.76794
+> 113:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+> 114:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+> 115:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+> 116:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+> 117:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+> 118:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+> 119:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+> 120:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+> 121:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+> 122:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>  Warning message:
+> In mer_finalize(ans) : false convergence (8)
+> >
+> > summary(ditmodel3)
+> Generalized linear mixed model fit by the Laplace approximation
+> Formula: ditrans ~ condition + (1 | subj)
+>    Data: adultdata
+>    AIC   BIC logLik deviance
+>  362.8 381.7 -177.4    354.8
+> Random effects:
+>  Groups Name        Variance Std.Dev.
+>  subj   (Intercept) 53.861   7.339
+> Number of obs: 833, groups: subj, 48
+>
+>  Fixed effects:
+>                 Estimate Std. Error z value Pr(>|z|)
+> (Intercept)       -1.245      1.951  -0.638    0.523
+> conditionDative   -2.056      2.832  -0.726    0.468
+> conditionTrans    -1.768      2.791  -0.633    0.526
+>
+>  Correlation of Fixed Effects:
+>             (Intr) cndtnD
+> conditinDtv -0.689
+> conditnTrns -0.699  0.481
+>
+> Thanks and sorry for the length,
+> Laura
+>
+> On Thu, Nov 29, 2012 at 11:08 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>
+>> Yes -- the first column of the verbose output is the step number and the
+>> second column is the deviance.  If the deviance was still going down and
+>> the model stopped, you probably need more iterations.
+>>
+>>  It could be useful to change the starting value of the model parameters
+>> with the "start" argument of lmer and see if you wind up converging to
+>> the same parameter estimates regardless of starting value.
+>>
+>>  More information about the dataset, and example code output, is, of
+>> course, always helpful.
+>>
+>>  Best
+>>
+>>  Roger
+>>
+>>
+>>
+>>  On Nov 29, 2012, at 7:03 AM PST, Laura Suttle wrote:
+>>
+>> Hi Roger,
+>>
+>>  Thanks for the other list suggestion, I'll cross post to there.
+>>
+>>  Every variable in my data set is categorical, so I can't do that fix.
+>> I've tried playing around with the maxIter parameter before, but I'm not
+>> sure I was doing it right. Do you have any suggestions for where I can read
+>> more about how to interpret the verbose output? I found some things but
+>> they weren't very helpful.
+>>
+>>  Thanks,
+>> Laura
+>>
+>>
+>> On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>>
+>>> Hi Laura,
+>>>
+>>>  This is a question that might be better answered on R-sig-ME, but
+>>> briefly: I would be cautious with a model that reports false convergence;
+>>> in my experience with this warning (and I am by no means expert on it), it
+>>> can indicate that the optimization routine that determines the best-fit
+>>> model parameters got stuck at a parameter estimate that is not near a true
+>>> optimum, perhaps due to numerical issues.  You might try standardizing any
+>>> continuous predictor variables you and rerunning the lmer() call.  It would
+>>> be helpful to set the msVerbose control parameter to TRUE to see what the
+>>> optimizer is doing.  Also, upping the maxIter and/or maxFN control
+>>> parameters *might* be helpful.
+>>>
+>>>  I do not think that this warning message alone would be justification
+>>> to omit a random effect.
+>>>
+>>>  Best & hope that this helps,
+>>>
+>>>  Roger
+>>>
+>>>  On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+>>>
+>>> Hello all,
+>>>
+>>>  I hope this question hasn't been asked before, but the internet isn't
+>>> being of much help to me.
+>>>
+>>>  I am trying to run a mixed logit regression predicting whether
+>>> participants use a novel verb in a particular construction or not depending
+>>> on how they were exposed to that novel verb. I dummy coded the three
+>>> conditions of the experiment into two dummy variables and have added two
+>>> random effects, one for the motion used for the verb, the other for the
+>>> verb itself (since these were all counterbalanced).
+>>>
+>>>  I can get this model to run fine, the problem is when I try to add any
+>>> kind of random effect for the subjects themselves. I then get this error
+>>> message:
+>>>
+>>>  Warning message:
+>>> In mer_finalize(ans) : false convergence (8)
+>>>
+>>>  And all of the effects I had of the exposure type go away.
+>>>
+>>>  I've been trying to look up what this means and how to deal with it,
+>>> but there are no clear solutions or explanations that I can find, but
+>>> plenty of warning of how I should be skeptical of any output from a model
+>>> with this warning. One suggestion I did find was that the subjects variable
+>>> may be overfitting my data and there might be something to this: when
+>>> participants are exposed to the verb in a certain way, they tend to only
+>>> use the construction I'm looking for, with no variance in their responses.
+>>> That said, I'm not sure that's right and I'd love a second opinion on
+>>> either how I can fix this or whether I can use this as justification to not
+>>> include the subjects random effect.
+>>>
+>>>  Thanks in advance for any help you can give,
+>>> Laura Suttle
+>>>
+>>>
+>>>
+>>
+>>
+>
+>
+
+From tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org  Thu Nov 29 20:00:07 2012
+From: tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org (T. Florian Jaeger)
+Date: Thu, 29 Nov 2012 15:00:07 -0500
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <CAPNJOOgWZuazd6655y+COHk3UFA_WpZ_6Y68AtP53XccnzgXRg@mail.gmail.com>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com> <0f3b1aeca80c48e7ac56ec48f76fb655@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOhT-p-P_drVv1g6YnUvmaSBpoD+_qx5wUDyD9GxbeNQdw@mail.gmail.com> <f40a99d010ad4b91836028dfae28b329@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgWZuazd6655y+COHk3UFA_WpZ_6Y68AtP53XccnzgXRg@mail.gmail.com>
+Message-ID: <CAG2Vd7jTJ+XgV=iW=LOBvJz6Dm+R+RKyjtha2OxdgQUbF8FPVw@mail.gmail.com>
+
+HI Laura,
+
+if your predictor variable for which you are entertaining a random
+by-subject slope is almost entirely between-subjects, you should go without
+random by-subject slopes for that predictors. Barr et al discuss the
+obvious case of a between-subject manipulation (--> do not include
+ by-subject random slopes for the manipulation). It seems that you have a
+case that doesn't fit into the neat distinction made in their paper. You
+have a predictor that *could *vary within subjects, but mostly ended up
+varying between subjects. The problem is that in that case, it is hard for
+the model to determine the (variance for) that random slope. Hence, you get
+the false convergence.
+
+Think about it this way: only the subjects who have *both* values for your
+binary predictors provide data from which you can actually figure out how
+the effect of that predictors *differs* across subjects. For subjects, who
+categorically have one value for that predictor, the by-subject
+*intercept *already
+captures the same information (or, to put it differently, the model has not
+way to distinguish between the by-subject intercept and the by-subject
+slope). Now even when subjects aren't quite categorical (e.g., they have
+value 1 about 98% of the time, and value 0 about 2% of the time), it's hard
+for the model to reliably estimate what of the observed variance is due to
+the by-subject random intercept and what is due to the by-subject random
+slope.
+
+Can you provide a tables of subject by predictor (for each of the binary
+predictors)? I.e., a table that shows the proportion of 0 and 1 values for
+the predictors for each of your subjects? if you have enough folks with
+enough variance, you might be able to test on the subset. If not, you
+probably have to exclude the random by-subject slope for those predictors.
+
+HTH,
+
+Florian
+
+
+On Thu, Nov 29, 2012 at 2:45 PM, Laura Suttle <lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org> wrote:
+
+>
+> Do you mean that the model converges to the same parameter values if you
+>> set the starting parameters to wildly different values?
+>>
+>>
+> Ok, I'm not sure what constitutes "wildly different." I just tried values
+> like 100 and 1000 and now things aren't converging to the same values.
+> Maybe I wasn't being different enough before to see it.
+>
+>
+>>  It's not obvious to me why this model wouldn't actually be converged,
+>> except that the variance of the subject random effect is very large.  Do
+>> you have dramatic differences in behavior across subjects?
+>>
+>
+> I do, in that participants usually either use this construction (so they
+> have all 1's for the DV) or don't use it at all (so they have all 0's). The
+> relevant thing that I'm trying to show is that more people use in one
+> condition versus another. I don't want to convert this to a single binary
+> variable since there are some subjects who switch up how they use these
+> novel verbs, but for the most part they are either all or none.
+>
+>
+>
+>>  Another potential issue: are subject random effects relevant when you
+>> are only looking at between subjects fixed effects? I'm wondering if that's
+>> part of the issue.
+>>
+>>
+>>  They're relevant whenever you have repeated measures from individual
+>> subjects.
+>>
+>>  If your condition (Dative, Transitive, and something else) varies
+>> within subjects, and what you care about is inferences about the effect of
+>> condition, you'll want to fit a model with a by-subjects random slope
+>> (i.e., response ~ condition + (condition | subj)), as per Barr et al.
+>>
+>
+> Those conditions (control is the something else) are between subjects.
+>
+> Thanks,
+> Laura
+>
+>
+>>  Best
+>>
+>>  Roger
+>>
+>>  Here's the code with output for the simplest model I have with subjects
+>> random effect (adding them in in any form causes this issue). ditrans is a
+>> binary DV that categorizes speaker usages of a novel verb into double
+>> object datives (1) or other sentence types (0). Condition is a categorical
+>> variable that has three levels with a control condition as the baseline
+>> (I've dummy coded these and there are no differences between running it
+>> this way and with the dummy code, so I'm providing this one for the same of
+>> simplicity).
+>>
+>>
+>>  > ditmodel3 <-lmer(ditrans~condition +
+>> (1|subj),data=adultdata,family="binomial",verbose=T)
+>>    0:     814.04384: 0.391997 -0.472359 -0.840468 0.222898
+>>   1:     474.30352:  1.39176 -0.489556 -0.853831 0.221628
+>>   2:     446.52182:  1.60483 -1.29691 -1.39869 0.144777
+>>   3:     386.13626:  2.59735 -1.19061 -1.38968 0.204059
+>>   4:     383.11685:  2.69684 -1.19357 -1.39816 0.208801
+>>   5:     377.92258:  2.89551 -1.20228 -1.41725 0.218187
+>>   6:     376.11423:  2.97465 -1.20814 -1.42671 0.221868
+>>   7:     372.88540:  3.13258 -1.22176 -1.44712 0.229201
+>>   8:     371.72249:  3.19542 -1.22881 -1.45656 0.232118
+>>   9:     369.58988:  3.32079 -1.24417 -1.47647 0.237957
+>>  10:     369.58183:  3.32129 -1.24424 -1.47656 0.237981
+>>  11:     369.56574:  3.32229 -1.24439 -1.47674 0.238028
+>>  12:     369.55931:  3.32269 -1.24444 -1.47681 0.238046
+>>  13:     369.54645:  3.32349 -1.24456 -1.47695 0.238084
+>>  14:     369.54594:  3.32352 -1.24456 -1.47696 0.238085
+>>  15:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+>>  16:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+>>  17:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  18:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  19:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  20:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  21:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  22:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  23:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  24:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  25:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  26:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  27:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  28:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  29:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  30:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  31:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  32:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  33:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  34:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>  35:     369.54175:  3.32378 -1.24460 -1.47699 0.238081
+>>  36:     369.54062:  3.32390 -1.24460 -1.47681 0.237810
+>>  37:     369.52871:  3.32514 -1.24460 -1.47496 0.234970
+>>  38:     369.41249:  3.33754 -1.24460 -1.45648 0.206662
+>>  39:     368.48882:  3.45721 -1.24460 -1.27810 -0.0665675
+>>  40:     367.50882:  3.71632 -1.24460 -0.891867 -0.658143
+>>  41:     367.42619:  3.80235 -1.24460 -0.763626 -0.854531
+>>  42:     367.42069:  3.82935 -1.24460 -0.723378 -0.916133
+>>  43:     367.42061:  3.83197 -1.24460 -0.719473 -0.922078
+>>  44:     367.42056:  3.83302 -1.24460 -0.717885 -0.924450
+>>  45:     367.42030:  3.83643 -1.24460 -0.712740 -0.931948
+>>  46:     367.41976:  3.84096 -1.24460 -0.705833 -0.941589
+>>  47:     367.41821:  3.84903 -1.24460 -0.693317 -0.957909
+>>  48:     367.41433:  3.86190 -1.24460 -0.672862 -0.981743
+>>  49:     367.40420:  3.88359 -1.24460 -0.637123 -1.01631
+>>  50:     367.37911:  3.91871 -1.24460 -0.576118 -1.05854
+>>  51:     367.31987:  3.97369 -1.24460 -0.473099 -1.09171
+>>  52:     367.19878:  4.04676 -1.24460 -0.319173 -1.06129
+>>  53:     367.00997:  4.11079 -1.24460 -0.148079 -0.875985
+>>  54:     366.83505:  4.11105 -1.24460 -0.0694293 -0.533561
+>>  55:     366.76596:  4.05082 -1.24460 -0.131236 -0.273508
+>>  56:     366.75441:  4.00835 -1.24460 -0.205517 -0.224632
+>>  57:     366.75330:  3.99692 -1.24460 -0.231735 -0.238739
+>>  58:     366.75328:  3.99700 -1.24460 -0.232466 -0.242660
+>>  59:     366.75327:  3.99706 -1.24460 -0.232631 -0.243916
+>>  60:     366.75321:  3.99733 -1.24460 -0.233186 -0.248657
+>>  61:     366.75310:  3.99766 -1.24460 -0.233948 -0.254660
+>>  62:     366.75277:  3.99818 -1.24460 -0.235467 -0.265375
+>>  63:     366.75194:  3.99913 -1.24460 -0.237734 -0.282069
+>>  64:     366.74974:  4.00078 -1.24460 -0.241634 -0.309537
+>>  65:     366.74401:  4.00376 -1.24460 -0.248277 -0.353787
+>>  66:     366.72917:  4.00940 -1.24460 -0.260050 -0.425563
+>>  67:     366.69014:  4.02037 -1.24460 -0.282150 -0.541757
+>>  68:     366.58903:  4.04387 -1.24460 -0.323645 -0.729228
+>>  69:     366.33054:  4.09566 -1.24460 -0.407098 -1.03058
+>>  70:     365.69165:  4.21044 -1.24460 -0.582890 -1.50206
+>>  71:     364.22961:  4.45811 -1.24460 -0.955294 -2.19620
+>>  72:     363.88256:  4.50536 -1.24460 -1.03067 -2.28460
+>>  73:     363.78744:  4.51528 -1.24460 -1.04951 -2.29787
+>>  74:     363.76346:  4.51729 -1.24460 -1.05384 -2.29942
+>>  75:     363.71559:  4.52093 -1.24460 -1.06284 -2.30192
+>>  76:     363.50871:  4.53406 -1.24460 -1.10070 -2.30424
+>>  77:     362.67929:  4.58017 -1.24460 -1.25368 -2.28868
+>>  78:     362.34767:  4.59767 -1.24460 -1.31389 -2.27484
+>>  79:     362.28332:  4.60067 -1.24460 -1.32582 -2.27114
+>>  80:     362.15615:  4.60614 -1.24460 -1.34933 -2.26235
+>>  81:     362.10583:  4.60818 -1.24460 -1.35861 -2.25843
+>>  82:     361.98440:  4.61586 -1.24460 -1.37557 -2.24974
+>>  83:     361.94584:  4.61723 -1.24460 -1.38296 -2.24642
+>>  84:     361.93799:  4.61752 -1.24460 -1.38442 -2.24571
+>>  85:     361.87531:  4.61979 -1.24460 -1.39595 -2.23983
+>>  86:     361.87506:  4.61980 -1.24460 -1.39600 -2.23980
+>>  87:     361.87456:  4.61982 -1.24460 -1.39609 -2.23975
+>>  88:     361.87424:  4.61985 -1.24460 -1.39611 -2.23974
+>>  89:     361.87421:  4.61986 -1.24460 -1.39612 -2.23973
+>>  90:     361.87420:  4.61986 -1.24460 -1.39612 -2.23973
+>>  91:     361.87418:  4.61986 -1.24460 -1.39612 -2.23973
+>>  92:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>  93:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>  94:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>  95:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>  96:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>  97:     361.61308:  4.63208 -1.24460 -1.31790 -2.07725
+>>  98:     360.78393:  4.70563 -1.24460 -1.01240 -1.42611
+>>  99:     360.30955:  4.80814 -1.24460 -0.794807 -0.933962
+>> 100:     359.83679:  4.94614 -1.24460 -0.694790 -0.658108
+>> 101:     358.66805:  5.34357 -1.24460 -0.659430 -0.362284
+>> 102:     357.21569:  5.94720 -1.24460 -0.865900 -0.407961
+>> 103:     355.87363:  6.65147 -1.24460 -1.34871 -0.894451
+>> 104:     354.79576:  7.33163 -1.24460 -2.04508 -1.75302
+>> 105:     354.79427:  7.33250 -1.24460 -2.04623 -1.75453
+>> 106:     354.78176:  7.33863 -1.24460 -2.05548 -1.76699
+>> 107:     354.78124:  7.33885 -1.24460 -2.05585 -1.76750
+>> 108:     354.78114:  7.33890 -1.24460 -2.05592 -1.76760
+>> 109:     354.78092:  7.33897 -1.24460 -2.05608 -1.76780
+>> 110:     354.78083:  7.33900 -1.24460 -2.05614 -1.76789
+>> 111:     354.78081:  7.33901 -1.24460 -2.05615 -1.76790
+>> 112:     354.78077:  7.33902 -1.24460 -2.05618 -1.76794
+>> 113:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+>> 114:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+>> 115:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>> 116:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>> 117:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>> 118:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>> 119:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>> 120:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>> 121:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>> 122:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>  Warning message:
+>> In mer_finalize(ans) : false convergence (8)
+>> >
+>> > summary(ditmodel3)
+>> Generalized linear mixed model fit by the Laplace approximation
+>> Formula: ditrans ~ condition + (1 | subj)
+>>    Data: adultdata
+>>    AIC   BIC logLik deviance
+>>  362.8 381.7 -177.4    354.8
+>> Random effects:
+>>  Groups Name        Variance Std.Dev.
+>>  subj   (Intercept) 53.861   7.339
+>> Number of obs: 833, groups: subj, 48
+>>
+>>  Fixed effects:
+>>                 Estimate Std. Error z value Pr(>|z|)
+>> (Intercept)       -1.245      1.951  -0.638    0.523
+>> conditionDative   -2.056      2.832  -0.726    0.468
+>> conditionTrans    -1.768      2.791  -0.633    0.526
+>>
+>>  Correlation of Fixed Effects:
+>>             (Intr) cndtnD
+>> conditinDtv -0.689
+>> conditnTrns -0.699  0.481
+>>
+>> Thanks and sorry for the length,
+>> Laura
+>>
+>> On Thu, Nov 29, 2012 at 11:08 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>>
+>>> Yes -- the first column of the verbose output is the step number and the
+>>> second column is the deviance.  If the deviance was still going down and
+>>> the model stopped, you probably need more iterations.
+>>>
+>>>  It could be useful to change the starting value of the model
+>>> parameters with the "start" argument of lmer and see if you wind up
+>>> converging to the same parameter estimates regardless of starting value.
+>>>
+>>>  More information about the dataset, and example code output, is, of
+>>> course, always helpful.
+>>>
+>>>  Best
+>>>
+>>>  Roger
+>>>
+>>>
+>>>
+>>>  On Nov 29, 2012, at 7:03 AM PST, Laura Suttle wrote:
+>>>
+>>> Hi Roger,
+>>>
+>>>  Thanks for the other list suggestion, I'll cross post to there.
+>>>
+>>>  Every variable in my data set is categorical, so I can't do that fix.
+>>> I've tried playing around with the maxIter parameter before, but I'm not
+>>> sure I was doing it right. Do you have any suggestions for where I can read
+>>> more about how to interpret the verbose output? I found some things but
+>>> they weren't very helpful.
+>>>
+>>>  Thanks,
+>>> Laura
+>>>
+>>>
+>>> On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>>>
+>>>> Hi Laura,
+>>>>
+>>>>  This is a question that might be better answered on R-sig-ME, but
+>>>> briefly: I would be cautious with a model that reports false convergence;
+>>>> in my experience with this warning (and I am by no means expert on it), it
+>>>> can indicate that the optimization routine that determines the best-fit
+>>>> model parameters got stuck at a parameter estimate that is not near a true
+>>>> optimum, perhaps due to numerical issues.  You might try standardizing any
+>>>> continuous predictor variables you and rerunning the lmer() call.  It would
+>>>> be helpful to set the msVerbose control parameter to TRUE to see what the
+>>>> optimizer is doing.  Also, upping the maxIter and/or maxFN control
+>>>> parameters *might* be helpful.
+>>>>
+>>>>  I do not think that this warning message alone would be justification
+>>>> to omit a random effect.
+>>>>
+>>>>  Best & hope that this helps,
+>>>>
+>>>>  Roger
+>>>>
+>>>>  On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+>>>>
+>>>> Hello all,
+>>>>
+>>>>  I hope this question hasn't been asked before, but the internet isn't
+>>>> being of much help to me.
+>>>>
+>>>>  I am trying to run a mixed logit regression predicting whether
+>>>> participants use a novel verb in a particular construction or not depending
+>>>> on how they were exposed to that novel verb. I dummy coded the three
+>>>> conditions of the experiment into two dummy variables and have added two
+>>>> random effects, one for the motion used for the verb, the other for the
+>>>> verb itself (since these were all counterbalanced).
+>>>>
+>>>>  I can get this model to run fine, the problem is when I try to add
+>>>> any kind of random effect for the subjects themselves. I then get this
+>>>> error message:
+>>>>
+>>>>  Warning message:
+>>>> In mer_finalize(ans) : false convergence (8)
+>>>>
+>>>>  And all of the effects I had of the exposure type go away.
+>>>>
+>>>>  I've been trying to look up what this means and how to deal with it,
+>>>> but there are no clear solutions or explanations that I can find, but
+>>>> plenty of warning of how I should be skeptical of any output from a model
+>>>> with this warning. One suggestion I did find was that the subjects variable
+>>>> may be overfitting my data and there might be something to this: when
+>>>> participants are exposed to the verb in a certain way, they tend to only
+>>>> use the construction I'm looking for, with no variance in their responses.
+>>>> That said, I'm not sure that's right and I'd love a second opinion on
+>>>> either how I can fix this or whether I can use this as justification to not
+>>>> include the subjects random effect.
+>>>>
+>>>>  Thanks in advance for any help you can give,
+>>>> Laura Suttle
+>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>
+>>
+>
+
+From dale.barr-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org  Thu Nov 29 20:47:27 2012
+From: dale.barr-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org (Dale Barr)
+Date: Thu, 29 Nov 2012 20:47:27 +0000
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <CAG2Vd7jTJ+XgV=iW=LOBvJz6Dm+R+RKyjtha2OxdgQUbF8FPVw@mail.gmail.com>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com> <0f3b1aeca80c48e7ac56ec48f76fb655@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOhT-p-P_drVv1g6YnUvmaSBpoD+_qx5wUDyD9GxbeNQdw@mail.gmail.com> <f40a99d010ad4b91836028dfae28b329@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgWZuazd6655y+COHk3UFA_WpZ_6Y68AtP53XccnzgXRg@mail.gmail.com> <CAG2Vd7jTJ+XgV=iW=LOBvJz6Dm+R+RKyjtha2OxdgQUbF8FPVw@mail.gmail.com>
+Message-ID: <50B7C9DF.80600@glasgow.ac.uk>
+
+Hi all,
+
+I would just note that Laura was getting convergence problems *without* 
+a random slope (which is unnecessary given the between-subjects 
+manipulation).  It seems to be arising due to the high variability 
+across subjects, with some giving all 0s and some all 1s (and 
+presumably, some in between).  This makes it hard to estimate the 
+by-subject random intercept variance.
+
+Given that you are in the fortunate situation of not having crossed 
+random effects, I would recommend trying to use Generalized Estimating 
+Equations (GEE), which fits a marginal model (population-average) rather 
+than a conditional (subject-specific) model.  You can find some 
+discussion of this distinction in Raudenbush & Bryk (2002).  Code:
+
+library(gee)
+adultdata.gee <- gee(ditrans~condition, id=subj, data=adultdata, 
+family="binomial")
+summary(adultdata.gee)
+
+If adultdata.gee$error is 0, then the model successfully converged.
+Hope you have better luck with that!
+-Dale
+
+On 29/11/12 20:00, T. Florian Jaeger wrote:
+> HI Laura,
+>
+> if your predictor variable for which you are entertaining a random 
+> by-subject slope is almost entirely between-subjects, you should go 
+> without random by-subject slopes for that predictors. Barr et al 
+> discuss the obvious case of a between-subject manipulation (--> do not 
+> include  by-subject random slopes for the manipulation). It seems that 
+> you have a case that doesn't fit into the neat distinction made in 
+> their paper. You have a predictor that /could /vary within subjects, 
+> but mostly ended up varying between subjects. The problem is that in 
+> that case, it is hard for the model to determine the (variance for) 
+> that random slope. Hence, you get the false convergence.
+>
+> Think about it this way: only the subjects who have /both/ values for 
+> your binary predictors provide data from which you can actually figure 
+> out how the effect of that predictors /differs/ across subjects. For 
+> subjects, who categorically have one value for that predictor, the 
+> by-subject /intercept /already captures the same information (or, to 
+> put it differently, the model has not way to distinguish between the 
+> by-subject intercept and the by-subject slope). Now even when subjects 
+> aren't quite categorical (e.g., they have value 1 about 98% of the 
+> time, and value 0 about 2% of the time), it's hard for the model to 
+> reliably estimate what of the observed variance is due to the 
+> by-subject random intercept and what is due to the by-subject random 
+> slope.
+>
+> Can you provide a tables of subject by predictor (for each of the 
+> binary predictors)? I.e., a table that shows the proportion of 0 and 1 
+> values for the predictors for each of your subjects? if you have 
+> enough folks with enough variance, you might be able to test on the 
+> subset. If not, you probably have to exclude the random by-subject 
+> slope for those predictors.
+>
+> HTH,
+>
+> Florian
+>
+>
+> On Thu, Nov 29, 2012 at 2:45 PM, Laura Suttle <lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org 
+> <mailto:lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org>> wrote:
+>
+>
+>         Do you mean that the model converges to the same parameter
+>         values if you set the starting parameters to wildly different
+>         values?
+>
+>
+>     Ok, I'm not sure what constitutes "wildly different." I just tried
+>     values like 100 and 1000 and now things aren't converging to the
+>     same values. Maybe I wasn't being different enough before to see it.
+>
+>         It's not obvious to me why this model wouldn't actually be
+>         converged, except that the variance of the subject random
+>         effect is very large.  Do you have dramatic differences in
+>         behavior across subjects?
+>
+>
+>     I do, in that participants usually either use this construction
+>     (so they have all 1's for the DV) or don't use it at all (so they
+>     have all 0's). The relevant thing that I'm trying to show is that
+>     more people use in one condition versus another. I don't want to
+>     convert this to a single binary variable since there are some
+>     subjects who switch up how they use these novel verbs, but for the
+>     most part they are either all or none.
+>
+>
+>
+>>         Another potential issue: are subject random effects relevant
+>>         when you are only looking at between subjects fixed effects?
+>>         I'm wondering if that's part of the issue.
+>
+>         They're relevant whenever you have repeated measures from
+>         individual subjects.
+>
+>         If your condition (Dative, Transitive, and something else)
+>         varies within subjects, and what you care about is inferences
+>         about the effect of condition, you'll want to fit a model with
+>         a by-subjects random slope (i.e., response ~ condition +
+>         (condition | subj)), as per Barr et al.
+>
+>
+>     Those conditions (control is the something else) are between
+>     subjects.
+>     Thanks,
+>     Laura
+>
+>
+>         Best
+>
+>         Roger
+>
+>>         Here's the code with output for the simplest model I have
+>>         with subjects random effect (adding them in in any form
+>>         causes this issue). ditrans is a binary DV that categorizes
+>>         speaker usages of a novel verb into double object datives (1)
+>>         or other sentence types (0). Condition is a categorical
+>>         variable that has three levels with a control condition as
+>>         the baseline (I've dummy coded these and there are no
+>>         differences between running it this way and with the dummy
+>>         code, so I'm providing this one for the same of simplicity).
+>>
+>>
+>>         > ditmodel3 <-lmer(ditrans~condition +
+>>         (1|subj),data=adultdata,family="binomial",verbose=T)
+>>           0:     814.04384: 0.391997 -0.472359 -0.840468 0.222898
+>>           1:     474.30352:  1.39176 -0.489556 -0.853831 0.221628
+>>           2:     446.52182:  1.60483 -1.29691 -1.39869 0.144777
+>>           3:     386.13626:  2.59735 -1.19061 -1.38968 0.204059
+>>           4:     383.11685:  2.69684 -1.19357 -1.39816 0.208801
+>>           5:     377.92258:  2.89551 -1.20228 -1.41725 0.218187
+>>           6:     376.11423:  2.97465 -1.20814 -1.42671 0.221868
+>>           7:     372.88540:  3.13258 -1.22176 -1.44712 0.229201
+>>           8:     371.72249:  3.19542 -1.22881 -1.45656 0.232118
+>>           9:     369.58988:  3.32079 -1.24417 -1.47647 0.237957
+>>          10:     369.58183:  3.32129 -1.24424 -1.47656 0.237981
+>>          11:     369.56574:  3.32229 -1.24439 -1.47674 0.238028
+>>          12:     369.55931:  3.32269 -1.24444 -1.47681 0.238046
+>>          13:     369.54645:  3.32349 -1.24456 -1.47695 0.238084
+>>          14:     369.54594:  3.32352 -1.24456 -1.47696 0.238085
+>>          15:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+>>          16:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+>>          17:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          18:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          19:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          20:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          21:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          22:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          23:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          24:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          25:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          26:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          27:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          28:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          29:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          30:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          31:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          32:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          33:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          34:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>          35:     369.54175:  3.32378 -1.24460 -1.47699 0.238081
+>>          36:     369.54062:  3.32390 -1.24460 -1.47681 0.237810
+>>          37:     369.52871:  3.32514 -1.24460 -1.47496 0.234970
+>>          38:     369.41249:  3.33754 -1.24460 -1.45648 0.206662
+>>          39:     368.48882:  3.45721 -1.24460 -1.27810 -0.0665675
+>>          40:     367.50882:  3.71632 -1.24460 -0.891867 -0.658143
+>>          41:     367.42619:  3.80235 -1.24460 -0.763626 -0.854531
+>>          42:     367.42069:  3.82935 -1.24460 -0.723378 -0.916133
+>>          43:     367.42061:  3.83197 -1.24460 -0.719473 -0.922078
+>>          44:     367.42056:  3.83302 -1.24460 -0.717885 -0.924450
+>>          45:     367.42030:  3.83643 -1.24460 -0.712740 -0.931948
+>>          46:     367.41976:  3.84096 -1.24460 -0.705833 -0.941589
+>>          47:     367.41821:  3.84903 -1.24460 -0.693317 -0.957909
+>>          48:     367.41433:  3.86190 -1.24460 -0.672862 -0.981743
+>>          49:     367.40420:  3.88359 -1.24460 -0.637123 -1.01631
+>>          50:     367.37911:  3.91871 -1.24460 -0.576118 -1.05854
+>>          51:     367.31987:  3.97369 -1.24460 -0.473099 -1.09171
+>>          52:     367.19878:  4.04676 -1.24460 -0.319173 -1.06129
+>>          53:     367.00997:  4.11079 -1.24460 -0.148079 -0.875985
+>>          54:     366.83505:  4.11105 -1.24460 -0.0694293 -0.533561
+>>          55:     366.76596:  4.05082 -1.24460 -0.131236 -0.273508
+>>          56:     366.75441:  4.00835 -1.24460 -0.205517 -0.224632
+>>          57:     366.75330:  3.99692 -1.24460 -0.231735 -0.238739
+>>          58:     366.75328:  3.99700 -1.24460 -0.232466 -0.242660
+>>          59:     366.75327:  3.99706 -1.24460 -0.232631 -0.243916
+>>          60:     366.75321:  3.99733 -1.24460 -0.233186 -0.248657
+>>          61:     366.75310:  3.99766 -1.24460 -0.233948 -0.254660
+>>          62:     366.75277:  3.99818 -1.24460 -0.235467 -0.265375
+>>          63:     366.75194:  3.99913 -1.24460 -0.237734 -0.282069
+>>          64:     366.74974:  4.00078 -1.24460 -0.241634 -0.309537
+>>          65:     366.74401:  4.00376 -1.24460 -0.248277 -0.353787
+>>          66:     366.72917:  4.00940 -1.24460 -0.260050 -0.425563
+>>          67:     366.69014:  4.02037 -1.24460 -0.282150 -0.541757
+>>          68:     366.58903:  4.04387 -1.24460 -0.323645 -0.729228
+>>          69:     366.33054:  4.09566 -1.24460 -0.407098 -1.03058
+>>          70:     365.69165:  4.21044 -1.24460 -0.582890 -1.50206
+>>          71:     364.22961:  4.45811 -1.24460 -0.955294 -2.19620
+>>          72:     363.88256:  4.50536 -1.24460 -1.03067 -2.28460
+>>          73:     363.78744:  4.51528 -1.24460 -1.04951 -2.29787
+>>          74:     363.76346:  4.51729 -1.24460 -1.05384 -2.29942
+>>          75:     363.71559:  4.52093 -1.24460 -1.06284 -2.30192
+>>          76:     363.50871:  4.53406 -1.24460 -1.10070 -2.30424
+>>          77:     362.67929:  4.58017 -1.24460 -1.25368 -2.28868
+>>          78:     362.34767:  4.59767 -1.24460 -1.31389 -2.27484
+>>          79:     362.28332:  4.60067 -1.24460 -1.32582 -2.27114
+>>          80:     362.15615:  4.60614 -1.24460 -1.34933 -2.26235
+>>          81:     362.10583:  4.60818 -1.24460 -1.35861 -2.25843
+>>          82:     361.98440:  4.61586 -1.24460 -1.37557 -2.24974
+>>          83:     361.94584:  4.61723 -1.24460 -1.38296 -2.24642
+>>          84:     361.93799:  4.61752 -1.24460 -1.38442 -2.24571
+>>          85:     361.87531:  4.61979 -1.24460 -1.39595 -2.23983
+>>          86:     361.87506:  4.61980 -1.24460 -1.39600 -2.23980
+>>          87:     361.87456:  4.61982 -1.24460 -1.39609 -2.23975
+>>          88:     361.87424:  4.61985 -1.24460 -1.39611 -2.23974
+>>          89:     361.87421:  4.61986 -1.24460 -1.39612 -2.23973
+>>          90:     361.87420:  4.61986 -1.24460 -1.39612 -2.23973
+>>          91:     361.87418:  4.61986 -1.24460 -1.39612 -2.23973
+>>          92:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>          93:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>          94:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>          95:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>          96:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>          97:     361.61308:  4.63208 -1.24460 -1.31790 -2.07725
+>>          98:     360.78393:  4.70563 -1.24460 -1.01240 -1.42611
+>>          99:     360.30955:  4.80814 -1.24460 -0.794807 -0.933962
+>>         100:     359.83679:  4.94614 -1.24460 -0.694790 -0.658108
+>>         101:     358.66805:  5.34357 -1.24460 -0.659430 -0.362284
+>>         102:     357.21569:  5.94720 -1.24460 -0.865900 -0.407961
+>>         103:     355.87363:  6.65147 -1.24460 -1.34871 -0.894451
+>>         104:     354.79576:  7.33163 -1.24460 -2.04508 -1.75302
+>>         105:     354.79427:  7.33250 -1.24460 -2.04623 -1.75453
+>>         106:     354.78176:  7.33863 -1.24460 -2.05548 -1.76699
+>>         107:     354.78124:  7.33885 -1.24460 -2.05585 -1.76750
+>>         108:     354.78114:  7.33890 -1.24460 -2.05592 -1.76760
+>>         109:     354.78092:  7.33897 -1.24460 -2.05608 -1.76780
+>>         110:     354.78083:  7.33900 -1.24460 -2.05614 -1.76789
+>>         111:     354.78081:  7.33901 -1.24460 -2.05615 -1.76790
+>>         112:     354.78077:  7.33902 -1.24460 -2.05618 -1.76794
+>>         113:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+>>         114:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+>>         115:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>>         116:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>>         117:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>>         118:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>         119:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>         120:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>         121:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>         122:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>         Warning message:
+>>         In mer_finalize(ans) : false convergence (8)
+>>         >
+>>         > summary(ditmodel3)
+>>         Generalized linear mixed model fit by the Laplace approximation
+>>         Formula: ditrans ~ condition + (1 | subj)
+>>            Data: adultdata
+>>            AIC   BIC logLik deviance
+>>          362.8 381.7 -177.4    354.8
+>>         Random effects:
+>>          Groups Name        Variance Std.Dev.
+>>          subj   (Intercept) 53.861 7.339
+>>         Number of obs: 833, groups: subj, 48
+>>
+>>         Fixed effects:
+>>                         Estimate Std. Error z value Pr(>|z|)
+>>         (Intercept)       -1.245  1.951  -0.638    0.523
+>>         conditionDative   -2.056  2.832  -0.726    0.468
+>>         conditionTrans    -1.768  2.791  -0.633    0.526
+>>
+>>         Correlation of Fixed Effects:
+>>                     (Intr) cndtnD
+>>         conditinDtv -0.689
+>>         conditnTrns -0.699  0.481
+>>
+>>         Thanks and sorry for the length,
+>>         Laura
+>>
+>>         On Thu, Nov 29, 2012 at 11:08 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org
+>>         <mailto:rlevy-XkckGZ689+c at public.gmane.org>> wrote:
+>>
+>>             Yes -- the first column of the verbose output is the step
+>>             number and the second column is the deviance.  If the
+>>             deviance was still going down and the model stopped, you
+>>             probably need more iterations.
+>>
+>>             It could be useful to change the starting value of the
+>>             model parameters with the "start" argument of lmer and
+>>             see if you wind up converging to the same parameter
+>>             estimates regardless of starting value.
+>>
+>>             More information about the dataset, and example code
+>>             output, is, of course, always helpful.
+>>
+>>             Best
+>>
+>>             Roger
+>>
+>>
+>>
+>>             On Nov 29, 2012, at 7:03 AM PST, Laura Suttle wrote:
+>>
+>>>             Hi Roger,
+>>>
+>>>             Thanks for the other list suggestion, I'll cross post to
+>>>             there.
+>>>
+>>>             Every variable in my data set is categorical, so I can't
+>>>             do that fix. I've tried playing around with the maxIter
+>>>             parameter before, but I'm not sure I was doing it right.
+>>>             Do you have any suggestions for where I can read more
+>>>             about how to interpret the verbose output? I found some
+>>>             things but they weren't very helpful.
+>>>
+>>>             Thanks,
+>>>             Laura
+>>>
+>>>
+>>>             On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger
+>>>             <rlevy-XkckGZ689+c at public.gmane.org <mailto:rlevy-XkckGZ689+c at public.gmane.org>> wrote:
+>>>
+>>>                 Hi Laura,
+>>>
+>>>                 This is a question that might be better answered on
+>>>                 R-sig-ME, but briefly: I would be cautious with a
+>>>                 model that reports false convergence; in my
+>>>                 experience with this warning (and I am by no means
+>>>                 expert on it), it can indicate that the optimization
+>>>                 routine that determines the best-fit model
+>>>                 parameters got stuck at a parameter estimate that is
+>>>                 not near a true optimum, perhaps due to numerical
+>>>                 issues.  You might try standardizing any continuous
+>>>                 predictor variables you and rerunning the lmer()
+>>>                 call.  It would be helpful to set the msVerbose
+>>>                 control parameter to TRUE to see what the optimizer
+>>>                 is doing.  Also, upping the maxIter and/or maxFN
+>>>                 control parameters *might* be helpful.
+>>>
+>>>                 I do not think that this warning message alone would
+>>>                 be justification to omit a random effect.
+>>>
+>>>                 Best & hope that this helps,
+>>>
+>>>                 Roger
+>>>
+>>>                 On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+>>>
+>>>>                 Hello all,
+>>>>
+>>>>                 I hope this question hasn't been asked before, but
+>>>>                 the internet isn't being of much help to me.
+>>>>
+>>>>                 I am trying to run a mixed logit regression
+>>>>                 predicting whether participants use a novel verb in
+>>>>                 a particular construction or not depending on how
+>>>>                 they were exposed to that novel verb. I dummy coded
+>>>>                 the three conditions of the experiment into two
+>>>>                 dummy variables and have added two random effects,
+>>>>                 one for the motion used for the verb, the other for
+>>>>                 the verb itself (since these were all
+>>>>                 counterbalanced).
+>>>>
+>>>>                 I can get this model to run fine, the problem is
+>>>>                 when I try to add any kind of random effect for the
+>>>>                 subjects themselves. I then get this error message:
+>>>>
+>>>>                 Warning message:
+>>>>                 In mer_finalize(ans) : false convergence (8)
+>>>>
+>>>>                 And all of the effects I had of the exposure type
+>>>>                 go away.
+>>>>
+>>>>                 I've been trying to look up what this means and how
+>>>>                 to deal with it, but there are no clear solutions
+>>>>                 or explanations that I can find, but plenty of
+>>>>                 warning of how I should be skeptical of any output
+>>>>                 from a model with this warning. One suggestion I
+>>>>                 did find was that the subjects variable may be
+>>>>                 overfitting my data and there might be something to
+>>>>                 this: when participants are exposed to the verb in
+>>>>                 a certain way, they tend to only use the
+>>>>                 construction I'm looking for, with no variance in
+>>>>                 their responses. That said, I'm not sure that's
+>>>>                 right and I'd love a second opinion on either how I
+>>>>                 can fix this or whether I can use this as
+>>>>                 justification to not include the subjects random
+>>>>                 effect.
+>>>>
+>>>>                 Thanks in advance for any help you can give,
+>>>>                 Laura Suttle
+>>>
+>>>
+>>
+>>
+>
+>
+>
+
+
+-- 
+Dale Barr
+Institute of Neuroscience and Psychology
+University of Glasgow
+58 Hillhead Street
+Glasgow G12 8QB
+
+From lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org  Thu Nov 29 20:51:38 2012
+From: lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org (Laura Suttle)
+Date: Thu, 29 Nov 2012 15:51:38 -0500
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <a7b2c7a2afb948fcbcb2e8519ec16177@CSGHUB209W.pu.win.princeton.edu>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com> <0f3b1aeca80c48e7ac56ec48f76fb655@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOhT-p-P_drVv1g6YnUvmaSBpoD+_qx5wUDyD9GxbeNQdw@mail.gmail.com> <f40a99d010ad4b91836028dfae28b329@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgWZuazd6655y+COHk3UFA_WpZ_6Y68AtP53XccnzgXRg@mail.gmail.com> <a7b2c7a2afb948fcbcb2e8519ec16177@CSGHUB209W.pu.win.princeton.edu>
+Message-ID: <CAPNJOOj9uY7HxVbuu40eOTb1WXM7WKjZFJF59KHO+SLMvxcOBQ@mail.gmail.com>
+
+Here are the proportion data. 33/48 overall picked either one or the other.
+
+Thanks for the reference, I'm always glad to find more papers on these
+methods.
+
+Thanks,
+Laura
+
+  Control  3 0  18 0  A10 0  A18 0  A20 0  A22 0  A9 0  A5 0.055  2 0.312
+A8 0.555  A21 0.666  4 0.937  5 0.937  1 1  21 1  22 1  Dative  9 0  11 0
+13 0  15 0  17 0  23 0  A12 0  A13 0  A19 0  A23 0  A4 0  8 0.217  19 0.5
+A6 0.555  A24 0.95  A15 1  Transitive  6 0  14 0  16 0  A14 0  A25 0  A3 0
+A7 0  A17 0.055  A16 0.277  10 0.937  A1 0.944  7 1  12 1  20 1  24 1  A11 1
+
+
+On Thu, Nov 29, 2012 at 3:00 PM, T. Florian Jaeger
+<tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>wrote:
+
+>  HI Laura,
+>
+>  if your predictor variable for which you are entertaining a random
+> by-subject slope is almost entirely between-subjects, you should go without
+> random by-subject slopes for that predictors. Barr et al discuss the
+> obvious case of a between-subject manipulation (--> do not include
+>  by-subject random slopes for the manipulation). It seems that you have a
+> case that doesn't fit into the neat distinction made in their paper. You
+> have a predictor that *could *vary within subjects, but mostly ended up
+> varying between subjects. The problem is that in that case, it is hard for
+> the model to determine the (variance for) that random slope. Hence, you get
+> the false convergence.
+>
+>  Think about it this way: only the subjects who have *both* values for
+> your binary predictors provide data from which you can actually figure out
+> how the effect of that predictors *differs* across subjects. For
+> subjects, who categorically have one value for that predictor, the
+> by-subject *intercept *already captures the same information (or, to put
+> it differently, the model has not way to distinguish between the by-subject
+> intercept and the by-subject slope). Now even when subjects aren't quite
+> categorical (e.g., they have value 1 about 98% of the time, and value 0
+> about 2% of the time), it's hard for the model to reliably estimate what of
+> the observed variance is due to the by-subject random intercept and what is
+> due to the by-subject random slope.
+>
+>  Can you provide a tables of subject by predictor (for each of the binary
+> predictors)? I.e., a table that shows the proportion of 0 and 1 values for
+> the predictors for each of your subjects? if you have enough folks with
+> enough variance, you might be able to test on the subset. If not, you
+> probably have to exclude the random by-subject slope for those predictors.
+>
+>  HTH,
+>
+>  Florian
+>
+>
+> On Thu, Nov 29, 2012 at 2:45 PM, Laura Suttle <lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org>wrote:
+>
+>>
+>>     Do you mean that the model converges to the same parameter values if
+>>> you set the starting parameters to wildly different values?
+>>>
+>>>
+>>  Ok, I'm not sure what constitutes "wildly different." I just tried
+>> values like 100 and 1000 and now things aren't converging to the same
+>> values. Maybe I wasn't being different enough before to see it.
+>>
+>>
+>>>   It's not obvious to me why this model wouldn't actually be converged,
+>>> except that the variance of the subject random effect is very large.  Do
+>>> you have dramatic differences in behavior across subjects?
+>>>
+>>
+>>  I do, in that participants usually either use this construction (so
+>> they have all 1's for the DV) or don't use it at all (so they have all
+>> 0's). The relevant thing that I'm trying to show is that more people use in
+>> one condition versus another. I don't want to convert this to a single
+>> binary variable since there are some subjects who switch up how they use
+>> these novel verbs, but for the most part they are either all or none.
+>>
+>>
+>>
+>>>  Another potential issue: are subject random effects relevant when you
+>>> are only looking at between subjects fixed effects? I'm wondering if that's
+>>> part of the issue.
+>>>
+>>>
+>>>   They're relevant whenever you have repeated measures from individual
+>>> subjects.
+>>>
+>>>  If your condition (Dative, Transitive, and something else) varies
+>>> within subjects, and what you care about is inferences about the effect of
+>>> condition, you'll want to fit a model with a by-subjects random slope
+>>> (i.e., response ~ condition + (condition | subj)), as per Barr et al.
+>>>
+>>
+>>  Those conditions (control is the something else) are between subjects.
+>>
+>> Thanks,
+>> Laura
+>>
+>>
+>>>  Best
+>>>
+>>>  Roger
+>>>
+>>>  Here's the code with output for the simplest model I have with
+>>> subjects random effect (adding them in in any form causes this issue).
+>>> ditrans is a binary DV that categorizes speaker usages of a novel verb into
+>>> double object datives (1) or other sentence types (0). Condition is a
+>>> categorical variable that has three levels with a control condition as the
+>>> baseline (I've dummy coded these and there are no differences between
+>>> running it this way and with the dummy code, so I'm providing this one for
+>>> the same of simplicity).
+>>>
+>>>
+>>>  > ditmodel3 <-lmer(ditrans~condition +
+>>> (1|subj),data=adultdata,family="binomial",verbose=T)
+>>>    0:     814.04384: 0.391997 -0.472359 -0.840468 0.222898
+>>>   1:     474.30352:  1.39176 -0.489556 -0.853831 0.221628
+>>>   2:     446.52182:  1.60483 -1.29691 -1.39869 0.144777
+>>>   3:     386.13626:  2.59735 -1.19061 -1.38968 0.204059
+>>>   4:     383.11685:  2.69684 -1.19357 -1.39816 0.208801
+>>>   5:     377.92258:  2.89551 -1.20228 -1.41725 0.218187
+>>>   6:     376.11423:  2.97465 -1.20814 -1.42671 0.221868
+>>>   7:     372.88540:  3.13258 -1.22176 -1.44712 0.229201
+>>>   8:     371.72249:  3.19542 -1.22881 -1.45656 0.232118
+>>>   9:     369.58988:  3.32079 -1.24417 -1.47647 0.237957
+>>>  10:     369.58183:  3.32129 -1.24424 -1.47656 0.237981
+>>>  11:     369.56574:  3.32229 -1.24439 -1.47674 0.238028
+>>>  12:     369.55931:  3.32269 -1.24444 -1.47681 0.238046
+>>>  13:     369.54645:  3.32349 -1.24456 -1.47695 0.238084
+>>>  14:     369.54594:  3.32352 -1.24456 -1.47696 0.238085
+>>>  15:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+>>>  16:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+>>>  17:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  18:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  19:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  20:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  21:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  22:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  23:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  24:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  25:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  26:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  27:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  28:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  29:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  30:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  31:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  32:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  33:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  34:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+>>>  35:     369.54175:  3.32378 -1.24460 -1.47699 0.238081
+>>>  36:     369.54062:  3.32390 -1.24460 -1.47681 0.237810
+>>>  37:     369.52871:  3.32514 -1.24460 -1.47496 0.234970
+>>>  38:     369.41249:  3.33754 -1.24460 -1.45648 0.206662
+>>>  39:     368.48882:  3.45721 -1.24460 -1.27810 -0.0665675
+>>>  40:     367.50882:  3.71632 -1.24460 -0.891867 -0.658143
+>>>  41:     367.42619:  3.80235 -1.24460 -0.763626 -0.854531
+>>>  42:     367.42069:  3.82935 -1.24460 -0.723378 -0.916133
+>>>  43:     367.42061:  3.83197 -1.24460 -0.719473 -0.922078
+>>>  44:     367.42056:  3.83302 -1.24460 -0.717885 -0.924450
+>>>  45:     367.42030:  3.83643 -1.24460 -0.712740 -0.931948
+>>>  46:     367.41976:  3.84096 -1.24460 -0.705833 -0.941589
+>>>  47:     367.41821:  3.84903 -1.24460 -0.693317 -0.957909
+>>>  48:     367.41433:  3.86190 -1.24460 -0.672862 -0.981743
+>>>  49:     367.40420:  3.88359 -1.24460 -0.637123 -1.01631
+>>>  50:     367.37911:  3.91871 -1.24460 -0.576118 -1.05854
+>>>  51:     367.31987:  3.97369 -1.24460 -0.473099 -1.09171
+>>>  52:     367.19878:  4.04676 -1.24460 -0.319173 -1.06129
+>>>  53:     367.00997:  4.11079 -1.24460 -0.148079 -0.875985
+>>>  54:     366.83505:  4.11105 -1.24460 -0.0694293 -0.533561
+>>>  55:     366.76596:  4.05082 -1.24460 -0.131236 -0.273508
+>>>  56:     366.75441:  4.00835 -1.24460 -0.205517 -0.224632
+>>>  57:     366.75330:  3.99692 -1.24460 -0.231735 -0.238739
+>>>  58:     366.75328:  3.99700 -1.24460 -0.232466 -0.242660
+>>>  59:     366.75327:  3.99706 -1.24460 -0.232631 -0.243916
+>>>  60:     366.75321:  3.99733 -1.24460 -0.233186 -0.248657
+>>>  61:     366.75310:  3.99766 -1.24460 -0.233948 -0.254660
+>>>  62:     366.75277:  3.99818 -1.24460 -0.235467 -0.265375
+>>>  63:     366.75194:  3.99913 -1.24460 -0.237734 -0.282069
+>>>  64:     366.74974:  4.00078 -1.24460 -0.241634 -0.309537
+>>>  65:     366.74401:  4.00376 -1.24460 -0.248277 -0.353787
+>>>  66:     366.72917:  4.00940 -1.24460 -0.260050 -0.425563
+>>>  67:     366.69014:  4.02037 -1.24460 -0.282150 -0.541757
+>>>  68:     366.58903:  4.04387 -1.24460 -0.323645 -0.729228
+>>>  69:     366.33054:  4.09566 -1.24460 -0.407098 -1.03058
+>>>  70:     365.69165:  4.21044 -1.24460 -0.582890 -1.50206
+>>>  71:     364.22961:  4.45811 -1.24460 -0.955294 -2.19620
+>>>  72:     363.88256:  4.50536 -1.24460 -1.03067 -2.28460
+>>>  73:     363.78744:  4.51528 -1.24460 -1.04951 -2.29787
+>>>  74:     363.76346:  4.51729 -1.24460 -1.05384 -2.29942
+>>>  75:     363.71559:  4.52093 -1.24460 -1.06284 -2.30192
+>>>  76:     363.50871:  4.53406 -1.24460 -1.10070 -2.30424
+>>>  77:     362.67929:  4.58017 -1.24460 -1.25368 -2.28868
+>>>  78:     362.34767:  4.59767 -1.24460 -1.31389 -2.27484
+>>>  79:     362.28332:  4.60067 -1.24460 -1.32582 -2.27114
+>>>  80:     362.15615:  4.60614 -1.24460 -1.34933 -2.26235
+>>>  81:     362.10583:  4.60818 -1.24460 -1.35861 -2.25843
+>>>  82:     361.98440:  4.61586 -1.24460 -1.37557 -2.24974
+>>>  83:     361.94584:  4.61723 -1.24460 -1.38296 -2.24642
+>>>  84:     361.93799:  4.61752 -1.24460 -1.38442 -2.24571
+>>>  85:     361.87531:  4.61979 -1.24460 -1.39595 -2.23983
+>>>  86:     361.87506:  4.61980 -1.24460 -1.39600 -2.23980
+>>>  87:     361.87456:  4.61982 -1.24460 -1.39609 -2.23975
+>>>  88:     361.87424:  4.61985 -1.24460 -1.39611 -2.23974
+>>>  89:     361.87421:  4.61986 -1.24460 -1.39612 -2.23973
+>>>  90:     361.87420:  4.61986 -1.24460 -1.39612 -2.23973
+>>>  91:     361.87418:  4.61986 -1.24460 -1.39612 -2.23973
+>>>  92:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>>  93:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>>  94:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>>  95:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>>  96:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+>>>  97:     361.61308:  4.63208 -1.24460 -1.31790 -2.07725
+>>>  98:     360.78393:  4.70563 -1.24460 -1.01240 -1.42611
+>>>  99:     360.30955:  4.80814 -1.24460 -0.794807 -0.933962
+>>> 100:     359.83679:  4.94614 -1.24460 -0.694790 -0.658108
+>>> 101:     358.66805:  5.34357 -1.24460 -0.659430 -0.362284
+>>> 102:     357.21569:  5.94720 -1.24460 -0.865900 -0.407961
+>>> 103:     355.87363:  6.65147 -1.24460 -1.34871 -0.894451
+>>> 104:     354.79576:  7.33163 -1.24460 -2.04508 -1.75302
+>>> 105:     354.79427:  7.33250 -1.24460 -2.04623 -1.75453
+>>> 106:     354.78176:  7.33863 -1.24460 -2.05548 -1.76699
+>>> 107:     354.78124:  7.33885 -1.24460 -2.05585 -1.76750
+>>> 108:     354.78114:  7.33890 -1.24460 -2.05592 -1.76760
+>>> 109:     354.78092:  7.33897 -1.24460 -2.05608 -1.76780
+>>> 110:     354.78083:  7.33900 -1.24460 -2.05614 -1.76789
+>>> 111:     354.78081:  7.33901 -1.24460 -2.05615 -1.76790
+>>> 112:     354.78077:  7.33902 -1.24460 -2.05618 -1.76794
+>>> 113:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+>>> 114:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+>>> 115:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>>> 116:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>>> 117:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+>>> 118:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>> 119:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>> 120:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>> 121:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>> 122:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+>>>  Warning message:
+>>> In mer_finalize(ans) : false convergence (8)
+>>> >
+>>> > summary(ditmodel3)
+>>> Generalized linear mixed model fit by the Laplace approximation
+>>> Formula: ditrans ~ condition + (1 | subj)
+>>>    Data: adultdata
+>>>    AIC   BIC logLik deviance
+>>>  362.8 381.7 -177.4    354.8
+>>> Random effects:
+>>>  Groups Name        Variance Std.Dev.
+>>>  subj   (Intercept) 53.861   7.339
+>>> Number of obs: 833, groups: subj, 48
+>>>
+>>>  Fixed effects:
+>>>                 Estimate Std. Error z value Pr(>|z|)
+>>> (Intercept)       -1.245      1.951  -0.638    0.523
+>>> conditionDative   -2.056      2.832  -0.726    0.468
+>>> conditionTrans    -1.768      2.791  -0.633    0.526
+>>>
+>>>  Correlation of Fixed Effects:
+>>>             (Intr) cndtnD
+>>> conditinDtv -0.689
+>>> conditnTrns -0.699  0.481
+>>>
+>>> Thanks and sorry for the length,
+>>> Laura
+>>>
+>>> On Thu, Nov 29, 2012 at 11:08 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>>>
+>>>> Yes -- the first column of the verbose output is the step number and
+>>>> the second column is the deviance.  If the deviance was still going down
+>>>> and the model stopped, you probably need more iterations.
+>>>>
+>>>>  It could be useful to change the starting value of the model
+>>>> parameters with the "start" argument of lmer and see if you wind up
+>>>> converging to the same parameter estimates regardless of starting value.
+>>>>
+>>>>  More information about the dataset, and example code output, is, of
+>>>> course, always helpful.
+>>>>
+>>>>  Best
+>>>>
+>>>>  Roger
+>>>>
+>>>>
+>>>>
+>>>>  On Nov 29, 2012, at 7:03 AM PST, Laura Suttle wrote:
+>>>>
+>>>> Hi Roger,
+>>>>
+>>>>  Thanks for the other list suggestion, I'll cross post to there.
+>>>>
+>>>>  Every variable in my data set is categorical, so I can't do that fix.
+>>>> I've tried playing around with the maxIter parameter before, but I'm not
+>>>> sure I was doing it right. Do you have any suggestions for where I can read
+>>>> more about how to interpret the verbose output? I found some things but
+>>>> they weren't very helpful.
+>>>>
+>>>>  Thanks,
+>>>> Laura
+>>>>
+>>>>
+>>>> On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org> wrote:
+>>>>
+>>>>> Hi Laura,
+>>>>>
+>>>>>  This is a question that might be better answered on R-sig-ME, but
+>>>>> briefly: I would be cautious with a model that reports false convergence;
+>>>>> in my experience with this warning (and I am by no means expert on it), it
+>>>>> can indicate that the optimization routine that determines the best-fit
+>>>>> model parameters got stuck at a parameter estimate that is not near a true
+>>>>> optimum, perhaps due to numerical issues.  You might try standardizing any
+>>>>> continuous predictor variables you and rerunning the lmer() call.  It would
+>>>>> be helpful to set the msVerbose control parameter to TRUE to see what the
+>>>>> optimizer is doing.  Also, upping the maxIter and/or maxFN control
+>>>>> parameters *might* be helpful.
+>>>>>
+>>>>>  I do not think that this warning message alone would be
+>>>>> justification to omit a random effect.
+>>>>>
+>>>>>  Best & hope that this helps,
+>>>>>
+>>>>>  Roger
+>>>>>
+>>>>>  On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+>>>>>
+>>>>> Hello all,
+>>>>>
+>>>>>  I hope this question hasn't been asked before, but the internet
+>>>>> isn't being of much help to me.
+>>>>>
+>>>>>  I am trying to run a mixed logit regression predicting whether
+>>>>> participants use a novel verb in a particular construction or not depending
+>>>>> on how they were exposed to that novel verb. I dummy coded the three
+>>>>> conditions of the experiment into two dummy variables and have added two
+>>>>> random effects, one for the motion used for the verb, the other for the
+>>>>> verb itself (since these were all counterbalanced).
+>>>>>
+>>>>>  I can get this model to run fine, the problem is when I try to add
+>>>>> any kind of random effect for the subjects themselves. I then get this
+>>>>> error message:
+>>>>>
+>>>>>  Warning message:
+>>>>> In mer_finalize(ans) : false convergence (8)
+>>>>>
+>>>>>  And all of the effects I had of the exposure type go away.
+>>>>>
+>>>>>  I've been trying to look up what this means and how to deal with it,
+>>>>> but there are no clear solutions or explanations that I can find, but
+>>>>> plenty of warning of how I should be skeptical of any output from a model
+>>>>> with this warning. One suggestion I did find was that the subjects variable
+>>>>> may be overfitting my data and there might be something to this: when
+>>>>> participants are exposed to the verb in a certain way, they tend to only
+>>>>> use the construction I'm looking for, with no variance in their responses.
+>>>>> That said, I'm not sure that's right and I'd love a second opinion on
+>>>>> either how I can fix this or whether I can use this as justification to not
+>>>>> include the subjects random effect.
+>>>>>
+>>>>>  Thanks in advance for any help you can give,
+>>>>> Laura Suttle
+>>>>>
+>>>>>
+>>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>
+>
+
+From Rachel.Smith-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org  Fri Nov 30 00:19:40 2012
+From: Rachel.Smith-Rvdaw4MAOY42EctHIo1CcQ at public.gmane.org (Rachel Smith)
+Date: Fri, 30 Nov 2012 00:19:40 +0000
+Subject: Surprising results from model comparison, when using a complex random effects structure
+Message-ID: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F861@CMS03.campus.gla.ac.uk>
+
+Dear R-lang list,
+
+I'd be very grateful for any advice you can offer. My issue is that when running lmer on categorical data with a moderately complex random effects structure, and doing model comparison using likelihood ratios, I am occasionally seeing (what I think are) bizarre and unstable chisq and p values in the model comparisons, and I'd like to find out why.
+
+Apologies for the long email that follows.
+
+To give some background, I previously fitted a model to my data using only random intercepts. Then I read Barr et al (2012) and reanalysed my data in order to follow their advice with respect to keeping the random effects structure (near-)maximal. The random effects structure that I have chosen is intended to be maximal with respect to my two experimental variables of primary theoretical interest, dialect (between-subjects) and vlength (within-subjects), and also includes random slopes for a couple of control variables that I expected to show relevant variation (loglong and item, both within-subjects). But it omits some predictors in order to permit the models to converge.
+
+To estimate the fixed effects, I have followed a backwards model selection procedure using likelihood ratio model comparison. Along the way, there have been a couple of cases where the model comparison produces significant or near-significant results that I don't trust, and that seem unstable, in that they are liable to change (to something more sensible) when the identical code is re-run.
+
+Here is an example: The following two models differ only in the inclusion of the factor "version" (2 levels).
+
+spotlong11.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + version + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+
+spotlong12.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+
+(NB: "item" here refers to item number, i.e. is actually an effect of trial; "target" refers to words considered as an experimental unit, i.e. to what might normally be called items).
+
+Model comparison gave the following result:
+anova(spotlong11.glmm, spotlong12.glmm)
+#                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+#spotlong12.glmm 30 5281.2 5477.6 -2610.6
+#spotlong11.glmm 31 5279.7 5482.6 -2608.8 3.5601      1    0.05918 .
+
+This is very surprising, because in the output for spotlong11.glmm, the estimate for version is small in relation to the standard error, and far from significance:
+
+print(spotlong11.glmm, corr=FALSE)
+#Generalized linear mixed model fit by the Laplace approximation
+#Formula: spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype -      dialect:context - #dialect:vtype + loglong + item + gender +      version + (1 + vlength + loglong + item | subject) + (1 +      dialect | #target)
+#   Data: data
+#  AIC  BIC logLik deviance
+# 5280 5483  -2609     5218
+#Random effects:
+# Groups  Name         Variance   Std.Dev.  Corr
+# subject (Intercept)  1.0128e+00 1.0063593
+#         vlengthshort 4.4225e-02 0.2102972 -0.675
+#         loglong      7.4783e-02 0.2734643 -0.757  0.569
+#         item         6.0143e-05 0.0077552 -0.474  0.877  0.125
+# target  (Intercept)  1.7291e+00 1.3149512
+#         dialectL     1.3129e-01 0.3623410 -0.458
+#Number of obs: 5148, groups: subject, 78; target, 66
+#Fixed effects:
+#                                Estimate Std. Error z value Pr(>|z|)
+#(Intercept)                    -2.101415   0.497599  -4.223 2.41e-05 ***
+#dialectL                       -0.036163   0.192553  -0.188 0.851027
+#vlengthshort                    0.549224   0.181666   3.023 0.002501 **
+#contextNL                       0.062903   0.566956   0.111 0.911657
+#contextSL                       0.867398   0.553790   1.566 0.117280
+#vtypeNV                        -0.743498   0.556697  -1.336 0.181696
+#loglong                         0.874872   0.232198   3.768 0.000165 ***
+#item                            0.006777   0.001379   4.914 8.94e-07 ***
+#genderm                        -0.344050   0.177315  -1.940 0.052340 .
+#versionB                        0.091018   0.170662   0.533 0.593810
+#dialectL:vlengthshort          -0.377850   0.145280  -2.601 0.009300 **
+#vlengthshort:contextNL          0.725804   0.238603   3.042 0.002351 **
+#vlengthshort:contextSL         -0.867637   0.242693  -3.575 0.000350 ***
+#vlengthshort:vtypeNV           -0.581290   0.247543  -2.348 0.018862 *
+#contextNL:vtypeNV               1.075103   0.794058   1.354 0.175757
+#contextSL:vtypeNV              -0.505121   0.784197  -0.644 0.519494
+#vlengthshort:contextNL:vtypeNV -0.602742   0.343102  -1.757 0.078961 .
+#vlengthshort:contextSL:vtypeNV  0.824727   0.354378   2.327 0.019952 *
+
+After closing and re-opening R, and re-running the same two models and the comparison between them, I obtained the following:
+#                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+#spotlong12.glmm 30 5277.9 5474.3 -2609.0
+#spotlong11.glmm 31 5279.7 5482.6 -2608.8 0.2783      1     0.5978
+which is much more in line with the p value associated with the estimate for version in spotlong11.glmm.
+
+Can anyone shed any light on why differences like this might occur and what I should do about them? As this is the first time I've implemented a random effects structure that is at all complex, I may just have done something crazy with the random effects. But whatever is the cause, it seems to be manifesting in strange model comparison results, rather than problems with convergence.
+
+Thank you for reading! Any advice that anyone can offer will be greatly appreciated.
+
+Best wishes,
+
+Rachel Smith
+(U. of Glasgow)
+
+From rlevy-XkckGZ689+c at public.gmane.org  Fri Nov 30 04:04:29 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Fri, 30 Nov 2012 04:04:29 +0000
+Subject: Re: Surprising results from model comparison, when using a complex random effects structure
+In-Reply-To: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F861@CMS03.campus.gla.ac.uk>
+References: <4D20AC12B0DD1B41B3901228D1C40C2D48FD77F861@CMS03.campus.gla.ac.uk>
+Message-ID: <EDCDE7FA-2626-4CEE-80C6-44181D0FF24C@ucsd.edu>
+
+Hi Rachel,
+
+Your random effects structure for subjects sounds reasonable; I'm inferring that vlength is between-items, in which case the by-items structure would be fine too.  Since spotlong12.glmm has different likelihoods in the two runs of anova() you report, they must be two different fitted models.  Is it possible that you saved an older version of spotlong12.glmm to your workspace, and then when you closed and reopened R you wound up with the older version of spotlong12.glmm and your second anova() command reflects that result?  Whatever the case, perhaps a good guiding principle is that you should trust whichever result you can replicate from scratch.
+
+Best & hope this helps,
+
+Roger
+
+
+On Nov 29, 2012, at 4:19 PM PST, Rachel Smith wrote:
+
+Dear R-lang list,
+
+I'd be very grateful for any advice you can offer. My issue is that when running lmer on categorical data with a moderately complex random effects structure, and doing model comparison using likelihood ratios, I am occasionally seeing (what I think are) bizarre and unstable chisq and p values in the model comparisons, and I'd like to find out why.
+
+Apologies for the long email that follows.
+
+To give some background, I previously fitted a model to my data using only random intercepts. Then I read Barr et al (2012) and reanalysed my data in order to follow their advice with respect to keeping the random effects structure (near-)maximal. The random effects structure that I have chosen is intended to be maximal with respect to my two experimental variables of primary theoretical interest, dialect (between-subjects) and vlength (within-subjects), and also includes random slopes for a couple of control variables that I expected to show relevant variation (loglong and item, both within-subjects). But it omits some predictors in order to permit the models to converge.
+
+To estimate the fixed effects, I have followed a backwards model selection procedure using likelihood ratio model comparison. Along the way, there have been a couple of cases where the model comparison produces significant or near-significant results that I don't trust, and that seem unstable, in that they are liable to change (to something more sensible) when the identical code is re-run.
+
+Here is an example: The following two models differ only in the inclusion of the factor "version" (2 levels).
+
+spotlong11.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + version + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+
+spotlong12.glmm = lmer(spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype - dialect:context - dialect:vtype + loglong + item + gender + (1+vlength+loglong+item|subject) + (1+dialect|target), data=data, family="binomial")
+
+(NB: "item" here refers to item number, i.e. is actually an effect of trial; "target" refers to words considered as an experimental unit, i.e. to what might normally be called items).
+
+Model comparison gave the following result:
+anova(spotlong11.glmm, spotlong12.glmm)
+#                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+#spotlong12.glmm 30 5281.2 5477.6 -2610.6
+#spotlong11.glmm 31 5279.7 5482.6 -2608.8 3.5601      1    0.05918 .
+
+This is very surprising, because in the output for spotlong11.glmm, the estimate for version is small in relation to the standard error, and far from significance:
+
+print(spotlong11.glmm, corr=FALSE)
+#Generalized linear mixed model fit by the Laplace approximation
+#Formula: spotlong ~ (dialect + vlength + context + vtype)^2 + vlength:context:vtype -      dialect:context - #dialect:vtype + loglong + item + gender +      version + (1 + vlength + loglong + item | subject) + (1 +      dialect | #target)
+#   Data: data
+#  AIC  BIC logLik deviance
+# 5280 5483  -2609     5218
+#Random effects:
+# Groups  Name         Variance   Std.Dev.  Corr
+# subject (Intercept)  1.0128e+00 1.0063593
+#         vlengthshort 4.4225e-02 0.2102972 -0.675
+#         loglong      7.4783e-02 0.2734643 -0.757  0.569
+#         item         6.0143e-05 0.0077552 -0.474  0.877  0.125
+# target  (Intercept)  1.7291e+00 1.3149512
+#         dialectL     1.3129e-01 0.3623410 -0.458
+#Number of obs: 5148, groups: subject, 78; target, 66
+#Fixed effects:
+#                                Estimate Std. Error z value Pr(>|z|)
+#(Intercept)                    -2.101415   0.497599  -4.223 2.41e-05 ***
+#dialectL                       -0.036163   0.192553  -0.188 0.851027
+#vlengthshort                    0.549224   0.181666   3.023 0.002501 **
+#contextNL                       0.062903   0.566956   0.111 0.911657
+#contextSL                       0.867398   0.553790   1.566 0.117280
+#vtypeNV                        -0.743498   0.556697  -1.336 0.181696
+#loglong                         0.874872   0.232198   3.768 0.000165 ***
+#item                            0.006777   0.001379   4.914 8.94e-07 ***
+#genderm                        -0.344050   0.177315  -1.940 0.052340 .
+#versionB                        0.091018   0.170662   0.533 0.593810
+#dialectL:vlengthshort          -0.377850   0.145280  -2.601 0.009300 **
+#vlengthshort:contextNL          0.725804   0.238603   3.042 0.002351 **
+#vlengthshort:contextSL         -0.867637   0.242693  -3.575 0.000350 ***
+#vlengthshort:vtypeNV           -0.581290   0.247543  -2.348 0.018862 *
+#contextNL:vtypeNV               1.075103   0.794058   1.354 0.175757
+#contextSL:vtypeNV              -0.505121   0.784197  -0.644 0.519494
+#vlengthshort:contextNL:vtypeNV -0.602742   0.343102  -1.757 0.078961 .
+#vlengthshort:contextSL:vtypeNV  0.824727   0.354378   2.327 0.019952 *
+
+After closing and re-opening R, and re-running the same two models and the comparison between them, I obtained the following:
+#                Df    AIC    BIC  logLik  Chisq Chi Df Pr(>Chisq)
+#spotlong12.glmm 30 5277.9 5474.3 -2609.0
+#spotlong11.glmm 31 5279.7 5482.6 -2608.8 0.2783      1     0.5978
+which is much more in line with the p value associated with the estimate for version in spotlong11.glmm.
+
+Can anyone shed any light on why differences like this might occur and what I should do about them? As this is the first time I've implemented a random effects structure that is at all complex, I may just have done something crazy with the random effects. But whatever is the cause, it seems to be manifesting in strange model comparison results, rather than problems with convergence.
+
+Thank you for reading! Any advice that anyone can offer will be greatly appreciated.
+
+Best wishes,
+
+Rachel Smith
+(U. of Glasgow)
+
+From rlevy-XkckGZ689+c at public.gmane.org  Fri Nov 30 04:23:35 2012
+From: rlevy-XkckGZ689+c at public.gmane.org (Levy, Roger)
+Date: Fri, 30 Nov 2012 04:23:35 +0000
+Subject: Re: False convergence in mixed logit model
+In-Reply-To: <CAPNJOOj9uY7HxVbuu40eOTb1WXM7WKjZFJF59KHO+SLMvxcOBQ@mail.gmail.com>
+References: <CAPNJOOiZToAQ2TLjc=kBO4Rf+rn-7-b-zkL0hWpR1Qkb4VRYzQ@mail.gmail.com> <50d62ac34c5d45baa119e1034a27889e@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgyzRyi7Qg5PPkF7-cRFpWir06BYjwM1b47xBLe=Ezq5w@mail.gmail.com> <0f3b1aeca80c48e7ac56ec48f76fb655@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOhT-p-P_drVv1g6YnUvmaSBpoD+_qx5wUDyD9GxbeNQdw@mail.gmail.com> <f40a99d010ad4b91836028dfae28b329@CSGHUB208W.pu.win.princeton.edu> <CAPNJOOgWZuazd6655y+COHk3UFA_WpZ_6Y68AtP53XccnzgXRg@mail.gmail.com> <a7b2c7a2afb948fcbcb2e8519ec16177@CSGHUB209W.pu.win.princeton.edu> <CAPNJOOj9uY7HxVbuu40eOTb1WXM7WKjZFJF59KHO+SLMvxcOBQ@mail.gmail.com>
+Message-ID: <B9ED13BC-3AC5-47B7-83DA-F23811CF7D14@ucsd.edu>
+
+Thanks Laura.  That is a pretty difficult problem -- there's a big problem of credit assignment between the random intercept and the manipulation, due to the between-subjects design and the huge cross-subject variation.  This is the kind of dataset where I'm not sure how far I would trust the results even if lmer told me that the model converged.
+
+Something as simple as Fisher's exact test, dichotomizing between participants with >=0.5 response and <0.5 response, probably gets you most of the way to an answer to your question of whether your Dative and Transitive conditions differ:
+
+  fisher.test(matrix(c(12,4,8,8),2,2))
+
+which gives a p-value of 0.2734. Counting subject 19 as a 0 rather than a 1 gives a p-value of 0.1351.
+
+I'd also be interested to know more about the GEE approach Dale mentions (I've heard about these techniques but don't know much about them), and find out the results that they give.
+
+Best & hope this helps.
+
+Roger
+
+
+
+On Nov 29, 2012, at 12:51 PM PST, Laura Suttle wrote:
+
+Here are the proportion data. 33/48 overall picked either one or the other.
+
+Thanks for the reference, I'm always glad to find more papers on these methods.
+
+Thanks,
+Laura
+
+Control
+3       0
+18      0
+A10     0
+A18     0
+A20     0
+A22     0
+A9      0
+A5      0.055
+2       0.312
+A8      0.555
+A21     0.666
+4       0.937
+5       0.937
+1       1
+21      1
+22      1
+Dative
+9       0
+11      0
+13      0
+15      0
+17      0
+23      0
+A12     0
+A13     0
+A19     0
+A23     0
+A4      0
+8       0.217
+19      0.5
+A6      0.555
+A24     0.95
+A15     1
+Transitive
+6       0
+14      0
+16      0
+A14     0
+A25     0
+A3      0
+A7      0
+A17     0.055
+A16     0.277
+10      0.937
+A1      0.944
+7       1
+12      1
+20      1
+24      1
+A11     1
+
+
+On Thu, Nov 29, 2012 at 3:00 PM, T. Florian Jaeger <tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org<mailto:tiflo-sMaJTQEtWn7RrdkEUGVx5Ydd74u8MsAO at public.gmane.org>> wrote:
+HI Laura,
+
+if your predictor variable for which you are entertaining a random by-subject slope is almost entirely between-subjects, you should go without random by-subject slopes for that predictors. Barr et al discuss the obvious case of a between-subject manipulation (--> do not include  by-subject random slopes for the manipulation). It seems that you have a case that doesn't fit into the neat distinction made in their paper. You have a predictor that could vary within subjects, but mostly ended up varying between subjects. The problem is that in that case, it is hard for the model to determine the (variance for) that random slope. Hence, you get the false convergence.
+
+Think about it this way: only the subjects who have both values for your binary predictors provide data from which you can actually figure out how the effect of that predictors differs across subjects. For subjects, who categorically have one value for that predictor, the by-subject intercept already captures the same information (or, to put it differently, the model has not way to distinguish between the by-subject intercept and the by-subject slope). Now even when subjects aren't quite categorical (e.g., they have value 1 about 98% of the time, and value 0 about 2% of the time), it's hard for the model to reliably estimate what of the observed variance is due to the by-subject random intercept and what is due to the by-subject random slope.
+
+Can you provide a tables of subject by predictor (for each of the binary predictors)? I.e., a table that shows the proportion of 0 and 1 values for the predictors for each of your subjects? if you have enough folks with enough variance, you might be able to test on the subset. If not, you probably have to exclude the random by-subject slope for those predictors.
+
+HTH,
+
+Florian
+
+
+On Thu, Nov 29, 2012 at 2:45 PM, Laura Suttle <lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org<mailto:lsuttle-uX/v2g6dJhCyum0STUha2w at public.gmane.org>> wrote:
+
+Do you mean that the model converges to the same parameter values if you set the starting parameters to wildly different values?
+
+
+Ok, I'm not sure what constitutes "wildly different." I just tried values like 100 and 1000 and now things aren't converging to the same values. Maybe I wasn't being different enough before to see it.
+
+It's not obvious to me why this model wouldn't actually be converged, except that the variance of the subject random effect is very large.  Do you have dramatic differences in behavior across subjects?
+
+I do, in that participants usually either use this construction (so they have all 1's for the DV) or don't use it at all (so they have all 0's). The relevant thing that I'm trying to show is that more people use in one condition versus another. I don't want to convert this to a single binary variable since there are some subjects who switch up how they use these novel verbs, but for the most part they are either all or none.
+
+
+
+Another potential issue: are subject random effects relevant when you are only looking at between subjects fixed effects? I'm wondering if that's part of the issue.
+
+They're relevant whenever you have repeated measures from individual subjects.
+
+If your condition (Dative, Transitive, and something else) varies within subjects, and what you care about is inferences about the effect of condition, you'll want to fit a model with a by-subjects random slope (i.e., response ~ condition + (condition | subj)), as per Barr et al.
+
+Those conditions (control is the something else) are between subjects.
+
+Thanks,
+Laura
+
+
+Best
+
+Roger
+
+Here's the code with output for the simplest model I have with subjects random effect (adding them in in any form causes this issue). ditrans is a binary DV that categorizes speaker usages of a novel verb into double object datives (1) or other sentence types (0). Condition is a categorical variable that has three levels with a control condition as the baseline (I've dummy coded these and there are no differences between running it this way and with the dummy code, so I'm providing this one for the same of simplicity).
+
+
+> ditmodel3 <-lmer(ditrans~condition + (1|subj),data=adultdata,family="binomial",verbose=T)
+  0:     814.04384: 0.391997 -0.472359 -0.840468 0.222898
+  1:     474.30352:  1.39176 -0.489556 -0.853831 0.221628
+  2:     446.52182:  1.60483 -1.29691 -1.39869 0.144777
+  3:     386.13626:  2.59735 -1.19061 -1.38968 0.204059
+  4:     383.11685:  2.69684 -1.19357 -1.39816 0.208801
+  5:     377.92258:  2.89551 -1.20228 -1.41725 0.218187
+  6:     376.11423:  2.97465 -1.20814 -1.42671 0.221868
+  7:     372.88540:  3.13258 -1.22176 -1.44712 0.229201
+  8:     371.72249:  3.19542 -1.22881 -1.45656 0.232118
+  9:     369.58988:  3.32079 -1.24417 -1.47647 0.237957
+ 10:     369.58183:  3.32129 -1.24424 -1.47656 0.237981
+ 11:     369.56574:  3.32229 -1.24439 -1.47674 0.238028
+ 12:     369.55931:  3.32269 -1.24444 -1.47681 0.238046
+ 13:     369.54645:  3.32349 -1.24456 -1.47695 0.238084
+ 14:     369.54594:  3.32352 -1.24456 -1.47696 0.238085
+ 15:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+ 16:     369.54183:  3.32377 -1.24460 -1.47700 0.238097
+ 17:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 18:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 19:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 20:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 21:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 22:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 23:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 24:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 25:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 26:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 27:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 28:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 29:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 30:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 31:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 32:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 33:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 34:     369.54182:  3.32377 -1.24460 -1.47700 0.238097
+ 35:     369.54175:  3.32378 -1.24460 -1.47699 0.238081
+ 36:     369.54062:  3.32390 -1.24460 -1.47681 0.237810
+ 37:     369.52871:  3.32514 -1.24460 -1.47496 0.234970
+ 38:     369.41249:  3.33754 -1.24460 -1.45648 0.206662
+ 39:     368.48882:  3.45721 -1.24460 -1.27810 -0.0665675
+ 40:     367.50882:  3.71632 -1.24460 -0.891867 -0.658143
+ 41:     367.42619:  3.80235 -1.24460 -0.763626 -0.854531
+ 42:     367.42069:  3.82935 -1.24460 -0.723378 -0.916133
+ 43:     367.42061:  3.83197 -1.24460 -0.719473 -0.922078
+ 44:     367.42056:  3.83302 -1.24460 -0.717885 -0.924450
+ 45:     367.42030:  3.83643 -1.24460 -0.712740 -0.931948
+ 46:     367.41976:  3.84096 -1.24460 -0.705833 -0.941589
+ 47:     367.41821:  3.84903 -1.24460 -0.693317 -0.957909
+ 48:     367.41433:  3.86190 -1.24460 -0.672862 -0.981743
+ 49:     367.40420:  3.88359 -1.24460 -0.637123 -1.01631
+ 50:     367.37911:  3.91871 -1.24460 -0.576118 -1.05854
+ 51:     367.31987:  3.97369 -1.24460 -0.473099 -1.09171
+ 52:     367.19878:  4.04676 -1.24460 -0.319173 -1.06129
+ 53:     367.00997:  4.11079 -1.24460 -0.148079 -0.875985
+ 54:     366.83505:  4.11105 -1.24460 -0.0694293 -0.533561
+ 55:     366.76596:  4.05082 -1.24460 -0.131236 -0.273508
+ 56:     366.75441:  4.00835 -1.24460 -0.205517 -0.224632
+ 57:     366.75330:  3.99692 -1.24460 -0.231735 -0.238739
+ 58:     366.75328:  3.99700 -1.24460 -0.232466 -0.242660
+ 59:     366.75327:  3.99706 -1.24460 -0.232631 -0.243916
+ 60:     366.75321:  3.99733 -1.24460 -0.233186 -0.248657
+ 61:     366.75310:  3.99766 -1.24460 -0.233948 -0.254660
+ 62:     366.75277:  3.99818 -1.24460 -0.235467 -0.265375
+ 63:     366.75194:  3.99913 -1.24460 -0.237734 -0.282069
+ 64:     366.74974:  4.00078 -1.24460 -0.241634 -0.309537
+ 65:     366.74401:  4.00376 -1.24460 -0.248277 -0.353787
+ 66:     366.72917:  4.00940 -1.24460 -0.260050 -0.425563
+ 67:     366.69014:  4.02037 -1.24460 -0.282150 -0.541757
+ 68:     366.58903:  4.04387 -1.24460 -0.323645 -0.729228
+ 69:     366.33054:  4.09566 -1.24460 -0.407098 -1.03058
+ 70:     365.69165:  4.21044 -1.24460 -0.582890 -1.50206
+ 71:     364.22961:  4.45811 -1.24460 -0.955294 -2.19620
+ 72:     363.88256:  4.50536 -1.24460 -1.03067 -2.28460
+ 73:     363.78744:  4.51528 -1.24460 -1.04951 -2.29787
+ 74:     363.76346:  4.51729 -1.24460 -1.05384 -2.29942
+ 75:     363.71559:  4.52093 -1.24460 -1.06284 -2.30192
+ 76:     363.50871:  4.53406 -1.24460 -1.10070 -2.30424
+ 77:     362.67929:  4.58017 -1.24460 -1.25368 -2.28868
+ 78:     362.34767:  4.59767 -1.24460 -1.31389 -2.27484
+ 79:     362.28332:  4.60067 -1.24460 -1.32582 -2.27114
+ 80:     362.15615:  4.60614 -1.24460 -1.34933 -2.26235
+ 81:     362.10583:  4.60818 -1.24460 -1.35861 -2.25843
+ 82:     361.98440:  4.61586 -1.24460 -1.37557 -2.24974
+ 83:     361.94584:  4.61723 -1.24460 -1.38296 -2.24642
+ 84:     361.93799:  4.61752 -1.24460 -1.38442 -2.24571
+ 85:     361.87531:  4.61979 -1.24460 -1.39595 -2.23983
+ 86:     361.87506:  4.61980 -1.24460 -1.39600 -2.23980
+ 87:     361.87456:  4.61982 -1.24460 -1.39609 -2.23975
+ 88:     361.87424:  4.61985 -1.24460 -1.39611 -2.23974
+ 89:     361.87421:  4.61986 -1.24460 -1.39612 -2.23973
+ 90:     361.87420:  4.61986 -1.24460 -1.39612 -2.23973
+ 91:     361.87418:  4.61986 -1.24460 -1.39612 -2.23973
+ 92:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 93:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 94:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 95:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 96:     361.87417:  4.61986 -1.24460 -1.39612 -2.23973
+ 97:     361.61308:  4.63208 -1.24460 -1.31790 -2.07725
+ 98:     360.78393:  4.70563 -1.24460 -1.01240 -1.42611
+ 99:     360.30955:  4.80814 -1.24460 -0.794807 -0.933962
+100:     359.83679:  4.94614 -1.24460 -0.694790 -0.658108
+101:     358.66805:  5.34357 -1.24460 -0.659430 -0.362284
+102:     357.21569:  5.94720 -1.24460 -0.865900 -0.407961
+103:     355.87363:  6.65147 -1.24460 -1.34871 -0.894451
+104:     354.79576:  7.33163 -1.24460 -2.04508 -1.75302
+105:     354.79427:  7.33250 -1.24460 -2.04623 -1.75453
+106:     354.78176:  7.33863 -1.24460 -2.05548 -1.76699
+107:     354.78124:  7.33885 -1.24460 -2.05585 -1.76750
+108:     354.78114:  7.33890 -1.24460 -2.05592 -1.76760
+109:     354.78092:  7.33897 -1.24460 -2.05608 -1.76780
+110:     354.78083:  7.33900 -1.24460 -2.05614 -1.76789
+111:     354.78081:  7.33901 -1.24460 -2.05615 -1.76790
+112:     354.78077:  7.33902 -1.24460 -2.05618 -1.76794
+113:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+114:     354.78075:  7.33903 -1.24460 -2.05619 -1.76795
+115:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+116:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+117:     354.78074:  7.33903 -1.24460 -2.05619 -1.76796
+118:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+119:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+120:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+121:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+122:     354.78074:  7.33903 -1.24460 -2.05620 -1.76796
+Warning message:
+In mer_finalize(ans) : false convergence (8)
+>
+> summary(ditmodel3)
+Generalized linear mixed model fit by the Laplace approximation
+Formula: ditrans ~ condition + (1 | subj)
+   Data: adultdata
+   AIC   BIC logLik deviance
+ 362.8 381.7 -177.4    354.8
+Random effects:
+ Groups Name        Variance Std.Dev.
+ subj   (Intercept) 53.861   7.339
+Number of obs: 833, groups: subj, 48
+
+Fixed effects:
+                Estimate Std. Error z value Pr(>|z|)
+(Intercept)       -1.245      1.951  -0.638    0.523
+conditionDative   -2.056      2.832  -0.726    0.468
+conditionTrans    -1.768      2.791  -0.633    0.526
+
+Correlation of Fixed Effects:
+            (Intr) cndtnD
+conditinDtv -0.689
+conditnTrns -0.699  0.481
+
+Thanks and sorry for the length,
+Laura
+
+On Thu, Nov 29, 2012 at 11:08 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy at ucsd.edu>> wrote:
+Yes -- the first column of the verbose output is the step number and the second column is the deviance.  If the deviance was still going down and the model stopped, you probably need more iterations.
+
+It could be useful to change the starting value of the model parameters with the "start" argument of lmer and see if you wind up converging to the same parameter estimates regardless of starting value.
+
+More information about the dataset, and example code output, is, of course, always helpful.
+
+Best
+
+Roger
+
+
+
+On Nov 29, 2012, at 7:03 AM PST, Laura Suttle wrote:
+
+Hi Roger,
+
+Thanks for the other list suggestion, I'll cross post to there.
+
+Every variable in my data set is categorical, so I can't do that fix. I've tried playing around with the maxIter parameter before, but I'm not sure I was doing it right. Do you have any suggestions for where I can read more about how to interpret the verbose output? I found some things but they weren't very helpful.
+
+Thanks,
+Laura
+
+
+On Thu, Nov 29, 2012 at 1:34 AM, Levy, Roger <rlevy-XkckGZ689+c at public.gmane.org<mailto:rlevy at ucsd.edu>> wrote:
+Hi Laura,
+
+This is a question that might be better answered on R-sig-ME, but briefly: I would be cautious with a model that reports false convergence; in my experience with this warning (and I am by no means expert on it), it can indicate that the optimization routine that determines the best-fit model parameters got stuck at a parameter estimate that is not near a true optimum, perhaps due to numerical issues.  You might try standardizing any continuous predictor variables you and rerunning the lmer() call.  It would be helpful to set the msVerbose control parameter to TRUE to see what the optimizer is doing.  Also, upping the maxIter and/or maxFN control parameters *might* be helpful.
+
+I do not think that this warning message alone would be justification to omit a random effect.
+
+Best & hope that this helps,
+
+Roger
+
+On Nov 28, 2012, at 8:58 PM PST, Laura Suttle wrote:
+
+Hello all,
+
+I hope this question hasn't been asked before, but the internet isn't being of much help to me.
+
+I am trying to run a mixed logit regression predicting whether participants use a novel verb in a particular construction or not depending on how they were exposed to that novel verb. I dummy coded the three conditions of the experiment into two dummy variables and have added two random effects, one for the motion used for the verb, the other for the verb itself (since these were all counterbalanced).
+
+I can get this model to run fine, the problem is when I try to add any kind of random effect for the subjects themselves. I then get this error message:
+
+Warning message:
+In mer_finalize(ans) : false convergence (8)
+
+And all of the effects I had of the exposure type go away.
+
+I've been trying to look up what this means and how to deal with it, but there are no clear solutions or explanations that I can find, but plenty of warning of how I should be skeptical of any output from a model with this warning. One suggestion I did find was that the subjects variable may be overfitting my data and there might be something to this: when participants are exposed to the verb in a certain way, they tend to only use the construction I'm looking for, with no variance in their responses. That said, I'm not sure that's right and I'd love a second opinion on either how I can fix this or whether I can use this as justification to not include the subjects random effect.
+
+Thanks in advance for any help you can give,
+Laura Suttle
+

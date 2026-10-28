@@ -1,0 +1,506 @@
+From stephen.kay-i/SMI+9fo2t+l3BRcVcdTQ at public.gmane.org  Thu Nov 11 14:30:31 2010
+From: stephen.kay-i/SMI+9fo2t+l3BRcVcdTQ at public.gmane.org (Stephen Kay)
+Date: Thu, 11 Nov 2010 14:30:31 -0000
+Subject: Calculating conditional ATT using regression ran over full sample not just controls
+Message-ID: <13C36D270A3A4D449326289729E67A56014E3A72@ade-exch-001.global.adelphigroup.com>
+
+Hi,
+
+I've trying to utilise Matchit and zelig together to produce a  conditional
+ATT quantity.  Published examples show how to do this when the parametric
+model coefficient estimates are obtained from zelig from running the model
+just over the control units (with suitable weights obtained from Matchit).
+My control sample is really too small to accurately estimate these
+coefficients.  My adapted code is below, which runs without errors, but
+produces an estimate that (I think) are too far near zero and statistically
+insignificant.  It's certainly much smaller than the relevant highly
+statistically significant treatment coefficient in the parametric model. 
+
+I've a feeling the actual ATT estimate I'm producing is the average
+difference between the actual dependent outcome value and its predicted
+value in the treated group. Possibly the "sim" command doesn't realise the
+treatment/control binary indicator needs to be set to 0 in the data matrix
+input from the "setx" output to estimate the counterfactual (not sure from
+reading help file)? Any help is much appreciated - especially suggested code
+changes.  Many thanks from an R and zelig novice. 
+
+In code below "ocular_nasal" is my treatment/control binary indicator
+variable with 1 = treatment; and 0 = control.
+
+k.match.out<- matchit(nasal_ocular ~ m_age + m_bmi + smoke, data = k.gsk,
+distance = "mahalanobis", method = "genetic", discard = "both", ratio =
+1,pop.size=400, int.seed=3313)
+
+k.z.out <- zelig(RQ_Act ~ nasal_ocular + m_age  + m_bmi + smoke, model =
+"ls", data = match.data(k.match.out))
+
+k.x.out <- setx(k.z.out,fn = NULL,  data = match.data(k.match.out, "treat"),
+cond = TRUE)
+set.seed(3251)
+k.s.out <- sim(k.z.out, x=k.x.out, num=1000)
+summary(k.s.out)
+
+Many thanks,
+Stephen
+Stephen Kay ¦ Director of Statistics 
+for Adelphi Real World (Manchester) 
+Adelphi Mill, Bollington, Cheshire SK10 5JB UK 
+
+  
+Web: http://www.adelphigroup.com/companies/company_real_world.asp
+<http://www.adelphigroup.com/companies/company_real_world.asp>  
+
+Adelphi retains ownership of all DSP data and fieldwork materials. In
+accordance with the company's Terms and Conditions, written prior approval
+must be obtained with regard to any use of the data in any items submitted
+for   publication or for use in marketing materials. 
+
+Please consider the environment before printing this e-mail 
+
+
+
+DISCLAIMER: The information in this message is confidential and may be
+legally privileged. It is intended solely for the addressee.  Access to this
+message by anyone else is unauthorised.  If you are not the intended
+recipient, any disclosure, copying, or distribution of the message, or any
+action or omission taken by you in reliance on it, is prohibited and may be
+unlawful.  Please immediately contact the sender if you have received this
+message in error. Thank you.
+
+From stephen.kay-i/SMI+9fo2t+l3BRcVcdTQ at public.gmane.org  Fri Nov 12 11:01:52 2010
+From: stephen.kay-i/SMI+9fo2t+l3BRcVcdTQ at public.gmane.org (Stephen Kay)
+Date: Fri, 12 Nov 2010 11:01:52 -0000
+Subject: RE: Calculating conditional ATT using regression ran over full sa mple not just controls
+Message-ID: <13C36D270A3A4D449326289729E67A56B29D95@ade-exch-001.global.adelphigroup.com>
+
+Sorted it  - just needed to insert command:
+
+k.x.out$nasal_ocular[k.x.out$nasal_ocular==1] <- 0
+
+after setx.
+
+Thought I'd post, in case of use to someone else (or more likely myself in a
+years time).
+>  -----Original Message-----
+> From: 	Stephen Kay  
+> Sent:	11 November 2010 14:31
+> To:	'zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org'
+> Subject:	Calculating conditional ATT using regression ran over full
+> sample not just controls
+> 
+> Hi,
+> 
+> I've trying to utilise Matchit and zelig together to produce a
+> conditional ATT quantity.  Published examples show how to do this when the
+> parametric model coefficient estimates are obtained from zelig from
+> running the model just over the control units (with suitable weights
+> obtained from Matchit). My control sample is really too small to
+> accurately estimate these coefficients.  My adapted code is below, which
+> runs without errors, but produces an estimate that (I think) are too far
+> near zero and statistically insignificant.  It's certainly much smaller
+> than the relevant highly statistically significant treatment coefficient
+> in the parametric model. 
+> 
+> I've a feeling the actual ATT estimate I'm producing is the average
+> difference between the actual dependent outcome value and its predicted
+> value in the treated group. Possibly the "sim" command doesn't realise the
+> treatment/control binary indicator needs to be set to 0 in the data matrix
+> input from the "setx" output to estimate the counterfactual (not sure from
+> reading help file)? Any help is much appreciated - especially suggested
+> code changes.  Many thanks from an R and zelig novice. 
+> 
+> In code below "ocular_nasal" is my treatment/control binary indicator
+> variable with 1 = treatment; and 0 = control.
+> 
+> k.match.out<- matchit(nasal_ocular ~ m_age + m_bmi + smoke, data = k.gsk,
+> distance = "mahalanobis", method = "genetic", discard = "both", ratio =
+> 1,pop.size=400, int.seed=3313)
+> 
+> k.z.out <- zelig(RQ_Act ~ nasal_ocular + m_age  + m_bmi + smoke, model =
+> "ls", data = match.data(k.match.out))
+> 
+> k.x.out <- setx(k.z.out,fn = NULL,  data = match.data(k.match.out,
+> "treat"), cond = TRUE)
+> set.seed(3251)
+> k.s.out <- sim(k.z.out, x=k.x.out, num=1000)
+> summary(k.s.out)
+> 
+> Many thanks,
+> Stephen
+> Stephen Kay ¦ Director of Statistics 
+> for Adelphi Real World (Manchester) 
+> Adelphi Mill, Bollington, Cheshire SK10 5JB UK 
+> 
+>   
+> Web: http://www.adelphigroup.com/companies/company_real_world.asp
+> <http://www.adelphigroup.com/companies/company_real_world.asp>  
+> 
+> Adelphi retains ownership of all DSP data and fieldwork materials. In
+> accordance with the company's Terms and Conditions, written prior approval
+> must be obtained with regard to any use of the data in any items submitted
+> for   publication or for use in marketing materials. 
+> 
+> Please consider the environment before printing this e-mail 
+> 
+> 
+> 
+DISCLAIMER: The information in this message is confidential and may be
+legally privileged. It is intended solely for the addressee.  Access to this
+message by anyone else is unauthorised.  If you are not the intended
+recipient, any disclosure, copying, or distribution of the message, or any
+action or omission taken by you in reliance on it, is prohibited and may be
+unlawful.  Please immediately contact the sender if you have received this
+message in error. Thank you.
+
+From shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Nov 17 13:20:48 2010
+From: shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Shige Song)
+Date: Wed, 17 Nov 2010 08:20:48 -0500
+Subject: Use Zelig with lme4a
+Message-ID: <AANLkTikX8hpY2t4KJa-fu5ooZ1zXCO_56H4Jr-W4eFeT@mail.gmail.com>
+
+Dear All,
+
+I am using zelig for estimating and simulating a mixed effect logit
+model. The lme4 package, which Zelig used as the default, yield a
+false convergence, while the experimental lme4a package yields
+convergence and reasonable estimates. My question is: is it possible
+to modify Zelig slightly to use lme4a instead of lme4 as the
+underlying estimation engine for generalized linear mixed effect model
+for this particular case? Many thanks.
+
+Best,
+Shige
+
+From olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org  Wed Nov 17 16:10:08 2010
+From: olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org (Olivia Lau)
+Date: Wed, 17 Nov 2010 11:10:08 -0500
+Subject: Re: Use Zelig with lme4a
+In-Reply-To: <AANLkTikX8hpY2t4KJa-fu5ooZ1zXCO_56H4Jr-W4eFeT@mail.gmail.com>
+References: <AANLkTikX8hpY2t4KJa-fu5ooZ1zXCO_56H4Jr-W4eFeT@mail.gmail.com>
+Message-ID: <AANLkTin3Fc+4+RJwyxHH76gcTH53R=-b_oDh+suMLdme@mail.gmail.com>
+
+Yes, there are two ways to do this.
+
+(1) requires that you hack the output from the lme4a to be the same class as
+the output from Zelig.  Then run setx and sim as you normally would.  This
+is actually much more difficult than it sounds because lme4 and lme4a use S4
+classes, which are not generally hackable.
+
+(2) requires hacking the Zelig source code and recompiling the package.
+This is easy with a Linux system, but much more difficult in Windows.  If
+you are up to the task, you start by downloading the Zelig_xxx.tar.gz (where
+xxx is the current version number) from CRAN.  Then go and find the
+appropriate zelig2*** file in the R directory (where *** is the name of the
+model).  Where it says lme4 in that file, change it to lme4a.  Compile, then
+use Zelig as you normally would.
+
+Good luck!
+
+On Wed, Nov 17, 2010 at 8:20 AM, Shige Song <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> Dear All,
+>
+> I am using zelig for estimating and simulating a mixed effect logit
+> model. The lme4 package, which Zelig used as the default, yield a
+> false convergence, while the experimental lme4a package yields
+> convergence and reasonable estimates. My question is: is it possible
+> to modify Zelig slightly to use lme4a instead of lme4 as the
+> underlying estimation engine for generalized linear mixed effect model
+> for this particular case? Many thanks.
+>
+> Best,
+> Shige
+>
+> -
+> Zelig Mailing List, served by Harvard-MIT Data Center
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+>
+
+From shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Nov 17 16:48:41 2010
+From: shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Shige Song)
+Date: Wed, 17 Nov 2010 11:48:41 -0500
+Subject: Re: Use Zelig with lme4a
+In-Reply-To: <AANLkTin3Fc+4+RJwyxHH76gcTH53R=-b_oDh+suMLdme@mail.gmail.com>
+References: <AANLkTikX8hpY2t4KJa-fu5ooZ1zXCO_56H4Jr-W4eFeT@mail.gmail.com> <AANLkTin3Fc+4+RJwyxHH76gcTH53R=-b_oDh+suMLdme@mail.gmail.com>
+Message-ID: <AANLkTinB=QTQQFbU3td_xWdMk963O=jtx=vNv2cEc_ZS@mail.gmail.com>
+
+Dear Olivia,
+
+Thanks for your reply. I have been looking at the many files in the
+./Zelig/R/ for some time and trying to figure out which file to begin
+with; now, thanks to your replay, I know where to look.
+
+Best,
+Shige
+
+On Wed, Nov 17, 2010 at 11:10 AM, Olivia Lau
+<olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org> wrote:
+> Yes, there are two ways to do this.
+>
+> (1) requires that you hack the output from the lme4a to be the same class as
+> the output from Zelig.  Then run setx and sim as you normally would.  This
+> is actually much more difficult than it sounds because lme4 and lme4a use S4
+> classes, which are not generally hackable.
+>
+> (2) requires hacking the Zelig source code and recompiling the package.
+> This is easy with a Linux system, but much more difficult in Windows.  If
+> you are up to the task, you start by downloading the Zelig_xxx.tar.gz (where
+> xxx is the current version number) from CRAN.  Then go and find the
+> appropriate zelig2*** file in the R directory (where *** is the name of the
+> model).  Where it says lme4 in that file, change it to lme4a.  Compile, then
+> use Zelig as you normally would.
+>
+> Good luck!
+>
+> On Wed, Nov 17, 2010 at 8:20 AM, Shige Song <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>>
+>> Dear All,
+>>
+>> I am using zelig for estimating and simulating a mixed effect logit
+>> model. The lme4 package, which Zelig used as the default, yield a
+>> false convergence, while the experimental lme4a package yields
+>> convergence and reasonable estimates. My question is: is it possible
+>> to modify Zelig slightly to use lme4a instead of lme4 as the
+>> underlying estimation engine for generalized linear mixed effect model
+>> for this particular case? Many thanks.
+>>
+>> Best,
+>> Shige
+>>
+>> -
+>> Zelig Mailing List, served by Harvard-MIT Data Center
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>
+>
+
+From shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Wed Nov 17 19:31:19 2010
+From: shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Shige Song)
+Date: Wed, 17 Nov 2010 14:31:19 -0500
+Subject: Re: Use Zelig with lme4a
+In-Reply-To: <AANLkTinB=QTQQFbU3td_xWdMk963O=jtx=vNv2cEc_ZS@mail.gmail.com>
+References: <AANLkTikX8hpY2t4KJa-fu5ooZ1zXCO_56H4Jr-W4eFeT@mail.gmail.com> <AANLkTin3Fc+4+RJwyxHH76gcTH53R=-b_oDh+suMLdme@mail.gmail.com> <AANLkTinB=QTQQFbU3td_xWdMk963O=jtx=vNv2cEc_ZS@mail.gmail.com>
+Message-ID: <AANLkTimOARYNqwpSutkkuiwNz_dj+YkT9V11+wuut5C1@mail.gmail.com>
+
+Here is the file "zelig2logit.mixed.R". It does not include the lme4 package.
+-------------------
+zelig2logit.mixed <- function(formula, model, data, M, ...){
+  mf <- match.call(expand.dots=TRUE)
+  mf[[1]]<- as.name("lmer")
+
+  mf$formula <- tolmerFormat(reduceMI(formula))
+
+  mf$model <- mf$M <- NULL
+
+  if (is.null(mf$family)){
+    mf$family <- binomial(link="logit")
+  }
+  return(as.call(mf))
+}
+
+model.frame.lmer <- function(obj){
+  obj@frame
+}-------------------
+
+I noticed that other zelig2*.R files have the line "require(PACKAGE)"
+but not zelig2logit.mixed.R. Any ideas?
+
+Shige
+
+On Wed, Nov 17, 2010 at 11:48 AM, Shige Song <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+> Dear Olivia,
+>
+> Thanks for your reply. I have been looking at the many files in the
+> ./Zelig/R/ for some time and trying to figure out which file to begin
+> with; now, thanks to your replay, I know where to look.
+>
+> Best,
+> Shige
+>
+> On Wed, Nov 17, 2010 at 11:10 AM, Olivia Lau
+> <olivia.lau-cIpcPs7DjqbWs/AcZQh2Cw at public.gmane.org> wrote:
+>> Yes, there are two ways to do this.
+>>
+>> (1) requires that you hack the output from the lme4a to be the same class as
+>> the output from Zelig.  Then run setx and sim as you normally would.  This
+>> is actually much more difficult than it sounds because lme4 and lme4a use S4
+>> classes, which are not generally hackable.
+>>
+>> (2) requires hacking the Zelig source code and recompiling the package.
+>> This is easy with a Linux system, but much more difficult in Windows.  If
+>> you are up to the task, you start by downloading the Zelig_xxx.tar.gz (where
+>> xxx is the current version number) from CRAN.  Then go and find the
+>> appropriate zelig2*** file in the R directory (where *** is the name of the
+>> model).  Where it says lme4 in that file, change it to lme4a.  Compile, then
+>> use Zelig as you normally would.
+>>
+>> Good luck!
+>>
+>> On Wed, Nov 17, 2010 at 8:20 AM, Shige Song <shigesong-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+>>>
+>>> Dear All,
+>>>
+>>> I am using zelig for estimating and simulating a mixed effect logit
+>>> model. The lme4 package, which Zelig used as the default, yield a
+>>> false convergence, while the experimental lme4a package yields
+>>> convergence and reasonable estimates. My question is: is it possible
+>>> to modify Zelig slightly to use lme4a instead of lme4 as the
+>>> underlying estimation engine for generalized linear mixed effect model
+>>> for this particular case? Many thanks.
+>>>
+>>> Best,
+>>> Shige
+>>>
+>>> -
+>>> Zelig Mailing List, served by Harvard-MIT Data Center
+>>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+>>> Zelig program information: http://gking.harvard.edu/zelig/
+>>
+>>
+>
+
+From lselkirk-SeHYGLvqMtg at public.gmane.org  Sat Nov 27 21:13:01 2010
+From: lselkirk-SeHYGLvqMtg at public.gmane.org (Laura Selkirk)
+Date: Sat, 27 Nov 2010 16:13:01 -0500
+Subject: factor analysis question
+Message-ID: <4CF1745D.5000002@uvm.edu>
+
+Hi everyone,
+
+I'm trying to run a factor analysis with imputed data in Zelig.  Here's 
+my code:
+
+ >z.out <- zelig(cbind(simp3, Cert2, Source9, Source7, simp10,Cert10, 
+Just19, Cert8, Source22, Cert11,simp19, Cert1, Just12, Cert5, simp9, 
+simp20, Cert3, source5, simp13, simp12, simp1, source17, cert14, cert15, 
+Just17, source21, Just14, simp15, simp18, Just22, Just25, Just20, 
+source19, source10, Cert4, source4, Cert9, simp2, simp17, simp7, just24, 
+just8, Cert13, just16, source11, cert17, Cert18, simp8, just21, 
+source18, cert12, source16, simp11, source6, just1, just6, just26, 
+source13, just15, Source1, Cert7, simp14, source8, source15, just3, 
+source12, just23, source14, just11, simp16, just9, just10, source2, 
+Cert6, just13, just5, Cert19, just7, just18, simp4, simp6, just2, just4, 
+cert16, just27, simp5, source20, cert20), factors=5, model= 
+"factor.bayes", data = mi(outdata1, outdata2, outdata3, outdata4, 
+outdata5), cite=F)
+
+
+The problem is that when I try to run this code I get the following 
+error message:
+
+"Error in cbind(simp3, Cert2, Source9, Source7, simp10, Cert10, Just19,  :
+  object 'simp3' not found"
+
+If I remove variable simp3 it just continues down the list of 
+variables.  I checked and R is reading my data correctly and I did 
+import the data with "header=TRUE" just to make sure the variable names 
+would be read.  I've looked through the manual, but can't find an 
+explanation for the error.  Any help would be greatly appreciated.
+
+
+Laura
+
+From kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org  Sun Nov 28 03:09:55 2010
+From: kimai-cTYGs6MY1n5VX4AG5UhMJw at public.gmane.org (Kosuke Imai)
+Date: Sat, 27 Nov 2010 22:09:55 -0500
+Subject: Re: factor analysis question
+In-Reply-To: <4CF1745D.5000002-SeHYGLvqMtg@public.gmane.org>
+References: <4CF1745D.5000002@uvm.edu>
+Message-ID: <DEF91E3E-1568-4C54-A2F8-179C865032DA@Princeton.Edu>
+
+I think the error is saying that the variable does not exist in the data frame...
+
+Kosuke
+
+Department of Politics
+Princeton University
+http://imai.princeton.edu
+
+On Nov 27, 2010, at 4:13 PM, Laura Selkirk wrote:
+
+> Hi everyone,
+> 
+> I'm trying to run a factor analysis with imputed data in Zelig.  Here's my code:
+> 
+> >z.out <- zelig(cbind(simp3, Cert2, Source9, Source7, simp10,Cert10, Just19, Cert8, Source22, Cert11,simp19, Cert1, Just12, Cert5, simp9, simp20, Cert3, source5, simp13, simp12, simp1, source17, cert14, cert15, Just17, source21, Just14, simp15, simp18, Just22, Just25, Just20, source19, source10, Cert4, source4, Cert9, simp2, simp17, simp7, just24, just8, Cert13, just16, source11, cert17, Cert18, simp8, just21, source18, cert12, source16, simp11, source6, just1, just6, just26, source13, just15, Source1, Cert7, simp14, source8, source15, just3, source12, just23, source14, just11, simp16, just9, just10, source2, Cert6, just13, just5, Cert19, just7, just18, simp4, simp6, just2, just4, cert16, just27, simp5, source20, cert20), factors=5, model= "factor.bayes", data = mi(outdata1, outdata2, ou
+ tdata3, outdata4, outdata5), cite=F)
+> 
+> 
+> The problem is that when I try to run this code I get the following error message:
+> 
+> "Error in cbind(simp3, Cert2, Source9, Source7, simp10, Cert10, Just19,  :
+> object 'simp3' not found"
+> 
+> If I remove variable simp3 it just continues down the list of variables.  I checked and R is reading my data correctly and I did import the data with "header=TRUE" just to make sure the variable names would be read.  I've looked through the manual, but can't find an explanation for the error.  Any help would be greatly appreciated.
+> 
+> 
+> Laura
+> 
+> -
+> Zelig Mailing List, served by Harvard-MIT Data Center
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+
+From lselkirk-SeHYGLvqMtg at public.gmane.org  Tue Nov 30 15:30:10 2010
+From: lselkirk-SeHYGLvqMtg at public.gmane.org (Laura Selkirk)
+Date: Tue, 30 Nov 2010 10:30:10 -0500
+Subject: Re: factor analysis question
+In-Reply-To: <DEF91E3E-1568-4C54-A2F8-179C865032DA@Princeton.Edu>
+References: <4CF1745D.5000002@uvm.edu> <DEF91E3E-1568-4C54-A2F8-179C865032DA@Princeton.Edu>
+Message-ID: <4CF51882.8010504@uvm.edu>
+
+Thanks for the suggestions.  The problem seemed to be that Zelig didn't 
+like my variable names.  Changing them to V5-V92 got rid of the error.
+
+
+Laura
+
+Kosuke Imai wrote:
+> I think the error is saying that the variable does not exist in the data frame...
+>
+> Kosuke
+>
+> Department of Politics
+> Princeton University
+> http://imai.princeton.edu
+>
+> On Nov 27, 2010, at 4:13 PM, Laura Selkirk wrote:
+>
+>   
+>> Hi everyone,
+>>
+>> I'm trying to run a factor analysis with imputed data in Zelig.  Here's my code:
+>>
+>>     
+>>> z.out <- zelig(cbind(simp3, Cert2, Source9, Source7, simp10,Cert10, Just19, Cert8, Source22, Cert11,simp19, Cert1, Just12, Cert5, simp9, simp20, Cert3, source5, simp13, simp12, simp1, source17, cert14, cert15, Just17, source21, Just14, simp15, simp18, Just22, Just25, Just20, source19, source10, Cert4, source4, Cert9, simp2, simp17, simp7, just24, just8, Cert13, just16, source11, cert17, Cert18, simp8, just21, source18, cert12, source16, simp11, source6, just1, just6, just26, source13, just15, Source1, Cert7, simp14, source8, source15, just3, source12, just23, source14, just11, simp16, just9, just10, source2, Cert6, just13, just5, Cert19, just7, just18, simp4, simp6, just2, just4, cert16, just27, simp5, source20, cert20), factors=5, model= "factor.bayes", data = mi(outdata1, outdata2, o
+ utdata3, outdata4, outdata5), cite=F)
+>>>       
+>> The problem is that when I try to run this code I get the following error message:
+>>
+>> "Error in cbind(simp3, Cert2, Source9, Source7, simp10, Cert10, Just19,  :
+>> object 'simp3' not found"
+>>
+>> If I remove variable simp3 it just continues down the list of variables.  I checked and R is reading my data correctly and I did import the data with "header=TRUE" just to make sure the variable names would be read.  I've looked through the manual, but can't find an explanation for the error.  Any help would be greatly appreciated.
+>>
+>>
+>> Laura
+>>
+>> -
+>> Zelig Mailing List, served by Harvard-MIT Data Center
+>> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+>> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+>> Zelig program information: http://gking.harvard.edu/zelig/
+>>     
+>
+> -
+> Zelig Mailing List, served by Harvard-MIT Data Center
+> Send messages: zelig-boHuZhbfW+Y6DHxCPSz5rL5+avTOL6Rl at public.gmane.org
+> [un]subscribe Options: http://lists.gking.harvard.edu/?info=zelig
+> Zelig program information: http://gking.harvard.edu/zelig/
+>
+

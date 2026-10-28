@@ -1,0 +1,1302 @@
+From toma at ee.oulu.fi  Fri May  4 16:22:26 2007
+From: toma at ee.oulu.fi (Tomi Korhonen)
+Date: Fri, 04 May 2007 19:22:26 +0300
+Subject: [Rpy] Using Rpy with MPI
+Message-ID: <200705041622.l44GMQZn011302@ee.oulu.fi>
+
+Hello,
+
+I'm trying to use Rpy in a MPI-environment ( pypar ) where I distribute my 
+processing to multiple CPU's. I'd like to be able to plot out the results from 
+the same program I use for calculations but there seems to be somesort of bug or 
+some weird feature I don't know how to handle.
+
+At least I can reproduce this behaviour with this simple program:
+
+mpi.py:
+-----
+a = []
+for i in range( 0, 10 ):
+        a.append( i )
+
+from rpy import *
+r.plot( a )
+----
+
+
+Now, if I run that with "python -i mpi.py" the plotting works ok. But if I run 
+it with "mpirun -np 1 python -i mpi.py" it executes everything just fine but it 
+doesn't even create the window for the plot. No errors, nothing.
+
+I'm using python version 2.4.4 and Rpy version 2.4.1.
+
+Any ideas or pointers would be much appreciated since when I don't have any kind 
+of idea what might be going wrong and there's no error messages either...
+
+Thanks,
+-toma
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Sat May  5 05:19:15 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Sat, 05 May 2007 05:19:15 +0000
+Subject: Re: [Rpy] build problems (OS X, MacPorts version of R)
+References: <m2tzv0p7mx.wl%jowens@ece.ucdavis.edu>
+Message-ID: <loom.20070505T071244-536@post.gmane.org>
+
+John Owens <john_owens <at> yahoo.com> writes:
+
+> 
+> Greetings, I'm puzzled about this build error. 
+> 
+> Basically the problem is that it's trying to link to a
+> dynamic library "libRblas.dylib" that is clearly in the 
+> right place (/opt/local/lib/R/lib/libRblas.dylib) and whose
+> directory is explicitly specified with -L. (LD_LIBRARY_PATH
+> didn't help either.)
+
+OK good news, I think I figured this out. Bad news, I need
+some help to continue to make progress.
+
+The MacPorts R distribution must be built with a newer gcc.
+It uses gcc 4.0.4 (the default is 4.0.1). On a MacPorts
+system, the new gcc is called gcc-dp-4.0. I believe the
+link problems were because of an incompatibility between R's
+gcc and the native gcc that I get when I python setup.py build.
+
+I am not sure how to say "use gcc-dp-4.0 instead of gcc". The
+best I've come up with is:
+
+ CC=gcc-dp-4.0 python setup.py build
+
+which sort-of works. The problem is that gcc is called with
+the following command line from within the script:
+
+gcc-dp-4.0 -fno-strict-aliasing -Wno-long-double -no-cpp-precomp -mno-fused-madd
+-fno-common -fno-common -dynamic -DNDEBUG -g -O3 -Wall -DWITH_NUMERIC
+-DRPY_SHNAME="_rpy2050" -DINIT_RPY=init_rpy2050 -UPRE_2_2
+-I/opt/local/lib/R/include -Isrc
+-I/opt/local/Library/Frameworks/Python.framework/Versions/2.4/include/python2.4
+-I/opt/local/include/python2.4 -c src/rpymodule2050.c -o
+build/temp.darwin-8.9.0-Power_Macintosh-2.4/src/rpymodule2050.o
+gcc-dp-4.0: unrecognized option '-no-cpp-precomp'
+cc1: error: unrecognized command line option "-Wno-long-double"
+error: command 'gcc-dp-4.0' failed with exit status 1
+
+What I need to do is delete the two command-line options
+-Wno-long-double and -no-cpp-precomp. They are valid in
+default gcc 4.0.1 but not in new gcc-dp-4.0 (4.0.4). I don't
+know how to do this in the setup.py script. 
+
+The other possible option was:
+
+python setup.py build --compiler=gcc-dp-4.0
+
+which tells us:
+
+error: don't know how to compile C/C++ code on platform 'posix' with
+'gcc-dp-4.0' compiler
+
+So: What I'd love to know is how I can change the default
+options passed to gcc to get rid of two options. The default
+options don't appear to be anywhere in setup.py, so I'm not
+sure from where they come, but I think this does solve the
+problem (or at least let me make more progress), so anyone
+who understands setup.py and the distutils magic, I'd appreciate
+help!
+
+Thanks!
+
+JDO
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From gregory.warnes at mac.com  Sat May  5 17:39:09 2007
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Sat, 05 May 2007 13:39:09 -0400
+Subject: Re: [Rpy] build problems (OS X, MacPorts version of R)
+In-Reply-To: <loom.20070505T071244-536@post.gmane.org>
+References: <m2tzv0p7mx.wl%jowens@ece.ucdavis.edu> <loom.20070505T071244-536@post.gmane.org>
+Message-ID: <954B48EF-B821-40EE-AED6-75F59E87F2F8@mac.com>
+
+Hi John,
+
+If the gcc's are incompatible, then you may have yet another  
+problem:  python itself will have been built with one, and R the other.
+
+Before trying to modify the default compiler options, try running the  
+compler commands that setup.py displays as it tries to work.  It  
+should pick up the created .o files and proceed to the next step when  
+run again.
+
+-G
+
+
+On May 5, 2007, at 1:19AM , John Owens wrote:
+
+> John Owens <john_owens <at> yahoo.com> writes:
+>
+>>
+>> Greetings, I'm puzzled about this build error.
+>>
+>> Basically the problem is that it's trying to link to a
+>> dynamic library "libRblas.dylib" that is clearly in the
+>> right place (/opt/local/lib/R/lib/libRblas.dylib) and whose
+>> directory is explicitly specified with -L. (LD_LIBRARY_PATH
+>> didn't help either.)
+>
+> OK good news, I think I figured this out. Bad news, I need
+> some help to continue to make progress.
+>
+> The MacPorts R distribution must be built with a newer gcc.
+> It uses gcc 4.0.4 (the default is 4.0.1). On a MacPorts
+> system, the new gcc is called gcc-dp-4.0. I believe the
+> link problems were because of an incompatibility between R's
+> gcc and the native gcc that I get when I python setup.py build.
+>
+> I am not sure how to say "use gcc-dp-4.0 instead of gcc". The
+> best I've come up with is:
+>
+>  CC=gcc-dp-4.0 python setup.py build
+>
+> which sort-of works. The problem is that gcc is called with
+> the following command line from within the script:
+>
+> gcc-dp-4.0 -fno-strict-aliasing -Wno-long-double -no-cpp-precomp - 
+> mno-fused-madd
+> -fno-common -fno-common -dynamic -DNDEBUG -g -O3 -Wall -DWITH_NUMERIC
+> -DRPY_SHNAME="_rpy2050" -DINIT_RPY=init_rpy2050 -UPRE_2_2
+> -I/opt/local/lib/R/include -Isrc
+> -I/opt/local/Library/Frameworks/Python.framework/Versions/2.4/ 
+> include/python2.4
+> -I/opt/local/include/python2.4 -c src/rpymodule2050.c -o
+> build/temp.darwin-8.9.0-Power_Macintosh-2.4/src/rpymodule2050.o
+> gcc-dp-4.0: unrecognized option '-no-cpp-precomp'
+> cc1: error: unrecognized command line option "-Wno-long-double"
+> error: command 'gcc-dp-4.0' failed with exit status 1
+>
+> What I need to do is delete the two command-line options
+> -Wno-long-double and -no-cpp-precomp. They are valid in
+> default gcc 4.0.1 but not in new gcc-dp-4.0 (4.0.4). I don't
+> know how to do this in the setup.py script.
+>
+> The other possible option was:
+>
+> python setup.py build --compiler=gcc-dp-4.0
+>
+> which tells us:
+>
+> error: don't know how to compile C/C++ code on platform 'posix' with
+> 'gcc-dp-4.0' compiler
+>
+> So: What I'd love to know is how I can change the default
+> options passed to gcc to get rid of two options. The default
+> options don't appear to be anywhere in setup.py, so I'm not
+> sure from where they come, but I think this does solve the
+> problem (or at least let me make more progress), so anyone
+> who understands setup.py and the distutils magic, I'd appreciate
+> help!
+>
+> Thanks!
+>
+> JDO
+>
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by DB2 Express
+> Download DB2 Express C - the FREE version of DB2 express and take
+> control of your XML. No limits. Just data. Click to get it now.
+> http://sourceforge.net/powerbar/db2/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Sat May  5 21:36:27 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Sat, 05 May 2007 21:36:27 +0000
+Subject: Re: [Rpy] build problems (OS X, MacPorts version of R)
+References: <m2tzv0p7mx.wl%jowens@ece.ucdavis.edu> <loom.20070505T071244-536@post.gmane.org> <954B48EF-B821-40EE-AED6-75F59E87F2F8@mac.com>
+Message-ID: <loom.20070505T233408-639@post.gmane.org>
+
+Gregory Warnes <gregory.warnes <at> mac.com> writes:
+
+> 
+> Hi John,
+> 
+> If the gcc's are incompatible, then you may have yet another  
+> problem:  python itself will have been built with one, and R the other.
+
+Arggh. Yes, that may be the case, have to cross that bridge when
+I come to it.
+
+> Before trying to modify the default compiler options, try running the  
+> compler commands that setup.py displays as it tries to work.  It  
+> should pick up the created .o files and proceed to the next step when  
+> run again.
+
+I tried that (trace below), had some issues with RPY_SHNAME being
+undefined. Perhaps you can offer your expert opinion? Thanks for the
+reply!
+
+JDO
+
+movenpick 119$ CC=gcc-dp-4.0 python setup.py build
+RHOMES= []
+Setting RHOMES to  ['/opt/local/lib/R']
+### Using R verion 2.5.0 installed at /opt/local/lib/R ###
+RHOME= /opt/local/lib/R
+copying src/rpymodule.c -> src/rpymodule2050.c
+copying src/R_eval.c -> src/R_eval2050.c
+copying src/io.c -> src/io2050.c
+running build
+running build_py
+running build_ext
+building '_rpy2050' extension
+creating build/temp.darwin-8.9.0-Power_Macintosh-2.4
+creating build/temp.darwin-8.9.0-Power_Macintosh-2.4/src
+gcc-dp-4.0 -fno-strict-aliasing -Wno-long-double -no-cpp-precomp
+-mno-fused-madd
+-fno-common -fno-common -dynamic -DNDEBUG -g -O3 -Wall -DWITH_NUMERIC
+-DRPY_SHNAME="_rpy2050" -DINIT_RPY=init_rpy2050 -UPRE_2_2
+-I/opt/local/lib/R/include -Isrc
+-I/opt/local/Library/Frameworks/Python.framework/Versions/2.4/
+include/python2.4
+-I/opt/local/include/python2.4 -c src/rpymodule2050.c -o
+build/temp.darwin-8.9.0-Power_Macintosh-2.4/src/rpymodule2050.o
+gcc-dp-4.0: unrecognized option '-no-cpp-precomp'
+cc1: error: unrecognized command line option "-Wno-long-double"
+error: command 'gcc-dp-4.0' failed with exit status 1
+movenpick 120$ gcc-dp-4.0 -fno-strict-aliasing -mno-fused-madd 
+-fno-common
+-fno-common -dynamic -DNDEBUG -g -O3 -Wall -DWITH_NUMERIC
+-DRPY_SHNAME="_rpy2050" -DINIT_RPY=init_rpy2050 -UPRE_2_2
+-I/opt/local/lib/R/include -Isrc
+-I/opt/local/Library/Frameworks/Python.framework/Versions/2.4/
+include/python2.4
+-I/opt/local/include/python2.4 -c src/rpymodule2050.c -o
+build/temp.darwin-8.9.0-Power_Macintosh-2.4/src/rpymodule2050.o
+src/rpymodule2050.c: In function 'init_rpy2050':
+src/rpymodule2050.c:1736: error: '_rpy2050' undeclared
+(first use in this function)
+src/rpymodule2050.c:1736: error: (Each undeclared identifier
+is reported only once
+src/rpymodule2050.c:1736: error: for each function it appears in.)
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Mon May  7 23:34:33 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Mon, 07 May 2007 23:34:33 +0000
+Subject: Re: [Rpy] build problems (OS X, MacPorts version of R)
+References: <m2tzv0p7mx.wl%jowens@ece.ucdavis.edu> <loom.20070505T071244-536@post.gmane.org> <954B48EF-B821-40EE-AED6-75F59E87F2F8@mac.com> <loom.20070505T233408-639@post.gmane.org>
+Message-ID: <loom.20070508T013039-568@post.gmane.org>
+
+John Owens <john_owens <at> yahoo.com> writes:
+
+> 
+> Gregory Warnes <gregory.warnes <at> mac.com> writes:
+
+> > Before trying to modify the default compiler options, try running the  
+> > compler commands that setup.py displays as it tries to work.  It  
+> > should pick up the created .o files and proceed to the next step when  
+> > run again.
+> 
+> I tried that (trace below), had some issues with RPY_SHNAME being
+> undefined. Perhaps you can offer your expert opinion? Thanks for the
+> reply!
+
+RPY_SHNAME turned out to be a quoting problem, but eventually ...
+
+> > If the gcc's are incompatible, then you may have yet another  
+> > problem:  python itself will have been built with one, and R the other.
+
+... this stumped me. rpy links with both python (built with the system's
+gcc, 4.0.1) and R (built with gcc 4.0.4), and Gregory is right, they don't
+play well together. I'm currently corresponding with the R portfile author
+to work on this. I'm not sure what to do. R won't build with 4.0.1.
+I guess I could rebuild python with 4.0.4 and that might be the only
+way to make it work. 
+
+Other notes I learned along the way:
+
+- gcc 4.0.4 does not work with -Wno-long-double or -no-cpp-precomp, but 
+  4.0.1 does.
+
+- Don't start a gcc command line with the first option beginning with
+  -b (as in -bundle), because if a -b is the first argument, it's
+  interpreted differently; I added a -v as the first argument to get
+  around this. 
+
+JDO
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Sat May 12 18:51:40 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Sat, 12 May 2007 18:51:40 +0000
+Subject: [Rpy] How to use libraries in rpy?
+Message-ID: <loom.20070512T204751-626@post.gmane.org>
+
+Hopefully a simple question. I installed "RColorBrewer" as a package.
+It works fine in R, but I can't invoke it properly in RPy.
+
+In R, it's invoked as "brewer.xxx", but "r.brewer" is not found 
+by python.
+
+It'd be nice if the examples had a library call (I think the faithful
+one has two library calls but both are obsolete and are part of stats
+now). 
+
+RPy 1.0RC2, R 2.5.0.
+
+Trace below.
+
+JDO
+
+movenpick 328$ python
+Python 2.4.4 (#1, May  9 2007, 15:14:53) 
+[GCC 4.0.1 (Apple Computer, Inc. build 5363)] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+<<< from rpy import *
+RHOME= /opt/local/lib/R
+RVERSION= 2.5.0
+RVER= 2050
+RUSER= /Users/jowens
+Loading Rpy version 2050 .. Done.
+Creating the R object 'r' ..  Done
+<<< r.library("RColorBrewer")
+['RColorBrewer', 'stats', 'graphics', 'grDevices', 'utils', 'datasets',
+'methods', 'base']
+<<< palette = r.brewer.pal(3, "Greens")   
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+  File "/opt/local/lib/python2.4/site-packages/rpy.py", line 286, in __getattr__
+    return self.__getitem__(name)
+  File "/opt/local/lib/python2.4/site-packages/rpy.py", line 290, in __getitem__
+    obj = self.__dict__[name] = self.__dict__.get(name, self.get(name)) 
+rpy.RException: Error in get(x, envir, mode, inherits) : variable "brewer" was
+not found
+
+<<< ^D
+movenpick 329$ R
+
+R version 2.5.0 (2007-04-23)
+Copyright (C) 2007 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+< library("RColorBrewer")
+< palette = brewer.pal(3, "Greens")
+< palette
+[1] "#E5F5E0" "#A1D99B" "#31A354"
+< q()
+Save workspace image? [y/n/c]: n
+
+[[ Note: I replaced all > with < in the trace so gmane would let
+me post. ]]
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Sat May 12 18:57:22 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Sat, 12 May 2007 18:57:22 +0000
+Subject: Re: [Rpy] build problems (OS X, MacPorts version of R)
+References: <m2tzv0p7mx.wl%jowens@ece.ucdavis.edu> <loom.20070505T071244-536@post.gmane.org> <954B48EF-B821-40EE-AED6-75F59E87F2F8@mac.com> <loom.20070505T233408-639@post.gmane.org> <loom.20070508T013039-568@post.gmane.org>
+Message-ID: <loom.20070512T205459-135@post.gmane.org>
+
+How I eventually got the build working (thanks mucho to Kjell
+Konis who maintains the R port for MacPorts):
+
++ I had to make a small change to setup.py.  In the elif  
++ sys.platform=='darwin': block I added 'Rblas' to the libraries.  That  
++ is I changed libraries=['R'] to libraries=['R','Rblas'].  Then, after  
++ setting the following 2 environment variables
++ 
++ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`R RHOME`/lib
++ export MACOSX_DEPLOYMENT_TARGET=10.4
++ 
++ rpy built fine using the Apple supplied gcc 4.0.1.
+
+Also there were some linking problems in the rpy so's that I had 
+to fix with otool:
+
+BAD:
+
+$ otool -L _rpy2050.so
+_rpy2050.so:
+         libR.dylib (compatibility version 2.5.0, current version 2.5.0)
+         libRblas.dylib (compatibility version 0.0.0, current version  
+0.0.0)
+         /usr/lib/libgcc_s.1.dylib (compatibility version 1.0.0,  
+current version 1.0.0)
+         /usr/lib/libSystem.B.dylib (compatibility version 1.0.0,  
+current version 88.1.9)
+
+FIX WITH:
+
+$ install_name_tool -change libR.dylib /opt/local/lib/R/lib/ 
+libR.dylib _rpy2050.so
+$ install_name_tool -change libRblas.dylib /opt/local/lib/R/lib/ 
+libRblas.dylib _rpy2050.so
+
+JDO
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Sat May 12 19:22:10 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Sat, 12 May 2007 19:22:10 +0000
+Subject: Re: [Rpy] How to use libraries in rpy?
+References: <loom.20070512T204751-626@post.gmane.org>
+Message-ID: <loom.20070512T211956-688@post.gmane.org>
+
+John Owens <john_owens <at> yahoo.com> writes:
+
++ >>> palette = r.brewer.pal(3, "Greens")   
++ Traceback (most recent call last):
++   File "<stdin>", line 1, in ?
++   File "/opt/local/lib/python2.4/site-packages/rpy.py", line 286, 
++     in __getattr__
++     return self.__getitem__(name)
++   File "/opt/local/lib/python2.4/site-packages/rpy.py", line 290,
++     in __getitem__
++     obj = self.__dict__[name] = self.__dict__.get(name, self.get(name)) 
++ rpy.RException: Error in get(x, envir, mode, inherits) : variable
++ "brewer" was not found
+
+This does work, though, not sure why the original did not:
+
+palette = r('brewer.pal(3,"Greens")')
+
+JDO
+
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From gregory.warnes at mac.com  Mon May 14 02:05:17 2007
+From: gregory.warnes at mac.com (Gregory R. Warnes)
+Date: Sun, 13 May 2007 22:05:17 -0400
+Subject: Re: [Rpy] How to use libraries in rpy?
+In-Reply-To: <loom.20070512T211956-688@post.gmane.org>
+References: <loom.20070512T204751-626@post.gmane.org> <loom.20070512T211956-688@post.gmane.org>
+Message-ID: <D6B7DF44-D35D-4E07-A453-BF4897A5BFE8@mac.com>
+
+
+The problem is that in python '.' (period) is a valid character in a  
+variable/function *name*, while it is not valid in python.  To  
+overcome this problem, use '_' (underscore), which RPy will translate  
+to a '.'
+
+So, try
+
+	palette = r.brewer_pal(3, "Greens")
+
+-Greg
+
+On May 12, 2007, at 3:22 PM, John Owens wrote:
+
+> John Owens <john_owens <at> yahoo.com> writes:
+>
+> + >>> palette = r.brewer.pal(3, "Greens")
+> + Traceback (most recent call last):
+> +   File "<stdin>", line 1, in ?
+> +   File "/opt/local/lib/python2.4/site-packages/rpy.py", line 286,
+> +     in __getattr__
+> +     return self.__getitem__(name)
+> +   File "/opt/local/lib/python2.4/site-packages/rpy.py", line 290,
+> +     in __getitem__
+> +     obj = self.__dict__[name] = self.__dict__.get(name, self.get 
+> (name))
+> + rpy.RException: Error in get(x, envir, mode, inherits) : variable
+> + "brewer" was not found
+>
+> This does work, though, not sure why the original did not:
+>
+> palette = r('brewer.pal(3,"Greens")')
+>
+> JDO
+>
+>
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by DB2 Express
+> Download DB2 Express C - the FREE version of DB2 express and take
+> control of your XML. No limits. Just data. Click to get it now.
+> http://sourceforge.net/powerbar/db2/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From gregory.warnes at mac.com  Mon May 14 02:10:21 2007
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Sun, 13 May 2007 22:10:21 -0400
+Subject: Re: [Rpy] How to use libraries in rpy?
+In-Reply-To: <D6B7DF44-D35D-4E07-A453-BF4897A5BFE8@mac.com>
+References: <loom.20070512T204751-626@post.gmane.org><loom.20070512T211956-688@post.gmane.org> <D6B7DF44-D35D-4E07-A453-BF4897A5BFE8@mac.com>
+Message-ID: <5B8237AE-AA42-46EF-BCB9-E9DE163F65D2@mac.com>
+
+Sorry, there was a typo in my message:
+
+On May 13, 2007, at 10:05PM , Gregory R. Warnes wrote:
+
+>
+> The problem is that in **R** '.' (period) is a valid character in a
+> variable/function *name*, while it is not valid in python.  To
+> overcome this problem, use '_' (underscore), which RPy will translate
+> to a '.'
+>
+> So, try
+>
+> 	palette = r.brewer_pal(3, "Greens")
+>
+> -Greg
+>
+> On May 12, 2007, at 3:22 PM, John Owens wrote:
+>
+>> John Owens <john_owens <at> yahoo.com> writes:
+>>
+>> + >>> palette = r.brewer.pal(3, "Greens")
+>> + Traceback (most recent call last):
+>> +   File "<stdin>", line 1, in ?
+>> +   File "/opt/local/lib/python2.4/site-packages/rpy.py", line 286,
+>> +     in __getattr__
+>> +     return self.__getitem__(name)
+>> +   File "/opt/local/lib/python2.4/site-packages/rpy.py", line 290,
+>> +     in __getitem__
+>> +     obj = self.__dict__[name] = self.__dict__.get(name, self.get
+>> (name))
+>> + rpy.RException: Error in get(x, envir, mode, inherits) : variable
+>> + "brewer" was not found
+>>
+>> This does work, though, not sure why the original did not:
+>>
+>> palette = r('brewer.pal(3,"Greens")')
+>>
+>> JDO
+>>
+>>
+>>
+>> --------------------------------------------------------------------- 
+>> -
+>> ---
+>> This SF.net email is sponsored by DB2 Express
+>> Download DB2 Express C - the FREE version of DB2 express and take
+>> control of your XML. No limits. Just data. Click to get it now.
+>> http://sourceforge.net/powerbar/db2/
+>> _______________________________________________
+>> rpy-list mailing list
+>> rpy-list at lists.sourceforge.net
+>> https://lists.sourceforge.net/lists/listinfo/rpy-list
+>
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by DB2 Express
+> Download DB2 Express C - the FREE version of DB2 express and take
+> control of your XML. No limits. Just data. Click to get it now.
+> http://sourceforge.net/powerbar/db2/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Tue May 15 02:40:55 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Tue, 15 May 2007 02:40:55 +0000
+Subject: [Rpy] help with matplot
+Message-ID: <loom.20070515T043354-531@post.gmane.org>
+
+Would LOVE to get some help with the "matplot" function.
+
+> Plot the columns of one matrix against the columns of another.
+> matplot(x, y)
+>  x,y: vectors or matrices of data for plotting.  The number of rows
+>     should match.  If one of them are missing, the other is taken
+>     as 'y' and an 'x' vector of '1:n' is used. Missing values
+>     ('NA's) are allowed.
+
+Here's something that works:
+
+r.matplot([1,2,3], [4,5,6])
+
+This plots (1,3), (2,4), (3,5).
+
+What I want is to plot a second dataset against (1,2,3).
+
+These things don't work:
+
+r.matplot([1,2,3], [[4,5,6],[7,8,9]])
+        'x' and 'y' must have same number of rows
+
+r.matplot([1,2,3], [[4,7],[5,8],[6,9]])
+        rpy.RException: Error in as.double.default(y) : 
+        (list) object cannot be coerced to 'double'
+
+r.matplot([[1],[2],[3]], [[4,7],[5,8],[6,9]])
+        rpy.RException: Error in as.double.default(y) : 
+        (list) object cannot be coerced to 'double'
+
+I'm just not sure how to make a matrix in python that goes
+properly into R ... any help appreciated!
+
+JDO
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From twiens at interbaun.com  Tue May 15 04:46:49 2007
+From: twiens at interbaun.com (Trevor Wiens)
+Date: Mon, 14 May 2007 22:46:49 -0600
+Subject: Re: [Rpy] help with matplot
+In-Reply-To: <loom.20070515T043354-531@post.gmane.org>
+References: <loom.20070515T043354-531@post.gmane.org>
+Message-ID: <20070514224649.259b2e63@localhost.localdomain>
+
+On Tue, 15 May 2007 02:40:55 +0000 (UTC)
+John Owens wrote:
+
+> Would LOVE to get some help with the "matplot" function.
+> 
+> > Plot the columns of one matrix against the columns of another.
+> > matplot(x, y)
+> >  x,y: vectors or matrices of data for plotting.  The number of rows
+> >     should match.  If one of them are missing, the other is taken
+> >     as 'y' and an 'x' vector of '1:n' is used. Missing values
+> >     ('NA's) are allowed.
+> 
+
+General rule. Make sure it works first in R
+
+> Here's something that works:
+> 
+> r.matplot([1,2,3], [4,5,6])
+
+matplot(c(1,2,3),c(4,5,6))
+
+> 
+> This plots (1,3), (2,4), (3,5).
+
+NO. 1,4; 2,5; 3,6
+
+> 
+> What I want is to plot a second dataset against (1,2,3).
+> 
+> These things don't work:
+> 
+> r.matplot([1,2,3], [[4,5,6],[7,8,9]])
+>         'x' and 'y' must have same number of rows
+
+matplot((c(1,2,3),cbind(c(4,5,6),c(7,8,9)))
+
+r.matplot([1,2,3], r.cbind([4,5,6],[7,8,9]))
+
+>>> test = r.cbind([4,5,6],[7,8,9])
+>>> test
+array([[4, 7],
+       [5, 8],
+       [6, 9]])
+
+HTH
+
+T
+-- 
+Trevor Wiens 
+twiens at interbaun.com
+
+The significant problems that we face cannot be solved at the same 
+level of thinking we were at when we created them. 
+(Albert Einstein)
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Tue May 15 17:14:44 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Tue, 15 May 2007 17:14:44 +0000
+Subject: Re: [Rpy] help with matplot
+References: <loom.20070515T043354-531@post.gmane.org> <20070514224649.259b2e63@localhost.localdomain>
+Message-ID: <loom.20070515T191245-181@post.gmane.org>
+
+Trevor Wiens <twiens <at> interbaun.com> writes:
+
+> 
+> On Tue, 15 May 2007 02:40:55 +0000 (UTC)
+> John Owens wrote:
+> 
+> > Would LOVE to get some help with the "matplot" function.
+> 
+> General rule. Make sure it works first in R
+
+Yes, I freely admit I was doing the worst kind of trial and guess.
+(Also I don't know R at all, which doesn't help.)
+
+> matplot((c(1,2,3),cbind(c(4,5,6),c(7,8,9)))
+> 
+> r.matplot([1,2,3], r.cbind([4,5,6],[7,8,9]))
+
+So what would be nice is if I could build the data structure 
+in python instead of having to use r primitives to put it
+together. Is that possible? I'd really like to be able to pass
+in a list or list of lists as a python data structure if possible.
+
+JDO
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Wed May 16 06:17:53 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Wed, 16 May 2007 06:17:53 +0000
+Subject: [Rpy] example of "expression"?
+Message-ID: <loom.20070516T081452-784@post.gmane.org>
+
+I'm trying to use "expression" to set axis labels
+(so I can get superscripts, 2^10 for instance).
+
+I think the right nomenclature in R is
+
+expression("2^10", "2^11", ...)
+
+(i.e. r.axis(1, labels=expression(...)))
+
+but I have not been able to get it to work under
+rpy. Any example of how to get the mathplot()-like
+functionality working with expression to typeset
+more complex text would be really appreciated!
+
+Thanks -
+
+JDO
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From gregory.warnes at mac.com  Wed May 16 12:24:31 2007
+From: gregory.warnes at mac.com (Gregory Warnes)
+Date: Wed, 16 May 2007 08:24:31 -0400
+Subject: Re: [Rpy] example of "expression"?
+In-Reply-To: <loom.20070516T081452-784@post.gmane.org>
+References: <loom.20070516T081452-784@post.gmane.org>
+Message-ID: <079D5630-4837-4A7F-9663-66C0C2AC2187@mac.com>
+
+
+Hello John,
+
+The correct syntax for this in R is:
+
+	 axis(1, at=1:5, labels=expression(1^10, 2^10, 3^10, 4^10, 5^10))
+
+Note that expression() expects actual R syntax and not strings.  To  
+handle strings you would need to do
+
+	 axis(1, at=1:5, labels=parse(text=c("1^10", "2^10", "3^10", "4^10",  
+"5^10")))
+
+The best way to accomplish this task using RPy is to write a little R  
+wrapper function and call that from RPy:
+
+	myAxis = r("function(side, pos, labels) axis(side, at=pos,  
+labels=parse(text=c(labels)))")
+
+So that you get something like:
+
+	from rpy import r
+	r.plot( [1,2,3,4,5], xaxt="n" )
+
+	myAxis = r("function(side, pos, labels) axis(side, at=pos,  
+labels=parse(text=c(labels)))")
+	myAxis( side=1, pos=[1,2,3,4,5], labels=["1^10", 	 "2^10", "3^10",  
+"4^10", "5^10"] )
+
+
+-Greg
+
+On May 16, 2007, at 2:17AM , John Owens wrote:
+
+> I'm trying to use "expression" to set axis labels
+> (so I can get superscripts, 2^10 for instance).
+>
+> I think the right nomenclature in R is
+>
+> expression("2^10", "2^11", ...)
+>
+> (i.e. r.axis(1, labels=expression(...)))
+>
+> but I have not been able to get it to work under
+> rpy. Any example of how to get the mathplot()-like
+> functionality working with expression to typeset
+> more complex text would be really appreciated!
+>
+> Thanks -
+>
+> JDO
+>
+>
+> ---------------------------------------------------------------------- 
+> ---
+> This SF.net email is sponsored by DB2 Express
+> Download DB2 Express C - the FREE version of DB2 express and take
+> control of your XML. No limits. Just data. Click to get it now.
+> http://sourceforge.net/powerbar/db2/
+> _______________________________________________
+> rpy-list mailing list
+> rpy-list at lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From john_owens at yahoo.com  Wed May 16 14:24:46 2007
+From: john_owens at yahoo.com (John Owens)
+Date: Wed, 16 May 2007 14:24:46 +0000
+Subject: Re: [Rpy] example of "expression"?
+References: <loom.20070516T081452-784@post.gmane.org> <079D5630-4837-4A7F-9663-66C0C2AC2187@mac.com>
+Message-ID: <loom.20070516T162352-865@post.gmane.org>
+
+Gregory Warnes <gregory.warnes <at> mac.com> writes:
+
+> The best way to accomplish this task using RPy is to write a little R  
+> wrapper function and call that from RPy:
+
+Wow, thanks, that's spot-on. I would have had a lot of difficulty
+figuring that out on my own! Good FAQ, perhaps, that seems tricky.
+
+JDO
+
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From noreply at sourceforge.net  Thu May 17 03:48:24 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Wed, 16 May 2007 20:48:24 -0700
+Subject: [Rpy] [ rpy-Bugs-1720472 ] Can not loading "mgcv" package
+Message-ID: <E1HoWyW-00024A-FA@sc8-sf-web23.sourceforge.net>
+
+Bugs item #1720472, was opened at 2007-05-16 20:48
+Message generated for change (Tracker Item Submitted) made by Item Submitter
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1720472&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: rpy
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Can not loading "mgcv" package
+
+Initial Comment:
+I will try to loading package mgcv,
+but I have get some error message:
+
+>>> from rpy import *
+RHOME= C:\Program Files\R\R-2.4.1
+RVERSION= 2.4.1
+RVER= 2041
+RUSER= C:\Documents and Settings\Yslin
+Loading the R DLL C:\Program Files\R\R-2.4.1\bin\R.dll .. Done.
+Loading Rpy version 2041 .. Done.
+Creating the R object 'r' ..  Done
+>>> r.library("mgcv")
+Warning message:
+package 'mgcv' was built under R version 2.5.0 
+
+Traceback (most recent call last):
+  File "<pyshell#1>", line 1, in -toplevel-
+    r.library("mgcv")
+RException: 錯誤: package/namespace load failed for 'mgcv'
+
+what's happen?
+anyone can tell me? thanks...
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1720472&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From noreply at sourceforge.net  Thu May 17 13:57:37 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Thu, 17 May 2007 06:57:37 -0700
+Subject: [Rpy] [ rpy-Bugs-1720472 ] Can not loading "mgcv" package
+Message-ID: <E1HogU5-0003YE-2w@sc8-sf-web22.sourceforge.net>
+
+Bugs item #1720472, was opened at 2007-05-17 03:48
+Message generated for change (Comment added) made by maubp
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1720472&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: rpy
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Can not loading "mgcv" package
+
+Initial Comment:
+I will try to loading package mgcv,
+but I have get some error message:
+
+>>> from rpy import *
+RHOME= C:\Program Files\R\R-2.4.1
+RVERSION= 2.4.1
+RVER= 2041
+RUSER= C:\Documents and Settings\Yslin
+Loading the R DLL C:\Program Files\R\R-2.4.1\bin\R.dll .. Done.
+Loading Rpy version 2041 .. Done.
+Creating the R object 'r' ..  Done
+>>> r.library("mgcv")
+Warning message:
+package 'mgcv' was built under R version 2.5.0 
+
+Traceback (most recent call last):
+  File "<pyshell#1>", line 1, in -toplevel-
+    r.library("mgcv")
+RException: 錯誤: package/namespace load failed for 'mgcv'
+
+what's happen?
+anyone can tell me? thanks...
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2007-05-17 13:57
+
+Message:
+Logged In: YES 
+user_id=259020
+Originator: NO
+
+Try running R, which on your machine appears to be version 2.4.1, and
+typing:
+
+library(mgcv)
+
+I predict this will fail after giving the warning message:
+package 'mgcv' was built under R version 2.5.0 
+
+i.e. Where ever you got your copy of mgcv from, it appears to be intended
+for R 2.5.0 not 2.4.1
+
+If this does fail in R, then your problem is nothing to do with rpy.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1720472&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From noreply at sourceforge.net  Fri May 18 01:44:55 2007
+From: noreply at sourceforge.net (SourceForge.net)
+Date: Thu, 17 May 2007 18:44:55 -0700
+Subject: [Rpy] [ rpy-Bugs-1720472 ] Can not loading "mgcv" package
+Message-ID: <E1HorWZ-0001Yp-Hx@sc8-sf-web23.sourceforge.net>
+
+Bugs item #1720472, was opened at 2007-05-16 20:48
+Message generated for change (Comment added) made by nobody
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1720472&group_id=48422
+
+Please note that this message will contain a full copy of the comment thread,
+including the initial issue submission, for this request,
+not just the latest update.
+Category: None
+Group: rpy
+Status: Open
+Resolution: None
+Priority: 5
+Private: No
+Submitted By: Nobody/Anonymous (nobody)
+Assigned to: Nobody/Anonymous (nobody)
+Summary: Can not loading "mgcv" package
+
+Initial Comment:
+I will try to loading package mgcv,
+but I have get some error message:
+
+>>> from rpy import *
+RHOME= C:\Program Files\R\R-2.4.1
+RVERSION= 2.4.1
+RVER= 2041
+RUSER= C:\Documents and Settings\Yslin
+Loading the R DLL C:\Program Files\R\R-2.4.1\bin\R.dll .. Done.
+Loading Rpy version 2041 .. Done.
+Creating the R object 'r' ..  Done
+>>> r.library("mgcv")
+Warning message:
+package 'mgcv' was built under R version 2.5.0 
+
+Traceback (most recent call last):
+  File "<pyshell#1>", line 1, in -toplevel-
+    r.library("mgcv")
+RException: 錯誤: package/namespace load failed for 'mgcv'
+
+what's happen?
+anyone can tell me? thanks...
+
+----------------------------------------------------------------------
+
+Comment By: Nobody/Anonymous (nobody)
+Date: 2007-05-17 18:44
+
+Message:
+Logged In: NO 
+
+when I use in R
+
+> library(mgcv)
+This is mgcv 1.3-24 
+Warning message:
+package 'mgcv' was built under R version 2.5.0 
+> 
+
+is ok...
+and update from CRAN
+
+what's happen? is version problem?
+anyone can tell me? thanks... 
+
+----------------------------------------------------------------------
+
+Comment By: Peter (maubp)
+Date: 2007-05-17 06:57
+
+Message:
+Logged In: YES 
+user_id=259020
+Originator: NO
+
+Try running R, which on your machine appears to be version 2.4.1, and
+typing:
+
+library(mgcv)
+
+I predict this will fail after giving the warning message:
+package 'mgcv' was built under R version 2.5.0 
+
+i.e. Where ever you got your copy of mgcv from, it appears to be intended
+for R 2.5.0 not 2.4.1
+
+If this does fail in R, then your problem is nothing to do with rpy.
+
+----------------------------------------------------------------------
+
+You can respond by visiting: 
+https://sourceforge.net/tracker/?func=detail&atid=453021&aid=1720472&group_id=48422
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+_______________________________________________
+rpy-list mailing list
+rpy-list at lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/rpy-list
+
+From warnes at users.sourceforge.net  Fri May 18 15:41:42 2007
+From: warnes at users.sourceforge.net
+Date: Fri, 18 May 2007 08:41:42 -0700
+Subject: [Rpy] SF.net SVN: rpy: [351] trunk/rpy/rpy_version.py
+Message-ID: <E1Hp4aM-0004Kg-01@sc8-pr-svn2.sourceforge.net>
+
+Revision: 351
+          http://svn.sourceforge.net/rpy/?rev=351&view=rev
+Author:   warnes
+Date:     2007-05-18 08:41:41 -0700 (Fri, 18 May 2007)
+
+Log Message:
+-----------
+Update version number
+
+Modified Paths:
+--------------
+    trunk/rpy/rpy_version.py
+
+Modified: trunk/rpy/rpy_version.py
+===================================================================
+--- trunk/rpy/rpy_version.py	2007-04-16 16:14:39 UTC (rev 350)
++++ trunk/rpy/rpy_version.py	2007-05-18 15:41:41 UTC (rev 351)
+@@ -1 +1 @@
+-rpy_version = "1.0-RC2"
++rpy_version = "1.0-RC3"
+
+
+This was sent by the SourceForge.net collaborative development platform, the world's largest Open Source development site.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
+From gordon at boltzmann-konstante.de  Fri May 25 12:06:54 2007
+From: gordon at boltzmann-konstante.de (Gordon Bergling)
+Date: Fri, 25 May 2007 14:06:54 +0200
+Subject: [Rpy] rpy fails to load on Win32 (XP)
+Message-ID: <4656D15E.2090906@boltzmann-konstante.de>
+
+Hi folks,
+
+I am currently trying to create a port of an linux application thats
+uses python/pygtk/rpy. On my WinXP installation I have installed
+R-2.5.0, python-2.5 and the neccessary modules for python. I compiled
+rpy from sources using the build scripts from its source code
+successfully, but it fails to load. (rpy trunk sources)
+
+It just silently crashes. Here is the commandline output:
+
+Python 2.5.1 (r251:54863, Apr 18 2007, 08:51:08) [MSC v.1310 32 bit
+(Intel)] on win32
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import rpy
+RHOME= C:\Programme\R\R-2.5.0
+RVERSION= 2.5.0
+RVER= 2050
+RUSER= C:\Dokumente und Einstellungen\Gordon Bergling
+Loading the R DLL C:\Programme\R\R-2.5.0\bin\R.dll .. Done.
+Loading Rpy version 2050 ..
+C:\Dokumente und Einstellungen\Gordon Bergling>
+
+does anyone have an idea how to solve this?
+
+If I can provide more information please let me know.
+
+best regards,
+
+	Gordon
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by DB2 Express
+Download DB2 Express C - the FREE version of DB2 express and take
+control of your XML. No limits. Just data. Click to get it now.
+http://sourceforge.net/powerbar/db2/
+
