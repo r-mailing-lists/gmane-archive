@@ -15,6 +15,7 @@ Gmane has relayed mailing lists to newsgroups since 2002 and still receives them
 | `dealsoftware` | The deal package, Bayesian networks in R | Yahoo Groups |
 | `r-soc` | French users of R in the social sciences | CRU, then RENATER |
 | `rpostgresql-dev` | Development of the RPostgreSQL package | Google Groups |
+| `statet` | StatET, the Eclipse plug-in for R: users and development | R-Forge (`statet-user`, deleted from R-Forge) |
 
 See [`lists.tsv`](lists.tsv) for message counts and date ranges.
 

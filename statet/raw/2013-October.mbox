@@ -1,0 +1,3653 @@
+From tobias.verbeke-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Thu Oct  3 10:01:57 2013
+From: tobias.verbeke-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Tobias Verbeke)
+Date: Thu, 03 Oct 2013 12:01:57 +0200
+Subject: Re: R environment index update problem
+Message-ID: <CAMnWaDMsSMgfv8tAqtWfq1fis8GC81bUt0Bg7AZfzqaS4Bk2RQ@mail.gmail.com>
+
+Hi Karl,
+
+On Wed, Sep 25, 2013 at 6:30 PM, Karl Forner - Quartz Bio <
+karl.forner-cBA6V+Zs6rKgSpxsJD1C4w at public.gmane.org> wrote:
+
+> Hello,
+>
+> I already posted about this issue, that I still experiment.
+> I'll try to be as clear as possible, and I have an example package on
+> github to help reproducing the problem.
+>
+> Description: I can not make statET to index newer installed versions of a
+> package using "R environment -->  Index changes" action, knowing the
+> official version string of the package (from the DESCRIPTION file) has not
+> changed.
+>
+> Why do I need this ? We work on packages on a daily basis and use
+> continuous integration.
+> We can not increase the version number of the package for each
+> modification. Still, we'd like to have the new content of the help
+> documentation.
+>
+> Overview of the example:
+> I will install a version of package rikiki with FOO1 as description of
+> entry foo.
+> Then have statET index this package, and display help(foo).
+> Then install a newer version of the package with FOO2 as description of
+> entry foo.
+> At this point, I can not have statET display the new version of help(foo).
+>
+> Steps to reproduce:
+>
+> # get the package
+> git clone https://github.com/kforner/rikiki.git
+> # make a temp directory to install the package in
+> mkdir lib
+> cd rikiki
+>
+>
+> # ======= install the version foo1 of the package =================
+> # run inside statET a R console and set the current directory inside rikiki
+> # remove the current foo.Rd if any
+> if (file.exists('man/foo.Rd')) file.remove('man/foo.Rd')
+> # copy foo.Rd Version 1
+> file.copy('foo1.Rd', 'man/foo.Rd')
+> # install the package in temp dir
+> system("R CMD INSTALL -l ../lib/ .", intern=TRUE)
+> # put the temp lib dir in the lib paths to that statET can see it
+> .libPaths(c(.libPaths(), '../lib'))
+> # load the package
+> library(rikiki, lib = '../lib')
+>
+> # ask for help
+> help(foo)
+> # nothing AS EXPECTED
+>
+> Now, in the Console view, select "R environment -->  Index changes"
+> The indexing process should find the new package, and index it.
+>
+> help(foo)
+> # ==> display FOO1 AS EXPECTED
+>
+> So far so good.
+>
+> # ======= install the version foo1 of the package =================
+> # remove the current foo.Rd if any
+> if (file.exists('man/foo.Rd')) file.remove('man/foo.Rd')
+> # copy foo.Rd Version 2
+> file.copy('foo2.Rd', 'man/foo.Rd')
+> # install the package in temp dir
+> system("R CMD INSTALL -l ../lib/ .", intern=TRUE)
+>
+>
+> Now, in the Console view, select "R environment -->  Index changes"
+> The indexing process does not seem find the new package (too fast).
+>
+> Now start a NEW StatET R console
+> library(rikiki, lib = '../lib')
+> help(foo)
+> # ==> display FOO1 instead of FOO2
+>
+> Ultimate check:
+> *start a standard R console (not statET)*
+> library(rikiki, lib = '../lib')
+> help(foo)
+> # ==> display FOO2 as expected.
+>
+>
+> Probable cause:
+> in de.walware.statet.r.internal.core.rhelp.REnvIndexChecker.::checkPackage
+>
+> I noticed (line 160):
+>         else if (!packageHelp.getVersion().equals(pkgVersion)) {
+>
+> meaning that the package is ignored if a same pkgVersion of the package
+> has already been indexed.
+>
+> A possible fix would be to store the date of the DESCRIPTION file for
+> instance, and to compare them.
+>
+>
+The 'Date' field of the DESCRIPTION file will not help (it is user
+specified),
+but it may be possible to use the information from the 'Built' field which
+is
+updated each time you install the package
+
+Built: R 3.0.2; ; 2013-10-03 09:57:02 UTC; unix
+
+but maybe I'm just spelling out what you meant to say.
+
+Best,
+Tobias
+
+
+>
+> N.B:
+> Calling "R environment -->  Index completely" takes ages and crashes:
+> [WARNING] The R environment index could not be completely updated.
+>     (details available in Eclipse error log)
+>
+>
+> Best,
+> Karl
+>
+> _______________________________________________
+> StatET-user mailing list
+> https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+>
+
+-------------- next part --------------
+
+
+From karl.forner-cBA6V+Zs6rKgSpxsJD1C4w at public.gmane.org  Thu Oct  3 11:08:11 2013
+From: karl.forner-cBA6V+Zs6rKgSpxsJD1C4w at public.gmane.org (Karl Forner - Quartz Bio)
+Date: Thu, 03 Oct 2013 13:08:11 +0200
+Subject: Re: R environment index update problem
+In-Reply-To: <CAMnWaDMsSMgfv8tAqtWfq1fis8GC81bUt0Bg7AZfzqaS4Bk2RQ@mail.gmail.com>
+References: <CAMnWaDMsSMgfv8tAqtWfq1fis8GC81bUt0Bg7AZfzqaS4Bk2RQ@mail.gmail.com>
+Message-ID: <CAKzp2LdKGTM_d9t+3AuOK0YDk=3dJyO5UVNh34Kft-=a4p8q=g@mail.gmail.com>
+
+Hi Tobias !
+
+Actually I was thinking of the file timestamp on the filesystem. But you're
+right it would be probably easier to just use this build date
+
+Best,
+Karl
+
+On Thu, Oct 3, 2013 at 12:01 PM, Tobias Verbeke <tobias.verbeke-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>wrote:
+
+> Hi Karl,
+>
+> On Wed, Sep 25, 2013 at 6:30 PM, Karl Forner - Quartz Bio <
+> karl.forner-cBA6V+Zs6rKgSpxsJD1C4w at public.gmane.org> wrote:
+>
+>> Hello,
+>>
+>> I already posted about this issue, that I still experiment.
+>> I'll try to be as clear as possible, and I have an example package on
+>> github to help reproducing the problem.
+>>
+>> Description: I can not make statET to index newer installed versions of a
+>> package using "R environment -->  Index changes" action, knowing the
+>> official version string of the package (from the DESCRIPTION file) has not
+>> changed.
+>>
+>> Why do I need this ? We work on packages on a daily basis and use
+>> continuous integration.
+>> We can not increase the version number of the package for each
+>> modification. Still, we'd like to have the new content of the help
+>> documentation.
+>>
+>> Overview of the example:
+>> I will install a version of package rikiki with FOO1 as description of
+>> entry foo.
+>> Then have statET index this package, and display help(foo).
+>> Then install a newer version of the package with FOO2 as description of
+>> entry foo.
+>> At this point, I can not have statET display the new version of help(foo).
+>>
+>> Steps to reproduce:
+>>
+>> # get the package
+>> git clone https://github.com/kforner/rikiki.git
+>> # make a temp directory to install the package in
+>> mkdir lib
+>> cd rikiki
+>>
+>>
+>> # ======= install the version foo1 of the package =================
+>> # run inside statET a R console and set the current directory inside
+>> rikiki
+>> # remove the current foo.Rd if any
+>> if (file.exists('man/foo.Rd')) file.remove('man/foo.Rd')
+>> # copy foo.Rd Version 1
+>> file.copy('foo1.Rd', 'man/foo.Rd')
+>> # install the package in temp dir
+>> system("R CMD INSTALL -l ../lib/ .", intern=TRUE)
+>> # put the temp lib dir in the lib paths to that statET can see it
+>> .libPaths(c(.libPaths(), '../lib'))
+>> # load the package
+>> library(rikiki, lib = '../lib')
+>>
+>> # ask for help
+>> help(foo)
+>> # nothing AS EXPECTED
+>>
+>> Now, in the Console view, select "R environment -->  Index changes"
+>> The indexing process should find the new package, and index it.
+>>
+>> help(foo)
+>> # ==> display FOO1 AS EXPECTED
+>>
+>> So far so good.
+>>
+>> # ======= install the version foo1 of the package =================
+>> # remove the current foo.Rd if any
+>> if (file.exists('man/foo.Rd')) file.remove('man/foo.Rd')
+>> # copy foo.Rd Version 2
+>> file.copy('foo2.Rd', 'man/foo.Rd')
+>> # install the package in temp dir
+>> system("R CMD INSTALL -l ../lib/ .", intern=TRUE)
+>>
+>>
+>> Now, in the Console view, select "R environment -->  Index changes"
+>> The indexing process does not seem find the new package (too fast).
+>>
+>> Now start a NEW StatET R console
+>> library(rikiki, lib = '../lib')
+>> help(foo)
+>> # ==> display FOO1 instead of FOO2
+>>
+>> Ultimate check:
+>> *start a standard R console (not statET)*
+>> library(rikiki, lib = '../lib')
+>> help(foo)
+>> # ==> display FOO2 as expected.
+>>
+>>
+>> Probable cause:
+>> in de.walware.statet.r.internal.core.rhelp.REnvIndexChecker.::checkPackage
+>>
+>> I noticed (line 160):
+>>         else if (!packageHelp.getVersion().equals(pkgVersion)) {
+>>
+>> meaning that the package is ignored if a same pkgVersion of the package
+>> has already been indexed.
+>>
+>> A possible fix would be to store the date of the DESCRIPTION file for
+>> instance, and to compare them.
+>>
+>>
+> The 'Date' field of the DESCRIPTION file will not help (it is user
+> specified),
+> but it may be possible to use the information from the 'Built' field which
+> is
+> updated each time you install the package
+>
+> Built: R 3.0.2; ; 2013-10-03 09:57:02 UTC; unix
+>
+> but maybe I'm just spelling out what you meant to say.
+>
+> Best,
+> Tobias
+>
+>
+>>
+>> N.B:
+>> Calling "R environment -->  Index completely" takes ages and crashes:
+>> [WARNING] The R environment index could not be completely updated.
+>>     (details available in Eclipse error log)
+>>
+>>
+>> Best,
+>> Karl
+>>
+>> _______________________________________________
+>> StatET-user mailing list
+>> https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+>>
+>
+>
+
+-------------- next part --------------
+
+
+From keith-Xb3PpaFnzt5BDgjK7y7TUQ at public.gmane.org  Fri Oct  4 20:39:08 2013
+From: keith-Xb3PpaFnzt5BDgjK7y7TUQ at public.gmane.org (Keith Woolner)
+Date: Fri, 04 Oct 2013 16:39:08 -0400
+Subject: Intel MKL libraries with remote StatET connection crashes R?
+Message-ID: <524F276C.9010304@woolner.com>
+
+Is anyone using the Intel MKL math libraries with StatET connecting to a 
+remote R server?
+
+I am trying to connect to R 2.15.3 running on Linux from a Windows box 
+running Eclipse 3.8.2 and StatET (Java Core 1.1.3, Eclient 1.2.1).  Have 
+been using this setup for months without issue.  We recently recompiled 
+R with the Intel MKL optimized numeric libraries, and are running into 
+problems, but only through StatET.
+
+If I run a simple matrix operation like "crossprod(1:4)" in a local R 
+session on the server, it returns fine.  On a more complex operation, it 
+is noticeably faster (one test went from 86 seconds down to 35 seconds), 
+which is what we were hoping to see by using these libraries.
+
+But if I start a remote session via Eclipse/StatET, and run the same 
+command, it kills the entire remote R session.  In the log files on the 
+server I see the error"Intel MKL FATAL ERROR: Cannot load libmkl_mc3.so 
+or libmkl_def.so".  I've compared LD_LIBRARY_PATH in both the local and 
+remote sessions, and can't find any differences -- both have entries 
+pointing to the Intel MKL directories.
+
+I've fiddled with numerous settings and environment variables, tried 
+reinstalling rj and rj.gd, without success.  I don't know if this is a 
+StatET problem, an Intel MKL problem, or a local configuration problem, 
+but since it works when run locally without StatET involved, I wanted to 
+ask the list whether anyone else has this kind of configuration working?
+
+Any suggestions would be appreciated.
+
+Thanks,
+Keith
+
+From mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Oct  7 06:14:18 2013
+From: mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Mike Rowe)
+Date: Sun, 06 Oct 2013 23:14:18 -0700
+Subject: Eclipse Hangs on Startup
+Message-ID: <AD57E854-40F4-4B63-8262-2D883B62260A@gmail.com>
+
+Hi,
+
+I have been updating my StatET/Eclipse tools, and am having a lot of problems-- weird stuff where the .Rprofile file isn't getting run, etc.  But the biggest problem I am having is that after getting StatEtT configured, the next time I launch Eclipse, it hangs during start up.  Specifically, when it gets to "de.walware.thirdparty-org.apache.derby.core" on the splash screen, I get the spinning wheel and Eclipse stops responding.  
+
+I'm running:
+
+OS X 10.8.5
+Oracle Java 1.7.0_40
+
+Eclipse 4.3 (Kepler; tried both Classic and Java flavors)
+R 3.0.2 64-bit
+StatET 3.3
+rj 1.1.3-1
+
+Really stuck here-- any ideas as to what I should try?
+
+Thanks,
+Mike
+
+From keith-Xb3PpaFnzt5BDgjK7y7TUQ at public.gmane.org  Mon Oct  7 15:27:40 2013
+From: keith-Xb3PpaFnzt5BDgjK7y7TUQ at public.gmane.org (Keith Woolner)
+Date: Mon, 07 Oct 2013 11:27:40 -0400
+Subject: Re: Intel MKL libraries with remote StatET connection crashes R?
+In-Reply-To: <524F276C.9010304@woolner.com>
+References: <524F276C.9010304@woolner.com>
+Message-ID: <5252D2EC.20800@woolner.com>
+
+Some additional detail that shows up in the error log as soon as I issue 
+the "crossprod(1:4)" statement that causes the crash
+
+eclipse.buildId=unknown
+java.version=1.7.0_40
+java.vendor=Oracle Corporation
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=en_US
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+Error
+Mon Oct 07 11:24:51 EDT 2013
+Communication error detail. Send:
+MainCmdC2SList ():
+<ITEM i="0">
+ConsoleReadCmdItem
+     options= 0xc1000001
+<TEXT>
+crossprod(1:4)
+
+</TEXT>
+</ITEM>
+
+java.rmi.UnmarshalException: Error unmarshaling return header; nested 
+exception is:
+     java.io.EOFException
+     at sun.rmi.transport.StreamRemoteCall.executeCall(Unknown Source)
+     at sun.rmi.server.UnicastRef.invoke(Unknown Source)
+     at 
+java.rmi.server.RemoteObjectInvocationHandler.invokeRemoteMethod(Unknown 
+Source)
+     at java.rmi.server.RemoteObjectInvocationHandler.invoke(Unknown Source)
+     at com.sun.proxy.$Proxy15.runMainLoop(Unknown Source)
+     at 
+de.walware.rj.server.client.AbstractRJComClient.runMainLoop(AbstractRJComClient.java:874)
+     at 
+de.walware.rj.server.client.AbstractRJComClient.answerConsole(AbstractRJComClient.java:1152)
+     at 
+de.walware.statet.r.nico.impl.RjsController.doSubmitL(RjsController.java:1040)
+     at 
+de.walware.statet.nico.core.runtime.ToolController.submitToConsole(ToolController.java:1772)
+     at 
+de.walware.statet.r.nico.AbstractRDbgController.submitToConsole(AbstractRDbgController.java:703)
+     at 
+de.walware.statet.nico.core.runtime.ToolController$ConsoleCommandRunnable.run(ToolController.java:189)
+     at 
+de.walware.statet.r.nico.AbstractRController$RCommandRunnable.run(AbstractRController.java:68)
+     at 
+de.walware.statet.nico.core.runtime.ToolController.loopRunTask(ToolController.java:1260)
+     at 
+de.walware.statet.nico.core.runtime.ToolController.loop(ToolController.java:1066)
+     at 
+de.walware.statet.nico.core.runtime.ToolController.run(ToolController.java:577)
+     at 
+de.walware.statet.nico.core.runtime.ToolRunner.run(ToolRunner.java:85)
+     at 
+de.walware.statet.nico.core.runtime.ToolRunner.access$0(ToolRunner.java:83)
+     at 
+de.walware.statet.nico.core.runtime.ToolRunner$1.run(ToolRunner.java:97)
+Caused by: java.io.EOFException
+     at java.io.DataInputStream.readByte(Unknown Source)
+     ... 18 more
+
+
+
+On 10/4/2013 4:39 PM, Keith Woolner wrote:
+> Is anyone using the Intel MKL math libraries with StatET connecting to 
+> a remote R server?
+>
+> I am trying to connect to R 2.15.3 running on Linux from a Windows box 
+> running Eclipse 3.8.2 and StatET (Java Core 1.1.3, Eclient 1.2.1).  
+> Have been using this setup for months without issue.  We recently 
+> recompiled R with the Intel MKL optimized numeric libraries, and are 
+> running into problems, but only through StatET.
+>
+> If I run a simple matrix operation like "crossprod(1:4)" in a local R 
+> session on the server, it returns fine.  On a more complex operation, 
+> it is noticeably faster (one test went from 86 seconds down to 35 
+> seconds), which is what we were hoping to see by using these libraries.
+>
+> But if I start a remote session via Eclipse/StatET, and run the same 
+> command, it kills the entire remote R session.  In the log files on 
+> the server I see the error"Intel MKL FATAL ERROR: Cannot load 
+> libmkl_mc3.so or libmkl_def.so".  I've compared LD_LIBRARY_PATH in 
+> both the local and remote sessions, and can't find any differences -- 
+> both have entries pointing to the Intel MKL directories.
+>
+> I've fiddled with numerous settings and environment variables, tried 
+> reinstalling rj and rj.gd, without success.  I don't know if this is a 
+> StatET problem, an Intel MKL problem, or a local configuration 
+> problem, but since it works when run locally without StatET involved, 
+> I wanted to ask the list whether anyone else has this kind of 
+> configuration working?
+>
+> Any suggestions would be appreciated.
+>
+> Thanks,
+> Keith
+>
+
+From mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Oct  7 16:30:46 2013
+From: mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Mike Rowe)
+Date: Mon, 07 Oct 2013 09:30:46 -0700
+Subject: Re: Eclipse Hangs on Startup
+In-Reply-To: <AD57E854-40F4-4B63-8262-2D883B62260A@gmail.com>
+References: <AD57E854-40F4-4B63-8262-2D883B62260A@gmail.com>
+Message-ID: <5C2F0715-3F45-4599-9E0F-66019926314E@gmail.com>
+
+More on the same issue:
+
+> I tried downgrading from Eclipse 4.3 to 4.2.2-- same problem.  Works initially when configuring StatET/R, but then hangs when loading  apache.derby.core on the splash screen
+> If I remove de.walware.thirdparty-org.apache.derby.core from the Eclipse/plugins directory, Eclipse no longer hangs, but StatET doesn't work either.  
+
+Thanks in advance for any suggestions…
+
+Mike
+
+
+On Oct 6, 2013, at 11:14 PM, Mike Rowe <mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org> wrote:
+
+> Hi,
+> 
+> I have been updating my StatET/Eclipse tools, and am having a lot of problems-- weird stuff where the .Rprofile file isn't getting run, etc.  But the biggest problem I am having is that after getting StatEtT configured, the next time I launch Eclipse, it hangs during start up.  Specifically, when it gets to "de.walware.thirdparty-org.apache.derby.core" on the splash screen, I get the spinning wheel and Eclipse stops responding.  
+> 
+> I'm running:
+> 
+> OS X 10.8.5
+> Oracle Java 1.7.0_40
+> 
+> Eclipse 4.3 (Kepler; tried both Classic and Java flavors)
+> R 3.0.2 64-bit
+> StatET 3.3
+> rj 1.1.3-1
+> 
+> Really stuck here-- any ideas as to what I should try?
+> 
+> Thanks,
+> Mike
+> 
+>
+
+From jefferis-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Tue Oct  8 14:05:05 2013
+From: jefferis-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Gregory Jefferis)
+Date: Tue, 08 Oct 2013 10:05:05 -0400
+Subject: Re: Eclipse Hangs on Startup
+In-Reply-To: <AD57E854-40F4-4B63-8262-2D883B62260A@gmail.com>
+References: <AD57E854-40F4-4B63-8262-2D883B62260A@gmail.com>
+Message-ID: <B6A663A7-CD68-43DD-8C88-10199492B6A9@gmail.com>
+
+On 7 Oct 2013, at 02:14, Mike Rowe wrote:
+
+> Hi,
+> 
+> I have been updating my StatET/Eclipse tools, and am having a lot of problems-- weird stuff where the .Rprofile file isn't getting run, etc.  But the biggest problem I am having is that after getting StatEtT configured, the next time I launch Eclipse, it hangs during start up.  Specifically, when it gets to "de.walware.thirdparty-org.apache.derby.core" on the splash screen, I get the spinning wheel and Eclipse stops responding.  
+
+
+I have noticed something similar. Try waiting a _long_ time. It seems to be related to specific open files in the workspace editor. I don't have a proper diagnosis or a solution yet. Best, Greg.
+
+From csoares-A1Gx7Te15Zc at public.gmane.org  Wed Oct  9 13:47:15 2013
+From: csoares-A1Gx7Te15Zc at public.gmane.org (Carlos Soares)
+Date: Wed, 09 Oct 2013 14:47:15 +0100
+Subject: 'Show NIConsole' has encountered a problem
+Message-ID: <B7879A21-B1E1-4301-9B21-F40DF92F32AD@fe.up.pt>
+
+Hi,
+When I run the R console I get the error: 
+
+"'Show NIConsole' has encountered a problem.
+
+An internal error has occurred."
+
+I'm running:
+StatET 3.3.1
+Eclipse 4.3.1
+Mac OS X: 10.7.5
+
+Any suggestions?
+
+regards,
+Carlos
+
+From stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org  Wed Oct  9 17:05:09 2013
+From: stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org (Stephan Wahlbrink)
+Date: Wed, 09 Oct 2013 19:05:09 +0200
+Subject: Re: 'Show NIConsole' has encountered a problem
+In-Reply-To: <B7879A21-B1E1-4301-9B21-F40DF92F32AD-A1Gx7Te15Zc@public.gmane.org>
+References: <B7879A21-B1E1-4301-9B21-F40DF92F32AD@fe.up.pt>
+Message-ID: <52558CC5.7060208@walware.de>
+
+Hi Carlos,
+
+Carlos Soares wrote [2013-10-09 15:47]:
+> Hi,
+> When I run the R console I get the error:
+>
+> "'Show NIConsole' has encountered a problem.
+>
+> An internal error has occurred."
+>
+> I'm running:
+> StatET 3.3.1
+> Eclipse 4.3.1
+> Mac OS X: 10.7.5
+>
+> Any suggestions?
+
+Did you already check the Eclipse error log if there are more 
+information about the problem?
+
+Regards,
+Stephan
+
+
+>
+> regards,
+> Carlos
+
+From csoares-A1Gx7Te15Zc at public.gmane.org  Wed Oct  9 18:01:39 2013
+From: csoares-A1Gx7Te15Zc at public.gmane.org (Carlos Soares)
+Date: Wed, 09 Oct 2013 19:01:39 +0100
+Subject: Re: 'Show NIConsole' has encountered a problem
+In-Reply-To: <52558CC5.7060208@walware.de>
+References: <B7879A21-B1E1-4301-9B21-F40DF92F32AD@fe.up.pt> <52558CC5.7060208@walware.de>
+Message-ID: <010D7613-21E4-4957-BCCD-8C3066381CE1@fe.up.pt>
+
+Hi Stephan,
+thanks for the quick answer. Here is the error log (but I can't really "read" it).
+Thanks for any tip.
+Carlos
+
+!SESSION 2013-10-09 18:58:40.750 -----------------------------------------------
+eclipse.buildId=4.3.0.M20130911-1000
+java.version=1.6.0_51
+java.vendor=Apple Inc.
+BootLoader constants: OS=macosx, ARCH=x86_64, WS=cocoa, NL=en_US
+Framework arguments:  -keyring /Users/csoares/.eclipse_keyring -showlocation
+Command-line arguments:  -os macosx -ws cocoa -arch x86_64 -keyring /Users/csoares/.eclipse_keyring -showlocation
+
+!ENTRY org.eclipse.jface 2 0 2013-10-09 18:58:46.201
+!MESSAGE Keybinding conflicts occurred.  They may interfere with normal accelerator operation.
+!SUBENTRY 1 org.eclipse.jface 2 0 2013-10-09 18:58:46.201
+!MESSAGE A conflict occurred for COMMAND+SHIFT+Z:
+Binding(COMMAND+SHIFT+Z,
+	ParameterizedCommand(Command(org.eclipse.php.debug.ui.commands.Inspect,Inspect,
+		Inspect result of evaluating selected text,
+		Category(org.eclipse.debug.ui.category.run,Run/Debug,Run/Debug command category,true),
+		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@327800e9,
+		,,true),null),
+	org.eclipse.ui.defaultAcceleratorConfiguration,
+	org.eclipse.ui.contexts.dialogAndWindow,,,system)
+Binding(COMMAND+SHIFT+Z,
+	ParameterizedCommand(Command(org.eclipse.ui.edit.redo,Redo,
+		Redo the last operation,
+		Category(org.eclipse.ui.category.edit,Edit,null,true),
+		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@6483dae1,
+		,,true),null),
+	org.eclipse.ui.defaultAcceleratorConfiguration,
+	org.eclipse.ui.contexts.dialogAndWindow,,cocoa,system)
+
+!ENTRY org.eclipse.jface 2 0 2013-10-09 18:58:48.939
+!MESSAGE Keybinding conflicts occurred.  They may interfere with normal accelerator operation.
+!SUBENTRY 1 org.eclipse.jface 2 0 2013-10-09 18:58:48.939
+!MESSAGE A conflict occurred for ALT+COMMAND+Q P:
+Binding(ALT+COMMAND+Q P,
+	ParameterizedCommand(Command(org.eclipse.php.ui.explorer,PHP Script Explorer,
+		Shows the Script Explorer,
+		Category(org.eclipse.ui.category.views,Views,Commands for opening views,true),
+		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@32b3869c,
+		,,true),null),
+	org.eclipse.ui.defaultAcceleratorConfiguration,
+	org.eclipse.ui.contexts.window,,cocoa,system)
+Binding(ALT+COMMAND+Q P,
+	ParameterizedCommand(Command(org.eclipse.ui.views.showView,Show View,
+		Shows a particular view,
+		Category(org.eclipse.ui.category.views,Views,Commands for opening views,true),
+		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@284a85c5,
+		[Lorg.eclipse.e4.ui.internal.workbench.Parameter;@34945d2d,,true),[Lorg.eclipse.core.commands.Parameterization;@78715052),
+	org.eclipse.ui.defaultAcceleratorConfiguration,
+	org.eclipse.ui.contexts.window,,cocoa,system)
+
+!ENTRY org.eclipse.osgi 2 1 2013-10-09 18:59:01.340
+!MESSAGE NLS unused message: SubmitCode_ElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+
+!ENTRY org.eclipse.osgi 2 1 2013-10-09 18:59:01.341
+!MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+
+!ENTRY org.eclipse.ui 4 0 2013-10-09 18:59:04.686
+!MESSAGE Unhandled event loop exception
+!STACK 0
+org.eclipse.swt.SWTException: Failed to execute runnable (java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService)
+	at org.eclipse.swt.SWT.error(SWT.java:4397)
+	at org.eclipse.swt.SWT.error(SWT.java:4312)
+	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3976)
+	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3653)
+	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:597)
+	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+Caused by: java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+	at org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+	... 23 more
+Caused by: java.lang.ClassNotFoundException: org.eclipse.ui.internal.handlers.NestableHandlerService cannot be found by de.walware.ecommons.uimisc_1.4.0.b201309081345E38sw
+	at org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader.java:501)
+	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:421)
+	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:412)
+	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java:107)
+	at java.lang.ClassLoader.loadClass(ClassLoader.java:247)
+	... 34 more
+
+!ENTRY org.eclipse.ui 4 4 2013-10-09 18:59:04.797
+!MESSAGE An internal error has occurred.
+!STACK 0
+java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+	at org.eclipse.ui.internal.console.ConsoleView.display(ConsoleView.java:513)
+	at de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.showInView(PageRegistry.java:126)
+	at de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.runInUIThread(PageRegistry.java:104)
+	at org.eclipse.ui.progress.UIJob$1.run(UIJob.java:95)
+	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3976)
+	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3653)
+	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:597)
+	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+
+
+On 09/10/2013, at 18:05, Stephan Wahlbrink wrote:
+
+> Hi Carlos,
+> 
+> Carlos Soares wrote [2013-10-09 15:47]:
+>> Hi,
+>> When I run the R console I get the error:
+>> 
+>> "'Show NIConsole' has encountered a problem.
+>> 
+>> An internal error has occurred."
+>> 
+>> I'm running:
+>> StatET 3.3.1
+>> Eclipse 4.3.1
+>> Mac OS X: 10.7.5
+>> 
+>> Any suggestions?
+> 
+> Did you already check the Eclipse error log if there are more information about the problem?
+> 
+> Regards,
+> Stephan
+> 
+> 
+>> 
+>> regards,
+>> Carlos
+
+From stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org  Wed Oct  9 18:29:28 2013
+From: stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org (Stephan Wahlbrink)
+Date: Wed, 09 Oct 2013 20:29:28 +0200
+Subject: Re: 'Show NIConsole' has encountered a problem
+In-Reply-To: <010D7613-21E4-4957-BCCD-8C3066381CE1-A1Gx7Te15Zc@public.gmane.org>
+References: <B7879A21-B1E1-4301-9B21-F40DF92F32AD@fe.up.pt> <52558CC5.7060208@walware.de> <010D7613-21E4-4957-BCCD-8C3066381CE1@fe.up.pt>
+Message-ID: <5255A088.60600@walware.de>
+
+Hi Carlos,
+
+it seems you use a StatET version for Eclipse 3.8 with Eclipse 4.3, this 
+doesn't work well. Please use the right version or update-site of StatET 
+for Eclipse 4.3.
+
+Regards,
+Stephan
+
+
+PS: At moment I still recommend Eclipse 3.8.2 or 4.2.2, if there is no 
+special need for another Eclipse version.
+
+
+Carlos Soares wrote [2013-10-09 20:01]:
+> Hi Stephan,
+> thanks for the quick answer. Here is the error log (but I can't really "read" it).
+> Thanks for any tip.
+> Carlos
+>
+> !SESSION 2013-10-09 18:58:40.750 -----------------------------------------------
+> eclipse.buildId=4.3.0.M20130911-1000
+> java.version=1.6.0_51
+> java.vendor=Apple Inc.
+> BootLoader constants: OS=macosx, ARCH=x86_64, WS=cocoa, NL=en_US
+> Framework arguments:  -keyring /Users/csoares/.eclipse_keyring -showlocation
+> Command-line arguments:  -os macosx -ws cocoa -arch x86_64 -keyring /Users/csoares/.eclipse_keyring -showlocation
+>
+> !ENTRY org.eclipse.jface 2 0 2013-10-09 18:58:46.201
+> !MESSAGE Keybinding conflicts occurred.  They may interfere with normal accelerator operation.
+> !SUBENTRY 1 org.eclipse.jface 2 0 2013-10-09 18:58:46.201
+> !MESSAGE A conflict occurred for COMMAND+SHIFT+Z:
+> Binding(COMMAND+SHIFT+Z,
+> 	ParameterizedCommand(Command(org.eclipse.php.debug.ui.commands.Inspect,Inspect,
+> 		Inspect result of evaluating selected text,
+> 		Category(org.eclipse.debug.ui.category.run,Run/Debug,Run/Debug command category,true),
+> 		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@327800e9,
+> 		,,true),null),
+> 	org.eclipse.ui.defaultAcceleratorConfiguration,
+> 	org.eclipse.ui.contexts.dialogAndWindow,,,system)
+> Binding(COMMAND+SHIFT+Z,
+> 	ParameterizedCommand(Command(org.eclipse.ui.edit.redo,Redo,
+> 		Redo the last operation,
+> 		Category(org.eclipse.ui.category.edit,Edit,null,true),
+> 		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@6483dae1,
+> 		,,true),null),
+> 	org.eclipse.ui.defaultAcceleratorConfiguration,
+> 	org.eclipse.ui.contexts.dialogAndWindow,,cocoa,system)
+>
+> !ENTRY org.eclipse.jface 2 0 2013-10-09 18:58:48.939
+> !MESSAGE Keybinding conflicts occurred.  They may interfere with normal accelerator operation.
+> !SUBENTRY 1 org.eclipse.jface 2 0 2013-10-09 18:58:48.939
+> !MESSAGE A conflict occurred for ALT+COMMAND+Q P:
+> Binding(ALT+COMMAND+Q P,
+> 	ParameterizedCommand(Command(org.eclipse.php.ui.explorer,PHP Script Explorer,
+> 		Shows the Script Explorer,
+> 		Category(org.eclipse.ui.category.views,Views,Commands for opening views,true),
+> 		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@32b3869c,
+> 		,,true),null),
+> 	org.eclipse.ui.defaultAcceleratorConfiguration,
+> 	org.eclipse.ui.contexts.window,,cocoa,system)
+> Binding(ALT+COMMAND+Q P,
+> 	ParameterizedCommand(Command(org.eclipse.ui.views.showView,Show View,
+> 		Shows a particular view,
+> 		Category(org.eclipse.ui.category.views,Views,Commands for opening views,true),
+> 		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@284a85c5,
+> 		[Lorg.eclipse.e4.ui.internal.workbench.Parameter;@34945d2d,,true),[Lorg.eclipse.core.commands.Parameterization;@78715052),
+> 	org.eclipse.ui.defaultAcceleratorConfiguration,
+> 	org.eclipse.ui.contexts.window,,cocoa,system)
+>
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 18:59:01.340
+> !MESSAGE NLS unused message: SubmitCode_ElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+>
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 18:59:01.341
+> !MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+>
+> !ENTRY org.eclipse.ui 4 0 2013-10-09 18:59:04.686
+> !MESSAGE Unhandled event loop exception
+> !STACK 0
+> org.eclipse.swt.SWTException: Failed to execute runnable (java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService)
+> 	at org.eclipse.swt.SWT.error(SWT.java:4397)
+> 	at org.eclipse.swt.SWT.error(SWT.java:4312)
+> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+> 	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3976)
+> 	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3653)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+> 	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> 	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+> 	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+> 	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+> 	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+> 	at java.lang.reflect.Method.invoke(Method.java:597)
+> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> Caused by: java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+> 	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+> 	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+> 	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+> 	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+> 	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> 	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+> 	at org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> 	... 23 more
+> Caused by: java.lang.ClassNotFoundException: org.eclipse.ui.internal.handlers.NestableHandlerService cannot be found by de.walware.ecommons.uimisc_1.4.0.b201309081345E38sw
+> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader.java:501)
+> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:421)
+> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:412)
+> 	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java:107)
+> 	at java.lang.ClassLoader.loadClass(ClassLoader.java:247)
+> 	... 34 more
+>
+> !ENTRY org.eclipse.ui 4 4 2013-10-09 18:59:04.797
+> !MESSAGE An internal error has occurred.
+> !STACK 0
+> java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+> 	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+> 	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+> 	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+> 	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+> 	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> 	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+> 	at org.eclipse.ui.internal.console.ConsoleView.display(ConsoleView.java:513)
+> 	at de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.showInView(PageRegistry.java:126)
+> 	at de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.runInUIThread(PageRegistry.java:104)
+> 	at org.eclipse.ui.progress.UIJob$1.run(UIJob.java:95)
+> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> 	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3976)
+> 	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3653)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+> 	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> 	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+> 	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+> 	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+> 	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+> 	at java.lang.reflect.Method.invoke(Method.java:597)
+> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+>
+>
+> On 09/10/2013, at 18:05, Stephan Wahlbrink wrote:
+>
+>> Hi Carlos,
+>>
+>> Carlos Soares wrote [2013-10-09 15:47]:
+>>> Hi,
+>>> When I run the R console I get the error:
+>>>
+>>> "'Show NIConsole' has encountered a problem.
+>>>
+>>> An internal error has occurred."
+>>>
+>>> I'm running:
+>>> StatET 3.3.1
+>>> Eclipse 4.3.1
+>>> Mac OS X: 10.7.5
+>>>
+>>> Any suggestions?
+>>
+>> Did you already check the Eclipse error log if there are more information about the problem?
+>>
+>> Regards,
+>> Stephan
+>>
+>>
+>>>
+>>> regards,
+>>> Carlos
+>
+>
+
+From csoares-A1Gx7Te15Zc at public.gmane.org  Wed Oct  9 18:53:51 2013
+From: csoares-A1Gx7Te15Zc at public.gmane.org (Carlos Soares)
+Date: Wed, 09 Oct 2013 19:53:51 +0100
+Subject: Re: 'Show NIConsole' has encountered a problem
+In-Reply-To: <5255A088.60600@walware.de>
+References: <B7879A21-B1E1-4301-9B21-F40DF92F32AD@fe.up.pt> <52558CC5.7060208@walware.de> <010D7613-21E4-4957-BCCD-8C3066381CE1@fe.up.pt> <5255A088.60600@walware.de>
+Message-ID: <56A2C5BE-A3A7-44E6-9DC4-CBD8B82F3582@fe.up.pt>
+
+Hi Stephan,
+I couldn't update StatET, so
+1. I uninstalled the previous version 
+2. re-installed
+and it seems to be working fine.
+thanks.
+Carlos
+
+On 09/10/2013, at 19:29, Stephan Wahlbrink wrote:
+
+> Hi Carlos,
+> 
+> it seems you use a StatET version for Eclipse 3.8 with Eclipse 4.3, this doesn't work well. Please use the right version or update-site of StatET for Eclipse 4.3.
+> 
+> Regards,
+> Stephan
+> 
+> 
+> PS: At moment I still recommend Eclipse 3.8.2 or 4.2.2, if there is no special need for another Eclipse version.
+> 
+> 
+> Carlos Soares wrote [2013-10-09 20:01]:
+>> Hi Stephan,
+>> thanks for the quick answer. Here is the error log (but I can't really "read" it).
+>> Thanks for any tip.
+>> Carlos
+>> 
+>> !SESSION 2013-10-09 18:58:40.750 -----------------------------------------------
+>> eclipse.buildId=4.3.0.M20130911-1000
+>> java.version=1.6.0_51
+>> java.vendor=Apple Inc.
+>> BootLoader constants: OS=macosx, ARCH=x86_64, WS=cocoa, NL=en_US
+>> Framework arguments:  -keyring /Users/csoares/.eclipse_keyring -showlocation
+>> Command-line arguments:  -os macosx -ws cocoa -arch x86_64 -keyring /Users/csoares/.eclipse_keyring -showlocation
+>> 
+>> !ENTRY org.eclipse.jface 2 0 2013-10-09 18:58:46.201
+>> !MESSAGE Keybinding conflicts occurred.  They may interfere with normal accelerator operation.
+>> !SUBENTRY 1 org.eclipse.jface 2 0 2013-10-09 18:58:46.201
+>> !MESSAGE A conflict occurred for COMMAND+SHIFT+Z:
+>> Binding(COMMAND+SHIFT+Z,
+>> 	ParameterizedCommand(Command(org.eclipse.php.debug.ui.commands.Inspect,Inspect,
+>> 		Inspect result of evaluating selected text,
+>> 		Category(org.eclipse.debug.ui.category.run,Run/Debug,Run/Debug command category,true),
+>> 		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@327800e9,
+>> 		,,true),null),
+>> 	org.eclipse.ui.defaultAcceleratorConfiguration,
+>> 	org.eclipse.ui.contexts.dialogAndWindow,,,system)
+>> Binding(COMMAND+SHIFT+Z,
+>> 	ParameterizedCommand(Command(org.eclipse.ui.edit.redo,Redo,
+>> 		Redo the last operation,
+>> 		Category(org.eclipse.ui.category.edit,Edit,null,true),
+>> 		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@6483dae1,
+>> 		,,true),null),
+>> 	org.eclipse.ui.defaultAcceleratorConfiguration,
+>> 	org.eclipse.ui.contexts.dialogAndWindow,,cocoa,system)
+>> 
+>> !ENTRY org.eclipse.jface 2 0 2013-10-09 18:58:48.939
+>> !MESSAGE Keybinding conflicts occurred.  They may interfere with normal accelerator operation.
+>> !SUBENTRY 1 org.eclipse.jface 2 0 2013-10-09 18:58:48.939
+>> !MESSAGE A conflict occurred for ALT+COMMAND+Q P:
+>> Binding(ALT+COMMAND+Q P,
+>> 	ParameterizedCommand(Command(org.eclipse.php.ui.explorer,PHP Script Explorer,
+>> 		Shows the Script Explorer,
+>> 		Category(org.eclipse.ui.category.views,Views,Commands for opening views,true),
+>> 		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@32b3869c,
+>> 		,,true),null),
+>> 	org.eclipse.ui.defaultAcceleratorConfiguration,
+>> 	org.eclipse.ui.contexts.window,,cocoa,system)
+>> Binding(ALT+COMMAND+Q P,
+>> 	ParameterizedCommand(Command(org.eclipse.ui.views.showView,Show View,
+>> 		Shows a particular view,
+>> 		Category(org.eclipse.ui.category.views,Views,Commands for opening views,true),
+>> 		org.eclipse.ui.internal.WorkbenchHandlerServiceHandler@284a85c5,
+>> 		[Lorg.eclipse.e4.ui.internal.workbench.Parameter;@34945d2d,,true),[Lorg.eclipse.core.commands.Parameterization;@78715052),
+>> 	org.eclipse.ui.defaultAcceleratorConfiguration,
+>> 	org.eclipse.ui.contexts.window,,cocoa,system)
+>> 
+>> !ENTRY org.eclipse.osgi 2 1 2013-10-09 18:59:01.340
+>> !MESSAGE NLS unused message: SubmitCode_ElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+>> 
+>> !ENTRY org.eclipse.osgi 2 1 2013-10-09 18:59:01.341
+>> !MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+>> 
+>> !ENTRY org.eclipse.ui 4 0 2013-10-09 18:59:04.686
+>> !MESSAGE Unhandled event loop exception
+>> !STACK 0
+>> org.eclipse.swt.SWTException: Failed to execute runnable (java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService)
+>> 	at org.eclipse.swt.SWT.error(SWT.java:4397)
+>> 	at org.eclipse.swt.SWT.error(SWT.java:4312)
+>> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+>> 	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3976)
+>> 	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3653)
+>> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+>> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+>> 	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+>> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+>> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>> 	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+>> 	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+>> 	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+>> 	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+>> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+>> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+>> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+>> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+>> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+>> 	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+>> 	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+>> 	at java.lang.reflect.Method.invoke(Method.java:597)
+>> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+>> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+>> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+>> Caused by: java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+>> 	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+>> 	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+>> 	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+>> 	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+>> 	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+>> 	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+>> 	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+>> 	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+>> 	at org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+>> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+>> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+>> 	... 23 more
+>> Caused by: java.lang.ClassNotFoundException: org.eclipse.ui.internal.handlers.NestableHandlerService cannot be found by de.walware.ecommons.uimisc_1.4.0.b201309081345E38sw
+>> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader.java:501)
+>> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:421)
+>> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:412)
+>> 	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java:107)
+>> 	at java.lang.ClassLoader.loadClass(ClassLoader.java:247)
+>> 	... 34 more
+>> 
+>> !ENTRY org.eclipse.ui 4 4 2013-10-09 18:59:04.797
+>> !MESSAGE An internal error has occurred.
+>> !STACK 0
+>> java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+>> 	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+>> 	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+>> 	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+>> 	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+>> 	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+>> 	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+>> 	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+>> 	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+>> 	at org.eclipse.ui.internal.console.ConsoleView.display(ConsoleView.java:513)
+>> 	at de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.showInView(PageRegistry.java:126)
+>> 	at de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.runInUIThread(PageRegistry.java:104)
+>> 	at org.eclipse.ui.progress.UIJob$1.run(UIJob.java:95)
+>> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+>> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+>> 	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3976)
+>> 	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3653)
+>> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+>> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+>> 	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+>> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+>> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>> 	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+>> 	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+>> 	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+>> 	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+>> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+>> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+>> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+>> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+>> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+>> 	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+>> 	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+>> 	at java.lang.reflect.Method.invoke(Method.java:597)
+>> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+>> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+>> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+>> 
+>> 
+>> On 09/10/2013, at 18:05, Stephan Wahlbrink wrote:
+>> 
+>>> Hi Carlos,
+>>> 
+>>> Carlos Soares wrote [2013-10-09 15:47]:
+>>>> Hi,
+>>>> When I run the R console I get the error:
+>>>> 
+>>>> "'Show NIConsole' has encountered a problem.
+>>>> 
+>>>> An internal error has occurred."
+>>>> 
+>>>> I'm running:
+>>>> StatET 3.3.1
+>>>> Eclipse 4.3.1
+>>>> Mac OS X: 10.7.5
+>>>> 
+>>>> Any suggestions?
+>>> 
+>>> Did you already check the Eclipse error log if there are more information about the problem?
+>>> 
+>>> Regards,
+>>> Stephan
+>>> 
+>>> 
+>>>> 
+>>>> regards,
+>>>> Carlos
+>> 
+>>
+
+From gimholte-lfcS8c3Mqgg at public.gmane.org  Wed Oct  9 22:01:22 2013
+From: gimholte-lfcS8c3Mqgg at public.gmane.org (Gregory C Imholte)
+Date: Wed, 09 Oct 2013 15:01:22 -0700
+Subject: R Console fails to open - Show NIConsole problem
+Message-ID: <CAPaUt3AgPwDSvoX-t3GfDsp_Uc6YQyFCm=Ohzf4pZZHh-uJpiQ@mail.gmail.com>
+
+I recently installed Eclipse Kepler 4.3, as well as StatET 3.3 and the
+corresponding rj / rj.gd 1.1 packages in R. I've encountered an error
+trying to open an R console, and I'm not sure to whom I should attribute
+it. StatET was installed via Eclipse's "Install New Software" from the site
+"http://download.walware.de/eclipse-4.3".
+
+In particular I'm using StatET for R version 3.3.1.b2013090
+
+I set up my R Environment, and a corresponding R Console run configuration
+based on it. I've been using StatET for several years now, so I am sure
+these are properly configured. When I try to run this console, I get the
+error
+
+'Show NIConsole' has encountered a problem.
+
+An internal error has occured.
+ org/eclipse/ui/internal/handlers/NestableHandlerService
+
+I am running R 3.0.2 on Ubuntu 12.10. Any help resolving this error would
+be much appreciated. Log info is posted below from a fresh session
+producing the error.
+
+Thanks,
+Gregory Imholte
+
+Department of Statistics
+University of Washington
+Seattle WA
+
+When I dig into ./workspace/.metadata/.log, I see the following:
+
+!SESSION 2013-10-09 14:34:48.642
+-----------------------------------------------
+eclipse.buildId=4.3.0.M20130911-1000
+java.version=1.7.0_25
+java.vendor=Oracle Corporation
+BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+Framework arguments:  -product org.eclipse.epp.package.standard.product
+Command-line arguments:  -os linux -ws gtk -arch x86 -product
+org.eclipse.epp.package.standard.product
+
+!ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:00.235
+!MESSAGE NLS unused message: FindReplaceAction_label in:
+de.walware.ecommons.ui.SharedMessages
+
+!ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.191
+!MESSAGE NLS unused message: SubmitCode_ElementSelection_label in:
+de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+
+!ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.192
+!MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in:
+de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+
+!ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.303
+!MESSAGE Unhandled event loop exception
+!STACK 0
+org.eclipse.swt.SWTException: Failed to execute runnable
+(java.lang.NoClassDefFoundError:
+org/eclipse/ui/internal/handlers/NestableHandlerService)
+at org.eclipse.swt.SWT.error(SWT.java:4397)
+at org.eclipse.swt.SWT.error(SWT.java:4312)
+at
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+at
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+at
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+at
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+at
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+at
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+at
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+at
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+at
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+at
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+at
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+at
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+at
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+at
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+at
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+at java.lang.reflect.Method.invoke(Method.java:606)
+at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+Caused by: java.lang.NoClassDefFoundError:
+org/eclipse/ui/internal/handlers/NestableHandlerService
+at
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+at
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+at
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+at
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+at
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+at org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+at
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+... 23 more
+Caused by: java.lang.ClassNotFoundException:
+org.eclipse.ui.internal.handlers.NestableHandlerService cannot be found by
+de.walware.ecommons.uimisc_1.4.0.b201309081345E38sw
+at
+org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader.java:501)
+at
+org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:421)
+at
+org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:412)
+at
+org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java:107)
+at java.lang.ClassLoader.loadClass(ClassLoader.java:357)
+... 34 more
+
+!ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.354
+!MESSAGE Unhandled event loop exception
+!STACK 0
+org.eclipse.swt.SWTException: Failed to execute runnable
+(java.lang.NoClassDefFoundError:
+org/eclipse/ui/internal/handlers/NestableHandlerService)
+at org.eclipse.swt.SWT.error(SWT.java:4397)
+at org.eclipse.swt.SWT.error(SWT.java:4312)
+at
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+at
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+at
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+at
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+at
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+at
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+at
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+at
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+at
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+at
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+at
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+at
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+at
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+at
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+at
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+at java.lang.reflect.Method.invoke(Method.java:606)
+at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+Caused by: java.lang.NoClassDefFoundError:
+org/eclipse/ui/internal/handlers/NestableHandlerService
+at
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+at
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+at
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+at
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+at
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+at org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+at
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+... 23 more
+
+!ENTRY org.eclipse.ui 4 4 2013-10-09 14:35:27.496
+!MESSAGE An internal error has occurred.
+!STACK 0
+java.lang.NoClassDefFoundError:
+org/eclipse/ui/internal/handlers/NestableHandlerService
+at
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+at
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+at
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+at
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+at
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+at org.eclipse.ui.internal.console.ConsoleView.display(ConsoleView.java:513)
+at
+de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.showInView(PageRegistry.java:126)
+at
+de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.runInUIThread(PageRegistry.java:104)
+at org.eclipse.ui.progress.UIJob$1.run(UIJob.java:95)
+at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+at
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+at
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+at
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+at
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+at
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+at
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+at
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+at
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+at
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+at
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+at
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+at
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+at
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+at
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+at
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+at java.lang.reflect.Method.invoke(Method.java:606)
+at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+
+-------------- next part --------------
+
+
+From csoares-A1Gx7Te15Zc at public.gmane.org  Wed Oct  9 22:31:37 2013
+From: csoares-A1Gx7Te15Zc at public.gmane.org (Carlos Soares)
+Date: Wed, 09 Oct 2013 23:31:37 +0100
+Subject: Re: R Console fails to open - Show NIConsole problem
+In-Reply-To: <CAPaUt3AgPwDSvoX-t3GfDsp_Uc6YQyFCm=Ohzf4pZZHh-uJpiQ@mail.gmail.com>
+References: <CAPaUt3AgPwDSvoX-t3GfDsp_Uc6YQyFCm=Ohzf4pZZHh-uJpiQ@mail.gmail.com>
+Message-ID: <EC794A62-18B0-43ED-8A03-DCE3CBB2095F@fe.up.pt>
+
+Hi Gregory,
+I had the same problem and:
+1. I uninstalled the previous version 
+2. re-installed
+and it seems to be working fine now.
+regards,
+Carlos
+
+On 09/10/2013, at 23:01, Gregory C Imholte wrote:
+
+> I recently installed Eclipse Kepler 4.3, as well as StatET 3.3 and the corresponding rj / rj.gd 1.1 packages in R. I've encountered an error trying to open an R console, and I'm not sure to whom I should attribute it. StatET was installed via Eclipse's "Install New Software" from the site "http://download.walware.de/eclipse-4.3".
+> 
+> In particular I'm using StatET for R version 3.3.1.b2013090
+> 
+> I set up my R Environment, and a corresponding R Console run configuration based on it. I've been using StatET for several years now, so I am sure these are properly configured. When I try to run this console, I get the error
+> 
+> 'Show NIConsole' has encountered a problem.
+> 
+> An internal error has occured.
+>  org/eclipse/ui/internal/handlers/NestableHandlerService
+> 
+> I am running R 3.0.2 on Ubuntu 12.10. Any help resolving this error would be much appreciated. Log info is posted below from a fresh session 
+> producing the error.
+> 
+> Thanks,
+> Gregory Imholte
+> 
+> Department of Statistics
+> University of Washington
+> Seattle WA
+> 
+> When I dig into ./workspace/.metadata/.log, I see the following:
+> 
+> !SESSION 2013-10-09 14:34:48.642 -----------------------------------------------
+> eclipse.buildId=4.3.0.M20130911-1000
+> java.version=1.7.0_25
+> java.vendor=Oracle Corporation
+> BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+> Framework arguments:  -product org.eclipse.epp.package.standard.product
+> Command-line arguments:  -os linux -ws gtk -arch x86 -product org.eclipse.epp.package.standard.product
+> 
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:00.235
+> !MESSAGE NLS unused message: FindReplaceAction_label in: de.walware.ecommons.ui.SharedMessages
+> 
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.191
+> !MESSAGE NLS unused message: SubmitCode_ElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+> 
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.192
+> !MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+> 
+> !ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.303
+> !MESSAGE Unhandled event loop exception
+> !STACK 0
+> org.eclipse.swt.SWTException: Failed to execute runnable (java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService)
+> 	at org.eclipse.swt.SWT.error(SWT.java:4397)
+> 	at org.eclipse.swt.SWT.error(SWT.java:4312)
+> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+> 	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> 	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+> 	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> 	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+> 	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+> 	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+> 	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+> 	at java.lang.reflect.Method.invoke(Method.java:606)
+> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> Caused by: java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+> 	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+> 	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+> 	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+> 	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+> 	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> 	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+> 	at org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> 	... 23 more
+> Caused by: java.lang.ClassNotFoundException: org.eclipse.ui.internal.handlers.NestableHandlerService cannot be found by de.walware.ecommons.uimisc_1.4.0.b201309081345E38sw
+> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader.java:501)
+> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:421)
+> 	at org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:412)
+> 	at org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java:107)
+> 	at java.lang.ClassLoader.loadClass(ClassLoader.java:357)
+> 	... 34 more
+> 
+> !ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.354
+> !MESSAGE Unhandled event loop exception
+> !STACK 0
+> org.eclipse.swt.SWTException: Failed to execute runnable (java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService)
+> 	at org.eclipse.swt.SWT.error(SWT.java:4397)
+> 	at org.eclipse.swt.SWT.error(SWT.java:4312)
+> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+> 	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> 	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+> 	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> 	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+> 	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+> 	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+> 	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+> 	at java.lang.reflect.Method.invoke(Method.java:606)
+> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> Caused by: java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+> 	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+> 	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+> 	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+> 	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+> 	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> 	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+> 	at org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> 	... 23 more
+> 
+> !ENTRY org.eclipse.ui 4 4 2013-10-09 14:35:27.496
+> !MESSAGE An internal error has occurred.
+> !STACK 0
+> java.lang.NoClassDefFoundError: org/eclipse/ui/internal/handlers/NestableHandlerService
+> 	at de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+> 	at de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+> 	at de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+> 	at de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+> 	at org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+> 	at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> 	at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+> 	at org.eclipse.ui.internal.console.ConsoleView.display(ConsoleView.java:513)
+> 	at de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.showInView(PageRegistry.java:126)
+> 	at de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.runInUIThread(PageRegistry.java:104)
+> 	at org.eclipse.ui.progress.UIJob$1.run(UIJob.java:95)
+> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> 	at org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> 	at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> 	at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+> 	at org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> 	at org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 	at org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> 	at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+> 	at org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+> 	at org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+> 	at org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> 	at org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+> 	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+> 	at java.lang.reflect.Method.invoke(Method.java:606)
+> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> _______________________________________________
+> StatET-user mailing list
+> https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+
+-------------- next part --------------
+
+
+From gimholte-lfcS8c3Mqgg at public.gmane.org  Thu Oct 10 01:39:47 2013
+From: gimholte-lfcS8c3Mqgg at public.gmane.org (Gregory C Imholte)
+Date: Wed, 09 Oct 2013 18:39:47 -0700
+Subject: Re: R Console fails to open - Show NIConsole problem
+In-Reply-To: <EC794A62-18B0-43ED-8A03-DCE3CBB2095F-A1Gx7Te15Zc@public.gmane.org>
+References: <CAPaUt3AgPwDSvoX-t3GfDsp_Uc6YQyFCm=Ohzf4pZZHh-uJpiQ@mail.gmail.com> <EC794A62-18B0-43ED-8A03-DCE3CBB2095F@fe.up.pt>
+Message-ID: <CAPaUt3BjApfDBd0YJ9svR_ioLViNeG2Ts4N8WAhaEOePOdEvNA@mail.gmail.com>
+
+I had previously tried reinstalling the StatET plugin but that didn't work.
+You inspired me to try and dig a bit deeper, and I got my StatET to work
+again.
+
+I went to
+
+Help -> About Eclipse -> Installation Details
+
+and uninstalled everything having provider WalWare.de.
+
+I reinstalled StatET from the "Install New Software" menu as per usual. The
+console now works again.
+
+Thanks,
+Greg
+
+
+On Wed, Oct 9, 2013 at 3:31 PM, Carlos Soares <csoares-A1Gx7Te15Zc at public.gmane.org> wrote:
+
+> Hi Gregory,
+> I had the same problem and:
+> 1. I uninstalled the previous version
+> 2. re-installed
+> and it seems to be working fine now.
+> regards,
+> Carlos
+>
+> On 09/10/2013, at 23:01, Gregory C Imholte wrote:
+>
+> I recently installed Eclipse Kepler 4.3, as well as StatET 3.3 and the
+> corresponding rj / rj.gd 1.1 packages in R. I've encountered an error
+> trying to open an R console, and I'm not sure to whom I should attribute
+> it. StatET was installed via Eclipse's "Install New Software" from the site
+> "http://download.walware.de/eclipse-4.3".
+>
+> In particular I'm using StatET for R version 3.3.1.b2013090
+>
+> I set up my R Environment, and a corresponding R Console run configuration
+> based on it. I've been using StatET for several years now, so I am sure
+> these are properly configured. When I try to run this console, I get the
+> error
+>
+> 'Show NIConsole' has encountered a problem.
+>
+> An internal error has occured.
+>  org/eclipse/ui/internal/handlers/NestableHandlerService
+>
+> I am running R 3.0.2 on Ubuntu 12.10. Any help resolving this error would
+> be much appreciated. Log info is posted below from a fresh session
+> producing the error.
+>
+> Thanks,
+> Gregory Imholte
+>
+> Department of Statistics
+> University of Washington
+> Seattle WA
+>
+> When I dig into ./workspace/.metadata/.log, I see the following:
+>
+> !SESSION 2013-10-09 14:34:48.642
+> -----------------------------------------------
+> eclipse.buildId=4.3.0.M20130911-1000
+> java.version=1.7.0_25
+> java.vendor=Oracle Corporation
+> BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+> Framework arguments:  -product org.eclipse.epp.package.standard.product
+> Command-line arguments:  -os linux -ws gtk -arch x86 -product
+> org.eclipse.epp.package.standard.product
+>
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:00.235
+> !MESSAGE NLS unused message: FindReplaceAction_label in:
+> de.walware.ecommons.ui.SharedMessages
+>
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.191
+> !MESSAGE NLS unused message: SubmitCode_ElementSelection_label in:
+> de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+>
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.192
+> !MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in:
+> de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+>
+> !ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.303
+> !MESSAGE Unhandled event loop exception
+> !STACK 0
+> org.eclipse.swt.SWTException: Failed to execute runnable
+> (java.lang.NoClassDefFoundError:
+> org/eclipse/ui/internal/handlers/NestableHandlerService)
+>  at org.eclipse.swt.SWT.error(SWT.java:4397)
+> at org.eclipse.swt.SWT.error(SWT.java:4312)
+> at
+> org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+>  at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+>  at
+> org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+> at
+> org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>  at
+> org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+> at
+> org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+>  at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> at
+> org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>  at
+> org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+>  at
+> org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+> at
+> org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+>  at
+> org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+> at
+> org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+>  at
+> org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> at
+> org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+>  at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> at
+> sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+>  at
+> sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+> at java.lang.reflect.Method.invoke(Method.java:606)
+>  at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+>  at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> Caused by: java.lang.NoClassDefFoundError:
+> org/eclipse/ui/internal/handlers/NestableHandlerService
+>  at
+> de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+> at
+> de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+>  at
+> de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+> at
+> de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+>  at
+> de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+> at
+> org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+>  at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+>  at
+> org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+> at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+>  at
+> org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> ... 23 more
+> Caused by: java.lang.ClassNotFoundException:
+> org.eclipse.ui.internal.handlers.NestableHandlerService cannot be found by
+> de.walware.ecommons.uimisc_1.4.0.b201309081345E38sw
+>  at
+> org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader.java:501)
+> at
+> org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:421)
+>  at
+> org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:412)
+> at
+> org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultClassLoader.java:107)
+>  at java.lang.ClassLoader.loadClass(ClassLoader.java:357)
+> ... 34 more
+>
+> !ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.354
+> !MESSAGE Unhandled event loop exception
+> !STACK 0
+> org.eclipse.swt.SWTException: Failed to execute runnable
+> (java.lang.NoClassDefFoundError:
+> org/eclipse/ui/internal/handlers/NestableHandlerService)
+>  at org.eclipse.swt.SWT.error(SWT.java:4397)
+> at org.eclipse.swt.SWT.error(SWT.java:4312)
+> at
+> org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+>  at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+>  at
+> org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+> at
+> org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>  at
+> org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+> at
+> org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+>  at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> at
+> org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>  at
+> org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+>  at
+> org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+> at
+> org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+>  at
+> org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+> at
+> org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+>  at
+> org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> at
+> org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+>  at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> at
+> sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+>  at
+> sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+> at java.lang.reflect.Method.invoke(Method.java:606)
+>  at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+>  at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> Caused by: java.lang.NoClassDefFoundError:
+> org/eclipse/ui/internal/handlers/NestableHandlerService
+>  at
+> de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+> at
+> de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+>  at
+> de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+> at
+> de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+>  at
+> de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+> at
+> org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+>  at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+>  at
+> org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+> at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+>  at
+> org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> ... 23 more
+>
+> !ENTRY org.eclipse.ui 4 4 2013-10-09 14:35:27.496
+> !MESSAGE An internal error has occurred.
+> !STACK 0
+> java.lang.NoClassDefFoundError:
+> org/eclipse/ui/internal/handlers/NestableHandlerService
+>  at
+> de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedServices.java:102)
+> at
+> de.walware.ecommons.ui.util.NestedServices.<init>(NestedServices.java:73)
+>  at
+> de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.java:600)
+> at
+> de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.java:526)
+>  at
+> de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RConsolePage.java:80)
+> at
+> org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:318)
+>  at org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> at org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+>  at
+> org.eclipse.ui.internal.console.ConsoleView.display(ConsoleView.java:513)
+> at
+> de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.showInView(PageRegistry.java:126)
+>  at
+> de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.runInUIThread(PageRegistry.java:104)
+> at org.eclipse.ui.progress.UIJob$1.run(UIJob.java:95)
+>  at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> at
+> org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+>  at org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> at org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+>  at
+> org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRenderingEngine.java:1113)
+> at
+> org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>  at
+> org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderingEngine.java:997)
+> at
+> org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.java:138)
+>  at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> at
+> org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+>  at
+> org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> at org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+>  at
+> org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.java:124)
+> at
+> org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:196)
+>  at
+> org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:110)
+> at
+> org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:79)
+>  at
+> org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> at
+> org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+>  at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> at
+> sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+>  at
+> sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+> at java.lang.reflect.Method.invoke(Method.java:606)
+>  at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+>  at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> _______________________________________________
+> StatET-user mailing list
+> https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+>
+>
+>
+> _______________________________________________
+> StatET-user mailing list
+> https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+>
+
+-------------- next part --------------
+
+
+From mel-zWEQdCQIDvvQT0dZR+AlfA at public.gmane.org  Thu Oct 17 22:19:36 2013
+From: mel-zWEQdCQIDvvQT0dZR+AlfA at public.gmane.org (Bacou, Melanie)
+Date: Thu, 17 Oct 2013 18:19:36 -0400
+Subject: Features available in Bio7 (Eclipse RCP)
+Message-ID: <52606278.2090908@mbacou.com>
+
+Hi Stephan,
+
+I just recently started using Bio7 http://bio7.org/ developed by Marcel 
+Austenfeld. I don't do any ecological modeling, but as a heavy R (and 
+StatET) user, I am really impressed with some of Bio7 R-specific 
+features like:
+- in-cell table editing
+- quick copy/paste/import/export of vectors, matrices, and 
+dataframes/datatables
+- quick import and visualization of raster/vector layers and integration 
+with ImageJ
+- flowchart model editor for complex tasks
+
+I think it'd be fantastic if some of these features were available in 
+StatET or in a separate Eclipse plug-in.
+
+Also with regards to remoting to external R servers, how does RJ server 
+compare to using Rserve inside Eclipse?
+
+Thanks to you both, --Mel.
+
+-- 
+Melanie BACOU
+International Food Policy Research Institute
+Agricultural Economist, HarvestChoice
+Work +1(202)862-5699
+E-mail mel-zWEQdCQIDvvQT0dZR+AlfA at public.gmane.org
+Visit harvestchoice.org
+
+From stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org  Fri Oct 18 06:38:11 2013
+From: stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org (Stephan Wahlbrink)
+Date: Fri, 18 Oct 2013 08:38:11 +0200
+Subject: Re: Features available in Bio7 (Eclipse RCP)
+In-Reply-To: <52606278.2090908@mbacou.com>
+References: <52606278.2090908@mbacou.com>
+Message-ID: <5260D753.9060707@walware.de>
+
+Hi,
+
+Bacou, Melanie wrote [2013-10-18 00:19]:
+> Hi Stephan,
+>
+> I just recently started using Bio7 http://bio7.org/ developed by Marcel
+> Austenfeld. I don't do any ecological modeling, but as a heavy R (and
+> StatET) user, I am really impressed with some of Bio7 R-specific
+> features like:
+> - in-cell table editing
+> - quick copy/paste/import/export of vectors, matrices, and
+> dataframes/datatables
+> - quick import and visualization of raster/vector layers and integration
+> with ImageJ
+> - flowchart model editor for complex tasks
+>
+> I think it'd be fantastic if some of these features were available in
+> StatET or in a separate Eclipse plug-in.
+>
+> Also with regards to remoting to external R servers, how does RJ server
+> compare to using Rserve inside Eclipse?
+
+The servers are different and not directly compatible.
+The RJ server for example provides access to the REPL of R and supports 
+the debugging features for StatET.
+
+Regards,
+Stephan
+
+
+>
+> Thanks to you both, --Mel.
+>
+
+From friendly-B71PBEe7S7Y at public.gmane.org  Sat Oct 26 20:44:25 2013
+From: friendly-B71PBEe7S7Y at public.gmane.org (Michael Friendly)
+Date: Sat, 26 Oct 2013 16:44:25 -0400
+Subject: Switching from SVN/R-Forge to git/github
+Message-ID: <526C29A9.2090806@yorku.ca>
+
+Can anyone provide advice/tips about the steps to take using eclipse/StatET
+to move R package projects from SVN/R-Forge to git/github?
+
+I assume I first have to install Egit in eclipse.  Then what?
+
+TIA
+-Michael
+
+-- 
+Michael Friendly     Email: friendly AT yorku DOT ca
+Professor, Psychology Dept. & Chair, Quantitative Methods
+York University      Voice: 416 736-2100 x66249 Fax: 416 736-5814
+4700 Keele Street    Web:   http://www.datavis.ca
+Toronto, ONT  M3J 1P3 CANADA
+
+From erdal.karaca.de-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Oct 27 08:28:58 2013
+From: erdal.karaca.de-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Erdal Karaca)
+Date: Sun, 27 Oct 2013 09:28:58 +0100
+Subject: Re: Switching from SVN/R-Forge to git/github
+In-Reply-To: <526C29A9.2090806-B71PBEe7S7Y@public.gmane.org>
+References: <526C29A9.2090806@yorku.ca>
+Message-ID: <CAFXiavb69QV0XaMJfKU4Sg+QD6S-XbmhAiP9zQOYPTFkVTB5iw@mail.gmail.com>
+
+There are command line tools to convert svn to git:
+https://help.github.com/articles/importing-from-subversion
+AFAIK, EGit has no such functionality.
+
+
+2013/10/26 Michael Friendly <friendly-B71PBEe7S7Y at public.gmane.org>
+
+> Can anyone provide advice/tips about the steps to take using eclipse/StatET
+> to move R package projects from SVN/R-Forge to git/github?
+>
+> I assume I first have to install Egit in eclipse.  Then what?
+>
+> TIA
+> -Michael
+>
+> --
+> Michael Friendly     Email: friendly AT yorku DOT ca
+> Professor, Psychology Dept. & Chair, Quantitative Methods
+> York University      Voice: 416 736-2100 x66249 Fax: 416 736-5814
+> 4700 Keele Street    Web:   http://www.datavis.ca
+> Toronto, ONT  M3J 1P3 CANADA
+>
+> ______________________________**_________________
+> StatET-user mailing list
+> https://lists.r-forge.r-**project.org/cgi-bin/mailman/**
+> listinfo/statet-user<https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user>
+>
+
+-------------- next part --------------
+
+
+From friendly-B71PBEe7S7Y at public.gmane.org  Sun Oct 27 15:15:45 2013
+From: friendly-B71PBEe7S7Y at public.gmane.org (Michael Friendly)
+Date: Sun, 27 Oct 2013 11:15:45 -0400
+Subject: Re: Switching from SVN/R-Forge to git/github
+In-Reply-To: <CAFXiavb69QV0XaMJfKU4Sg+QD6S-XbmhAiP9zQOYPTFkVTB5iw@mail.gmail.com>
+References: <526C29A9.2090806@yorku.ca> <CAFXiavb69QV0XaMJfKU4Sg+QD6S-XbmhAiP9zQOYPTFkVTB5iw@mail.gmail.com>
+Message-ID: <526D2E21.8030304@yorku.ca>
+
+On 10/27/2013 4:28 AM, Erdal Karaca wrote:
+> There are command line tools to convert svn to git: 
+> https://help.github.com/articles/importing-from-subversion
+> AFAIK, EGit has no such functionality.
+OK, once I install Egit, and use something like svn2git to convert, then 
+push the new git local
+repo to github, how can I work with it in StatET?  I think I need to 
+create a separate project
+in my eclipse workspace; is that right?
+>
+>
+> 2013/10/26 Michael Friendly <friendly-B71PBEe7S7Y at public.gmane.org <mailto:friendly-B71PBEe7S7Y at public.gmane.org>>
+>
+>     Can anyone provide advice/tips about the steps to take using
+>     eclipse/StatET
+>     to move R package projects from SVN/R-Forge to git/github?
+>
+>     I assume I first have to install Egit in eclipse.  Then what?
+>
+>     TIA
+>     -Michael
+>
+>     -- 
+>     Michael Friendly     Email: friendly AT yorku DOT ca
+>     Professor, Psychology Dept. & Chair, Quantitative Methods
+>     York University      Voice: 416 736-2100 x66249 Fax: 416 736-5814
+>     4700 Keele Street    Web: http://www.datavis.ca
+>     Toronto, ONT  M3J 1P3 CANADA
+>
+>     _______________________________________________
+>     StatET-user mailing list
+>     https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+>
+>
+
+
+-- 
+Michael Friendly     Email: friendly AT yorku DOT ca
+Professor, Psychology Dept. & Chair, Quantitative Methods
+York University      Voice: 416 736-2100 x66249 Fax: 416 736-5814
+4700 Keele Street    Web:   http://www.datavis.ca
+Toronto, ONT  M3J 1P3 CANADA
+
+-------------- next part --------------
+
+
+From mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Sun Oct 27 21:54:37 2013
+From: mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Michael Rowe)
+Date: Sun, 27 Oct 2013 14:54:37 -0700
+Subject: Fwd: Eclipse crash while indexing R environment
+In-Reply-To: <CAEHOWOdvWNLp88KEQxheGSMgg1c7nh=GcvBVu0W3oMou0CFzbQ@mail.gmail.com>
+References: <CAEHOWOdvWNLp88KEQxheGSMgg1c7nh=GcvBVu0W3oMou0CFzbQ@mail.gmail.com>
+Message-ID: <CAEHOWOdMrrj3P6VNY3CMxtd00dZ=nLjij2=tf1_hEWUnfiPAOw@mail.gmail.com>
+
+Reposted without attachment.
+
+---------- Forwarded message ----------
+From: Michael Rowe <mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+Date: Sun, Oct 27, 2013 at 2:52 PM
+Subject: Eclipse crash while indexing R environment
+To: statet-user <statet-user-Z+qqJ2/841dDXCDGMXqaGq2UG9VpUWMKQH7oEaQurus at public.gmane.org>
+
+
+Greetings,
+
+I'm having a lot of problems getting StatET running on a new Windows 7
+laptop.  I'm running:
+
+Windows 7 x64
+Oracle Java 7.0.0.0.47 for Windows 64 bit
+Eclipse 4.3 (Kepler); also tried 4.2.2 (Juno)
+StatET 3.3
+rj 1.1.3-1
+
+When I try to run a newly created run configuration, R starts normally in
+the console, and I get a message saying update of the R environment index
+has started.  Then Eclipse quits with a message in a new window saying:
+
+Java started but returned error code=1 (a screen shot of the whole message
+is attached.)
+
+Based on various posts to StackOverflow, I tried mucking with the Eclipse
+vm args:
+
+-vmargs
+-Xms1024m
+-Xmx4096m
+-XX:+UseCompressedOops
+
+...to the eclipse.ini file, and also downgrading Java to version 6.  No
+luck.
+
+Any suggestions as to how I might fix this would be very much appreciated
+(as is everything you guys do to keep Eclipse working with R).
+
+Thanks!
+Mike
+
+P.S.
+
+Here is what seems to be the relevant part of the Eclipse error log:
+
+!ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.275
+!MESSAGE NLS unused message: FindReplaceAction_label in:
+de.walware.ecommons.ui.SharedMessages
+
+!ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.342
+!MESSAGE NLS unused message: SubmitCode_ElementSelection_label in:
+de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+
+!ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.344
+!MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in:
+de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+
+!ENTRY org.eclipse.equinox.preferences 4 2 2013-10-27 14:25:45.108
+!MESSAGE Problems occurred when invoking code from plug-in:
+"org.eclipse.equinox.preferences".
+!STACK 0
+org.eclipse.swt.SWTException: Invalid thread access
+	at org.eclipse.swt.SWT.error(SWT.java:4397)
+	at org.eclipse.swt.SWT.error(SWT.java:4312)
+	at org.eclipse.swt.SWT.error(SWT.java:4283)
+	at org.eclipse.swt.widgets.Widget.error(Widget.java:472)
+	at org.eclipse.swt.widgets.Widget.checkWidget(Widget.java:363)
+	at org.eclipse.swt.widgets.Tree.getSelection(Tree.java:3427)
+	at org.eclipse.jface.viewers.TreeViewer.getSelection(TreeViewer.java:256)
+	at org.eclipse.jface.viewers.TreeViewer.setSelection(TreeViewer.java:344)
+	at org.eclipse.jface.viewers.AbstractTreeViewer.setSelectionToWidget(AbstractTreeViewer.java:2521)
+	at org.eclipse.jface.viewers.StructuredViewer.setSelectionToWidget(StructuredViewer.java:1769)
+	at org.eclipse.jface.viewers.AbstractTreeViewer.setSelectionToWidget(AbstractTreeViewer.java:2970)
+	at org.eclipse.jface.viewers.StructuredViewer.preservingSelection(StructuredViewer.java:1450)
+	at org.eclipse.jface.viewers.TreeViewer.preservingSelection(TreeViewer.java:403)
+	at org.eclipse.jface.viewers.StructuredViewer.preservingSelection(StructuredViewer.java:1404)
+	at org.eclipse.jface.viewers.StructuredViewer.refresh(StructuredViewer.java:1533)
+	at org.eclipse.jface.viewers.ColumnViewer.refresh(ColumnViewer.java:555)
+	at org.eclipse.jface.viewers.StructuredViewer.refresh(StructuredViewer.java:1490)
+	at org.eclipse.jdt.internal.debug.ui.classpath.RuntimeClasspathViewer$1.preferenceChange(RuntimeClasspathViewer.java:58)
+	at org.eclipse.core.internal.preferences.EclipsePreferences$3.run(EclipsePreferences.java:896)
+	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:42)
+	at org.eclipse.core.internal.preferences.EclipsePreferences.firePreferenceEvent(EclipsePreferences.java:899)
+	at org.eclipse.core.internal.preferences.EclipsePreferences.put(EclipsePreferences.java:912)
+	at org.eclipse.jdt.launching.AbstractVMInstall.evaluateSystemProperties(AbstractVMInstall.java:462)
+	at de.walware.statet.r.internal.console.ui.launching.ExtJavaJRETab$3.run(ExtJavaJRETab.java:252)
+	at org.eclipse.jface.operation.ModalContext$ModalContextThread.run(ModalContext.java:121)
+
+-------------- next part --------------
+
+
+From stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org  Mon Oct 28 08:42:19 2013
+From: stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org (Stephan Wahlbrink)
+Date: Mon, 28 Oct 2013 09:42:19 +0100
+Subject: Re: Fwd: Eclipse crash while indexing R environment
+In-Reply-To: <CAEHOWOdMrrj3P6VNY3CMxtd00dZ=nLjij2=tf1_hEWUnfiPAOw@mail.gmail.com>
+References: <CAEHOWOdvWNLp88KEQxheGSMgg1c7nh=GcvBVu0W3oMou0CFzbQ@mail.gmail.com> <CAEHOWOdMrrj3P6VNY3CMxtd00dZ=nLjij2=tf1_hEWUnfiPAOw@mail.gmail.com>
+Message-ID: <526E236B.5000705@walware.de>
+
+Hi Michael,
+
+Michael Rowe wrote [2013-10-27 22:54]:
+> Reposted without attachment.
+>
+> ---------- Forwarded message ----------
+> From: *Michael Rowe* <mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <mailto:mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>>
+> Date: Sun, Oct 27, 2013 at 2:52 PM
+> Subject: Eclipse crash while indexing R environment
+> To: statet-user <statet-user-Z+qqJ2/841dDXCDGMXqaGq2UG9VpUWMKQH7oEaQurus at public.gmane.org
+> <mailto:statet-user-Z+qqJ2/841dDXCDGMXqaGq2UG9VpUWMKQH7oEaQurus at public.gmane.org>>
+>
+>
+> Greetings,
+>
+> I'm having a lot of problems getting StatET running on a new Windows 7
+> laptop.  I'm running:
+>
+> Windows 7 x64
+> Oracle Java 7.0.0.0.47 for Windows 64 bit
+> Eclipse 4.3 (Kepler); also tried 4.2.2 (Juno)
+> StatET 3.3
+> rj 1.1.3-1
+>
+> When I try to run a newly created run configuration, R starts normally
+> in the console, and I get a message saying update of the R environment
+> index has started.  Then Eclipse quits with a message in a new window
+> saying:
+>
+> Java started but returned error code=1 (a screen shot of the whole
+> message is attached.)
+>
+> Based on various posts to StackOverflow, I tried mucking with the
+> Eclipse vm args:
+>
+> -vmargs
+> -Xms1024m
+> -Xmx4096m
+> -XX:+UseCompressedOops
+>
+> ...to the eclipse.ini file, and also downgrading Java to version 6.  No
+> luck.
+>
+> Any suggestions as to how I might fix this would be very much
+> appreciated (as is everything you guys do to keep Eclipse working with R).
+
+If Java/Eclipse crashes, it usually logs the problem to a file named 
+hs_err_pid.... I don't know if I can help, but maybe I have an idea...
+
+Regards,
+Stephan
+
+
+>
+> Thanks!
+> Mike
+>
+> P.S.
+>
+> Here is what seems to be the relevant part of the Eclipse error log:
+>
+> !ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.275
+> !MESSAGE NLS unused message: FindReplaceAction_label in: de.walware.ecommons.ui.SharedMessages
+>
+> !ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.342
+> !MESSAGE NLS unused message: SubmitCode_ElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+>
+> !ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.344
+> !MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+>
+> !ENTRY org.eclipse.equinox.preferences 4 2 2013-10-27 14:25:45.108
+> !MESSAGE Problems occurred when invoking code from plug-in: "org.eclipse.equinox.preferences".
+> !STACK 0
+> org.eclipse.swt.SWTException: Invalid thread access
+> 	at org.eclipse.swt.SWT.error(SWT.java:4397)
+> 	at org.eclipse.swt.SWT.error(SWT.java:4312)
+> 	at org.eclipse.swt.SWT.error(SWT.java:4283)
+> 	at org.eclipse.swt.widgets.Widget.error(Widget.java:472)
+> 	at org.eclipse.swt.widgets.Widget.checkWidget(Widget.java:363)
+> 	at org.eclipse.swt.widgets.Tree.getSelection(Tree.java:3427)
+> 	at org.eclipse.jface.viewers.TreeViewer.getSelection(TreeViewer.java:256)
+> 	at org.eclipse.jface.viewers.TreeViewer.setSelection(TreeViewer.java:344)
+> 	at org.eclipse.jface.viewers.AbstractTreeViewer.setSelectionToWidget(AbstractTreeViewer.java:2521)
+> 	at org.eclipse.jface.viewers.StructuredViewer.setSelectionToWidget(StructuredViewer.java:1769)
+> 	at org.eclipse.jface.viewers.AbstractTreeViewer.setSelectionToWidget(AbstractTreeViewer.java:2970)
+> 	at org.eclipse.jface.viewers.StructuredViewer.preservingSelection(StructuredViewer.java:1450)
+> 	at org.eclipse.jface.viewers.TreeViewer.preservingSelection(TreeViewer.java:403)
+> 	at org.eclipse.jface.viewers.StructuredViewer.preservingSelection(StructuredViewer.java:1404)
+> 	at org.eclipse.jface.viewers.StructuredViewer.refresh(StructuredViewer.java:1533)
+> 	at org.eclipse.jface.viewers.ColumnViewer.refresh(ColumnViewer.java:555)
+> 	at org.eclipse.jface.viewers.StructuredViewer.refresh(StructuredViewer.java:1490)
+> 	at org.eclipse.jdt.internal.debug.ui.classpath.RuntimeClasspathViewer$1.preferenceChange(RuntimeClasspathViewer.java:58)
+> 	at org.eclipse.core.internal.preferences.EclipsePreferences$3.run(EclipsePreferences.java:896)
+> 	at org.eclipse.core.runtime.SafeRunner.run(SafeRunner.java:42)
+> 	at org.eclipse.core.internal.preferences.EclipsePreferences.firePreferenceEvent(EclipsePreferences.java:899)
+> 	at org.eclipse.core.internal.preferences.EclipsePreferences.put(EclipsePreferences.java:912)
+> 	at org.eclipse.jdt.launching.AbstractVMInstall.evaluateSystemProperties(AbstractVMInstall.java:462)
+> 	at de.walware.statet.r.internal.console.ui.launching.ExtJavaJRETab$3.run(ExtJavaJRETab.java:252)
+> 	at org.eclipse.jface.operation.ModalContext$ModalContextThread.run(ModalContext.java:121)
+>
+>
+>
+>
+>
+> _______________________________________________
+> StatET-user mailing list
+> https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+>
+
+From stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org  Mon Oct 28 08:57:23 2013
+From: stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org (Stephan Wahlbrink)
+Date: Mon, 28 Oct 2013 09:57:23 +0100
+Subject: Re: Switching from SVN/R-Forge to git/github
+In-Reply-To: <526D2E21.8030304-B71PBEe7S7Y@public.gmane.org>
+References: <526C29A9.2090806@yorku.ca> <CAFXiavb69QV0XaMJfKU4Sg+QD6S-XbmhAiP9zQOYPTFkVTB5iw@mail.gmail.com> <526D2E21.8030304@yorku.ca>
+Message-ID: <526E26F3.3080000@walware.de>
+
+Hi Michael,
+
+Michael Friendly wrote [2013-10-27 16:15]:
+> On 10/27/2013 4:28 AM, Erdal Karaca wrote:
+>> There are command line tools to convert svn to git:
+>> https://help.github.com/articles/importing-from-subversion
+>> AFAIK, EGit has no such functionality.
+> OK, once I install Egit, and use something like svn2git to convert, then
+> push the new git local
+> repo to github, how can I work with it in StatET?  I think I need to
+> create a separate project
+> in my eclipse workspace; is that right?
+
+After the conversion using svn2git, you can (for example) in 
+Eclipse/StatET switch to the 'Git' perspective and in the
+'Git Repositories' view:
+  - Add your local repo, so you can easily manage it using EGit
+  - Change the branch using 'Switch To' in the context menu,
+    if required
+  - Select the 'Working Directory' or a subfolder which, you want
+    to use as Eclipse project, and start 'Import Projects...' from
+    the context menu. It allows you to import existing project (if the
+    .project file is still present) or also to setup a new project
+    (so you can configure it as R project).
+
+Regards,
+Stephan
+
+
+>>
+>>
+>> 2013/10/26 Michael Friendly <friendly-B71PBEe7S7Y at public.gmane.org <mailto:friendly-B71PBEe7S7Y at public.gmane.org>>
+>>
+>>     Can anyone provide advice/tips about the steps to take using
+>>     eclipse/StatET
+>>     to move R package projects from SVN/R-Forge to git/github?
+>>
+>>     I assume I first have to install Egit in eclipse.  Then what?
+>>
+>>     TIA
+>>     -Michael
+>>
+>>     --
+>>     Michael Friendly     Email: friendly AT yorku DOT ca
+>>     Professor, Psychology Dept. & Chair, Quantitative Methods
+>>     York University      Voice: 416 736-2100 x66249 Fax: 416 736-5814
+>>     4700 Keele Street    Web: http://www.datavis.ca
+>>     Toronto, ONT  M3J 1P3 CANADA
+>>
+>>     _______________________________________________
+>>     StatET-user mailing list
+>>     https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+>>
+>>
+>
+>
+> --
+> Michael Friendly     Email: friendly AT yorku DOT ca
+> Professor, Psychology Dept. & Chair, Quantitative Methods
+> York University      Voice: 416 736-2100 x66249 Fax: 416 736-5814
+> 4700 Keele Street    Web:http://www.datavis.ca
+> Toronto, ONT  M3J 1P3 CANADA
+>
+>
+>
+> _______________________________________________
+> StatET-user mailing list
+> https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+>
+
+From stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org  Mon Oct 28 17:55:31 2013
+From: stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org (Stephan Wahlbrink)
+Date: Mon, 28 Oct 2013 18:55:31 +0100
+Subject: Re: Fwd: Eclipse crash while indexing R environment
+In-Reply-To: <CAEHOWOd4VCNJC8XhEQ-3HOM=zCEwmfC2X8sM3EOMFZskz6ciaw@mail.gmail.com>
+References: <CAEHOWOdvWNLp88KEQxheGSMgg1c7nh=GcvBVu0W3oMou0CFzbQ@mail.gmail.com> <CAEHOWOdMrrj3P6VNY3CMxtd00dZ=nLjij2=tf1_hEWUnfiPAOw@mail.gmail.com> <526E236B.5000705@walware.de> <CAEHOWOd4VCNJC8XhEQ-3HOM=zCEwmfC2X8sM3EOMFZskz6ciaw@mail.gmail.com>
+Message-ID: <526EA513.6000801@walware.de>
+
+Hi Michael,
+
+you are using Java version 1.7.0 (b147), the initial release of Java SE 
+7. It was buggy and causes such crashes. I recommend to uninstall that 
+version and install the latest update (Java 7/1.7.0 Update 45). This 
+should fix your problem.
+
+Regards,
+Stephan
+
+
+Michael Rowe wrote [2013-10-28 18:03]:
+> Hi Stephan,
+>
+> Here is the latest log file.  Please do share any ideas you might have.
+>
+> Thanks very much!
+> Mike
+>
+>
+> On Mon, Oct 28, 2013 at 1:42 AM, Stephan Wahlbrink
+> <stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org <mailto:stephan.wahlbrink-fBsiT/NmV++ELgA04lAiVw at public.gmane.org>> wrote:
+>
+>     Hi Michael,
+>
+>     Michael Rowe wrote [2013-10-27 22:54]:
+>
+>         Reposted without attachment.
+>
+>         ---------- Forwarded message ----------
+>         From: *Michael Rowe* <mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <mailto:mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>
+>         <mailto:mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org <mailto:mwrowe-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org>>>
+>         Date: Sun, Oct 27, 2013 at 2:52 PM
+>         Subject: Eclipse crash while indexing R environment
+>         To: statet-user <statet-user-Z+qqJ2/841dDXCDGMXqaGg at public.gmane.org__project.org
+>         <mailto:statet-user-Z+qqJ2/841dDXCDGMXqaGq2UG9VpUWMKQH7oEaQurus at public.gmane.org>
+>         <mailto:statet-user-Z+qqJ2/841c at public.gmane.org__forge.r-project.org
+>         <mailto:statet-user-Z+qqJ2/841dDXCDGMXqaGq2UG9VpUWMKQH7oEaQurus at public.gmane.org>>>
+>
+>
+>         Greetings,
+>
+>         I'm having a lot of problems getting StatET running on a new
+>         Windows 7
+>         laptop.  I'm running:
+>
+>         Windows 7 x64
+>         Oracle Java 7.0.0.0.47 for Windows 64 bit
+>         Eclipse 4.3 (Kepler); also tried 4.2.2 (Juno)
+>         StatET 3.3
+>         rj 1.1.3-1
+>
+>         When I try to run a newly created run configuration, R starts
+>         normally
+>         in the console, and I get a message saying update of the R
+>         environment
+>         index has started.  Then Eclipse quits with a message in a new
+>         window
+>         saying:
+>
+>         Java started but returned error code=1 (a screen shot of the whole
+>         message is attached.)
+>
+>         Based on various posts to StackOverflow, I tried mucking with the
+>         Eclipse vm args:
+>
+>         -vmargs
+>         -Xms1024m
+>         -Xmx4096m
+>         -XX:+UseCompressedOops
+>
+>         ...to the eclipse.ini file, and also downgrading Java to version
+>         6.  No
+>         luck.
+>
+>         Any suggestions as to how I might fix this would be very much
+>         appreciated (as is everything you guys do to keep Eclipse
+>         working with R).
+>
+>
+>     If Java/Eclipse crashes, it usually logs the problem to a file named
+>     hs_err_pid.... I don't know if I can help, but maybe I have an idea...
+>
+>     Regards,
+>     Stephan
+>
+>
+>
+>         Thanks!
+>         Mike
+>
+>         P.S.
+>
+>         Here is what seems to be the relevant part of the Eclipse error log:
+>
+>         !ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.275
+>         !MESSAGE NLS unused message: FindReplaceAction_label in:
+>         de.walware.ecommons.ui.__SharedMessages
+>
+>         !ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.342
+>         !MESSAGE NLS unused message: SubmitCode_ElementSelection___label
+>         in: de.walware.statet.r.internal.__debug.ui.RLaunchingMessages
+>
+>         !ENTRY org.eclipse.osgi 2 1 2013-10-27 14:25:44.344
+>         !MESSAGE NLS unused message:
+>         SubmitCode___UptoElementSelection_label in:
+>         de.walware.statet.r.internal.__debug.ui.RLaunchingMessages
+>
+>         !ENTRY org.eclipse.equinox.__preferences 4 2 2013-10-27 14:25:45.108
+>         !MESSAGE Problems occurred when invoking code from plug-in:
+>         "org.eclipse.equinox.__preferences".
+>         !STACK 0
+>         org.eclipse.swt.SWTException: Invalid thread access
+>                  at org.eclipse.swt.SWT.error(SWT.__java:4397)
+>                  at org.eclipse.swt.SWT.error(SWT.__java:4312)
+>                  at org.eclipse.swt.SWT.error(SWT.__java:4283)
+>                  at org.eclipse.swt.widgets.__Widget.error(Widget.java:472)
+>                  at
+>         org.eclipse.swt.widgets.__Widget.checkWidget(Widget.__java:363)
+>                  at
+>         org.eclipse.swt.widgets.Tree.__getSelection(Tree.java:3427)
+>                  at
+>         org.eclipse.jface.viewers.__TreeViewer.getSelection(__TreeViewer.java:256)
+>                  at
+>         org.eclipse.jface.viewers.__TreeViewer.setSelection(__TreeViewer.java:344)
+>                  at
+>         org.eclipse.jface.viewers.__AbstractTreeViewer.__setSelectionToWidget(__AbstractTreeViewer.java:2521)
+>                  at
+>         org.eclipse.jface.viewers.__StructuredViewer.__setSelectionToWidget(__StructuredViewer.java:1769)
+>                  at
+>         org.eclipse.jface.viewers.__AbstractTreeViewer.__setSelectionToWidget(__AbstractTreeViewer.java:2970)
+>                  at
+>         org.eclipse.jface.viewers.__StructuredViewer.__preservingSelection(__StructuredViewer.java:1450)
+>                  at
+>         org.eclipse.jface.viewers.__TreeViewer.__preservingSelection(__TreeViewer.java:403)
+>                  at
+>         org.eclipse.jface.viewers.__StructuredViewer.__preservingSelection(__StructuredViewer.java:1404)
+>                  at
+>         org.eclipse.jface.viewers.__StructuredViewer.refresh(__StructuredViewer.java:1533)
+>                  at
+>         org.eclipse.jface.viewers.__ColumnViewer.refresh(__ColumnViewer.java:555)
+>                  at
+>         org.eclipse.jface.viewers.__StructuredViewer.refresh(__StructuredViewer.java:1490)
+>                  at
+>         org.eclipse.jdt.internal.__debug.ui.classpath.__RuntimeClasspathViewer$1.__preferenceChange(__RuntimeClasspathViewer.java:__58)
+>                  at
+>         org.eclipse.core.internal.__preferences.__EclipsePreferences$3.run(__EclipsePreferences.java:896)
+>                  at
+>         org.eclipse.core.runtime.__SafeRunner.run(SafeRunner.__java:42)
+>                  at
+>         org.eclipse.core.internal.__preferences.__EclipsePreferences.__firePreferenceEvent(__EclipsePreferences.java:899)
+>                  at
+>         org.eclipse.core.internal.__preferences.__EclipsePreferences.put(__EclipsePreferences.java:912)
+>                  at
+>         org.eclipse.jdt.launching.__AbstractVMInstall.__evaluateSystemProperties(__AbstractVMInstall.java:462)
+>                  at
+>         de.walware.statet.r.internal.__console.ui.launching.__ExtJavaJRETab$3.run(__ExtJavaJRETab.java:252)
+>                  at
+>         org.eclipse.jface.operation.__ModalContext$__ModalContextThread.run(__ModalContext.java:121)
+>
+
+From kshah2601-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org  Mon Oct 28 21:54:28 2013
+From: kshah2601-Re5JQEeQqe8AvxtiuMwx3w at public.gmane.org (Kal Shah)
+Date: Mon, 28 Oct 2013 21:54:28 +0000
+Subject: Re: R Console fails to open - Show NIConsole problem
+References: <CAPaUt3AgPwDSvoX-t3GfDsp_Uc6YQyFCm=Ohzf4pZZHh-uJpiQ@mail.gmail.com>
+Message-ID: <loom.20131028T225207-412@post.gmane.org>
+
+Gregory C Imholte <gimholte@...> writes:
+
+> 
+> I recently installed Eclipse Kepler 4.3, as well as StatET 3.3 and the 
+corresponding rj / rj.gd 1.1 packages in R. I've encountered an error trying 
+to open an R console, and I'm not sure to whom I should attribute it. StatET 
+was installed via Eclipse's "Install New Software" from the site 
+"http://download.walware.de/eclipse-4.3".
+> 
+> 
+> In particular I'm using StatET for R version 3.3.1.b2013090
+> 
+> I set up my R Environment, and a corresponding R Console run configuration 
+based on it. I've been using StatET for several years now, so I am sure 
+these are properly configured. When I try to run this console, I get the 
+error
+> 
+> 'Show NIConsole' has encountered a problem.
+> 
+> An internal error has occured.
+>  org/eclipse/ui/internal/handlers/NestableHandlerService
+> 
+> I am running R 3.0.2 on Ubuntu 12.10. Any help resolving this error would 
+be much appreciated. Log info is posted below from a fresh session 
+> producing the error.
+> 
+> Thanks,
+> Gregory Imholte
+> 
+> Department of Statistics
+> University of Washington
+> Seattle WA
+> 
+> When I dig into ./workspace/.metadata/.log, I see the following:
+> 
+> 
+> !SESSION 2013-10-09 14:34:48.642 -----------------------------------------
+------
+> eclipse.buildId=4.3.0.M20130911-1000
+> java.version=1.7.0_25
+> java.vendor=Oracle Corporation
+> BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US
+> Framework arguments:  -product org.eclipse.epp.package.standard.product
+> Command-line arguments:  -os linux -ws gtk -arch x86 -product 
+org.eclipse.epp.package.standard.product
+> 
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:00.235
+> !MESSAGE NLS unused message: FindReplaceAction_label in: 
+de.walware.ecommons.ui.SharedMessages
+> 
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.191
+> !MESSAGE NLS unused message: SubmitCode_ElementSelection_label in: 
+de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+> 
+> !ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.192
+> !MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label in: 
+de.walware.statet.r.internal.debug.ui.RLaunchingMessages
+> 
+> !ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.303
+> !MESSAGE Unhandled event loop exception
+> !STACK 0
+> org.eclipse.swt.SWTException: Failed to execute runnable 
+(java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService)
+> 
+> 	at org.eclipse.swt.SWT.error(SWT.java:4397)
+> 
+> 	at org.eclipse.swt.SWT.error(SWT.java:4312)
+> 
+> 	at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+> 
+> 	at 
+org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> 
+> 	at 
+org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRende
+ringEngine.java:1113)
+> 
+> 	at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderi
+ngEngine.java:997)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.
+java:138)
+> 
+> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> 
+> 	at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 
+> 	at 
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> 
+> 	at 
+org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+> 
+> 	at 
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.
+java:124)
+> 
+> 	at 
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:
+196)
+> 
+> 	at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(
+EclipseAppLauncher.java:110)
+> 
+> 	at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAp
+pLauncher.java:79)
+> 
+> 	at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> 
+> 	at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+> 
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> 
+> 	at 
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57
+)
+> 
+> 	at 
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl
+.java:43)
+> 
+> 	at java.lang.reflect.Method.invoke(Method.java:606)
+> 
+> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> 
+> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+> 
+> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> Caused by: java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService
+> 
+> 	at 
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedS
+ervices.java:102)
+> 
+> 	at de.walware.ecommons.ui.util.NestedServices.<init>
+(NestedServices.java:73)
+> 
+> 	at 
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.
+java:600)
+> 
+> 	at 
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.
+java:526)
+> 
+> 	at 
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RCon
+solePage.java:80)
+> 
+> 	at 
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:31
+8)
+> 
+> 	at 
+org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> 
+> 	at 
+org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+> 
+> 	at 
+org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+> 
+> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> 
+> 	at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> 
+> 	... 23 more
+> Caused by: java.lang.ClassNotFoundException: 
+org.eclipse.ui.internal.handlers.NestableHandlerService cannot be found by 
+de.walware.ecommons.uimisc_1.4.0.b201309081345E38sw
+> 
+> 	at 
+org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader
+.java:501)
+> 
+> 	at 
+org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:42
+1)
+> 
+> 	at 
+org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:41
+2)
+> 
+> 	at 
+org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultCl
+assLoader.java:107)
+> 
+> 	at java.lang.ClassLoader.loadClass(ClassLoader.java:357)
+> 
+> 	... 34 more
+> 
+> !ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.354
+> !MESSAGE Unhandled event loop exception
+> !STACK 0
+> org.eclipse.swt.SWTException: Failed to execute runnable 
+(java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService)
+> 
+> 	at org.eclipse.swt.SWT.error(SWT.java:4397)
+> 
+> 	at org.eclipse.swt.SWT.error(SWT.java:4312)
+> 
+> 	at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+> 
+> 	at 
+org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> 
+> 	at 
+org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRende
+ringEngine.java:1113)
+> 
+> 	at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderi
+ngEngine.java:997)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.
+java:138)
+> 
+> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> 
+> 	at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 
+> 	at 
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> 
+> 	at 
+org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+> 
+> 	at 
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.
+java:124)
+> 
+> 	at 
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:
+196)
+> 
+> 	at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(
+EclipseAppLauncher.java:110)
+> 
+> 	at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAp
+pLauncher.java:79)
+> 
+> 	at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> 
+> 	at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+> 
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> 
+> 	at 
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57
+)
+> 
+> 	at 
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl
+.java:43)
+> 
+> 	at java.lang.reflect.Method.invoke(Method.java:606)
+> 
+> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> 
+> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+> 
+> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> Caused by: java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService
+> 
+> 	at 
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedS
+ervices.java:102)
+> 
+> 	at de.walware.ecommons.ui.util.NestedServices.<init>
+(NestedServices.java:73)
+> 
+> 	at 
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.
+java:600)
+> 
+> 	at 
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.
+java:526)
+> 
+> 	at 
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RCon
+solePage.java:80)
+> 
+> 	at 
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:31
+8)
+> 
+> 	at 
+org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> 
+> 	at 
+org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+> 
+> 	at 
+org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+> 
+> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> 
+> 	at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> 
+> 	... 23 more
+> 
+> !ENTRY org.eclipse.ui 4 4 2013-10-09 14:35:27.496
+> !MESSAGE An internal error has occurred.
+> !STACK 0
+> java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService
+> 
+> 	at 
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedS
+ervices.java:102)
+> 
+> 	at de.walware.ecommons.ui.util.NestedServices.<init>
+(NestedServices.java:73)
+> 
+> 	at 
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.
+java:600)
+> 
+> 	at 
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.
+java:526)
+> 
+> 	at 
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RCon
+solePage.java:80)
+> 
+> 	at 
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:31
+8)
+> 
+> 	at 
+org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)
+> 
+> 	at 
+org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)
+> 
+> 	at 
+org.eclipse.ui.internal.console.ConsoleView.display(ConsoleView.java:513)
+> 
+> 	at 
+de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.showInVie
+w(PageRegistry.java:126)
+> 
+> 	at 
+de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.runInUITh
+read(PageRegistry.java:104)
+> 
+> 	at org.eclipse.ui.progress.UIJob$1.run(UIJob.java:95)
+> 
+> 	at org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)
+> 
+> 	at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+> 
+> 	at 
+org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)
+> 
+> 	at 
+org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRende
+ringEngine.java:1113)
+> 
+> 	at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderi
+ngEngine.java:997)
+> 
+> 	at 
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.
+java:138)
+> 
+> 	at org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)
+> 
+> 	at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+> 
+> 	at 
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+> 
+> 	at 
+org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)
+> 
+> 	at 
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.
+java:124)
+> 
+> 	at 
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:
+196)
+> 
+> 	at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(
+EclipseAppLauncher.java:110)
+> 
+> 	at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAp
+pLauncher.java:79)
+> 
+> 	at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+> 
+> 	at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+> 
+> 	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+> 
+> 	at 
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57
+)
+> 
+> 	at 
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl
+.java:43)
+> 
+> 	at java.lang.reflect.Method.invoke(Method.java:606)
+> 
+> 	at org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)
+> 
+> 	at org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)
+> 
+> 	at org.eclipse.equinox.launcher.Main.run(Main.java:1450)
+> 
+> 
+> 
+> <div><div dir="ltr">I recently installed Eclipse Kepler 4.3, as well as 
+StatET 3.3 and the corresponding rj / <a href="http://rj.gd">rj.gd</a> 1.1 
+packages in R. I've encountered an error trying to open an R console, and 
+I'm not sure to whom I should attribute it. StatET was installed via 
+Eclipse's "Install New Software" from the site "<span><a 
+href="http://download.walware.de/eclipse-
+4.3">http://download.walware.de/eclipse-4.3</a>".</span><div>
+> <br>
+> </div>
+> <div>In particular I'm using StatET for R version 3.3.1.b2013090</div>
+> <div><br></div>
+> <div>I set up my R Environment, and a corresponding R Console run 
+configuration based on it. I've been using StatET for several years now, so 
+I am sure these are properly configured. When I try to run this console, I 
+get the error</div>
+> <div><br></div>
+> <div>'Show NIConsole' has encountered a problem.</div>
+> <div><br></div>
+> <div>An internal error has occured.</div>
+> <div> org/eclipse/ui/internal/handlers/NestableHandlerService</div>
+> <div><br></div>
+> <div>I am running R 3.0.2 on Ubuntu 12.10. Any help resolving this error 
+would be much appreciated. Log info is posted below from a fresh 
+session </div>
+> <div>producing the error.</div>
+> <div><br></div>
+> <div>Thanks,</div>
+> <div>Gregory Imholte</div>
+> <div><br></div>
+> <div>Department of Statistics</div>
+> <div>University of Washington</div>
+> <div>Seattle WA</div>
+> <div><br></div>
+> <div>When I dig into ./workspace/.metadata/.log, I see the following:
+</div>
+> <div><br></div>
+> <div>
+> <div>!SESSION 2013-10-09 14:34:48.642 ------------------------------------
+-----------</div>
+> <div>eclipse.buildId=4.3.0.M20130911-1000</div>
+> <div>java.version=1.7.0_25</div>
+> <div>java.vendor=Oracle Corporation</div>
+> <div>BootLoader constants: OS=linux, ARCH=x86, WS=gtk, NL=en_US</div>
+> <div>Framework arguments:  -product 
+org.eclipse.epp.package.standard.product</div>
+> <div>Command-line arguments:  -os linux -ws gtk -arch x86 -product 
+org.eclipse.epp.package.standard.product</div>
+> <div><br></div>
+> <div>!ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:00.235</div>
+> <div>!MESSAGE NLS unused message: FindReplaceAction_label in: 
+de.walware.ecommons.ui.SharedMessages</div>
+> <div><br></div>
+> <div>!ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.191</div>
+> <div>!MESSAGE NLS unused message: SubmitCode_ElementSelection_label in: 
+de.walware.statet.r.internal.debug.ui.RLaunchingMessages</div>
+> <div><br></div>
+> <div>!ENTRY org.eclipse.osgi 2 1 2013-10-09 14:35:26.192</div>
+> <div>!MESSAGE NLS unused message: SubmitCode_UptoElementSelection_label 
+in: de.walware.statet.r.internal.debug.ui.RLaunchingMessages</div>
+> <div><br></div>
+> <div>!ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.303</div>
+> <div>!MESSAGE Unhandled event loop exception</div>
+> <div>!STACK 0</div>
+> <div>org.eclipse.swt.SWTException: Failed to execute runnable 
+(java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService)</div>
+> <div>
+> <span class="">	</span>at org.eclipse.swt.SWT.error(SWT.java:4397)
+</div>
+> <div>
+> <span class="">	</span>at org.eclipse.swt.SWT.error(SWT.java:4312)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRende
+ringEngine.java:1113)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderi
+ngEngine.java:997)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.
+java:138)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.
+java:124)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:
+196)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(
+EclipseAppLauncher.java:110)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAp
+pLauncher.java:79)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57
+)</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl
+.java:43)</div>
+> <div>
+> <span class="">	</span>at 
+java.lang.reflect.Method.invoke(Method.java:606)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.run(Main.java:1450)</div>
+> <div>Caused by: java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedS
+ervices.java:102)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.ecommons.ui.util.NestedServices.<init>
+(NestedServices.java:73)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.
+java:600)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.
+java:526)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RCon
+solePage.java:80)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:31
+8)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+</div>
+> <div>
+> <span class="">	</span>... 23 more</div>
+> <div>Caused by: java.lang.ClassNotFoundException: 
+org.eclipse.ui.internal.handlers.NestableHandlerService cannot be found by 
+de.walware.ecommons.uimisc_1.4.0.b201309081345E38sw</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.osgi.internal.loader.BundleLoader.findClassInternal(BundleLoader
+.java:501)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:42
+1)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.osgi.internal.loader.BundleLoader.findClass(BundleLoader.java:41
+2)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.osgi.internal.baseadaptor.DefaultClassLoader.loadClass(DefaultCl
+assLoader.java:107)</div>
+> <div>
+> <span class="">	</span>at 
+java.lang.ClassLoader.loadClass(ClassLoader.java:357)</div>
+> <div>
+> <span class="">	</span>... 34 more</div>
+> <div><br></div>
+> <div>!ENTRY org.eclipse.ui 4 0 2013-10-09 14:35:27.354</div>
+> <div>!MESSAGE Unhandled event loop exception</div>
+> <div>!STACK 0</div>
+> <div>org.eclipse.swt.SWTException: Failed to execute runnable 
+(java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService)</div>
+> <div>
+> <span class="">	</span>at org.eclipse.swt.SWT.error(SWT.java:4397)
+</div>
+> <div>
+> <span class="">	</span>at org.eclipse.swt.SWT.error(SWT.java:4312)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:138)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRende
+ringEngine.java:1113)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderi
+ngEngine.java:997)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.
+java:138)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.
+java:124)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:
+196)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(
+EclipseAppLauncher.java:110)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAp
+pLauncher.java:79)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57
+)</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl
+.java:43)</div>
+> <div>
+> <span class="">	</span>at 
+java.lang.reflect.Method.invoke(Method.java:606)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.run(Main.java:1450)</div>
+> <div>Caused by: java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedS
+ervices.java:102)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.ecommons.ui.util.NestedServices.<init>
+(NestedServices.java:73)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.
+java:600)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.
+java:526)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RCon
+solePage.java:80)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:31
+8)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.console.ConsoleView$4.run(ConsoleView.java:404)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+</div>
+> <div>
+> <span class="">	</span>... 23 more</div>
+> <div><br></div>
+> <div>!ENTRY org.eclipse.ui 4 4 2013-10-09 14:35:27.496</div>
+> <div>!MESSAGE An internal error has occurred.</div>
+> <div>!STACK 0</div>
+> <div>java.lang.NoClassDefFoundError: 
+org/eclipse/ui/internal/handlers/NestableHandlerService</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.ecommons.ui.util.NestedServices.initializeDefaultServices(NestedS
+ervices.java:102)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.ecommons.ui.util.NestedServices.<init>
+(NestedServices.java:73)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.nico.ui.console.NIConsolePage.createActions(NIConsolePage.
+java:600)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.nico.ui.console.NIConsolePage.createControl(NIConsolePage.
+java:526)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.r.internal.console.ui.page.RConsolePage.createControl(RCon
+solePage.java:80)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.console.ConsoleView.doCreatePage(ConsoleView.java:31
+8)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.part.PageBookView.createPage(PageBookView.java:412)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.part.PageBookView.partActivated(PageBookView.java:753)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.console.ConsoleView.display(ConsoleView.java:513)
+</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.showInVie
+w(PageRegistry.java:126)</div>
+> <div>
+> <span class="">	</span>at 
+de.walware.statet.nico.internal.ui.PageRegistry$ShowConsoleViewJob.runInUITh
+read(PageRegistry.java:104)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.progress.UIJob$1.run(UIJob.java:95)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:35)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:135)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:3717)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:3366)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine$9.run(PartRende
+ringEngine.java:1113)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.swt.PartRenderingEngine.run(PartRenderi
+ngEngine.java:997)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.e4.ui.internal.workbench.E4Workbench.createAndRunUI(E4Workbench.
+java:138)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.Workbench$5.run(Workbench.java:610)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.databinding.observable.Realm.runWithDefault(Realm.java:332)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.Workbench.createAndRunWorkbench(Workbench.java:567)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.PlatformUI.createAndRunWorkbench(PlatformUI.java:150)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.ui.internal.ide.application.IDEApplication.start(IDEApplication.
+java:124)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:
+196)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(
+EclipseAppLauncher.java:110)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAp
+pLauncher.java:79)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:354)
+</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:181)
+</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57
+)</div>
+> <div>
+> <span class="">	</span>at 
+sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl
+.java:43)</div>
+> <div>
+> <span class="">	</span>at 
+java.lang.reflect.Method.invoke(Method.java:606)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:636)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.basicRun(Main.java:591)</div>
+> <div>
+> <span class="">	</span>at 
+org.eclipse.equinox.launcher.Main.run(Main.java:1450)</div>
+> </div>
+> </div></div>
+> 
+
+Same issue today. Updating to Java 7, update 45 did not help. But I aligned 
+my installation versions across eclipse and statEt and that fixed the 
+problem.
+My eclipse version is Juno- i.e. eclipse 4.2. When using statEt 3.0, i saw 
+this same issue, and it went away with statEt 3.3
+Kal.
+
+
+_______________________________________________
+StatET-user mailing list
+https://lists.r-forge.r-project.org/cgi-bin/mailman/listinfo/statet-user
+
